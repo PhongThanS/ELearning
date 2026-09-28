@@ -32,7 +32,7 @@ public static class ApiServiceCollectionExtensions
 
     public static IServiceCollection AddApiControllers(this IServiceCollection services)
     {
-        services.AddControllers()
+        services.AddControllers(o => o.ModelBinderProviders.Insert(0, new SnakeCaseEnumModelBinderProvider()))
             .AddJsonOptions(o => ConfigureJson(o.JsonSerializerOptions))
             .ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = StatusCodeResponses.InvalidModelState);
 

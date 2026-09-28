@@ -38,9 +38,9 @@ internal sealed class QuestionConfiguration : IEntityTypeConfiguration<Question>
         builder.HasUserReference(q => q.UpdatedBy, "FK_Questions_UpdatedBy");
 
         builder.HasMany(q => q.Options).WithOne().HasForeignKey(o => o.QuestionId)
-            .HasConstraintName("FK_QuestionOptions_Question");
+            .HasConstraintName("FK_QuestionOptions_Question").OnDelete(DeleteBehavior.ClientCascade);
         builder.HasMany(q => q.AcceptedAnswers).WithOne().HasForeignKey(a => a.QuestionId)
-            .HasConstraintName("FK_QuestionAcceptedAnswers_Question");
+            .HasConstraintName("FK_QuestionAcceptedAnswers_Question").OnDelete(DeleteBehavior.ClientCascade);
 
         builder.ToTable(t =>
         {

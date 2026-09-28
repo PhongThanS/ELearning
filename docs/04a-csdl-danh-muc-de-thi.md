@@ -326,6 +326,8 @@ CREATE INDEX IX_AnswerKeyCorrections_Question ON AnswerKeyCorrections(ExamQuesti
 
 ## 5. Quyết định / Giả định
 
+- **(M3) Option / đáp án chấp nhận dùng `DeleteBehavior.ClientCascade`** (DB vẫn `NO ACTION`): khi sửa câu hỏi, EF xóa dòng con cũ và chèn dòng mới trong cùng `SaveChanges`. Áp dụng cho `QuestionOptions`, `QuestionAcceptedAnswers`, `ExamQuestionOptions`, `ExamQuestionAcceptedAnswers`.
+- **(M3) Mã câu hỏi tự sinh** `Q000001`… lấy từ `SEQUENCE QuestionCodeSequence`; nếu trùng mã do admin tự đặt thì bỏ qua và lấy số tiếp theo.
 - **(M1) Cột enum dùng `VARCHAR(40)` và collation `Latin1_General_100_BIN2`**, thay cho `VARCHAR(20/30)` như DDL ban đầu. Một độ dài chung cho mọi enum, và collation nhị phân để CHECK constraint / filtered index so khớp đúng chữ hoa. Integration test đã phát hiện lỗi khi thiếu collation này.
 - **(M1) Migration không tạo `DEFAULT`**; giá trị mặc định do entity gán.
 - **(M1) EF tự tạo thêm index cho các cột FK chưa được index nào bao phủ** (ví dụ `IX_ExamAttempts_CancelledBy`). Chấp nhận, vì chi phí nhỏ và giúp kiểm tra FK khi xóa.

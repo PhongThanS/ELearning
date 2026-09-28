@@ -1,5 +1,6 @@
 using ELearning.Application.Common.Abstractions;
 using ELearning.Domain.Identity;
+using ELearning.Domain.Questions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -140,6 +141,31 @@ public sealed class DatabaseSeeder(
         }
 
         group.AddMembers(students.Select(s => s.Id), Now);
+        await db.SaveChangesAsync(ct);
+
+        await SeedDemoQuestionsAsync(adminId, ct);
+    }
+
+    private async Task SeedDemoQuestionsAsync(Guid adminId, CancellationToken ct)
+    {
+        foreach (var (code, name) in DemoQuestions.Categories)
+        {
+            if (!await db.QuestionCategories.AnyAsync(c => c.Code == code, ct))
+            {
+                db.QuestionCategories.Add(new QuestionCategory(code, name, adminId, Now));
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        var csharpId = await db.QuestionCategories
+            .Where(c => c.Code == DemoQuestions.CSharpCategoryCode).Select(c => c.Id).SingleAsync(ct);
+        var existing = await db.Questions.Select(q => q.Code).ToListAsync(ct);
+        foreach (var (code, data) in DemoQuestions.CSharpBasic(csharpId).Where(q => !existing.Contains(q.Code)))
+        {
+            db.Questions.Add(Question.Create(code, data, adminId, Now));
+        }
+
         await db.SaveChangesAsync(ct);
     }
 }

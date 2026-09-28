@@ -156,6 +156,14 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 - **Code do EF sinh (migration) vi phạm analyzer**, ví dụ CA1861. Thư mục `Persistence/Migrations` được đánh dấu `generated_code` trong `.editorconfig`.
 - **`dotnet ef migrations script --no-build` dùng bản build cũ**: sau khi thêm migration phải build lại trước khi sinh script.
 
-## 18. Quyết định / Giả định
+## 18. Phát hiện khi triển khai M2–M3
+
+- **Enum trên query string:** `JsonStringEnumConverter` chỉ áp dụng cho body JSON. `?questionType=FILL_IN` không bind được với model binding mặc định (nó chỉ hiểu `FillIn`). Đã thêm `SnakeCaseEnumModelBinderProvider` cho mọi enum ngoài body.
+- **Xóa dòng con khi thay collection:** với FK `Restrict`, bỏ một entity con (có khóa riêng) khỏi collection làm EF ném lỗi "relationship severed". Phải dùng `ClientCascade` cho bảng con thuần túy. Bảng nối có khóa ghép chứa FK (`UserRoles`) không bị lỗi này vì EF tự xóa.
+- **`NEXT VALUE FOR` không dùng được qua `SqlQueryRaw`**, vì EF bọc câu lệnh trong subquery. Dùng ADO command trực tiếp (`CodeGenerator`).
+- **Hạn của JWT phải kiểm tra bằng cùng `TimeProvider`** với nơi phát token (`LifetimeValidator`). Nếu không, test dùng `FakeTimeProvider` sẽ sinh token "chưa có hiệu lực".
+- **`AsSplitQuery` nằm trong gói relational**, không dùng được ở tầng Application (chỉ tham chiếu `Microsoft.EntityFrameworkCore`).
+
+## 19. Quyết định / Giả định
 
 - Mọi mục trong file này là quy tắc bắt buộc. Nếu có lý do để làm khác thì phải ghi lại thành quyết định mới trong `00-muc-luc.md`.

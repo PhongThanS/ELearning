@@ -14,6 +14,7 @@ namespace ELearning.Infrastructure.Persistence;
 public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> options) : DbContext(options), IAppDbContext
 {
     public const string EnumCollation = "Latin1_General_100_BIN2";
+    public const string QuestionCodeSequence = "QuestionCodeSequence";
 
     /// <summary>Mọi enum domain được lưu dạng UPPER_SNAKE_CASE (VARCHAR) kèm CHECK constraint.</summary>
     internal static readonly Type[] DomainEnums =
@@ -99,11 +100,17 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ELearningDbContext).Assembly);
+        modelBuilder.HasSequence<long>(QuestionCodeSequence).StartsAt(1).IncrementsBy(1);
 
-        // Không cascade: hệ thống xóa mềm và tránh "multiple cascade paths" (D-16, docs/10-bay-ky-thuat.md mục 9)
+        // Không cascade ở DB: hệ thống xóa mềm và tránh "multiple cascade paths" (D-16, docs/10-bay-ky-thuat.md mục 9).
+        // Ngoại lệ: ClientCascade (DB vẫn NO ACTION) cho bảng con thuần túy như option của câu hỏi,
+        // để EF xóa được dòng con khi thay danh sách option.
         foreach (var foreignKey in modelBuilder.Model.GetEntityTypes().SelectMany(e => e.GetForeignKeys()))
         {
-            foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+            if (foreignKey.DeleteBehavior != DeleteBehavior.ClientCascade)
+            {
+                foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+            }
         }
     }
 }

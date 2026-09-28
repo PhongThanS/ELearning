@@ -1,6 +1,7 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Auth;
 using ELearning.Application.Groups;
+using ELearning.Application.Questions;
 using ELearning.Application.Roles;
 using ELearning.Application.Users;
 using FluentValidation;
@@ -19,6 +20,8 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IRoleService, RoleService>();
+        services.AddScoped<ICategoryService, CategoryService>();
+        services.AddScoped<IQuestionService, QuestionService>();
         return services;
     }
 }

@@ -91,9 +91,9 @@ internal sealed class ExamQuestionConfiguration : IEntityTypeConfiguration<ExamQ
         builder.HasUserReference(q => q.VoidedBy, "FK_ExamQuestions_VoidedBy");
 
         builder.HasMany(q => q.Options).WithOne().HasForeignKey(o => o.ExamQuestionId)
-            .HasConstraintName("FK_ExamQuestionOptions_Question");
+            .HasConstraintName("FK_ExamQuestionOptions_Question").OnDelete(DeleteBehavior.ClientCascade);
         builder.HasMany(q => q.AcceptedAnswers).WithOne().HasForeignKey(a => a.ExamQuestionId)
-            .HasConstraintName("FK_ExamQuestionAcceptedAnswers_Question");
+            .HasConstraintName("FK_ExamQuestionAcceptedAnswers_Question").OnDelete(DeleteBehavior.ClientCascade);
 
         builder.ToTable(t =>
         {

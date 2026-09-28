@@ -9,4 +9,5 @@ public static class DomainErrorCodes
     public const string UserAnonymized = "USER_ANONYMIZED";
     public const string InvalidStateTransition = "INVALID_STATE_TRANSITION";
     public const string SystemRoleImmutable = "SYSTEM_ROLE_IMMUTABLE";
+    public const string InvalidQuestion = "INVALID_QUESTION";
 }

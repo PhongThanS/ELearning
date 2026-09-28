@@ -32,4 +32,12 @@ public sealed class QuestionCategory : Entity, IHasRowVersion
     public DateTime? UpdatedAt { get; private set; }
 
     public byte[] RowVersion { get; private set; } = [];
+
+    public void Update(string name, bool isActive, DateTime now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        Name = name.Trim();
+        IsActive = isActive;
+        UpdatedAt = now;
+    }
 }
