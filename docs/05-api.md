@@ -61,6 +61,9 @@ Lỗi nghiệp vụ (422):
 | Code | HTTP | Ý nghĩa |
 |---|---|---|
 | `VALIDATION_FAILED` | 400 | Lỗi validation chung (chi tiết nằm trong `errors[]`) |
+| `INVALID_VALUE` | 400 | Giá trị không đọc được khi binding (sai kiểu, JSON hỏng) |
+| `METHOD_NOT_ALLOWED` | 405 | Phương thức HTTP không được hỗ trợ trên route |
+| `UNAUTHENTICATED` | 401 | Thiếu token hoặc chưa đăng nhập |
 | `INVALID_CREDENTIALS` | 401 | Sai tài khoản hoặc mật khẩu (thông báo chung, không nói sai phần nào) |
 | `ACCOUNT_LOCKED` | 401 | Tài khoản tạm khóa do đăng nhập sai nhiều lần |
 | `ACCOUNT_DISABLED` | 401 | Tài khoản đã bị vô hiệu hóa |

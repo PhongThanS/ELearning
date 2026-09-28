@@ -123,6 +123,11 @@
 
 ## 8. Quyết định / Giả định
 
+- **(M1) Nguồn SQL Server cho test** (`tests/ELearning.TestSupport/SqlServerTestDatabase.cs`):
+  - Nếu có biến môi trường `ELEARNING_TEST_SQL`: dùng server đó, tạo database tạm `ELearningTest_<guid>`, áp migration, xóa khi xong.
+  - Nếu không có: dùng Testcontainers (cần Docker, như trên CI).
+  - Lý do: máy dev hiện có SQL Server local nhưng không có Docker. Vẫn đúng yêu cầu "SQL Server thật".
+
 - **Bắt buộc SQL Server thật cho integration test.** Spec gốc cho phép "database kiểm thử" chung chung; chốt Testcontainers vì các cơ chế quan trọng chỉ có trên SQL Server.
 - **Thêm load test k6** (spec gốc không có) cùng các ca kiểm thử tương tranh (start / submit / lưu đáp án song song).
 - **Thêm ca kiểm thử cho NFC, dấu thập phân kiểu Việt, `đ`, và hậu tố `Z`** của thời gian, là các lỗi dễ gặp ở `10-bay-ky-thuat.md`.

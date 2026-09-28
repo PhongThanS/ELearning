@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+    <PackageReference Include="Testcontainers.MsSql" />
+    <ProjectReference Include="..\..\src\ELearning.Infrastructure\ELearning.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

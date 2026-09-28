@@ -148,6 +148,14 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 - Không sửa migration đã được áp dụng; tạo migration mới.
 - Filtered index, CHECK constraint và `ROWVERSION` phải được khai báo trong EF configuration (`HasFilter`, `ToTable(t => t.HasCheckConstraint(...))`, `IsRowVersion()`), không chèn tay vào migration, để model và DB không lệch nhau.
 
-## 17. Quyết định / Giả định
+## 17. Phát hiện khi triển khai M1
+
+- **Hai filtered index trên cùng cột bị EF gộp làm một.** `HasIndex(v => v.ExamId)` gọi hai lần trả về cùng một index builder, nên filter và tên của lần gọi sau ghi đè lần trước. Phải dùng overload có tên: `HasIndex(v => v.ExamId, "UX_ExamVersions_OnePublished")`.
+- **CHECK constraint trên cột enum không phân biệt hoa thường** khi DB dùng collation CI mặc định, nên `'Published'` lọt qua CHECK rồi làm EF ném lỗi khi đọc. Cách làm đúng: cột enum dùng `UseCollation("Latin1_General_100_BIN2")` (đã cấu hình chung trong `ConfigureConventions`).
+- **DB default với `bool` / `int`:** nếu cấu hình `HasDefaultValue(true)` cho `IsActive`, EF coi giá trị `false` là "chưa gán" và để DB ghi `true`. Không cấu hình DB default cho những cột này; gán giá trị trong constructor của entity.
+- **Code do EF sinh (migration) vi phạm analyzer**, ví dụ CA1861. Thư mục `Persistence/Migrations` được đánh dấu `generated_code` trong `.editorconfig`.
+- **`dotnet ef migrations script --no-build` dùng bản build cũ**: sau khi thêm migration phải build lại trước khi sinh script.
+
+## 18. Quyết định / Giả định
 
 - Mọi mục trong file này là quy tắc bắt buộc. Nếu có lý do để làm khác thì phải ghi lại thành quyết định mới trong `00-muc-luc.md`.

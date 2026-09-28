@@ -1,0 +1,80 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,yml,yaml,ts,tsx,js,jsx,css,scss,html,md,props,csproj}]
+indent_size = 2
+
+[*.sln]
+end_of_line = crlf
+indent_style = tab
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_prefer_braces = when_multiline:suggestion
+csharp_using_directive_placement = outside_namespace:warning
+dotnet_sort_system_directives_first = true
+dotnet_style_readonly_field = true:warning
+dotnet_naming_rule.private_constants_pascal.symbols = private_constants
+dotnet_naming_rule.private_constants_pascal.style = pascal_case
+dotnet_naming_rule.private_constants_pascal.severity = warning
+dotnet_naming_rule.private_static_readonly_pascal.symbols = private_static_readonly_fields
+dotnet_naming_rule.private_static_readonly_pascal.style = pascal_case
+dotnet_naming_rule.private_static_readonly_pascal.severity = warning
+dotnet_naming_symbols.private_constants.applicable_kinds = field
+dotnet_naming_symbols.private_constants.applicable_accessibilities = private
+dotnet_naming_symbols.private_constants.required_modifiers = const
+dotnet_naming_symbols.private_static_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_readonly_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_readonly_fields.required_modifiers = static, readonly
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# Noise reduction
+dotnet_diagnostic.CA1848.severity = none   # LoggerMessage delegates: not required
+dotnet_diagnostic.CA1873.severity = none   # cheap log arguments are acceptable
+dotnet_diagnostic.CA1515.severity = none   # public types in app assemblies are fine
+dotnet_diagnostic.CA1812.severity = none   # types instantiated via DI/EF
+dotnet_diagnostic.CA2007.severity = none   # ConfigureAwait: ASP.NET Core has no sync context
+dotnet_diagnostic.CA1062.severity = none   # nullable reference types cover this
+dotnet_diagnostic.CA1716.severity = none   # names like "Error" are intentional
+dotnet_diagnostic.CA1711.severity = none
+dotnet_diagnostic.CA1724.severity = none
+dotnet_diagnostic.CA1819.severity = none   # array properties on DTOs are fine
+dotnet_diagnostic.CA2227.severity = none   # EF navigation collections need setters
+dotnet_diagnostic.CA1002.severity = none
+dotnet_diagnostic.CA1000.severity = none   # static factories on Result<T>/PagedResult<T> are intentional
+dotnet_diagnostic.CA2225.severity = none   # implicit operators on Result need no named alternates
+dotnet_diagnostic.CA1305.severity = suggestion
+dotnet_diagnostic.CA1307.severity = suggestion
+dotnet_diagnostic.CA1309.severity = suggestion
+dotnet_diagnostic.CA1310.severity = suggestion
+dotnet_diagnostic.CA1311.severity = suggestion
+dotnet_diagnostic.IDE0005.severity = none
+
+[backend/tests/**.cs]
+dotnet_diagnostic.CA1707.severity = none   # underscores in test names
+dotnet_diagnostic.CA1861.severity = none
+dotnet_diagnostic.CA2000.severity = none
+
+# EF Core migrations are generated code
+[backend/src/ELearning.Infrastructure/Persistence/Migrations/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

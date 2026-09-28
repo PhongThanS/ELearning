@@ -7,7 +7,9 @@ Phần 2 (lượt thi, kết quả, audit, index, sơ đồ quan hệ) nằm ở
 - **Database:** `ELearningDb`, SQL Server 2019 trở lên. Collation mặc định `SQL_Latin1_General_CP1_CI_AS`; mọi so sánh nghiệp vụ quan trọng (username, email, đáp án) đều được **chuẩn hóa ở tầng ứng dụng**, không dựa vào collation.
 - **Thời gian:** mọi timestamp là **UTC**, kiểu `DATETIME2(3)`. Không dùng `DATETIME`.
 - **Khóa chính:** `UNIQUEIDENTIFIER`, sinh phía client bởi EF Core (sequential GUID cho SQL Server). `DEFAULT NEWSEQUENTIALID()` chỉ phục vụ script tay. Không tự sinh key bằng `Guid.NewGuid()` hay `Guid.CreateVersion7()` (xem `10-bay-ky-thuat.md`).
-- **Enum:** lưu dạng chuỗi `UPPER_SNAKE_CASE` (`VARCHAR(30)`), có `CHECK` constraint.
+- **Enum:** lưu dạng chuỗi `UPPER_SNAKE_CASE`, kiểu `VARCHAR(40) COLLATE Latin1_General_100_BIN2`, có `CHECK` constraint. Collation nhị phân là bắt buộc, vì với collation CI mặc định, CHECK sẽ chấp nhận cả `'Published'`.
+- **Giá trị mặc định:** do ứng dụng gán khi tạo entity. Migration **không** tạo `DEFAULT` cho cột (các `DEFAULT` trong DDL dưới đây chỉ để minh họa khi viết script tay). Lý do: EF Core coi `false` / `0` là "chưa gán" với cột có DB default, dẫn tới ghi sai giá trị (xem `10-bay-ky-thuat.md` mục 17).
+- **Unique:** các ràng buộc `UQ_*` được hiện thực bằng unique index (EF Core), tương đương về mặt chức năng.
 - **Tiền / điểm:** `DECIMAL(10,2)`. Số đáp án: `DECIMAL(30,10)`. Phần trăm: `DECIMAL(5,2)`.
 - **Khóa ngoại:** mọi FK là `ON DELETE NO ACTION` (EF: `DeleteBehavior.Restrict`), vì hệ thống dùng xóa mềm và tránh lỗi *multiple cascade paths*. Ngoại lệ: bảng con thuần túy của draft (option / đáp án chấp nhận của `Questions` và `ExamQuestions` trong version DRAFT) được xóa bằng code trong cùng transaction, không dùng cascade.
 - **Optimistic concurrency:** các bảng cho phép sửa có cột `RowVersion ROWVERSION`. Ghi dữ liệu đã cũ → HTTP 409 `CONCURRENCY_CONFLICT`.
@@ -323,6 +325,10 @@ CREATE INDEX IX_AnswerKeyCorrections_Question ON AnswerKeyCorrections(ExamQuesti
 - Khuyến nghị thêm một `SaveChangesInterceptor` để chặn ở tầng hạ tầng, làm lớp bảo vệ thứ hai.
 
 ## 5. Quyết định / Giả định
+
+- **(M1) Cột enum dùng `VARCHAR(40)` và collation `Latin1_General_100_BIN2`**, thay cho `VARCHAR(20/30)` như DDL ban đầu. Một độ dài chung cho mọi enum, và collation nhị phân để CHECK constraint / filtered index so khớp đúng chữ hoa. Integration test đã phát hiện lỗi khi thiếu collation này.
+- **(M1) Migration không tạo `DEFAULT`**; giá trị mặc định do entity gán.
+- **(M1) EF tự tạo thêm index cho các cột FK chưa được index nào bao phủ** (ví dụ `IX_ExamAttempts_CancelledBy`). Chấp nhận, vì chi phí nhỏ và giúp kiểm tra FK khi xóa.
 
 - **Chỉ tiết kiệm ở `AttemptQuestions` (D-01).** Các bảng snapshot của version đầy đủ như spec gốc; bảng của lượt thi thì gọn lại.
 - **`CorrectAnswerText` bị thay** bằng bảng `QuestionAcceptedAnswers` / `ExamQuestionAcceptedAnswers` (D-12).

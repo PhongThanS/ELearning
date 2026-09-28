@@ -64,19 +64,29 @@ Quyết định đã chốt có mã `D-xx` (sổ quyết định ở `docs/00-mu
 
 ## Lệnh thường dùng
 
-> Repo chưa có code. Cập nhật mục này khi solution và frontend đã được tạo.
+Backend (chạy trong thư mục `backend/`; build đã bật warnings-as-errors trong `Directory.Build.props`):
 
 ```bash
-# Backend (thư mục backend/)
-dotnet build -warnaserror
-dotnet test
-dotnet ef migrations add <Name> -p src/ELearning.Infrastructure -s src/ELearning.Api
+dotnet tool restore
+dotnet build ELearning.sln
+dotnet format ELearning.sln --verify-no-changes
+dotnet ef migrations add <Name> -p src/ELearning.Infrastructure -s src/ELearning.Api -o Persistence/Migrations
 dotnet ef database update -p src/ELearning.Infrastructure -s src/ELearning.Api
-
-# Frontend (thư mục frontend/elearning-web/)
-npm run dev
-npm run lint && npm run typecheck && npm run test
+dotnet run --project src/ELearning.Api --launch-profile http
 ```
+
+Test cần SQL Server thật. Máy dev này có SQL Server local nhưng **không có Docker**, nên phải đặt biến trước khi chạy:
+
+```bash
+export ELEARNING_TEST_SQL="Server=localhost;Trusted_Connection=True;TrustServerCertificate=True"
+dotnet test ELearning.sln
+```
+
+Frontend (`frontend/elearning-web/`, từ M7): `npm run dev`, `npm run lint && npm run typecheck && npm run test`.
+
+**Quy ước về package và analyzer:**
+- Version package được quản lý tập trung ở `backend/Directory.Packages.props`; `PackageReference` trong csproj không ghi version.
+- Analyzer rule được cấu hình ở `.editorconfig` gốc; migration EF được loại khỏi analyzer.
 
 ## Khi tài liệu chưa rõ
 
