@@ -1,3 +1,4 @@
+using ELearning.Application.Common.Abstractions;
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Audit;
 using ELearning.Domain.Enums;
@@ -10,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ELearning.Infrastructure.Persistence;
 
-public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> options) : DbContext(options)
+public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> options) : DbContext(options), IAppDbContext
 {
     public const string EnumCollation = "Latin1_General_100_BIN2";
 

@@ -81,3 +81,6 @@ Chi tiết và lý do nằm ở file được ghi trong ngoặc.
 | D-20 | `ExamResults` là nguồn điểm duy nhất; `ExamAttempts` không lưu điểm (`04a`/`04b`) |
 | D-21 | Lưu đáp án và nộp bài đều khóa dòng attempt bằng `UPDLOCK` trong transaction (`04a`/`04b`, `10`) |
 | D-22 | Nhóm người dùng và gán đề nằm trong MVP (`01`, `02`) |
+| D-23 | Application service dùng trực tiếp `IAppDbContext` (DbSet); repository riêng chỉ cho thao tác đặc biệt như khóa dòng. Application tham chiếu gói `Microsoft.EntityFrameworkCore` (`03`) |
+| D-24 | Dùng lại refresh token vừa xoay vòng trong 30 giây được coi là hai tab refresh song song, không thu hồi cả chuỗi (`07`) |
+| D-25 | `MustChangePassword` được chặn cả ở backend: mọi endpoint cần policy trả 403 `PASSWORD_CHANGE_REQUIRED` (`07`) |

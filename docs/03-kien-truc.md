@@ -250,6 +250,9 @@ MVP dùng `IMemoryCache` (chạy một instance). Khi scale nhiều instance ph�
 
 ## 9. Quyết định / Giả định
 
+- **(M2) D-23 — `IAppDbContext`:** application service làm việc trực tiếp với `DbSet` qua interface `IAppDbContext` (khai báo ở Application, `ELearningDbContext` implement). Vì vậy Application tham chiếu gói `Microsoft.EntityFrameworkCore`, nhưng không tham chiếu SQL Server provider. Repository chuyên biệt chỉ dùng cho thao tác cần SQL riêng (khóa dòng `UPDLOCK`, báo cáo Dapper).
+- **(M2) Kiểm tra quyền:** `AccessAuthorizationHandler` đọc ảnh chụp quyền đã cache (`IUserAccessService`), không đọc role trong token. JwtBearer `OnTokenValidated` kiểm tra `IsActive` và `SecurityStamp`.
+
 - **D-19:** MediatR, AutoMapper và FluentAssertions v8+ bị loại vì license. Spec gốc chỉ ghi FluentAssertions; đổi sang AwesomeAssertions (API tương thích).
 - **OpenAPI:** từ .NET 9, template mặc định dùng `Microsoft.AspNetCore.OpenApi`. Giữ Swagger UI cho quen thuộc.
 - **`react-bootstrap`** là component React của chính Bootstrap, không vi phạm quy tắc "không thêm UI framework thứ hai".

@@ -18,6 +18,8 @@ public static class ErrorCodes
     // 403
     public const string Forbidden = "FORBIDDEN";
     public const string RegistrationDisabled = "REGISTRATION_DISABLED";
+    public const string PasswordChangeRequired = "PASSWORD_CHANGE_REQUIRED";
+    public const string CsrfCheckFailed = "CSRF_CHECK_FAILED";
 
     // 404
     public const string NotFound = "NOT_FOUND";
@@ -33,6 +35,8 @@ public static class ErrorCodes
     public const string ExamNotDraft = "EXAM_NOT_DRAFT";
     public const string DraftVersionExists = "DRAFT_VERSION_EXISTS";
     public const string RetakePolicyLocked = "RETAKE_POLICY_LOCKED";
+    public const string UserNameTaken = "USERNAME_TAKEN";
+    public const string EmailTaken = "EMAIL_TAKEN";
 
     // 422
     public const string ExamNotAvailable = "EXAM_NOT_AVAILABLE";
@@ -44,6 +48,10 @@ public static class ErrorCodes
     public const string PublishValidationFailed = "PUBLISH_VALIDATION_FAILED";
     public const string InvalidStateTransition = "INVALID_STATE_TRANSITION";
     public const string ResultNotAvailable = "RESULT_NOT_AVAILABLE";
+    public const string InvalidCurrentPassword = "INVALID_CURRENT_PASSWORD";
+    public const string CannotModifySelf = "CANNOT_MODIFY_SELF";
+    public const string UserAnonymized = "USER_ANONYMIZED";
+    public const string SystemRoleImmutable = "SYSTEM_ROLE_IMMUTABLE";
 
     // 429 / 500
     public const string RateLimited = "RATE_LIMITED";

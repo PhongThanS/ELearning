@@ -38,6 +38,29 @@ public sealed class UserGroup : Entity, IHasRowVersion
     public byte[] RowVersion { get; private set; } = [];
 
     public IReadOnlyCollection<UserGroupMember> Members => _members;
+
+    public void Update(string name, string? description, bool isActive)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        Name = name.Trim();
+        Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        IsActive = isActive;
+    }
+
+    /// <summary>Thêm các thành viên chưa có; trả về số người được thêm.</summary>
+    public int AddMembers(IEnumerable<Guid> userIds, DateTime now)
+    {
+        var added = 0;
+        foreach (var userId in userIds.Distinct().Where(id => _members.TrueForAll(m => m.UserId != id)))
+        {
+            _members.Add(new UserGroupMember(Id, userId, now));
+            added++;
+        }
+
+        return added;
+    }
+
+    public bool RemoveMember(Guid userId) => _members.RemoveAll(m => m.UserId == userId) > 0;
 }
 
 public sealed class UserGroupMember

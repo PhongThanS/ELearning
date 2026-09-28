@@ -32,6 +32,28 @@ public sealed class Role : Entity
     public bool IsActive { get; private set; }
 
     public IReadOnlyCollection<RolePermission> Permissions => _permissions;
+
+    public void Update(string name, bool isActive)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        if (IsSystem && !isActive)
+        {
+            throw new DomainException(DomainErrorCodes.SystemRoleImmutable, "Không thể vô hiệu hóa vai trò hệ thống.");
+        }
+
+        Name = name.Trim();
+        IsActive = isActive;
+    }
+
+    public void SetPermissions(IEnumerable<Guid> permissionIds)
+    {
+        var target = permissionIds.Distinct().ToHashSet();
+        _permissions.RemoveAll(p => !target.Contains(p.PermissionId));
+        foreach (var permissionId in target.Where(id => _permissions.TrueForAll(p => p.PermissionId != id)))
+        {
+            _permissions.Add(new RolePermission(Id, permissionId));
+        }
+    }
 }
 
 public sealed class Permission : Entity

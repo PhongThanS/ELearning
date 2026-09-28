@@ -15,6 +15,9 @@ public static class ErrorMapping
         ErrorCodes.ExamNotDraft,
         ErrorCodes.DraftVersionExists,
         ErrorCodes.RetakePolicyLocked,
+        ErrorCodes.UserNameTaken,
+        ErrorCodes.EmailTaken,
+        ErrorCodes.SystemRoleImmutable,
     };
 
     public static int ToStatusCode(ErrorType type) => type switch

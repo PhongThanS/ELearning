@@ -49,4 +49,20 @@ public sealed class RefreshToken : Entity
     public RefreshTokenRevokedReason? RevokedReason { get; private set; }
 
     public Guid? ReplacedByTokenId { get; private set; }
+
+    public bool IsRevoked => RevokedAt.HasValue;
+
+    public bool IsActive(DateTime now) => !IsRevoked && ExpiresAt > now;
+
+    public void Revoke(RefreshTokenRevokedReason reason, DateTime now, Guid? replacedByTokenId = null)
+    {
+        if (IsRevoked)
+        {
+            return;
+        }
+
+        RevokedAt = now;
+        RevokedReason = reason;
+        ReplacedByTokenId = replacedByTokenId;
+    }
 }

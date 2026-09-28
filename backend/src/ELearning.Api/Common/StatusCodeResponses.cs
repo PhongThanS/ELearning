@@ -19,6 +19,8 @@ public static class StatusCodeResponses
 
         var error = response.StatusCode switch
         {
+            StatusCodes.Status401Unauthorized when context.HttpContext.Request.Headers.Authorization.Count > 0 =>
+                new Error(ErrorType.Unauthorized, ErrorCodes.TokenInvalid, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."),
             StatusCodes.Status401Unauthorized =>
                 new Error(ErrorType.Unauthorized, ErrorCodes.Unauthenticated, "Bạn cần đăng nhập để tiếp tục."),
             StatusCodes.Status403Forbidden => Error.Forbidden(),

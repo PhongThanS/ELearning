@@ -30,17 +30,29 @@ public class PlatformEndpointsTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Unknown_route_returns_api_response_envelope()
+    public async Task Anonymous_request_to_unknown_route_is_rejected_by_fallback_policy()
     {
         var response = await _client.GetAsync(new Uri("/api/khong-ton-tai", UriKind.Relative));
         using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         var root = json.RootElement;
 
-        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         root.GetProperty("success").GetBoolean().Should().BeFalse();
         root.GetProperty("data").ValueKind.Should().Be(JsonValueKind.Null);
-        root.GetProperty("errors")[0].GetProperty("code").GetString().Should().Be("NOT_FOUND");
+        root.GetProperty("errors")[0].GetProperty("code").GetString().Should().Be("UNAUTHENTICATED");
         root.GetProperty("traceId").GetString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task Authenticated_request_to_unknown_route_returns_not_found_envelope()
+    {
+        var client = factory.CreateHttpsClient();
+        await client.LoginAsync(ApiFactory.StudentUserName, ApiFactory.StudentPassword);
+
+        var (response, body) = await client.GetJsonAsync<object>("/api/khong-ton-tai");
+
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        body.Errors.Single().Code.Should().Be("NOT_FOUND");
     }
 
     [Fact]

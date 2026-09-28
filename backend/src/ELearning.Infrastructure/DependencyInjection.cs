@@ -1,4 +1,7 @@
+using ELearning.Application.Common.Abstractions;
 using ELearning.Infrastructure.Persistence;
+using ELearning.Infrastructure.Persistence.Seed;
+using ELearning.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +15,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(this IServiceCollection services)
     {
         services.AddSingleton(TimeProvider.System);
+        services.AddMemoryCache();
 
         // Đọc connection string khi resolve (không phải lúc đăng ký) để test có thể ghi đè cấu hình.
         services.AddDbContext<ELearningDbContext>((sp, options) =>
@@ -29,7 +33,14 @@ public static class DependencyInjection
                 sql.MigrationsHistoryTable("__EFMigrationsHistory");
             });
         });
+        services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ELearningDbContext>());
 
+        services.AddSingleton<IPasswordHasher, PasswordHasher>();
+        services.AddSingleton<ITokenService, TokenService>();
+        services.AddScoped<IUserAccessService, UserAccessService>();
+
+        services.AddOptions<SeedOptions>().BindConfiguration(SeedOptions.SectionName);
+        services.AddScoped<DatabaseSeeder>();
         return services;
     }
 }

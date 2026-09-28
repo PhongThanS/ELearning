@@ -171,6 +171,13 @@ Tham chiếu: Nghị định 13/2023/NĐ-CP và Luật Bảo vệ dữ liệu c�
 
 ## 13. Quyết định / Giả định
 
+- **(M2) D-24 — Refresh song song:** nếu một refresh token đã xoay vòng (`ROTATED`) bị gửi lại trong vòng `Auth:RefreshReuseGraceSeconds` (30 giây), hệ thống coi đó là hai tab refresh cùng lúc: cấp một token mới cùng family, không thu hồi cả chuỗi. Quá thời gian này thì mới xử lý như token bị đánh cắp.
+- **(M2) D-25 — Bắt buộc đổi mật khẩu ở backend:** user có `MustChangePassword = true` chỉ gọi được các endpoint không cần permission (`/api/auth/*`). Mọi endpoint có policy trả 403 `PASSWORD_CHANGE_REQUIRED`. Spec ban đầu chỉ chặn ở frontend.
+- **(M2) Kiểm tra hạn access token** dùng `LifetimeValidator` với cùng `TimeProvider` của ứng dụng, để bên phát token và bên kiểm tra token dùng một nguồn thời gian duy nhất.
+- **(M2) Đăng ký không tự đăng nhập:** `POST /api/auth/register` trả 201 kèm thông tin user; client gọi `login` sau đó.
+- **(M2) Đăng nhập nhận username hoặc email.**
+- **(M2) Cookie refresh luôn `Secure`:** trình duyệt vẫn gửi cookie này qua `http://localhost` khi dev.
+
 - **D-14:** permission được tra ở server có cache, thay vì để trong JWT.
 - **D-15:** refresh token nằm trong cookie `SameSite=Strict`, access token trong bộ nhớ, như phương án "bảo mật cao" của spec gốc §79. Phương án này yêu cầu frontend và API cùng site; điều kiện đó được đảm bảo bằng Nginx và Vite proxy.
 - **Thêm `SecurityStamp`, khóa tài khoản, phát hiện dùng lại refresh token.** Spec gốc có yêu cầu xoay vòng nhưng chưa có cơ chế bảo vệ.

@@ -87,6 +87,13 @@ Lỗi nghiệp vụ (422):
 | `PUBLISH_VALIDATION_FAILED` | 422 | Không publish được; `errors[]` liệt kê toàn bộ lỗi |
 | `INVALID_STATE_TRANSITION` | 422 | Chuyển trạng thái không hợp lệ |
 | `RESULT_NOT_AVAILABLE` | 422 | Chưa đến lúc được xem điểm / xem lại bài |
+| `USERNAME_TAKEN` / `EMAIL_TAKEN` | 409 | Tên đăng nhập / email đã được dùng |
+| `SYSTEM_ROLE_IMMUTABLE` | 409 | Sửa quyền của vai trò ADMIN hoặc vô hiệu hóa vai trò hệ thống |
+| `INVALID_CURRENT_PASSWORD` | 422 | Mật khẩu hiện tại không đúng khi đổi mật khẩu |
+| `CANNOT_MODIFY_SELF` | 422 | Tự vô hiệu hóa / tự gỡ ADMIN / tự ẩn danh hóa |
+| `USER_ANONYMIZED` | 422 | Thao tác trên user đã bị ẩn danh hóa |
+| `PASSWORD_CHANGE_REQUIRED` | 403 | Tài khoản phải đổi mật khẩu trước khi dùng chức năng khác |
+| `CSRF_CHECK_FAILED` | 403 | Refresh/logout thiếu header `X-Requested-With` hoặc sai `Origin` |
 | `RATE_LIMITED` | 429 | Gửi quá nhiều request |
 | `INTERNAL_ERROR` | 500 | Lỗi hệ thống |
 

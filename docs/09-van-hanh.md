@@ -40,7 +40,7 @@ Tạo builder
 → Health checks
 → Build
 → Middleware: ForwardedHeaders → ExceptionHandling → HSTS/HTTPS → Serilog request logging
-             → RateLimiter → Authentication → UserStatusCheck → Authorization
+             → Authentication (JwtBearer + kiểm tra user/SecurityStamp) → RateLimiter → Authorization
 → MapControllers, MapHealthChecks
 → Run
 ```
@@ -150,6 +150,12 @@ Trên nhánh `main`:
 - Toàn bộ test tự động đều đạt; load test đạt ngưỡng.
 
 ## 10. Quyết định / Giả định
+
+- **(M2) Seed:**
+  - Development tự seed khi khởi động: role, permission, admin, `student01`/`student02`, nhóm DEMO.
+  - Môi trường khác chạy `dotnet ELearning.Api.dll --seed` sau bước migration. Lệnh này chỉ seed role, permission và admin khởi tạo (mật khẩu lấy từ `Seed__AdminPassword`, bắt buộc đổi ở lần đăng nhập đầu), rồi thoát.
+- **(M2) `appsettings.Development.json` chứa khóa JWT và mật khẩu demo dùng riêng cho dev** (có thể ghi đè bằng user-secrets). `appsettings.json` để trống `Jwt:SigningKey`; thiếu khóa thì ứng dụng không khởi động.
+- **(M2) Thứ tự middleware:** Authentication chạy trước RateLimiter, để rate limit phân vùng được theo UserId.
 
 - **Không gọi `Database.Migrate()` khi khởi động.** Spec gốc chỉ ghi "migration được kiểm soát".
 - **Chốt một domain, Nginx route `/api`**, để cookie `SameSite=Strict` hoạt động và không cần CORS.

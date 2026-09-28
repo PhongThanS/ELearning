@@ -9,7 +9,7 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | Milestone | Nội dung | Trạng thái |
 |---|---|---|
 | M1 | Hạ tầng: solution, schema đầy đủ + migration, health check, Serilog, OpenAPI, CI | Xong |
-| M2 | Identity | Chưa làm |
+| M2 | Identity: đăng ký/đăng nhập, refresh cookie xoay vòng, khóa tài khoản, permission, user/nhóm/vai trò | Xong |
 | M3–M10 | Xem `docs/11-quy-trinh-phat-trien.md` | Chưa làm |
 
 ## Yêu cầu
@@ -31,6 +31,7 @@ dotnet run --project src/ELearning.Api --launch-profile http
   ```bash
   dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<connection string>" --project src/ELearning.Api
   ```
+- Tài khoản dev (tự seed): `admin` / `Admin@123456`, `student01` và `student02` / `Student@123456`.
 - Các URL:
   - Swagger UI: http://localhost:5136/swagger
   - OpenAPI: http://localhost:5136/openapi/v1.json
