@@ -1,5 +1,6 @@
 using ELearning.Domain.Common;
 using ELearning.Domain.Enums;
+using ELearning.Domain.Questions;
 
 namespace ELearning.Domain.Exams;
 
@@ -56,12 +57,104 @@ public sealed class ExamQuestion : Entity
     public IReadOnlyCollection<ExamQuestionOption> Options => _options;
 
     public IReadOnlyCollection<ExamQuestionAcceptedAnswer> AcceptedAnswers => _acceptedAnswers;
+
+    internal static ExamQuestion Snapshot(Guid versionId, Question source, int order, decimal score, DateTime now)
+    {
+        var question = new ExamQuestion { ExamVersionId = versionId, QuestionOrder = order };
+        question.SetScore(score);
+        question.RefreshFrom(source, now);
+        return question;
+    }
+
+    /// <summary>Dữ liệu dạng QuestionData để dùng chung quy tắc kiểm tra với ngân hàng câu hỏi.</summary>
+    public QuestionData ToData() => new(
+        null,
+        Content,
+        ContentFormat,
+        QuestionType,
+        AnswerDataType,
+        CorrectAnswerNumber,
+        NumericTolerance,
+        CaseSensitive,
+        IgnoreAccent,
+        Explanation,
+        Score,
+        _options.OrderBy(o => o.DisplayOrder).Select(o => new OptionData(o.OptionCode, o.Content, o.IsCorrect)).ToList(),
+        _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList());
+
+    internal ExamQuestion CopyTo(Guid versionId, int order, DateTime now)
+    {
+        var copy = new ExamQuestion
+        {
+            ExamVersionId = versionId,
+            SourceQuestionId = SourceQuestionId,
+            SourceRowVersion = SourceRowVersion,
+            CopiedAt = now,
+            QuestionOrder = order,
+            Score = Score,
+        };
+        copy.ApplyContent(ToData());
+        return copy;
+    }
+
+    internal void SetScore(decimal score)
+    {
+        if (score is < 0.25m or > 100m || score * 4 % 1 != 0)
+        {
+            throw new DomainException(DomainErrorCodes.InvalidExam, "Điểm phải từ 0,25 đến 100 và là bội số của 0,25.");
+        }
+
+        Score = score;
+    }
+
+    internal void SetOrder(int order) => QuestionOrder = order;
+
+    internal void RefreshFrom(Question source, DateTime now)
+    {
+        SourceQuestionId = source.Id;
+        SourceRowVersion = source.RowVersion;
+        CopiedAt = now;
+        ApplyContent(source.ToData());
+    }
+
+    private void ApplyContent(QuestionData data)
+    {
+        Content = data.Content;
+        ContentFormat = data.ContentFormat;
+        QuestionType = data.QuestionType;
+        AnswerDataType = data.AnswerDataType;
+        CorrectAnswerNumber = data.CorrectAnswerNumber;
+        NumericTolerance = data.NumericTolerance;
+        CaseSensitive = data.CaseSensitive;
+        IgnoreAccent = data.IgnoreAccent;
+        Explanation = data.Explanation;
+
+        _options.Clear();
+        for (var i = 0; i < data.Options.Count; i++)
+        {
+            _options.Add(new ExamQuestionOption(data.Options[i].OptionCode, data.Options[i].Content, data.Options[i].IsCorrect, i + 1));
+        }
+
+        _acceptedAnswers.Clear();
+        for (var i = 0; i < data.AcceptedAnswers.Count; i++)
+        {
+            _acceptedAnswers.Add(new ExamQuestionAcceptedAnswer(data.AcceptedAnswers[i], i + 1));
+        }
+    }
 }
 
 public sealed class ExamQuestionOption : Entity
 {
     private ExamQuestionOption()
     {
+    }
+
+    internal ExamQuestionOption(string optionCode, string content, bool isCorrect, int displayOrder)
+    {
+        OptionCode = optionCode;
+        Content = content;
+        IsCorrect = isCorrect;
+        DisplayOrder = displayOrder;
     }
 
     public Guid ExamQuestionId { get; private set; }
@@ -80,6 +173,12 @@ public sealed class ExamQuestionAcceptedAnswer : Entity
 {
     private ExamQuestionAcceptedAnswer()
     {
+    }
+
+    internal ExamQuestionAcceptedAnswer(string answerText, int displayOrder)
+    {
+        AnswerText = answerText;
+        DisplayOrder = displayOrder;
     }
 
     public Guid ExamQuestionId { get; private set; }

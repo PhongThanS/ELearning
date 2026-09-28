@@ -338,6 +338,12 @@ Mọi thao tác đều yêu cầu lý do và ghi audit.
 
 ## 11. Quyết định / Giả định
 
+- **(M4) Thêm câu hỏi đã bị tắt vào đề:** bị từ chối (`QUESTION_INACTIVE`). Thêm trùng câu hỏi nguồn: bỏ qua, không báo lỗi.
+- **(M4) Xóa câu khỏi bản nháp** không đánh lại số thứ tự (có thể có khoảng trống); thứ tự hiển thị luôn sắp theo `QuestionOrder`, và lượt thi đánh số lại 1..N khi bắt đầu.
+- **(M4) Xóa version nháp** chỉ được khi đề đã từng publish; đề chưa publish chỉ có một version, muốn bỏ thì xóa cả đề.
+- **(M4) Clone đề:** tạo đề DRAFT mới, copy cấu hình và câu hỏi từ version đang publish (hoặc version mới nhất). Không copy lịch thi và danh sách gán. Mã mặc định là `<mã cũ>-COPY`.
+- **(M4) Sửa đề đã publish** được kiểm tra chéo với version đang publish: `AFTER_SUBMIT` chỉ cho 1 lượt; `AFTER_EXAM_END` cần `EndAt`; `ASSIGNED` phải có người được gán.
+
 - **D-01 — Chỉ snapshot một lần.**
   - Spec gốc copy nội dung hai lần (vào `ExamQuestions` và `AttemptQuestions`), nhưng `AttemptQuestions` lại không lưu đáp án cho câu trắc nghiệm, còn cột `SourceExamQuestionId` thì cho phép NULL.
   - Vì `ExamQuestions` đã bất biến, `AttemptQuestions` chỉ cần tham chiếu `ExamQuestionId NOT NULL` và lưu thứ tự. Kết quả cũ vẫn đúng tuyệt đối, dữ liệu giảm khoảng 50 lần.

@@ -1,5 +1,6 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Auth;
+using ELearning.Application.Exams;
 using ELearning.Application.Groups;
 using ELearning.Application.Questions;
 using ELearning.Application.Roles;
@@ -22,6 +23,8 @@ public static class DependencyInjection
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IQuestionService, QuestionService>();
+        services.AddScoped<IExamService, ExamService>();
+        services.AddScoped<IExamVersionService, ExamVersionService>();
         return services;
     }
 }

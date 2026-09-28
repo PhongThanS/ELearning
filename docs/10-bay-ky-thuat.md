@@ -164,6 +164,12 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 - **Hạn của JWT phải kiểm tra bằng cùng `TimeProvider`** với nơi phát token (`LifetimeValidator`). Nếu không, test dùng `FakeTimeProvider` sẽ sinh token "chưa có hiệu lực".
 - **`AsSplitQuery` nằm trong gói relational**, không dùng được ở tầng Application (chỉ tham chiếu `Microsoft.EntityFrameworkCore`).
 
-## 19. Quyết định / Giả định
+## 19. Phát hiện khi triển khai M4
+
+- **Nối chuỗi với cột enum trong SQL tay / Dapper:** cột enum dùng collation `Latin1_General_100_BIN2`, nên khi nối (`+`) hoặc so sánh với chuỗi collation mặc định sẽ gặp lỗi 457 "collation conflict". Phải thêm `COLLATE DATABASE_DEFAULT` vào biểu thức. So sánh với tham số hoặc hằng chuỗi thì không bị lỗi.
+- **Publish version mới:** phải lưu (SaveChanges) việc chuyển version cũ sang ARCHIVED trước khi publish version mới, trong cùng transaction. Nếu không, `UX_ExamVersions_OnePublished` bị vi phạm giữa chừng.
+- **Unit test domain không có EF:** `Id` của entity là `Guid.Empty` cho tới khi được Add vào DbContext. Test dùng helper `WithId()` để mô phỏng entity đã lưu.
+
+## 20. Quyết định / Giả định
 
 - Mọi mục trong file này là quy tắc bắt buộc. Nếu có lý do để làm khác thì phải ghi lại thành quyết định mới trong `00-muc-luc.md`.

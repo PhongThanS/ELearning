@@ -1,4 +1,6 @@
 using ELearning.Application.Common.Abstractions;
+using ELearning.Domain.Enums;
+using ELearning.Domain.Exams;
 using ELearning.Domain.Identity;
 using ELearning.Domain.Questions;
 using Microsoft.EntityFrameworkCore;
@@ -36,6 +38,7 @@ public sealed class DatabaseSeeder(
     ILogger<DatabaseSeeder> logger)
 {
     public const string DemoGroupCode = "DEMO";
+    public const string DemoExamCode = "CS-BASIC";
 
     private readonly SeedOptions _options = options.Value;
 
@@ -166,6 +169,49 @@ public sealed class DatabaseSeeder(
             db.Questions.Add(Question.Create(code, data, adminId, Now));
         }
 
+        await db.SaveChangesAsync(ct);
+        await SeedDemoExamAsync(adminId, ct);
+    }
+
+    /// <summary>Đề "C# Basic": 10 câu, 60 phút, đạt 50%, 3 lượt, gán nhóm DEMO, đã publish.</summary>
+    private async Task SeedDemoExamAsync(Guid adminId, CancellationToken ct)
+    {
+        if (await db.Exams.AnyAsync(e => e.Code == DemoExamCode, ct))
+        {
+            return;
+        }
+
+        var details = new ExamDetails(
+            "C# Basic",
+            "Đề demo kiến thức C# cơ bản.",
+            "Bài thi gồm 10 câu, thời gian 60 phút. Đáp án được tự động lưu.",
+            null,
+            null,
+            3,
+            AccessMode.Assigned,
+            RetakeScoringPolicy.Highest);
+        var settings = new VersionSettings(60, 50m, ScoreVisibility.Immediate, ReviewPolicy.AfterLastAttempt);
+        var exam = Exam.Create(DemoExamCode, details, settings, adminId, Now);
+        var version = exam.Versions.Single();
+
+        var questions = await db.Questions.Include(q => q.Options).Include(q => q.AcceptedAnswers)
+            .Where(q => q.Code.StartsWith("CS-"))
+            .OrderBy(q => q.Code)
+            .ToListAsync(ct);
+        questions.ForEach(q => version.AddQuestion(q, null, Now));
+
+        var demoGroupId = await db.UserGroups.Where(g => g.Code == DemoGroupCode).Select(g => g.Id).SingleAsync(ct);
+        exam.SetAssignments([demoGroupId], [], adminId, Now);
+        db.Exams.Add(exam);
+
+        var issues = version.ValidateForPublish(exam, hasAssignments: true, Now);
+        if (issues.Count > 0)
+        {
+            throw new InvalidOperationException($"Đề demo không hợp lệ: {string.Join("; ", issues.Select(i => i.Message))}");
+        }
+
+        version.Publish(adminId, Now);
+        exam.MarkPublished(adminId, Now);
         await db.SaveChangesAsync(ct);
     }
 }

@@ -10,4 +10,6 @@ public static class DomainErrorCodes
     public const string InvalidStateTransition = "INVALID_STATE_TRANSITION";
     public const string SystemRoleImmutable = "SYSTEM_ROLE_IMMUTABLE";
     public const string InvalidQuestion = "INVALID_QUESTION";
+    public const string InvalidExam = "INVALID_EXAM";
+    public const string VersionImmutable = "VERSION_IMMUTABLE";
 }

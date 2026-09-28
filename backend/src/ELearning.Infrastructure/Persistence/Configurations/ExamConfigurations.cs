@@ -23,9 +23,9 @@ internal sealed class ExamConfiguration : IEntityTypeConfiguration<Exam>
         builder.HasUserReference(e => e.CreatedBy, "FK_Exams_CreatedBy");
         builder.HasUserReference(e => e.UpdatedBy, "FK_Exams_UpdatedBy");
 
-        builder.HasMany(e => e.Versions).WithOne().HasForeignKey(v => v.ExamId).HasConstraintName("FK_ExamVersions_Exam");
+        builder.HasMany(e => e.Versions).WithOne().HasForeignKey(v => v.ExamId).HasConstraintName("FK_ExamVersions_Exam").OnDelete(DeleteBehavior.ClientCascade);
         builder.HasMany(e => e.Assignments).WithOne().HasForeignKey(a => a.ExamId)
-            .HasConstraintName("FK_ExamAssignments_Exam");
+            .HasConstraintName("FK_ExamAssignments_Exam").OnDelete(DeleteBehavior.ClientCascade);
 
         builder.ToTable(t =>
         {
@@ -57,7 +57,7 @@ internal sealed class ExamVersionConfiguration : IEntityTypeConfiguration<ExamVe
         builder.HasUserReference(v => v.CreatedBy, "FK_ExamVersions_CreatedBy");
 
         builder.HasMany(v => v.Questions).WithOne().HasForeignKey(q => q.ExamVersionId)
-            .HasConstraintName("FK_ExamQuestions_Version");
+            .HasConstraintName("FK_ExamQuestions_Version").OnDelete(DeleteBehavior.ClientCascade);
 
         builder.ToTable(t =>
         {

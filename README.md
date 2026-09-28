@@ -11,7 +11,8 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M1 | Hạ tầng: solution, schema đầy đủ + migration, health check, Serilog, OpenAPI, CI | Xong |
 | M2 | Identity: đăng ký/đăng nhập, refresh cookie xoay vòng, khóa tài khoản, permission, user/nhóm/vai trò | Xong |
 | M3 | Ngân hàng câu hỏi: danh mục, 4 loại câu hỏi, đáp án chấp nhận, Markdown, mã tự sinh, clone, dữ liệu demo | Xong |
-| M4–M10 | Xem `docs/11-quy-trinh-phat-trien.md` | Chưa làm |
+| M4 | Đề thi: version, snapshot câu hỏi, sắp xếp, đồng bộ, preview, publish, đóng/mở, clone, gán đề, đề demo | Xong |
+| M5–M10 | Xem `docs/11-quy-trinh-phat-trien.md` | Chưa làm |
 
 ## Yêu cầu
 
