@@ -16,4 +16,7 @@ public sealed class ExamOptions
 
     [Range(1, 1000)]
     public int ExpirationSweepBatchSize { get; init; } = 100;
+
+    /// <summary>Tắt job nền (ví dụ trong test, hoặc khi chỉ một instance chạy job).</summary>
+    public bool ExpirationWorkerEnabled { get; init; } = true;
 }

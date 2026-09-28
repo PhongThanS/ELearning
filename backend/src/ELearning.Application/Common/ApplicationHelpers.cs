@@ -5,6 +5,7 @@ using ELearning.Shared;
 using ELearning.Shared.Results;
 using FluentValidation;
 using FluentValidation.Results;
+using Microsoft.EntityFrameworkCore;
 
 namespace ELearning.Application.Common;
 
@@ -71,6 +72,25 @@ public static class UserNameRules
     public static IRuleBuilderOptions<T, string> ValidFullName<T>(this IRuleBuilder<T, string> rule) =>
         rule.NotEmpty().WithErrorCode("FULLNAME_REQUIRED").WithMessage("Vui lòng nhập họ tên.")
             .MaximumLength(200).WithErrorCode("FULLNAME_TOO_LONG").WithMessage("Họ tên không được vượt quá 200 ký tự.");
+}
+
+public static class TransactionExtensions
+{
+    /// <summary>
+    /// Chạy một khối trong transaction, bọc bởi execution strategy (bắt buộc khi bật EnableRetryOnFailure,
+    /// docs/10-bay-ky-thuat.md mục 5). Khối bên trong không được gọi dịch vụ ngoài.
+    /// </summary>
+    public static Task<T> InTransactionAsync<T>(this IAppDbContext db, Func<Task<T>> action, CancellationToken ct)
+    {
+        var strategy = db.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(async () =>
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            var result = await action();
+            await tx.CommitAsync(ct);
+            return result;
+        });
+    }
 }
 
 public static class RowVersionExtensions

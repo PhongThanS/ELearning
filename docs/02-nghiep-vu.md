@@ -338,6 +338,12 @@ Mọi thao tác đều yêu cầu lý do và ghi audit.
 
 ## 11. Quyết định / Giả định
 
+- **(M5) Start trả 201 khi tạo lượt mới, 200 kèm `resumed: true` khi trả về lượt đang làm**, kể cả khi hai request start chạy song song (bắt cả lỗi unique lẫn trường hợp request kia vừa tạo xong giữa hai lần đọc).
+- **(M5) Lưu đáp án theo lô là "tất cả hoặc không":** một phần tử sai dạng (`INVALID_OPTION`, `INVALID_ANSWER_SHAPE`, `INVALID_NUMBER_FORMAT`) → 422 cho cả lô, không lưu gì; `field` chỉ rõ `answers[i]`. Gửi `selectedOptions: []` hoặc `answerText: ""` = xóa câu trả lời.
+- **(M5) Nộp muộn:** học viên bấm nộp sau ân hạn → ghi `AUTO_SUBMITTED` / `TIME_EXPIRED`, và `SubmittedAt = ExpiredAt` (thời gian làm bài không vượt quá hạn).
+- **(M5) Sự kiện của lượt đã kết thúc** được bỏ qua (trả `accepted: 0`), không báo lỗi.
+- **(M6) Câu chọn nhiều không chọn gì luôn sai**, kể cả khi dữ liệu hỏng có tập đáp án rỗng.
+- **(M6) Điểm chính thức trên danh sách đề của học viên** chỉ hiện khi `ScoreVisibility` cho phép; lượt bị hủy bị loại.
 - **(M4) Thêm câu hỏi đã bị tắt vào đề:** bị từ chối (`QUESTION_INACTIVE`). Thêm trùng câu hỏi nguồn: bỏ qua, không báo lỗi.
 - **(M4) Xóa câu khỏi bản nháp** không đánh lại số thứ tự (có thể có khoảng trống); thứ tự hiển thị luôn sắp theo `QuestionOrder`, và lượt thi đánh số lại 1..N khi bắt đầu.
 - **(M4) Xóa version nháp** chỉ được khi đề đã từng publish; đề chưa publish chỉ có một version, muốn bỏ thì xóa cả đề.

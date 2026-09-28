@@ -1,10 +1,13 @@
+using ELearning.Application.Attempts;
 using ELearning.Application.Audit;
 using ELearning.Application.Auth;
 using ELearning.Application.Exams;
+using ELearning.Application.Grading;
 using ELearning.Application.Groups;
 using ELearning.Application.Questions;
 using ELearning.Application.Roles;
 using ELearning.Application.Users;
+using ELearning.Domain.Grading;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -25,6 +28,14 @@ public static class DependencyInjection
         services.AddScoped<IQuestionService, QuestionService>();
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IExamVersionService, ExamVersionService>();
+
+        services.AddSingleton(GradingEngine.Default);
+        services.AddScoped<IGradingService, GradingService>();
+        services.AddScoped<IAttemptFinalizer, AttemptFinalizer>();
+        services.AddScoped<IAttemptService, AttemptService>();
+        services.AddScoped<AttemptExpirationService>();
+        services.AddScoped<IAttemptExpirationService>(sp => sp.GetRequiredService<AttemptExpirationService>());
+        services.AddScoped<IExamAttemptCloser>(sp => sp.GetRequiredService<AttemptExpirationService>());
         return services;
     }
 }

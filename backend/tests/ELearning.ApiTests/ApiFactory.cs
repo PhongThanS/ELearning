@@ -52,6 +52,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("RateLimits:AuthLoginPerMinute", LoginRateLimitPerMinute.ToString(System.Globalization.CultureInfo.InvariantCulture));
         builder.UseSetting("RateLimits:AuthRefreshPerMinute", "10000");
         builder.UseSetting("RateLimits:DefaultPerMinute", "100000");
+        builder.UseSetting("RateLimits:AttemptActionPerMinute", "100000");
+        builder.UseSetting("RateLimits:AttemptWritePerMinute", "100000");
+        builder.UseSetting("RateLimits:AttemptWriteBurst", "100000");
+        builder.UseSetting("Exam:ExpirationWorkerEnabled", "false");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();

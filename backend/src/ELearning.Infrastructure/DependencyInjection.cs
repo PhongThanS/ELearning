@@ -1,5 +1,6 @@
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Questions;
+using ELearning.Infrastructure.BackgroundJobs;
 using ELearning.Infrastructure.Persistence;
 using ELearning.Infrastructure.Persistence.Seed;
 using ELearning.Infrastructure.Security;
@@ -36,6 +37,8 @@ public static class DependencyInjection
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ELearningDbContext>());
         services.AddScoped<ICodeGenerator, CodeGenerator>();
+        services.AddScoped<IAttemptLock, AttemptLock>();
+        services.AddHostedService<AttemptExpirationWorker>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<ITokenService, TokenService>();
