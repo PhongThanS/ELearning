@@ -109,6 +109,79 @@ public sealed class ExamQuestion : Entity
 
     internal void SetOrder(int order) => QuestionOrder = order;
 
+    /// <summary>
+    /// Sửa đáp án trên version đã publish (D-11) — ngoại lệ có kiểm soát duy nhất với tính bất biến.
+    /// Chỉ đổi đáp án đúng; không đổi nội dung, lựa chọn, điểm hay loại câu.
+    /// </summary>
+    public void CorrectAnswerKey(
+        IReadOnlyCollection<string>? correctOptionCodes,
+        IReadOnlyList<string>? acceptedAnswers,
+        decimal? correctAnswerNumber,
+        decimal? numericTolerance)
+    {
+        var data = ToData();
+        var corrected = data with
+        {
+            Options = correctOptionCodes is null
+                ? data.Options
+                : data.Options.Select(o => o with { IsCorrect = correctOptionCodes.Contains(o.OptionCode) }).ToList(),
+            AcceptedAnswers = acceptedAnswers ?? data.AcceptedAnswers,
+            CorrectAnswerNumber = correctAnswerNumber ?? data.CorrectAnswerNumber,
+            NumericTolerance = numericTolerance ?? data.NumericTolerance,
+        };
+
+        if (correctOptionCodes is not null && correctOptionCodes.Any(c => data.Options.All(o => o.OptionCode != c)))
+        {
+            throw new DomainException(DomainErrorCodes.InvalidQuestion, "Mã đáp án không thuộc câu hỏi.");
+        }
+
+        var errors = Questions.Question.Validate(corrected);
+        if (errors.Count > 0)
+        {
+            throw new DomainException(DomainErrorCodes.InvalidQuestion, string.Join(" ", errors));
+        }
+
+        foreach (var option in _options)
+        {
+            option.SetCorrect(corrected.Options.Single(o => o.OptionCode == option.OptionCode).IsCorrect);
+        }
+
+        if (acceptedAnswers is not null)
+        {
+            _acceptedAnswers.Clear();
+            for (var i = 0; i < acceptedAnswers.Count; i++)
+            {
+                _acceptedAnswers.Add(new ExamQuestionAcceptedAnswer(Grading.AnswerNormalizer.CleanContent(acceptedAnswers[i]), i + 1));
+            }
+        }
+
+        CorrectAnswerNumber = corrected.CorrectAnswerNumber;
+        NumericTolerance = corrected.NumericTolerance;
+    }
+
+    /// <summary>Hủy câu (D-11): mọi thí sinh được điểm tối đa câu này.</summary>
+    public void Void(Guid by, DateTime now)
+    {
+        if (IsVoided)
+        {
+            throw new DomainException(DomainErrorCodes.InvalidStateTransition, "Câu hỏi đã bị hủy.");
+        }
+
+        IsVoided = true;
+        VoidedBy = by;
+        VoidedAt = now;
+    }
+
+    /// <summary>Đáp án hiện tại dạng JSON-friendly, lưu vào lịch sử sửa đáp án.</summary>
+    public object AnswerKeySnapshot() => new
+    {
+        CorrectOptions = _options.Where(o => o.IsCorrect).OrderBy(o => o.DisplayOrder).Select(o => o.OptionCode).ToList(),
+        AcceptedAnswers = _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList(),
+        CorrectAnswerNumber,
+        NumericTolerance,
+        IsVoided,
+    };
+
     internal void RefreshFrom(Question source, DateTime now)
     {
         SourceQuestionId = source.Id;
@@ -167,6 +240,8 @@ public sealed class ExamQuestionOption : Entity
     public bool IsCorrect { get; private set; }
 
     public int DisplayOrder { get; private set; }
+
+    internal void SetCorrect(bool isCorrect) => IsCorrect = isCorrect;
 }
 
 public sealed class ExamQuestionAcceptedAnswer : Entity
@@ -210,4 +285,22 @@ public sealed class AnswerKeyCorrection : Entity
     public Guid CorrectedBy { get; private set; }
 
     public DateTime CorrectedAt { get; private set; }
+
+    public static AnswerKeyCorrection Create(
+        Guid examQuestionId, AnswerKeyCorrectionType type, string oldKeyJson, string newKeyJson, string reason, Guid by, DateTime now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        return new AnswerKeyCorrection
+        {
+            ExamQuestionId = examQuestionId,
+            CorrectionType = type,
+            OldKeyJson = oldKeyJson,
+            NewKeyJson = newKeyJson,
+            Reason = reason.Trim(),
+            CorrectedBy = by,
+            CorrectedAt = now,
+        };
+    }
+
+    public void SetAffectedAttempts(int count) => AffectedAttemptCount = count;
 }

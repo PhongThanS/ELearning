@@ -1,3 +1,4 @@
+using ELearning.Application.Admin;
 using ELearning.Application.Attempts;
 using ELearning.Application.Audit;
 using ELearning.Application.Auth;
@@ -36,6 +37,10 @@ public static class DependencyInjection
         services.AddScoped<AttemptExpirationService>();
         services.AddScoped<IAttemptExpirationService>(sp => sp.GetRequiredService<AttemptExpirationService>());
         services.AddScoped<IExamAttemptCloser>(sp => sp.GetRequiredService<AttemptExpirationService>());
+        services.AddScoped<IAdminAttemptService, AdminAttemptService>();
+        services.AddScoped<IResultAdminService, ResultAdminService>();
+        services.AddScoped<IAnswerKeyService, AnswerKeyService>();
+        services.AddScoped<IReportService, ReportService>();
         return services;
     }
 }

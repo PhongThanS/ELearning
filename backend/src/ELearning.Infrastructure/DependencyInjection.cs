@@ -1,8 +1,11 @@
+using ELearning.Application.Admin;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Questions;
 using ELearning.Infrastructure.BackgroundJobs;
+using ELearning.Infrastructure.Excel;
 using ELearning.Infrastructure.Persistence;
 using ELearning.Infrastructure.Persistence.Seed;
+using ELearning.Infrastructure.Queries;
 using ELearning.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ELearningDbContext>());
         services.AddScoped<ICodeGenerator, CodeGenerator>();
         services.AddScoped<IAttemptLock, AttemptLock>();
+        services.AddScoped<IReportQuery, ReportQuery>();
+        services.AddSingleton<IResultExporter, ResultExporter>();
         services.AddHostedService<AttemptExpirationWorker>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();

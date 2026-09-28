@@ -338,6 +338,9 @@ Mọi thao tác đều yêu cầu lý do và ghi audit.
 
 ## 11. Quyết định / Giả định
 
+- **(M8) Chấm lại chạy theo 3 bước:** (1) đổi đáp án và ghi `AnswerKeyCorrections` trong một transaction; (2) chấm lại theo lô 200 lượt, mỗi lô một transaction; (3) ghi số lượt bị ảnh hưởng. Nếu tiến trình dừng giữa bước 2, những lượt chưa chấm lại vẫn giữ điểm cũ; chạy lại chấm lại (hủy câu / sửa đáp án lần nữa) sẽ đồng bộ. Mọi lượt có kết quả của version đều được chấm lại, kể cả lượt đã hủy.
+- **(M8) Sửa đáp án** không đổi được mã lựa chọn, nội dung hay điểm; đáp án mới phải hợp lệ theo quy tắc của loại câu (ví dụ câu chọn một vẫn phải có đúng 1 đáp án).
+- **(M8) Export Excel** tối đa 20.000 dòng, thời gian theo múi giờ nghiệp vụ.
 - **(M5) Start trả 201 khi tạo lượt mới, 200 kèm `resumed: true` khi trả về lượt đang làm**, kể cả khi hai request start chạy song song (bắt cả lỗi unique lẫn trường hợp request kia vừa tạo xong giữa hai lần đọc).
 - **(M5) Lưu đáp án theo lô là "tất cả hoặc không":** một phần tử sai dạng (`INVALID_OPTION`, `INVALID_ANSWER_SHAPE`, `INVALID_NUMBER_FORMAT`) → 422 cho cả lô, không lưu gì; `field` chỉ rõ `answers[i]`. Gửi `selectedOptions: []` hoặc `answerText: ""` = xóa câu trả lời.
 - **(M5) Nộp muộn:** học viên bấm nộp sau ân hạn → ghi `AUTO_SUBMITTED` / `TIME_EXPIRED`, và `SubmittedAt = ExpiredAt` (thời gian làm bài không vượt quá hạn).

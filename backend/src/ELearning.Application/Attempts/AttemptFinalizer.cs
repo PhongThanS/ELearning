@@ -23,7 +23,7 @@ public interface IAttemptFinalizer
     Task<ExamAttempt?> LoadForUpdateAsync(Guid attemptId, CancellationToken ct);
 
     /// <summary>Nộp và chấm một lượt đã được khóa; không SaveChanges.</summary>
-    Task<ExamResult> FinalizeLockedAsync(ExamAttempt attempt, SubmitReason reason, string? ip, CancellationToken ct);
+    Task<ExamResult> FinalizeLockedAsync(ExamAttempt attempt, SubmitReason reason, string? ip, CancellationToken ct, string? auditReason = null);
 
     /// <summary>Tự khóa, nộp, chấm và lưu trong transaction riêng. Trả về false nếu lượt không còn IN_PROGRESS.</summary>
     Task<bool> FinalizeAsync(Guid attemptId, SubmitReason reason, CancellationToken ct);
@@ -47,7 +47,8 @@ internal sealed class AttemptFinalizer(
             .SingleOrDefaultAsync(a => a.Id == attemptId, ct);
     }
 
-    public async Task<ExamResult> FinalizeLockedAsync(ExamAttempt attempt, SubmitReason reason, string? ip, CancellationToken ct)
+    public async Task<ExamResult> FinalizeLockedAsync(
+        ExamAttempt attempt, SubmitReason reason, string? ip, CancellationToken ct, string? auditReason = null)
     {
         var now = time.GetUtcNow().UtcDateTime;
         attempt.Submit(now, Grace, reason, ip);
@@ -66,6 +67,7 @@ internal sealed class AttemptFinalizer(
             nameof(ExamAttempt),
             attempt.Id,
             newValue: new { attempt.Status, attempt.SubmitReason, score.TotalScore, score.MaxScore },
+            reason: auditReason,
             userId: reason == SubmitReason.Student ? attempt.UserId : null);
         return result;
     }

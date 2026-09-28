@@ -14,7 +14,9 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M4 | Đề thi: version, snapshot câu hỏi, sắp xếp, đồng bộ, preview, publish, đóng/mở, clone, gán đề, đề demo | Xong |
 | M5 | Lượt thi: start (an toàn khi song song), autosave theo `clientSeq`, khóa dòng, ân hạn, sự kiện, nộp bài idempotent, job tự nộp, đóng đề buộc nộp | Xong |
 | M6 | Chấm điểm: 4 grader, chuẩn hóa tiếng Việt, câu hủy, tổng kết, chính sách xem điểm / xem lại, điểm chính thức | Xong |
-| M7–M10 | Xem `docs/11-quy-trinh-phat-trien.md` | Chưa làm |
+| M8 | Vận hành admin: gia hạn / buộc nộp / hủy lượt, sửa đáp án / hủy câu + chấm lại, kết quả + export Excel, dashboard, thống kê câu hỏi, audit log | Xong |
+| M7 | Frontend React | Đang làm |
+| M9–M10 | Kiểm thử E2E / load, triển khai | Chưa làm |
 
 ## Yêu cầu
 
