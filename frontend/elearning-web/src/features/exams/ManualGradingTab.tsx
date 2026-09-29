@@ -99,11 +99,11 @@ function GradeCard({ examId, item }: { examId: string; item: ManualGradingItem }
             <Badge bg="warning" text="dark">Chờ chấm</Badge>
           )}
         </div>
-        <MarkdownView content={item.content} format={item.contentFormat} />
+        <MarkdownView content={item.content} format={item.contentFormat} media={item.media} />
         {item.explanation && (
           <details className="small mb-2">
             <summary>Đáp án mẫu / hướng dẫn chấm</summary>
-            <MarkdownView content={item.explanation} />
+            <MarkdownView content={item.explanation} media={item.media} />
           </details>
         )}
         <div className="border rounded p-2 mb-2 bg-body-tertiary" style={{ whiteSpace: "pre-wrap" }}>{item.answerText}</div>

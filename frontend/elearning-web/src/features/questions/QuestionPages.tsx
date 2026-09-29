@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, InputGroup, Modal, Row, Tab, Tabs } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -11,6 +11,8 @@ import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
+import { MediaUrls } from "../../components/common/MediaUrls";
+import { ImageInsertButton, insertAt } from "./ImageInsertButton";
 import { QuestionImportDialog } from "./QuestionImportDialog";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatNumber, markdownExcerpt } from "../../utils/format";
@@ -18,7 +20,7 @@ import { matchesAny } from "../../utils/answerNormalizer";
 import { isValidNumberAnswer } from "../attempts/playerState";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
-import type { AnswerDataType, Category, ContentFormat, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
+import type { AnswerDataType, Category, ContentFormat, MediaUpload, MediaUrlMap, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
 
 const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
 const CHOICE_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -348,12 +350,19 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   const [tryValue, setTryValue] = useState("");
   // Tag nhập dạng "a, b, c"; tách khi lưu để gõ dấu phẩy không bị mất
   const [tagText, setTagText] = useState(() => form.tags.join(", "));
+  // Ảnh (D-27): bảng id → URL đã ký của câu đang sửa, thêm dần khi tải ảnh mới để xem trước được
+  const { hasPermission } = useAuth();
+  const canUpload = hasPermission(Permissions.QuestionCreate);
+  const [media, setMedia] = useState<MediaUrlMap>(() => existing?.media ?? {});
+  const contentRef = useRef<HTMLTextAreaElement>(null);
+  const explanationRef = useRef<HTMLTextAreaElement>(null);
 
   const save = useMutation({
     mutationFn: (body: QuestionInput) => (id ? questionsApi.update(id, body) : questionsApi.create(body)),
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ["questions"] });
       queryClient.setQueryData(["question", saved.id], saved);
+      setMedia((m) => ({ ...m, ...saved.media }));
       toast.success(t("common.saved"));
       navigate(`/admin/questions/${saved.id}/edit`, { replace: true });
       setForm((f) => ({ ...f, rowVersion: saved.rowVersion, code: saved.code }));
@@ -386,6 +395,26 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   };
 
   const err = (field: string) => errors[field];
+
+  /** Upload xong mới chèn nên dùng state mới nhất (người dùng có thể đã gõ tiếp trong lúc tải). */
+  const addImage = (upload: MediaUpload, apply: (f: EditorState, markdown: string) => Partial<EditorState>) => {
+    setMedia((m) => ({ ...m, [upload.id.toLowerCase()]: upload.url }));
+    setForm((f) => ({ ...f, ...apply(f, upload.markdown) }));
+  };
+  const insertIntoContent = (upload: MediaUpload) => {
+    if (form.contentFormat === "PLAIN") {
+      toast.info(t("media.switchedToMarkdown"));
+    }
+    const position = contentRef.current?.selectionStart;
+    addImage(upload, (f, md) => ({ content: insertAt(f.content, md, position), contentFormat: "MARKDOWN" }));
+  };
+  const insertIntoExplanation = (upload: MediaUpload) => {
+    const position = explanationRef.current?.selectionStart;
+    addImage(upload, (f, md) => ({ explanation: insertAt(f.explanation ?? "", md, position) }));
+  };
+  const insertIntoOption = (index: number, upload: MediaUpload) =>
+    addImage(upload, (f, md) => ({ options: f.options.map((o, i) => (i === index ? { ...o, content: insertAt(o.content, md, null) } : o)) }));
+  const hasChoices = form.questionType !== "FILL_IN" && form.questionType !== "ESSAY";
 
   return (
     <>
@@ -445,22 +474,43 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   <Tab eventKey="edit" title="Nội dung">
                     <Form.Group controlId="q-content">
                       <Form.Label className="visually-hidden">Nội dung</Form.Label>
-                      <Form.Control as="textarea" rows={6} value={form.content} isInvalid={!!err("content")} onChange={(e) => set({ content: e.target.value })} />
+                      <Form.Control ref={contentRef} as="textarea" rows={6} value={form.content} isInvalid={!!err("content")} onChange={(e) => set({ content: e.target.value })} />
                       <Form.Control.Feedback type="invalid">{err("content")}</Form.Control.Feedback>
                     </Form.Group>
-                    <Form.Check
-                      className="mt-2"
-                      type="switch"
-                      id="q-markdown"
-                      label="Dùng Markdown (code block, danh sách, bảng)"
-                      checked={form.contentFormat === "MARKDOWN"}
-                      onChange={(e) => set({ contentFormat: (e.target.checked ? "MARKDOWN" : "PLAIN") as ContentFormat })}
-                    />
+                    <div className="d-flex flex-wrap align-items-center gap-2 mt-2">
+                      <Form.Check
+                        className="me-auto"
+                        type="switch"
+                        id="q-markdown"
+                        label="Dùng Markdown (code block, danh sách, bảng, ảnh)"
+                        checked={form.contentFormat === "MARKDOWN"}
+                        onChange={(e) => set({ contentFormat: (e.target.checked ? "MARKDOWN" : "PLAIN") as ContentFormat })}
+                      />
+                      {canUpload && <ImageInsertButton target="đề bài" onInserted={insertIntoContent} />}
+                    </div>
+                    {canUpload && <Form.Text>{t("media.hint")}</Form.Text>}
                   </Tab>
                   <Tab eventKey="preview" title={t("common.preview")}>
-                    <div className="border rounded p-3">
-                      <MarkdownView content={form.content || "_(trống)_"} format={form.contentFormat} />
-                    </div>
+                    <MediaUrls value={media}>
+                      <div className="border rounded p-3">
+                        <MarkdownView content={form.content || "_(trống)_"} format={form.contentFormat} />
+                        {hasChoices && (
+                          <ul className="list-unstyled mb-0 mt-2">
+                            {form.options.map((o, i) => (
+                              <li key={i}>
+                                <strong>{form.questionType === "TRUE_FALSE" ? "" : `${o.optionCode}. `}</strong>
+                                <MarkdownView content={o.content || "_(trống)_"} inline />
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {form.explanation && (
+                          <div className="small mt-2 pt-2 border-top">
+                            <strong>Giải thích:</strong> <MarkdownView content={form.explanation} />
+                          </div>
+                        )}
+                      </div>
+                    </MediaUrls>
                   </Tab>
                 </Tabs>
               </Card.Body>
@@ -479,7 +529,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   <FillInEditor form={form} set={set} errors={errors} tryValue={tryValue} setTryValue={setTryValue} />
                 ) : (
                   <>
-                    <OptionsEditor form={form} set={set} errors={errors} />
+                    <OptionsEditor form={form} set={set} errors={errors} onImage={canUpload ? insertIntoOption : undefined} />
                     {form.questionType === "MULTIPLE_CHOICE" && (
                       <Form.Check className="mt-2" type="switch" id="q-partial" checked={form.partialScoring}
                         onChange={(e) => set({ partialScoring: e.target.checked })}
@@ -493,8 +543,11 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
             <Card>
               <Card.Body>
                 <Form.Group controlId="q-explanation">
-                  <Form.Label>Giải thích (hiển thị khi xem lại bài)</Form.Label>
-                  <Form.Control as="textarea" rows={3} value={form.explanation ?? ""} onChange={(e) => set({ explanation: e.target.value })} />
+                  <div className="d-flex align-items-center mb-2">
+                    <Form.Label className="me-auto mb-0">Giải thích (hiển thị khi xem lại bài, Markdown)</Form.Label>
+                    {canUpload && <ImageInsertButton target="phần giải thích" onInserted={insertIntoExplanation} />}
+                  </div>
+                  <Form.Control ref={explanationRef} as="textarea" rows={3} value={form.explanation ?? ""} onChange={(e) => set({ explanation: e.target.value })} />
                 </Form.Group>
               </Card.Body>
             </Card>
@@ -547,7 +600,18 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   );
 }
 
-function OptionsEditor({ form, set, errors }: { form: EditorState; set: (p: Partial<EditorState>) => void; errors: Record<string, string> }) {
+function OptionsEditor({
+  form,
+  set,
+  errors,
+  onImage,
+}: {
+  form: EditorState;
+  set: (p: Partial<EditorState>) => void;
+  errors: Record<string, string>;
+  /** Chèn ảnh vào cuối nội dung lựa chọn (D-27); không có quyền tải ảnh thì không hiện nút. */
+  onImage?: (index: number, upload: MediaUpload) => void;
+}) {
   const single = form.questionType !== "MULTIPLE_CHOICE";
   const trueFalse = form.questionType === "TRUE_FALSE";
   const update = (index: number, patch: Partial<EditorState["options"][number]>) =>
@@ -591,6 +655,7 @@ function OptionsEditor({ form, set, errors }: { form: EditorState; set: (p: Part
           />
           {!trueFalse && (
             <>
+              {onImage && <ImageInsertButton size="sm" target={`lựa chọn ${option.optionCode}`} onInserted={(upload) => onImage(index, upload)} />}
               <Button variant="outline-secondary" aria-label="Lên" onClick={() => move(index, -1)}>↑</Button>
               <Button variant="outline-secondary" aria-label="Xuống" onClick={() => move(index, 1)}>↓</Button>
               <Button

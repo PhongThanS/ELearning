@@ -190,6 +190,24 @@ CREATE TABLE QuestionAcceptedAnswers (
 );
 ```
 
+### 3.1 Ảnh trong câu hỏi (D-27)
+
+```sql
+-- Bất biến: không UPDATE, không DELETE (D-16). File nằm ở Media:RootPath/<2 ký tự đầu Sha256>/<Sha256>.
+CREATE TABLE MediaFiles (
+    Id               UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_MediaFiles PRIMARY KEY,
+    Sha256           CHAR(64)       NOT NULL CONSTRAINT UQ_MediaFiles_Sha256 UNIQUE,   -- hex chữ thường
+    ContentType      VARCHAR(50)    NOT NULL
+        CONSTRAINT CK_MediaFiles_ContentType CHECK (ContentType IN ('image/png','image/jpeg','image/gif','image/webp')),
+    SizeBytes        BIGINT         NOT NULL CONSTRAINT CK_MediaFiles_Size CHECK (SizeBytes > 0),
+    OriginalFileName NVARCHAR(255)  NULL,
+    CreatedBy        UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_MediaFiles_CreatedBy REFERENCES Users(Id),
+    CreatedAt        DATETIME2(3)   NOT NULL
+);
+```
+
+- Nội dung (`Questions.Content`, `QuestionOptions.Content`, `Questions.Explanation` và bản snapshot trong `ExamQuestions` / `ExamQuestionOptions`) tham chiếu ảnh bằng chuỗi `media:<Id>`; không có bảng liên kết, vì snapshot là chuỗi bất biến và ảnh không bao giờ bị xóa.
+
 - Các quy tắc cần đếm số dòng (số option, số option đúng, số đáp án chấp nhận) được kiểm tra bằng FluentValidation và domain, không dùng CHECK.
 - Sửa câu hỏi: xóa rồi tạo lại option và đáp án chấp nhận trong cùng transaction là chấp nhận được, vì câu hỏi trong ngân hàng không được tham chiếu trực tiếp khi chấm (D-01).
 
@@ -355,6 +373,8 @@ CREATE INDEX IX_AnswerKeyCorrections_Question ON AnswerKeyCorrections(ExamQuesti
 - Khuyến nghị thêm một `SaveChangesInterceptor` để chặn ở tầng hạ tầng, làm lớp bảo vệ thứ hai.
 
 ## 5. Quyết định / Giả định
+
+- **(D-27) `MediaFiles` không có FK từ nội dung câu hỏi** mà chỉ tham chiếu bằng chuỗi `media:<id>` trong Markdown. Kiểm tra tồn tại khi lưu / import câu hỏi; ảnh không bị xóa nên tham chiếu không bao giờ treo. Thư mục ảnh được sao lưu cùng database (`09-van-hanh.md` mục 6).
 
 - **(M3) Option / đáp án chấp nhận dùng `DeleteBehavior.ClientCascade`** (DB vẫn `NO ACTION`): khi sửa câu hỏi, EF xóa dòng con cũ và chèn dòng mới trong cùng `SaveChanges`. Áp dụng cho `QuestionOptions`, `QuestionAcceptedAnswers`, `ExamQuestionOptions`, `ExamQuestionAcceptedAnswers`.
 - **(M3) Mã câu hỏi tự sinh** `Q000001`… lấy từ `SEQUENCE QuestionCodeSequence`; nếu trùng mã do admin tự đặt thì bỏ qua và lấy số tiếp theo.

@@ -7,6 +7,7 @@ import { studentApi } from "../../services/api";
 import { ErrorAlert, Loading } from "../../components/common/Feedback";
 import { describeError } from "../../utils/errors";
 import { MarkdownView } from "../../components/common/MarkdownView";
+import { MediaUrls } from "../../components/common/MediaUrls";
 import { formatDuration, formatNumber, optionLabel } from "../../utils/format";
 import type { Attempt, AttemptQuestion } from "../../types/api";
 import {
@@ -48,7 +49,11 @@ export function ExamPlayerPage() {
   if (!query.data || query.data.status !== "IN_PROGRESS") {
     return <Loading />;
   }
-  return <Player attempt={query.data} />;
+  return (
+    <MediaUrls value={query.data.media}>
+      <Player attempt={query.data} />
+    </MediaUrls>
+  );
 }
 
 function Player({ attempt }: { attempt: Attempt }) {

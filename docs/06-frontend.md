@@ -221,6 +221,7 @@ type ExamPlayerState = {
 - **Xử lý lỗi:** map `errors[].code` sang thông điệp i18n. Lỗi 409 `CONCURRENCY_CONFLICT` hiển thị "Dữ liệu đã được người khác cập nhật" kèm nút tải lại.
 - **Ngày giờ:** hiển thị theo `Asia/Ho_Chi_Minh`, định dạng `dd/MM/yyyy HH:mm`. Ô nhập ngày giờ được hiểu theo giờ Việt Nam rồi đổi sang UTC trước khi gửi.
 - **Markdown:** một component `MarkdownView` duy nhất dùng `react-markdown` + `remark-gfm`, không có `rehype-raw`. Liên kết mở tab mới với `rel="noopener noreferrer"`. Code block dùng font monospace, cuộn ngang được.
+- **Ảnh (D-27):** `MarkdownView` chỉ hiển thị `![mô tả](media:<id>)` bằng URL trong bảng `media` của DTO (cung cấp qua `<MediaUrls value={dto.media}>` hoặc prop `media`); ảnh không có trong bảng hiện "(ảnh không hiển thị được)" và không tải gì; ảnh ngoài (`http…`) bị bỏ. Ảnh co theo chiều rộng khung (màn hình 360 px), lựa chọn đáp án hiển thị ảnh inline tối đa 10rem. Trình soạn câu hỏi có nút "Chèn ảnh" cho đề bài, từng lựa chọn và phần giải thích; tab Xem trước hiển thị cả lựa chọn và giải thích.
 
 ## 6. Accessibility
 
@@ -236,6 +237,9 @@ type ExamPlayerState = {
 - Mọi chuỗi hiển thị nằm trong `i18n/*.json`. Enum từ API được map sang nhãn qua i18n; không hiển thị giá trị thô `SINGLE_CHOICE`.
 
 ## 8. Quyết định / Giả định
+
+- **(D-27) Bảng ảnh truyền qua context `MediaUrls`** thay vì sửa chuỗi Markdown ở server: nội dung giữ nguyên `media:<id>` nên trình soạn câu hỏi sửa và lưu lại được mà không dính URL đã ký.
+- **Trang xem lại bài của học viên render nội dung lựa chọn bằng `MarkdownView inline`** (trước đây là chữ thuần), để ảnh và định dạng giống lúc làm bài.
 
 - **Backup dùng `sessionStorage`** thay cho `localStorage` như spec gốc §112, để tránh lộ bài trên máy dùng chung. Đánh đổi: đóng hẳn tab thì mất backup, nhưng dữ liệu đã lưu lên server vẫn còn.
 - **Bỏ `remainingSeconds` khỏi state** (spec gốc §71), vì đây là giá trị suy ra được.

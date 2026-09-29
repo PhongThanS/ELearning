@@ -57,3 +57,18 @@
 .md-inline-p + .md-inline-p::before {
   content: " ";
 }
+
+/* Ảnh trong nội dung câu hỏi (D-27): không tràn khung trên màn hình 360 px */
+.md-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5rem 0;
+}
+
+.md-inline .md-image {
+  display: inline-block;
+  max-height: 10rem;
+  margin: 0.25rem 0;
+  vertical-align: middle;
+}

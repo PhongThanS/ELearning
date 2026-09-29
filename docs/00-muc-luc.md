@@ -85,3 +85,4 @@ Chi tiết và lý do nằm ở file được ghi trong ngoặc.
 | D-24 | Dùng lại refresh token vừa xoay vòng trong 30 giây được coi là hai tab refresh song song, không thu hồi cả chuỗi (`07`) |
 | D-25 | `MustChangePassword` được chặn cả ở backend: mọi endpoint cần policy trả 403 `PASSWORD_CHANGE_REQUIRED` (`07`) |
 | D-26 | Giám sát không thêm hạ tầng: meter `ELearning` + log `Monitoring` mỗi phút; cảnh báo qua `/health/alerts` (chặn ở Nginx) và container `monitor` gửi webhook; OpenTelemetry / Grafana để sau (`09`) |
+| D-27 | Ảnh trong đề / lựa chọn / giải thích: file trên đĩa theo SHA-256 + bảng `MediaFiles` bất biến; nội dung lưu `media:<id>`; server ký URL ngắn hạn chỉ cho ảnh của các trường đang trả về (`02`, `04a`, `05`, `07`) |

@@ -33,7 +33,7 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 
 - `ContentFormat`: `PLAIN` hoặc `MARKDOWN`.
 - Markdown được hỗ trợ: đoạn văn, xuống dòng, **đậm**, *nghiêng*, `inline code`, code block có ngôn ngữ, danh sách, bảng.
-- **HTML thô bị vô hiệu hóa** khi render (không bật `rehype-raw`). Liên kết chỉ nhận `http`/`https`. Chưa hỗ trợ hình ảnh (xem mục đính kèm ở tài liệu sau MVP).
+- **HTML thô bị vô hiệu hóa** khi render (không bật `rehype-raw`). Liên kết chỉ nhận `http`/`https`. Ảnh chỉ nhận ảnh đã tải lên hệ thống, cú pháp `![mô tả](media:<id>)` (mục 1.4); ảnh ngoài (`http…`) không hiển thị.
 - Lý do: đề demo là "C# Basic", cần hiển thị code nhiều dòng; plain text không đủ.
 
 ### 1.3 Import câu hỏi từ Excel (sau MVP, đã làm)
@@ -46,6 +46,15 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 - Kiểm tra thêm: danh mục phải tồn tại và đang hoạt động; mã câu không trùng câu đã có và không trùng nhau trong file; lựa chọn phải liên tục từ A.
 - **Tất cả hoặc không:** có một dòng lỗi thì không câu nào được tạo, kết quả trả lỗi theo từng dòng (số dòng Excel + tên cột). `dryRun=true` chỉ kiểm tra.
 - Import thành công ghi một audit `QUESTIONS_IMPORTED` (số câu và danh sách mã).
+
+
+### 1.4 Ảnh trong câu hỏi (sau MVP, đã làm, D-27)
+
+- Dùng được ở **đề bài, nội dung lựa chọn và giải thích** (đề bài phải là Markdown; chèn ảnh vào đề PLAIN thì trình soạn tự bật Markdown).
+- Admin bấm "Chèn ảnh" → tải lên PNG / JPEG / GIF / WebP tối đa 2 MB → nội dung được chèn `![](media:<id>)`. Sửa phần mô tả trong ngoặc vuông để có văn bản thay thế cho trình đọc màn hình.
+- **Ảnh bất biến:** không sửa, không xóa (D-16). Thay ảnh = tải ảnh mới và sửa nội dung. Nhờ vậy version đã publish (snapshot giữ chuỗi `media:<id>`) luôn hiển thị đúng ảnh lúc publish (D-01). Cùng một file tải lên nhiều lần chỉ lưu một bản.
+- Lưu hoặc import câu hỏi có `media:<id>` không tồn tại → lỗi `MEDIA_NOT_FOUND`.
+- **Ảnh không làm lộ đáp án:** học viên chỉ nhận URL của ảnh nằm trong các trường được trả về. Khi đang thi chỉ có ảnh của đề và lựa chọn; ảnh của giải thích chỉ có khi `ReviewPolicy` cho xem lại.
 
 ## 2. Chấm điểm
 
@@ -394,6 +403,7 @@ Mọi thao tác đều yêu cầu lý do và ghi audit.
 - **(M5) Start trả 201 khi tạo lượt mới, 200 kèm `resumed: true` khi trả về lượt đang làm**, kể cả khi hai request start chạy song song (bắt cả lỗi unique lẫn trường hợp request kia vừa tạo xong giữa hai lần đọc).
 - **(M5) Lưu đáp án theo lô là "tất cả hoặc không":** một phần tử sai dạng (`INVALID_OPTION`, `INVALID_ANSWER_SHAPE`, `INVALID_NUMBER_FORMAT`) → 422 cho cả lô, không lưu gì; `field` chỉ rõ `answers[i]`. Gửi `selectedOptions: []` hoặc `answerText: ""` = xóa câu trả lời.
 - **(M5) Nộp muộn:** học viên bấm nộp sau ân hạn → ghi `AUTO_SUBMITTED` / `TIME_EXPIRED`, và `SubmittedAt = ExpiredAt` (thời gian làm bài không vượt quá hạn).
+- **(D-27) Ảnh trong câu hỏi** dùng tham chiếu `media:<id>` thay vì URL cố định, để snapshot không phụ thuộc vào cách phục vụ ảnh (đổi domain, đổi khóa ký không làm hỏng đề đã publish).
 - **(M9) Vòng quét tự nộp xử lý hết mọi lô**, không dừng sau lô đầu tiên. Trước đây mỗi vòng chỉ nộp 100 lượt, nên 500 lượt hết giờ cùng `EndAt` mất khoảng 5,5 phút (5 vòng × 60 giây + ân hạn), vượt ngưỡng `expiry-sweep` < 5 phút (`08-kiem-thu.md` mục 7). Lượt bị lỗi khi nộp được bỏ qua tới vòng sau để vòng hiện tại không lặp mãi.
 - **(M5) Sự kiện của lượt đã kết thúc** được bỏ qua (trả `accepted: 0`), không báo lỗi.
 - **(M6) Câu chọn nhiều không chọn gì luôn sai**, kể cả khi dữ liệu hỏng có tập đáp án rỗng.

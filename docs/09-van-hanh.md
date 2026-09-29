@@ -104,7 +104,7 @@ backend/Dockerfile          target api (aspnet, user không phải root) và mig
 frontend/elearning-web/Dockerfile   build Vite → nginx (template envsubst)
 deploy/nginx/               cấu hình Nginx: header bảo mật, cache, proxy /api, trang lỗi tĩnh
 deploy/sql/init-app-login.sql       tài khoản app quyền tối thiểu + RECOVERY FULL
-deploy/scripts/             backup.sh, restore.sh, restore-test.sh
+deploy/scripts/             backup.sh, restore.sh, restore-test.sh, media-sync.sh, monitor.sh, notify.sh
 .env.example                mọi bí mật / tham số (sao chép thành .env, không commit)
 ```
 
@@ -120,7 +120,8 @@ docker compose up -d --build
 2. `migrate`: migration bundle bằng tài khoản quản trị (`sa`), tạo database nếu chưa có.
 3. `db-init`: tạo / cập nhật login `APP_DB_LOGIN` (`db_datareader`, `db_datawriter`, `EXECUTE`, `UPDATE` trên sequence mã câu hỏi), đặt `RECOVERY FULL`.
 4. `seed`: `--seed` bằng tài khoản app (role, permission, admin khởi tạo).
-5. `api` (Kestrel HTTP 8080, chỉ trong mạng nội bộ) và `web` (Nginx, cổng `HTTP_PORT`).
+5. `media-init`: đặt quyền thư mục ảnh `MEDIA_DIR` (gắn vào `/var/lib/elearning/media`) cho user của API (uid 1654), kể cả file chép lại khi khôi phục.
+6. `api` (Kestrel HTTP 8080, chỉ trong mạng nội bộ) và `web` (Nginx, cổng `HTTP_PORT`).
 
 **Production có HTTPS:** đặt `fullchain.pem`, `privkey.pem` vào `deploy/certs/`, đặt `SERVER_NAME`, `PUBLIC_ORIGIN=https://<domain>`, rồi
 `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`. Nếu TLS kết thúc ở load balancer phía trước thì giữ cấu hình HTTP và bật module realip của Nginx.
@@ -154,6 +155,8 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 - `deploy/scripts/restore.sh --target <db> [--replace] full.bak [diff.bak] [log.trn ...]`: khôi phục một chuỗi backup.
 - `deploy/scripts/restore-test.sh`: lấy full mới nhất + diff mới nhất sau nó + mọi log sau đó, khôi phục vào `<DB>_RestoreTest`, so số dòng các bảng chính với bản gốc, chạy `DBCC CHECKDB`, in thời gian khôi phục, rồi xóa database thử. **Chạy mỗi tháng** và ghi kết quả vào sổ vận hành.
 - File backup nằm ở `BACKUP_DIR` trên máy chủ; cần đồng bộ ra nơi khác (offsite) và mã hóa ở đó (SQL Server Express không mã hóa backup).
+- **Ảnh câu hỏi (D-27):** mỗi lần `backup.sh` chạy (full / diff / log), sau khi backup database xong, `media-sync.sh` chép ảnh mới từ `MEDIA_DIR` sang `BACKUP_DIR/media`. Ảnh bất biến, tên theo SHA-256 và không bị xóa, nên bản sao là tăng dần, không cần chính sách giữ lại, và luôn đủ cho mọi bản backup database (RPO của ảnh bằng RPO của log backup).
+- Khôi phục: `restore.sh ... --with-media` chép ảnh còn thiếu từ `BACKUP_DIR/media` về `MEDIA_DIR` (chỉ thêm, không ghi đè) rồi chạy `media-init`. `restore-test.sh` kiểm tra mọi dòng `MediaFiles` của bản khôi phục có file trong bản sao ảnh; thiếu thì thất bại.
 
 ## 7. Giám sát
 
@@ -241,6 +244,7 @@ Trên nhánh `main`:
 - **(M10) Tài khoản DB tách biệt:** migration dùng `sa` (hoặc tài khoản có quyền DDL), API và seed dùng `APP_DB_LOGIN` không có quyền DDL. `NEXT VALUE FOR` cần `UPDATE` trên sequence nên được cấp riêng.
 - **(M10) `ReverseProxy:KnownNetworks` (CIDR)** được thêm bên cạnh `KnownProxies`, vì IP container Nginx thay đổi mỗi lần tạo lại.
 - **(M10) Lịch backup chạy bằng cron của máy chủ**, không thêm container scheduler (không thêm hạ tầng khi chưa có quyết định).
+- **(D-27) Ảnh lưu trên đĩa (bind mount `MEDIA_DIR`)**, không dùng object storage để không thêm hạ tầng; chạy nhiều instance API thì `MEDIA_DIR` phải là thư mục dùng chung (NFS / SMB) hoặc chuyển sang object storage (cần quyết định mới).
 - **(M10) D-26 — Giám sát không thêm hạ tầng:** chỉ số qua `System.Diagnostics.Metrics` + dòng log `Monitoring` mỗi phút; cảnh báo qua health check `/health/alerts` + container `monitor` gửi webhook. Chưa dùng Prometheus / OpenTelemetry / Grafana (sau MVP); khi thêm, meter `ELearning` dùng lại được nguyên vẹn.
 - **(M10) Tổng trong cửa sổ trượt là của từng instance.** Chạy nhiều instance API thì mỗi instance tự tính tỉ lệ 5xx; `attempt-backlog` đọc từ database nên đúng cho cả hệ thống.
 - **(M10) `error-rate` cần tối thiểu 50 request trong cửa sổ**, để lúc vắng (ví dụ 1 lỗi / 10 request) không báo nhầm. Các ngưỡng là giả định *(cần xác nhận)*, đổi ở section `Monitoring`.
