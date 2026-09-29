@@ -2,6 +2,7 @@ using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Grading;
+using ELearning.Application.Media;
 using ELearning.Domain.Enums;
 using ELearning.Shared;
 using ELearning.Shared.Paging;
@@ -35,7 +36,8 @@ public sealed record ManualGradingItemDto(
     string? AnswerText,
     decimal? ManualScore,
     string? ManualComment,
-    DateTime? ManualGradedAt);
+    DateTime? ManualGradedAt,
+    IReadOnlyDictionary<string, string>? Media = null);
 
 public sealed record ManualGradeRequest(decimal Score, string? Comment);
 
@@ -58,7 +60,8 @@ internal sealed class ManualGradingService(
     IGradingService grading,
     IAuditService audit,
     ICurrentUser currentUser,
-    TimeProvider time) : IManualGradingService
+    TimeProvider time,
+    MediaLinks mediaLinks) : IManualGradingService
 {
     public async Task<Result<PagedResult<ManualGradingItemDto>>> ListAsync(Guid examId, ManualGradingQuery query, CancellationToken ct)
     {
@@ -114,7 +117,8 @@ internal sealed class ManualGradingService(
                 x.aq.Answer.ManualComment,
                 x.aq.Answer.ManualGradedAt))
             .ToListAsync(ct);
-        return new PagedResult<ManualGradingItemDto>(page, query.Page, query.PageSize, total);
+        var withMedia = page.Select(i => i with { Media = mediaLinks.For(i.Content, i.Explanation) }).ToList();
+        return new PagedResult<ManualGradingItemDto>(withMedia, query.Page, query.PageSize, total);
     }
 
     public async Task<Result<ManualGradeResultDto>> GradeAsync(

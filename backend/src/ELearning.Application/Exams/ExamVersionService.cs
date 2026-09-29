@@ -1,6 +1,7 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Media;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Questions;
@@ -53,6 +54,7 @@ internal sealed class ExamVersionService(
     IAuditService audit,
     ICurrentUser currentUser,
     TimeProvider time,
+    MediaLinks mediaLinks,
     IValidator<UpdateVersionRequest> updateValidator,
     IValidator<AddVersionQuestionsRequest> addQuestionsValidator) : IExamVersionService
 {
@@ -446,8 +448,12 @@ internal sealed class ExamVersionService(
             version.DurationMinutes,
             questions.Count,
             version.EffectiveMaxScore,
-            questions);
+            questions,
+            mediaLinks.For(questions.SelectMany(MediaTexts)));
     }
+
+    /// <summary>Nội dung học viên nhìn thấy của một câu: đề và lựa chọn (không có giải thích), cho bảng ảnh (D-27).</summary>
+    internal static IEnumerable<string?> MediaTexts(PlayerQuestionDto q) => [q.Content, .. q.Options.Select(o => o.Content)];
 
     public async Task<Result<PublishValidationDto>> ValidateAsync(Guid examId, Guid versionId, CancellationToken ct)
     {
@@ -608,6 +614,7 @@ internal sealed class ExamVersionService(
             version.ArchivedAt,
             questions,
             version.RowVersion.ToBase64(),
-            poolRules);
+            poolRules,
+            mediaLinks.For(version.Questions.SelectMany(q => (IEnumerable<string?>)[q.Content, q.Explanation, .. q.Options.Select(o => o.Content)])));
     }
 }

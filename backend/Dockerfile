@@ -33,6 +33,9 @@ WORKDIR /app
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_gcServer=1
 COPY --from=build /app/publish .
+# Thư mục ảnh câu hỏi (D-27): docker-compose gắn MEDIA_DIR vào đây; service media-init đặt quyền cho APP_UID
+ENV Media__RootPath=/var/lib/elearning/media
+RUN mkdir -p /var/lib/elearning/media && chown "$APP_UID" /var/lib/elearning/media
 # Người dùng không phải root có sẵn trong image .NET
 USER $APP_UID
 EXPOSE 8080

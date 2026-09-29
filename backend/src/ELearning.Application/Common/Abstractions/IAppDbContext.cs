@@ -2,6 +2,7 @@ using ELearning.Domain.Attempts;
 using ELearning.Domain.Audit;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Identity;
+using ELearning.Domain.Media;
 using ELearning.Domain.Questions;
 using ELearning.Domain.Results;
 using Microsoft.EntityFrameworkCore;
@@ -61,6 +62,8 @@ public interface IAppDbContext
     DbSet<ExamResultHistory> ExamResultHistory { get; }
 
     DbSet<AuditLog> AuditLogs { get; }
+
+    DbSet<MediaFile> MediaFiles { get; }
 
     DatabaseFacade Database { get; }
 

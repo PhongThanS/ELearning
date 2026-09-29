@@ -61,7 +61,8 @@ public sealed record QuestionDetailDto(
     string RowVersion,
     QuestionDifficulty? Difficulty,
     IReadOnlyList<string> Tags,
-    bool PartialScoring);
+    bool PartialScoring,
+    IReadOnlyDictionary<string, string>? Media = null);
 
 public sealed record QuestionOptionInput(string? OptionCode, string Content, bool IsCorrect);
 

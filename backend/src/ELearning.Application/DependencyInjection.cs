@@ -5,6 +5,7 @@ using ELearning.Application.Auth;
 using ELearning.Application.Exams;
 using ELearning.Application.Grading;
 using ELearning.Application.Groups;
+using ELearning.Application.Media;
 using ELearning.Application.Monitoring;
 using ELearning.Application.Questions;
 using ELearning.Application.Roles;
@@ -44,6 +45,9 @@ public static class DependencyInjection
         services.AddScoped<IAnswerKeyService, AnswerKeyService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IManualGradingService, ManualGradingService>();
+
+        services.AddSingleton<MediaLinks>();
+        services.AddScoped<IMediaService, MediaService>();
 
         // IMeterFactory do host đăng ký (AddMetrics)
         services.AddSingleton<OperationalMetrics>();

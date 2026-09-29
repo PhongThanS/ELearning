@@ -2,6 +2,7 @@ using ELearning.Application.Attempts;
 using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Media;
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
@@ -33,6 +34,7 @@ internal sealed class AdminAttemptService(
     IAuditService audit,
     ICurrentUser currentUser,
     TimeProvider time,
+    MediaLinks mediaLinks,
     IValidator<ExtendAttemptRequest> extendValidator,
     IValidator<AdminReasonRequest> reasonValidator) : IAdminAttemptService
 {
@@ -152,7 +154,8 @@ internal sealed class AdminAttemptService(
             attempt.StartedAt, attempt.ExpiredAt, attempt.SubmittedAt, attempt.TimeExtensionMinutes,
             attempt.CancelledAt, attempt.CancelReason, attempt.StartedIp, attempt.StartedUserAgent, attempt.SubmittedIp,
             result?.TotalScore, result?.MaxScore, result?.Percentage, result?.CorrectCount, result?.Passed, result?.GradingRevision,
-            answers, events);
+            answers, events,
+            mediaLinks.For(answers.Select(a => a.Content)));
     }
 
     public async Task<Result<AdminAttemptDetailDto>> ExtendAsync(Guid attemptId, ExtendAttemptRequest request, CancellationToken ct)

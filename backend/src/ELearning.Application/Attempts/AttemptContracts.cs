@@ -90,7 +90,8 @@ public sealed record AttemptDto(
     DateTime StartedAt,
     DateTime ExpiredAt,
     DateTime ServerTime,
-    IReadOnlyList<AttemptQuestionDto> Questions);
+    IReadOnlyList<AttemptQuestionDto> Questions,
+    IReadOnlyDictionary<string, string>? Media = null);
 
 public sealed record SaveAnswerItem(
     Guid QuestionId,
@@ -153,7 +154,8 @@ public sealed record StudentResultDto(
     bool ReviewAvailable,
     DateTime? ReviewAvailableAt,
     IReadOnlyList<ReviewQuestionDto>? Questions,
-    bool PendingManualGrading = false);
+    bool PendingManualGrading = false,
+    IReadOnlyDictionary<string, string>? Media = null);
 
 public sealed record StudentHistoryItemDto(
     Guid AttemptId,

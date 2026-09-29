@@ -83,7 +83,8 @@ public sealed record AdminAttemptDetailDto(
     bool? Passed,
     int? GradingRevision,
     IReadOnlyList<AdminAnswerDto> Answers,
-    IReadOnlyList<AdminEventDto> Events);
+    IReadOnlyList<AdminEventDto> Events,
+    IReadOnlyDictionary<string, string>? Media = null);
 
 public sealed record ExtendAttemptRequest(int Minutes, string Reason);
 

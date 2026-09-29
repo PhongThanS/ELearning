@@ -496,4 +496,6 @@ test-results/
 
 # Triển khai
 backups/
+# Ảnh câu hỏi (Media:RootPath, D-27): dữ liệu, không commit
+media/
 deploy/certs/

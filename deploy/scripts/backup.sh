@@ -47,5 +47,9 @@ sqlcmd "RESTORE VERIFYONLY FROM DISK = N'$CONTAINER_DIR/$FILE' WITH CHECKSUM"
 
 # Giữ lại theo chính sách: full 30 ngày, diff / log 7 ngày
 find "$HOST_DIR" -maxdepth 1 -type f -name "${DB}_${TYPE}_*" -mtime +"$KEEP_DAYS" -print -delete
+
+# Ảnh câu hỏi (D-27): chép ảnh mới sau khi backup database, nên bản sao ảnh luôn đủ cho mọi bản backup database.
+# Ảnh không bị xóa nên thư mục media trong backup không áp chính sách giữ lại.
+deploy/scripts/media-sync.sh "${MEDIA_DIR:-./media}" "$HOST_DIR/media"
 echo "[$(date -u +%FT%TZ)] xong: $HOST_DIR/$FILE"
 # Sau bước này, đồng bộ HOST_DIR ra nơi lưu trữ khác (offsite) và mã hóa ở đó (xem docs/09-van-hanh.md mục 6).

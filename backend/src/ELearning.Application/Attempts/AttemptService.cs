@@ -3,6 +3,7 @@ using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Common.Options;
 using ELearning.Application.Exams;
+using ELearning.Application.Media;
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
@@ -46,6 +47,7 @@ internal sealed class AttemptService(
     IAuditService audit,
     ICurrentUser currentUser,
     TimeProvider time,
+    MediaLinks mediaLinks,
     IOptions<ExamOptions> examOptions,
     IValidator<SaveAnswersRequest> saveValidator,
     IValidator<RecordEventsRequest> eventsValidator) : IAttemptService
@@ -391,7 +393,11 @@ internal sealed class AttemptService(
             review is not null,
             visibility.ReviewAvailableAt,
             review,
-            pending);
+            pending,
+            // Chỉ ký ảnh của nội dung đang được trả về: chưa cho xem lại thì không có ảnh giải thích nào (D-27)
+            review is null
+                ? MediaLinks.EmptyMap
+                : mediaLinks.For(review.SelectMany(q => (IEnumerable<string?>)[q.Content, q.Explanation, .. q.Options.Select(o => o.Content)])));
     }
 
     public async Task<PagedResult<StudentHistoryItemDto>> HistoryAsync(Guid userId, StudentHistoryQuery query, CancellationToken ct)
@@ -539,7 +545,8 @@ internal sealed class AttemptService(
 
         return new AttemptDto(
             attempt.Id, attempt.ExamId, examName, attempt.AttemptNumber, attempt.Status, resumed,
-            attempt.StartedAt, attempt.ExpiredAt, Now, questions);
+            attempt.StartedAt, attempt.ExpiredAt, Now, questions,
+            mediaLinks.For(questions.SelectMany(q => (IEnumerable<string?>)[q.Content, .. q.Options.Select(o => o.Content)])));
     }
 
     /// <summary>Kiểm tra dạng câu trả lời theo loại câu (INVALID_OPTION / INVALID_ANSWER_SHAPE / INVALID_NUMBER_FORMAT).</summary>
