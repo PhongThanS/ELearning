@@ -65,6 +65,17 @@ internal sealed class QuestionService(
             questions = questions.Where(q => q.IsActive == isActive);
         }
 
+        if (query.Difficulty is { } difficulty)
+        {
+            questions = questions.Where(q => q.Difficulty == difficulty);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Tag))
+        {
+            var tag = Question.NormalizeTag(query.Tag);
+            questions = questions.Where(q => q.Tags.Any(t => t.Tag == tag));
+        }
+
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
@@ -95,7 +106,9 @@ internal sealed class QuestionService(
                 q.DefaultScore,
                 q.IsActive,
                 q.CreatedAt,
-                q.UpdatedAt))
+                q.UpdatedAt,
+                q.Difficulty,
+                q.Tags.OrderBy(t => t.Tag).Select(t => t.Tag).ToList()))
             .ToListAsync(ct);
 
         return new PagedResult<QuestionListItemDto>(items, query.Page, query.PageSize, total);
@@ -244,7 +257,9 @@ internal sealed class QuestionService(
             input.Explanation,
             input.DefaultScore,
             options,
-            input.AcceptedAnswers?.ToList() ?? []);
+            input.AcceptedAnswers?.ToList() ?? [],
+            input.Difficulty,
+            input.Tags?.ToList() ?? []);
     }
 
     private async Task<Error?> ValidateCategoryAsync(Guid? categoryId, CancellationToken ct) =>
@@ -254,7 +269,7 @@ internal sealed class QuestionService(
 
     private Task<Question?> LoadAsync(Guid id, bool tracking, CancellationToken ct)
     {
-        IQueryable<Question> query = db.Questions.Include(q => q.Options).Include(q => q.AcceptedAnswers);
+        IQueryable<Question> query = db.Questions.Include(q => q.Options).Include(q => q.AcceptedAnswers).Include(q => q.Tags);
         return (tracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(q => q.Id == id, ct);
     }
 
@@ -285,6 +300,8 @@ internal sealed class QuestionService(
             q.AcceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList(),
             q.CreatedAt,
             q.UpdatedAt,
-            q.RowVersion.ToBase64());
+            q.RowVersion.ToBase64(),
+            q.Difficulty,
+            q.Tags.Select(t => t.Tag).Order(StringComparer.Ordinal).ToList());
     }
 }

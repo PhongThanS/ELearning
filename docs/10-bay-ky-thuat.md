@@ -170,6 +170,12 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 - **Publish version mới:** phải lưu (SaveChanges) việc chuyển version cũ sang ARCHIVED trước khi publish version mới, trong cùng transaction. Nếu không, `UX_ExamVersions_OnePublished` bị vi phạm giữa chừng.
 - **Unit test domain không có EF:** `Id` của entity là `Guid.Empty` cho tới khi được Add vào DbContext. Test dùng helper `WithId()` để mô phỏng entity đã lưu.
 
+## 19b. Phát hiện khi làm pool ngẫu nhiên
+
+- **Entity mới có Id gán sẵn bị EF coi là entity đã tồn tại.** `ExamPoolRule` sinh Id trong domain (để câu ứng viên tham chiếu ngay). Với khóa cấu hình "sinh khi thêm", EF thấy khóa đã có giá trị trong collection nên sinh UPDATE → `DbUpdateConcurrencyException` (0 dòng). Cách làm: `Property(x => x.Id).ValueGeneratedNever()` cho entity tự sinh Id.
+- **Thuộc tính tính toán kiểu `IEnumerable<Entity>`** (ví dụ `ExamVersion.FixedQuestions`) bị EF hiểu là navigation và tạo FK bóng `ExamVersionId1`. Phải `Ignore(...)` trong configuration.
+- **Enum mới phải thêm vào `DomainEnums`** của DbContext, nếu không cột thành `int` thay vì `VARCHAR(40)` UPPER_SNAKE_CASE.
+
 ## 20. Quyết định / Giả định
 
 - Mọi mục trong file này là quy tắc bắt buộc. Nếu có lý do để làm khác thì phải ghi lại thành quyết định mới trong `00-muc-luc.md`.

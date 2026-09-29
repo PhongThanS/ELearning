@@ -18,7 +18,9 @@ public sealed record QuestionData(
     string? Explanation,
     decimal DefaultScore,
     IReadOnlyList<OptionData> Options,
-    IReadOnlyList<string> AcceptedAnswers);
+    IReadOnlyList<string> AcceptedAnswers,
+    QuestionDifficulty? Difficulty = null,
+    IReadOnlyList<string>? Tags = null);
 
 public sealed record OptionData(string OptionCode, string Content, bool IsCorrect);
 
@@ -30,8 +32,11 @@ public sealed class Question : Entity, IHasRowVersion
     public const int MaxAcceptedAnswers = 20;
     public const string TrueCode = "TRUE";
     public const string FalseCode = "FALSE";
+    public const int MaxTags = 10;
+    public const int MaxTagLength = 50;
 
     private readonly List<QuestionOption> _options = [];
+    private readonly List<QuestionTag> _tags = [];
     private readonly List<QuestionAcceptedAnswer> _acceptedAnswers = [];
 
     private Question()
@@ -78,6 +83,15 @@ public sealed class Question : Entity, IHasRowVersion
 
     public IReadOnlyCollection<QuestionAcceptedAnswer> AcceptedAnswers => _acceptedAnswers;
 
+    public QuestionDifficulty? Difficulty { get; private set; }
+
+    public IReadOnlyCollection<QuestionTag> Tags => _tags;
+
+    /// <summary>Chuẩn hóa tag: NFC, bỏ khoảng trắng thừa, chữ thường (so khớp không phân biệt hoa thường).</summary>
+    public static string NormalizeTag(string tag) =>
+        string.Join(' ', tag.Normalize(System.Text.NormalizationForm.FormC).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            .ToLowerInvariant();
+
     public static Question Create(string code, QuestionData data, Guid createdBy, DateTime now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
@@ -121,7 +135,9 @@ public sealed class Question : Entity, IHasRowVersion
         Explanation,
         DefaultScore,
         _options.OrderBy(o => o.DisplayOrder).Select(o => new OptionData(o.OptionCode, o.Content, o.IsCorrect)).ToList(),
-        _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList());
+        _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList(),
+        Difficulty,
+        _tags.Select(t => t.Tag).Order(StringComparer.Ordinal).ToList());
 
     /// <summary>
     /// Kiểm tra bất biến của một câu hỏi (lớp phòng thủ thứ hai sau FluentValidation).
@@ -226,6 +242,20 @@ public sealed class Question : Entity, IHasRowVersion
         IgnoreAccent = isText && data.IgnoreAccent;
         Explanation = string.IsNullOrWhiteSpace(data.Explanation) ? null : AnswerNormalizer.CleanContent(data.Explanation);
         DefaultScore = data.DefaultScore;
+        Difficulty = data.Difficulty;
+
+        var tags = (data.Tags ?? []).Select(NormalizeTag).Where(t => t.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+        if (tags.Count > MaxTags || tags.Exists(t => t.Length > MaxTagLength))
+        {
+            throw new DomainException(DomainErrorCodes.InvalidQuestion, $"Tối đa {MaxTags} tag, mỗi tag tối đa {MaxTagLength} ký tự.");
+        }
+
+        // Giữ tag cũ còn dùng, chỉ thêm / bớt phần thay đổi (tránh xóa rồi thêm lại cùng khóa)
+        _tags.RemoveAll(t => !tags.Contains(t.Tag));
+        foreach (var tag in tags.Where(t => !_tags.Exists(x => x.Tag == t)))
+        {
+            _tags.Add(new QuestionTag(tag));
+        }
 
         _options.Clear();
         if (!isFillIn)
@@ -291,4 +321,18 @@ public sealed class QuestionAcceptedAnswer : Entity
     public string AnswerText { get; private set; } = null!;
 
     public int DisplayOrder { get; private set; }
+}
+
+/// <summary>Tag của câu hỏi (đã chuẩn hóa chữ thường), dùng để lọc và lập pool ngẫu nhiên.</summary>
+public sealed class QuestionTag : Entity
+{
+    private QuestionTag()
+    {
+    }
+
+    internal QuestionTag(string tag) => Tag = tag;
+
+    public Guid QuestionId { get; private set; }
+
+    public string Tag { get; private set; } = null!;
 }

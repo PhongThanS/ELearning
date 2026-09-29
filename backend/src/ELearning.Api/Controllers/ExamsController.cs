@@ -117,6 +117,24 @@ public sealed class ExamsController(IExamService exams, IExamVersionService vers
         return result.IsSuccess ? NoContent() : Failure(result);
     }
 
+    [HttpPost("{id:guid}/versions/{versionId:guid}/pool-rules")]
+    [HasPermission(Permissions.ExamUpdate)]
+    [ProducesResponseType<ApiResponse<VersionDetailDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> AddPoolRule(Guid id, Guid versionId, AddPoolRuleRequest request, CancellationToken ct) =>
+        ToResponse(await versions.AddPoolRuleAsync(id, versionId, request, ct));
+
+    [HttpPost("{id:guid}/versions/{versionId:guid}/pool-rules/{poolRuleId:guid}/refresh")]
+    [HasPermission(Permissions.ExamUpdate)]
+    [ProducesResponseType<ApiResponse<VersionDetailDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> RefreshPoolRule(Guid id, Guid versionId, Guid poolRuleId, CancellationToken ct) =>
+        ToResponse(await versions.RefreshPoolRuleAsync(id, versionId, poolRuleId, ct));
+
+    [HttpDelete("{id:guid}/versions/{versionId:guid}/pool-rules/{poolRuleId:guid}")]
+    [HasPermission(Permissions.ExamUpdate)]
+    [ProducesResponseType<ApiResponse<VersionDetailDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> RemovePoolRule(Guid id, Guid versionId, Guid poolRuleId, CancellationToken ct) =>
+        ToResponse(await versions.RemovePoolRuleAsync(id, versionId, poolRuleId, ct));
+
     [HttpGet("{id:guid}/versions/{versionId:guid}/preview")]
     [HasPermission(Permissions.ExamView)]
     [ProducesResponseType<ApiResponse<ExamPreviewDto>>(StatusCodes.Status200OK)]

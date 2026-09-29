@@ -110,13 +110,6 @@ Mỗi câu `FILL_IN` + `TEXT` có từ 1 đến 20 đáp án chấp nhận (bả
 
 ## 4. Đề thi và version
 
-### 4.4 Xáo câu hỏi / đáp án (sau MVP, đã làm)
-
-- Cấu hình theo **version** (`ShuffleQuestions`, `ShuffleOptions`), sửa được khi version còn DRAFT như các cấu hình khác.
-- Thứ tự được **chốt lúc bắt đầu lượt thi** vào `AttemptQuestions.QuestionOrder` / `OptionOrder` (ví dụ `C,A,D,B`). Tải lại trang, thi tiếp trên máy khác hay xem lại bài đều thấy đúng thứ tự đó. Mỗi lượt thi có thứ tự riêng.
-- Chỉ xáo đáp án của câu chọn một / chọn nhiều. Câu Đúng / Sai giữ thứ tự Đúng → Sai; câu điền không có lựa chọn.
-- Học viên luôn thấy nhãn **theo vị trí trên màn hình** (A, B, C…); client vẫn gửi **mã gốc** của lựa chọn nên chấm điểm, sửa đáp án và thống kê không phụ thuộc thứ tự. Màn hình admin hiển thị mã gốc.
-
 ### 4.1 Phân chia trường (D-03)
 
 | Nằm ở `Exams` (sửa được sau publish, có audit) | Nằm ở `ExamVersions` (bất biến sau publish) |
@@ -124,7 +117,7 @@ Mỗi câu `FILL_IN` + `TEXT` có từ 1 đến 20 đáp án chấp nhận (bả
 | `Code`, `Name`, `Description`, `Instructions` | `DurationMinutes` |
 | `StartAt`, `EndAt` | `PassPercentage` |
 | `MaxAttempts` | `ScoreVisibility`, `ReviewPolicy` |
-| `AccessMode`, danh sách gán đề | `ShuffleQuestions`, `ShuffleOptions` (mặc định `false`, xem mục 4.4) |
+| `AccessMode`, danh sách gán đề | `ShuffleQuestions`, `ShuffleOptions` (mặc định `false`, xem mục 4.7) |
 | `RetakeScoringPolicy` (khóa khi đã có lượt thi) | Danh sách câu hỏi và điểm |
 
 ### 4.2 Trạng thái đề thi (D-04)
@@ -200,6 +193,25 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
   - Lượt đang làm tiếp tục tới `ExpiredAt` của chúng.
   - Nếu `forceSubmitInProgress = true`: mọi lượt `IN_PROGRESS` được nộp ngay với trạng thái `AUTO_SUBMITTED` và `SubmitReason = FORCED_BY_ADMIN`.
 - `POST /api/exams/{id}/reopen`: `CLOSED → PUBLISHED`, dùng lại version PUBLISHED hiện có.
+
+### 4.7 Xáo câu hỏi / đáp án (sau MVP, đã làm)
+
+- Cấu hình theo **version** (`ShuffleQuestions`, `ShuffleOptions`), sửa được khi version còn DRAFT như các cấu hình khác.
+- Thứ tự được **chốt lúc bắt đầu lượt thi** vào `AttemptQuestions.QuestionOrder` / `OptionOrder` (ví dụ `C,A,D,B`). Tải lại trang, thi tiếp trên máy khác hay xem lại bài đều thấy đúng thứ tự đó. Mỗi lượt thi có thứ tự riêng.
+- Chỉ xáo đáp án của câu chọn một / chọn nhiều. Câu Đúng / Sai giữ thứ tự Đúng → Sai; câu điền không có lựa chọn.
+- Học viên luôn thấy nhãn **theo vị trí trên màn hình** (A, B, C…); client vẫn gửi **mã gốc** của lựa chọn nên chấm điểm, sửa đáp án và thống kê không phụ thuộc thứ tự. Màn hình admin hiển thị mã gốc.
+
+### 4.8 Pool câu hỏi ngẫu nhiên (sau MVP, đã làm)
+
+- Câu hỏi có thêm **độ khó** (`EASY` / `MEDIUM` / `HARD`, có thể để trống) và tối đa 10 **tag** (chuẩn hóa chữ thường, tối đa 50 ký tự). Ngân hàng lọc được theo độ khó và tag; import Excel có cột `Độ khó`, `Tag`.
+- Một version gồm **câu cố định** (lượt thi nào cũng có) và các **quy tắc pool** (`ExamPoolRules`): tiêu chí danh mục / độ khó / tag / loại câu (để trống = không lọc), `DrawCount` câu bốc mỗi lượt, `ScorePerQuestion`.
+- **Giữ D-01:** khi thêm quy tắc (hoặc bấm "Làm mới"), các câu **đang hoạt động** khớp tiêu chí được **snapshot** vào `ExamQuestions` với `PoolRuleId` (câu ứng viên). Chấm điểm, sửa đáp án, hủy câu, thống kê vẫn chỉ đọc snapshot.
+- Câu đã có trong version (cố định hoặc thuộc quy tắc khác) bị loại khỏi ứng viên → một lượt thi không gặp trùng câu. Tối đa **500** câu ứng viên mỗi quy tắc; vượt thì báo `POOL_TOO_LARGE` để admin lọc thêm.
+- Chỉ sửa được khi version là DRAFT. Câu ứng viên không sửa điểm / xóa riêng lẻ (điểm theo quy tắc); đồng bộ nội dung vẫn dùng được.
+- **Publish:** mỗi quy tắc phải có số câu ứng viên ≥ `DrawCount` (`POOL_TOO_SMALL`). `QuestionCount` = số câu cố định + Σ `DrawCount`; `MaxScore` = điểm câu cố định + Σ `DrawCount × ScorePerQuestion`. Mọi lượt thi có cùng số câu và cùng điểm tối đa.
+- **Bắt đầu lượt thi:** câu cố định theo thứ tự trong đề, sau đó mỗi quy tắc (theo thứ tự quy tắc) bốc ngẫu nhiên `DrawCount` câu; rồi áp dụng xáo (mục 4.7) nếu bật. Bộ câu được chốt vào `AttemptQuestions`.
+- **Xem trước:** bốc thử một bộ; bản nháp có pool thiếu câu thì bốc hết số đang có (không báo lỗi).
+- Clone đề / tạo version mới sao chép cả quy tắc lẫn câu ứng viên.
 
 ## 5. Quyền dự thi (D-10)
 

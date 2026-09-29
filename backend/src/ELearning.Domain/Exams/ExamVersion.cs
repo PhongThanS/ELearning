@@ -27,6 +27,7 @@ public sealed class ExamVersion : Entity, IHasRowVersion
     public const int MaxQuestions = 500;
 
     private readonly List<ExamQuestion> _questions = [];
+    private readonly List<ExamPoolRule> _poolRules = [];
 
     private ExamVersion()
     {
@@ -68,6 +69,41 @@ public sealed class ExamVersion : Entity, IHasRowVersion
 
     public IReadOnlyCollection<ExamQuestion> Questions => _questions;
 
+    public IReadOnlyCollection<ExamPoolRule> PoolRules => _poolRules;
+
+    /// <summary>Câu cố định: lượt thi nào cũng có.</summary>
+    public IEnumerable<ExamQuestion> FixedQuestions => _questions.Where(q => q.PoolRuleId is null);
+
+    /// <summary>Số câu mỗi lượt thi: câu cố định + số câu bốc của mọi quy tắc pool.</summary>
+    public int EffectiveQuestionCount => FixedQuestions.Count() + _poolRules.Sum(r => r.DrawCount);
+
+    public decimal EffectiveMaxScore => FixedQuestions.Sum(q => q.Score) + _poolRules.Sum(r => r.DrawCount * r.ScorePerQuestion);
+
+    public IEnumerable<ExamQuestion> PoolCandidates(Guid poolRuleId) => _questions.Where(q => q.PoolRuleId == poolRuleId);
+
+    /// <summary>
+    /// Bộ câu cho một lượt thi: câu cố định theo thứ tự trong đề, sau đó với mỗi quy tắc pool (theo thứ tự
+    /// quy tắc) bốc ngẫu nhiên DrawCount câu trong các câu ứng viên đã snapshot.
+    /// </summary>
+    /// <param name="allowPartial">Xem trước bản nháp: pool thiếu câu thì bốc hết số đang có thay vì báo lỗi.</param>
+    public IReadOnlyList<ExamQuestion> DrawQuestions(Random random, bool allowPartial = false)
+    {
+        var selected = FixedQuestions.OrderBy(q => q.QuestionOrder).ToList();
+        foreach (var rule in _poolRules.OrderBy(r => r.RuleOrder))
+        {
+            var candidates = PoolCandidates(rule.Id).OrderBy(q => q.QuestionOrder).ToArray();
+            if (candidates.Length < rule.DrawCount && !allowPartial)
+            {
+                throw new DomainException(DomainErrorCodes.InvalidExam, $"Quy tắc pool {rule.RuleOrder} không đủ câu ứng viên.");
+            }
+
+            random.Shuffle(candidates);
+            selected.AddRange(candidates.Take(rule.DrawCount));
+        }
+
+        return selected;
+    }
+
     public bool IsDraft => Status == ExamVersionStatus.Draft;
 
     public VersionSettings Settings => new(DurationMinutes, PassPercentage, ScoreVisibility, ReviewPolicy, ShuffleQuestions, ShuffleOptions);
@@ -105,26 +141,46 @@ public sealed class ExamVersion : Entity, IHasRowVersion
 
     private void CopyQuestionsFrom(ExamVersion source, DateTime now)
     {
+        _poolRules.Clear();
+        var ruleMap = new Dictionary<Guid, Guid>();
+        foreach (var rule in source._poolRules.OrderBy(r => r.RuleOrder))
+        {
+            var copy = rule.CopyTo(Id);
+            ruleMap[rule.Id] = copy.Id;
+            _poolRules.Add(copy);
+        }
+
         foreach (var question in source._questions.OrderBy(q => q.QuestionOrder))
         {
-            _questions.Add(question.CopyTo(Id, _questions.Count + 1, now));
+            var poolRuleId = question.PoolRuleId is { } oldRule ? ruleMap[oldRule] : (Guid?)null;
+            _questions.Add(question.CopyTo(Id, _questions.Count + 1, now, poolRuleId));
         }
     }
 
-    /// <summary>Đặt lại thứ tự theo danh sách Id đầy đủ (phải chứa đúng mọi câu của version).</summary>
+    /// <summary>
+    /// Đặt lại thứ tự theo danh sách Id đầy đủ của câu cố định. Câu ứng viên pool không có thứ tự
+    /// hiển thị riêng nên được xếp sau, giữ nguyên thứ tự tương đối.
+    /// </summary>
     public void Reorder(IReadOnlyList<Guid> examQuestionIds)
     {
         EnsureDraft();
-        if (examQuestionIds.Count != _questions.Count
-            || examQuestionIds.Distinct().Count() != _questions.Count
-            || !examQuestionIds.All(id => _questions.Exists(q => q.Id == id)))
+        var fixedQuestions = FixedQuestions.ToList();
+        if (examQuestionIds.Count != fixedQuestions.Count
+            || examQuestionIds.Distinct().Count() != fixedQuestions.Count
+            || !examQuestionIds.All(id => fixedQuestions.Exists(q => q.Id == id)))
         {
-            throw new DomainException(DomainErrorCodes.InvalidExam, "Danh sách sắp xếp phải chứa đúng và đủ các câu hỏi của phiên bản.");
+            throw new DomainException(DomainErrorCodes.InvalidExam, "Danh sách sắp xếp phải chứa đúng và đủ các câu hỏi cố định của phiên bản.");
         }
 
         for (var i = 0; i < examQuestionIds.Count; i++)
         {
             _questions.Find(q => q.Id == examQuestionIds[i])!.SetOrder(i + 1);
+        }
+
+        var order = examQuestionIds.Count;
+        foreach (var candidate in _questions.Where(q => q.PoolRuleId is not null).OrderBy(q => q.QuestionOrder).ToList())
+        {
+            candidate.SetOrder(++order);
         }
     }
 
@@ -150,7 +206,7 @@ public sealed class ExamVersion : Entity, IHasRowVersion
             return null;
         }
 
-        if (_questions.Count >= MaxQuestions)
+        if (EffectiveQuestionCount >= MaxQuestions)
         {
             throw new DomainException(DomainErrorCodes.InvalidExam, $"Mỗi đề tối đa {MaxQuestions} câu hỏi.");
         }
@@ -164,15 +220,84 @@ public sealed class ExamVersion : Entity, IHasRowVersion
     public bool RemoveQuestion(Guid examQuestionId)
     {
         EnsureDraft();
+        EnsureNotPoolCandidate(examQuestionId);
         return _questions.RemoveAll(q => q.Id == examQuestionId) > 0;
     }
 
     public void SetQuestionScore(Guid examQuestionId, decimal score)
     {
         EnsureDraft();
+        EnsureNotPoolCandidate(examQuestionId);
         var question = _questions.Find(q => q.Id == examQuestionId)
             ?? throw new DomainException(DomainErrorCodes.InvalidExam, "Câu hỏi không thuộc phiên bản này.");
         question.SetScore(score);
+    }
+
+    /// <summary>
+    /// Thêm quy tắc pool và snapshot câu ứng viên (D-01, D-02). Câu đã có trong version (cố định hoặc thuộc
+    /// quy tắc khác) bị loại để một lượt thi không gặp trùng câu.
+    /// </summary>
+    public ExamPoolRule AddPoolRule(PoolRuleCriteria criteria, int drawCount, decimal scorePerQuestion, IReadOnlyList<Question> candidates, DateTime now)
+    {
+        EnsureDraft();
+        if (EffectiveQuestionCount + drawCount > MaxQuestions)
+        {
+            throw new DomainException(DomainErrorCodes.InvalidExam, $"Mỗi đề tối đa {MaxQuestions} câu hỏi.");
+        }
+
+        var order = _poolRules.Count == 0 ? 1 : _poolRules.Max(r => r.RuleOrder) + 1;
+        var rule = new ExamPoolRule(Id, order, criteria, drawCount, scorePerQuestion);
+        _poolRules.Add(rule);
+        SnapshotCandidates(rule, candidates, now);
+        return rule;
+    }
+
+    /// <summary>Snapshot lại câu ứng viên theo ngân hàng hiện tại (câu mới thêm / đã sửa / đã tắt).</summary>
+    public void RefreshPoolRule(Guid poolRuleId, IReadOnlyList<Question> candidates, DateTime now)
+    {
+        EnsureDraft();
+        var rule = FindPoolRule(poolRuleId);
+        _questions.RemoveAll(q => q.PoolRuleId == rule.Id);
+        SnapshotCandidates(rule, candidates, now);
+    }
+
+    public void RemovePoolRule(Guid poolRuleId)
+    {
+        EnsureDraft();
+        var rule = FindPoolRule(poolRuleId);
+        _questions.RemoveAll(q => q.PoolRuleId == rule.Id);
+        _poolRules.Remove(rule);
+    }
+
+    private ExamPoolRule FindPoolRule(Guid poolRuleId) =>
+        _poolRules.Find(r => r.Id == poolRuleId)
+            ?? throw new DomainException(DomainErrorCodes.InvalidExam, "Quy tắc pool không thuộc phiên bản này.");
+
+    private void SnapshotCandidates(ExamPoolRule rule, IReadOnlyList<Question> candidates, DateTime now)
+    {
+        var fresh = candidates.Where(c => !_questions.Exists(q => q.SourceQuestionId == c.Id)).ToList();
+        if (fresh.Count > ExamPoolRule.MaxCandidates)
+        {
+            throw new DomainException(
+                DomainErrorCodes.InvalidExam,
+                $"Quy tắc khớp {fresh.Count} câu, vượt quá {ExamPoolRule.MaxCandidates}. Hãy lọc thêm theo độ khó, tag hoặc loại câu.");
+        }
+
+        var order = _questions.Count == 0 ? 0 : _questions.Max(q => q.QuestionOrder);
+        foreach (var source in fresh)
+        {
+            var question = ExamQuestion.Snapshot(Id, source, ++order, rule.ScorePerQuestion, now);
+            question.AssignToPool(rule.Id);
+            _questions.Add(question);
+        }
+    }
+
+    private void EnsureNotPoolCandidate(Guid examQuestionId)
+    {
+        if (_questions.Exists(q => q.Id == examQuestionId && q.PoolRuleId is not null))
+        {
+            throw new DomainException(DomainErrorCodes.InvalidExam, "Câu thuộc pool ngẫu nhiên được quản lý qua quy tắc pool.");
+        }
     }
 
     /// <summary>Đồng bộ lại nội dung từ ngân hàng (D-02); điểm trong đề được giữ nguyên.</summary>
@@ -206,13 +331,25 @@ public sealed class ExamVersion : Entity, IHasRowVersion
             issues.Add(new PublishIssue("DURATION_INVALID", $"Thời lượng phải từ {MinDuration} đến {MaxDuration} phút.", "durationMinutes"));
         }
 
-        if (_questions.Count == 0)
+        if (EffectiveQuestionCount == 0)
         {
             issues.Add(new PublishIssue("NO_QUESTIONS", "Đề thi chưa có câu hỏi.", "questions"));
         }
-        else if (_questions.Count > MaxQuestions)
+        else if (EffectiveQuestionCount > MaxQuestions)
         {
             issues.Add(new PublishIssue("TOO_MANY_QUESTIONS", $"Mỗi đề tối đa {MaxQuestions} câu hỏi.", "questions"));
+        }
+
+        foreach (var rule in _poolRules.OrderBy(r => r.RuleOrder))
+        {
+            var available = PoolCandidates(rule.Id).Count();
+            if (available < rule.DrawCount)
+            {
+                issues.Add(new PublishIssue(
+                    "POOL_TOO_SMALL",
+                    $"Quy tắc pool {rule.RuleOrder} cần bốc {rule.DrawCount} câu nhưng chỉ có {available} câu ứng viên.",
+                    $"poolRules[{rule.Id}]"));
+            }
         }
 
         foreach (var question in _questions.OrderBy(q => q.QuestionOrder))
@@ -223,7 +360,7 @@ public sealed class ExamVersion : Entity, IHasRowVersion
             }
         }
 
-        if (_questions.Sum(q => q.Score) <= 0 && _questions.Count > 0)
+        if (EffectiveMaxScore <= 0 && EffectiveQuestionCount > 0)
         {
             issues.Add(new PublishIssue("MAX_SCORE_ZERO", "Tổng điểm của đề phải lớn hơn 0.", "questions"));
         }
@@ -269,8 +406,8 @@ public sealed class ExamVersion : Entity, IHasRowVersion
     {
         EnsureDraft();
         Status = ExamVersionStatus.Published;
-        QuestionCount = _questions.Count;
-        MaxScore = _questions.Sum(q => q.Score);
+        QuestionCount = EffectiveQuestionCount;
+        MaxScore = EffectiveMaxScore;
         PublishedAt = now;
         PublishedBy = publishedBy;
     }

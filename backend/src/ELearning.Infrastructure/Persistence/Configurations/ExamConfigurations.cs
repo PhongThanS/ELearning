@@ -45,6 +45,7 @@ internal sealed class ExamVersionConfiguration : IEntityTypeConfiguration<ExamVe
     {
         builder.ConfigureEntity("ExamVersions");
         builder.Property(v => v.PassPercentage).HasColumnType(ConfigurationExtensions.SqlPercentage);
+        builder.Ignore(v => v.FixedQuestions);
 
         builder.HasIndex(v => new { v.ExamId, v.VersionNumber }).IsUnique().HasDatabaseName("UQ_ExamVersions_Number");
 
@@ -58,6 +59,8 @@ internal sealed class ExamVersionConfiguration : IEntityTypeConfiguration<ExamVe
 
         builder.HasMany(v => v.Questions).WithOne().HasForeignKey(q => q.ExamVersionId)
             .HasConstraintName("FK_ExamQuestions_Version").OnDelete(DeleteBehavior.ClientCascade);
+        builder.HasMany(v => v.PoolRules).WithOne().HasForeignKey(r => r.ExamVersionId)
+            .HasConstraintName("FK_ExamPoolRules_Version").OnDelete(DeleteBehavior.ClientCascade);
 
         builder.ToTable(t =>
         {
@@ -88,6 +91,9 @@ internal sealed class ExamQuestionConfiguration : IEntityTypeConfiguration<ExamQ
 
         builder.HasOne<Question>().WithMany().HasForeignKey(q => q.SourceQuestionId)
             .HasConstraintName("FK_ExamQuestions_SourceQuestion");
+        builder.HasOne<ExamPoolRule>().WithMany().HasForeignKey(q => q.PoolRuleId)
+            .HasConstraintName("FK_ExamQuestions_PoolRule");
+        builder.HasIndex(q => q.PoolRuleId).HasFilter("[PoolRuleId] IS NOT NULL").HasDatabaseName("IX_ExamQuestions_PoolRule");
         builder.HasUserReference(q => q.VoidedBy, "FK_ExamQuestions_VoidedBy");
 
         builder.HasMany(q => q.Options).WithOne().HasForeignKey(o => o.ExamQuestionId)
@@ -101,6 +107,28 @@ internal sealed class ExamQuestionConfiguration : IEntityTypeConfiguration<ExamQ
             t.HasEnumCheck<QuestionType>("CK_ExamQuestions_Type", "QuestionType");
             t.HasEnumCheck<AnswerDataType>("CK_ExamQuestions_AnswerDataType", "AnswerDataType");
             t.HasCheckConstraint("CK_ExamQuestions_Score", "[Score] > 0");
+        });
+    }
+}
+
+internal sealed class ExamPoolRuleConfiguration : IEntityTypeConfiguration<ExamPoolRule>
+{
+    public void Configure(EntityTypeBuilder<ExamPoolRule> builder)
+    {
+        builder.ConfigureEntity("ExamPoolRules");
+        // Id do domain sinh sẵn (câu ứng viên cần tham chiếu ngay): không để EF coi entity mới là entity đã tồn tại
+        builder.Property(r => r.Id).ValueGeneratedNever();
+        builder.Property(r => r.Tag).HasMaxLength(Question.MaxTagLength);
+        builder.HasIndex(r => new { r.ExamVersionId, r.RuleOrder }).IsUnique().HasDatabaseName("UQ_ExamPoolRules_Order");
+        builder.HasOne<QuestionCategory>().WithMany().HasForeignKey(r => r.CategoryId)
+            .HasConstraintName("FK_ExamPoolRules_Category");
+
+        builder.ToTable(t =>
+        {
+            t.HasEnumCheck<QuestionDifficulty>("CK_ExamPoolRules_Difficulty", "Difficulty");
+            t.HasEnumCheck<QuestionType>("CK_ExamPoolRules_Type", "QuestionType");
+            t.HasCheckConstraint("CK_ExamPoolRules_DrawCount", "[DrawCount] BETWEEN 1 AND 500");
+            t.HasCheckConstraint("CK_ExamPoolRules_Score", "[ScorePerQuestion] > 0");
         });
     }
 }

@@ -22,6 +22,9 @@ public sealed class ExamQuestion : Entity
     /// <summary>Chỉ để tham chiếu / đồng bộ, không dùng khi chấm.</summary>
     public Guid? SourceQuestionId { get; private set; }
 
+    /// <summary>Khác null: câu ứng viên của một quy tắc pool, chỉ xuất hiện khi được bốc trúng.</summary>
+    public Guid? PoolRuleId { get; private set; }
+
     public byte[]? SourceRowVersion { get; private set; }
 
     public DateTime CopiedAt { get; private set; }
@@ -82,12 +85,13 @@ public sealed class ExamQuestion : Entity
         _options.OrderBy(o => o.DisplayOrder).Select(o => new OptionData(o.OptionCode, o.Content, o.IsCorrect)).ToList(),
         _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList());
 
-    internal ExamQuestion CopyTo(Guid versionId, int order, DateTime now)
+    internal ExamQuestion CopyTo(Guid versionId, int order, DateTime now, Guid? poolRuleId = null)
     {
         var copy = new ExamQuestion
         {
             ExamVersionId = versionId,
             SourceQuestionId = SourceQuestionId,
+            PoolRuleId = poolRuleId,
             SourceRowVersion = SourceRowVersion,
             CopiedAt = now,
             QuestionOrder = order,
@@ -108,6 +112,8 @@ public sealed class ExamQuestion : Entity
     }
 
     internal void SetOrder(int order) => QuestionOrder = order;
+
+    internal void AssignToPool(Guid poolRuleId) => PoolRuleId = poolRuleId;
 
     /// <summary>
     /// Sửa đáp án trên version đã publish (D-11) — ngoại lệ có kiểm soát duy nhất với tính bất biến.

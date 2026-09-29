@@ -87,6 +87,11 @@
       "TRUE_FALSE": "Đúng / Sai",
       "FILL_IN": "Điền đáp án"
     },
+    "difficulty": {
+      "EASY": "Dễ",
+      "MEDIUM": "Trung bình",
+      "HARD": "Khó"
+    },
     "answerDataType": {
       "TEXT": "Chữ",
       "NUMBER": "Số"

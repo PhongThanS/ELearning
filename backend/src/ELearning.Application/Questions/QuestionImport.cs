@@ -27,6 +27,8 @@ public static class QuestionImportColumns
     public const string CaseSensitive = "Phân biệt hoa thường";
     public const string IgnoreAccent = "Bỏ qua dấu";
     public const string Explanation = "Giải thích";
+    public const string Difficulty = "Độ khó";
+    public const string Tags = "Tag";
 
     /// <summary>Số câu tối đa mỗi lần import.</summary>
     public const int MaxRows = 1000;
@@ -39,6 +41,7 @@ public static class QuestionImportColumns
         Code, Category, Type, Format, Content, Score,
         .. OptionCodes.Take(6).Select(c => OptionPrefix + c),
         Correct, AnswerDataType, AcceptedAnswers, CorrectNumber, Tolerance, CaseSensitive, IgnoreAccent, Explanation,
+        Difficulty, Tags,
     ];
 
     public static string Normalize(string header) =>
@@ -122,6 +125,9 @@ internal static class QuestionImportMapper
             QuestionType = type.Value,
             DefaultScore = score,
             Explanation = Get(QuestionImportColumns.Explanation),
+            Difficulty = ParseDifficulty(Get(QuestionImportColumns.Difficulty), issues),
+            Tags = (Get(QuestionImportColumns.Tags) ?? string.Empty)
+                .Split([',', ';', '|', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
             CaseSensitive = ParseBool(Get(QuestionImportColumns.CaseSensitive), QuestionImportColumns.CaseSensitive, issues),
             IgnoreAccent = ParseBool(Get(QuestionImportColumns.IgnoreAccent), QuestionImportColumns.IgnoreAccent, issues),
         };
@@ -251,6 +257,24 @@ internal static class QuestionImportMapper
         }
 
         return input with { AnswerDataType = AnswerDataType.Number, CorrectAnswerNumber = number, NumericTolerance = tolerance };
+    }
+
+    private static QuestionDifficulty? ParseDifficulty(string? text, List<QuestionImportIssue> issues)
+    {
+        switch (Compact(text))
+        {
+            case null:
+                return null;
+            case "EASY" or "DỄ":
+                return QuestionDifficulty.Easy;
+            case "MEDIUM" or "TRUNGBÌNH" or "VỪA":
+                return QuestionDifficulty.Medium;
+            case "HARD" or "KHÓ":
+                return QuestionDifficulty.Hard;
+            default:
+                issues.Add(new(QuestionImportColumns.Difficulty, "DIFFICULTY_INVALID", "Độ khó phải là Dễ, Trung bình hoặc Khó (EASY / MEDIUM / HARD)."));
+                return null;
+        }
     }
 
     private static bool ParseBool(string? text, string column, List<QuestionImportIssue> issues)

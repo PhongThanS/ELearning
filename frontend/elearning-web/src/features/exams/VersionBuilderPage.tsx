@@ -17,6 +17,7 @@ import { QuestionCard } from "../attempts/ExamPlayerPage";
 import { QuestionFilters } from "../questions/QuestionPages";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { VersionSettingsFields } from "./ExamPages";
+import { PoolRulesCard } from "./PoolRulesCard";
 import type { PublishValidation, VersionDetail, VersionQuestion } from "../../types/api";
 
 /** Dựng phiên bản đề (docs/06-frontend.md mục 3.3). Version đã publish chỉ đọc, trừ sửa đáp án / hủy câu (D-11). */
@@ -73,6 +74,7 @@ export function VersionBuilderPage() {
               </Col>
             )}
             <Col xl={canEdit ? 7 : 12}>
+              <PoolRulesCard examId={id} version={v} canEdit={canEdit} change={change} />
               <SelectedQuestions examId={id} version={v} canEdit={canEdit} change={change} />
             </Col>
           </Row>
@@ -158,7 +160,9 @@ function SelectedQuestions({
 }) {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
-  const questions = [...version.questions].sort((a, b) => a.order - b.order);
+  const draft = version.status === "DRAFT";
+  const questions = [...version.questions].filter((q) => !draft || q.poolRuleId === null).sort((a, b) => a.order - b.order);
+  const ruleOrder = new Map(version.poolRules.map((r) => [r.id, r.order]));
   const [keyEditing, setKeyEditing] = useState<VersionQuestion | null>(null);
   const [voiding, setVoiding] = useState<VersionQuestion | null>(null);
   const changedCount = questions.filter((q) => q.sourceChanged).length;
@@ -186,7 +190,8 @@ function SelectedQuestions({
               <div className="small">
                 <strong>Câu {index + 1}</strong> <Badge bg="light" text="dark">{t(`enums.questionType.${q.questionType}`)}</Badge>{" "}
                 {q.sourceCode && <code>{q.sourceCode}</code>} {q.sourceChanged && <Badge bg="warning" text="dark">Câu gốc đã thay đổi</Badge>}{" "}
-                {q.isVoided && <Badge bg="dark">Đã hủy</Badge>}
+                {q.isVoided && <Badge bg="dark">Đã hủy</Badge>}{" "}
+                {q.poolRuleId && <Badge bg="info-subtle" text="dark">Pool {ruleOrder.get(q.poolRuleId)}</Badge>}
               </div>
               <div className="d-flex gap-1 align-items-center">
                 {canEdit ? (

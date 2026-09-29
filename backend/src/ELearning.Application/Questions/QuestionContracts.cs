@@ -15,6 +15,10 @@ public sealed record QuestionListQuery : PageRequest
     public string? Keyword { get; init; }
 
     public bool? IsActive { get; init; }
+
+    public QuestionDifficulty? Difficulty { get; init; }
+
+    public string? Tag { get; init; }
 }
 
 public sealed record QuestionListItemDto(
@@ -28,7 +32,9 @@ public sealed record QuestionListItemDto(
     decimal DefaultScore,
     bool IsActive,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    QuestionDifficulty? Difficulty = null,
+    IReadOnlyList<string>? Tags = null);
 
 public sealed record QuestionOptionDto(Guid Id, string OptionCode, string Content, bool IsCorrect, int DisplayOrder);
 
@@ -52,7 +58,9 @@ public sealed record QuestionDetailDto(
     IReadOnlyList<string> AcceptedAnswers,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    string RowVersion);
+    string RowVersion,
+    QuestionDifficulty? Difficulty,
+    IReadOnlyList<string> Tags);
 
 public sealed record QuestionOptionInput(string? OptionCode, string Content, bool IsCorrect);
 
@@ -87,6 +95,11 @@ public record QuestionInput
     public bool CaseSensitive { get; init; }
 
     public bool IgnoreAccent { get; init; }
+
+    public QuestionDifficulty? Difficulty { get; init; }
+
+    /// <summary>Tối đa 10 tag, mỗi tag tối đa 50 ký tự; lưu dạng chữ thường.</summary>
+    public IReadOnlyList<string>? Tags { get; init; }
 }
 
 public sealed record UpdateQuestionRequest : QuestionInput
@@ -116,6 +129,12 @@ internal class QuestionInputValidator<T> : AbstractValidator<T>
         RuleFor(q => q.ContentFormat).IsInEnum();
         RuleFor(q => q.QuestionType).IsInEnum().WithErrorCode("QUESTION_TYPE_INVALID").WithMessage("Loại câu hỏi không hợp lệ.");
         RuleFor(q => q.Explanation).MaximumLength(MaxContentLength);
+        RuleFor(q => q.Difficulty).IsInEnum().When(q => q.Difficulty is not null)
+            .WithErrorCode("DIFFICULTY_INVALID").WithMessage("Độ khó phải là EASY, MEDIUM hoặc HARD.");
+        RuleFor(q => q.Tags).Must(t => t is null || t.Count(x => !string.IsNullOrWhiteSpace(x)) <= Question.MaxTags)
+            .WithErrorCode("TAGS_TOO_MANY").WithMessage($"Tối đa {Question.MaxTags} tag.");
+        RuleForEach(q => q.Tags).Must(t => t is null || t.Trim().Length <= Question.MaxTagLength)
+            .WithErrorCode("TAG_TOO_LONG").WithMessage($"Mỗi tag tối đa {Question.MaxTagLength} ký tự.");
         RuleFor(q => q.DefaultScore).InclusiveBetween(0.25m, 100m).WithErrorCode("SCORE_OUT_OF_RANGE")
             .WithMessage("Điểm phải từ 0,25 đến 100.")
             .Must(s => s * 4 % 1 == 0).WithErrorCode("SCORE_STEP_INVALID").WithMessage("Điểm phải là bội số của 0,25.");

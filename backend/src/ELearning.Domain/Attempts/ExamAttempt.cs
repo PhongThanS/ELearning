@@ -99,7 +99,7 @@ public sealed class ExamAttempt : Entity, IHasRowVersion
 
         // Xáo (nếu bật) được chốt vào AttemptQuestions lúc bắt đầu: tải lại trang vẫn giữ nguyên thứ tự
         random ??= Random.Shared;
-        var questions = version.Questions.OrderBy(q => q.QuestionOrder).ToArray();
+        var questions = version.DrawQuestions(random).ToArray();
         if (version.ShuffleQuestions)
         {
             random.Shuffle(questions);

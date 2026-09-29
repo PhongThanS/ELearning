@@ -126,6 +126,7 @@ export interface Permission {
 
 export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "FILL_IN";
 export type AnswerDataType = "TEXT" | "NUMBER";
+export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
 export type ContentFormat = "PLAIN" | "MARKDOWN";
 
 export interface Category {
@@ -151,6 +152,8 @@ export interface QuestionListItem {
   isActive: boolean;
   createdAt: string;
   updatedAt: string | null;
+  difficulty: QuestionDifficulty | null;
+  tags: string[];
 }
 
 export interface QuestionOption {
@@ -182,10 +185,14 @@ export interface QuestionDetail {
   createdAt: string;
   updatedAt: string | null;
   rowVersion: string;
+  difficulty: QuestionDifficulty | null;
+  tags: string[];
 }
 
 export interface QuestionInput {
   categoryId: string | null;
+  difficulty: QuestionDifficulty | null;
+  tags: string[];
   code?: string | null;
   content: string;
   contentFormat: ContentFormat;
@@ -287,6 +294,31 @@ export interface VersionQuestion {
   caseSensitive: boolean;
   ignoreAccent: boolean;
   explanation: string | null;
+  /** Khác null: câu ứng viên của quy tắc pool ngẫu nhiên. */
+  poolRuleId: string | null;
+}
+
+/** Quy tắc pool ngẫu nhiên: mỗi lượt thi bốc drawCount câu trong candidateCount câu ứng viên. */
+export interface PoolRule {
+  id: string;
+  order: number;
+  categoryId: string | null;
+  categoryName: string | null;
+  difficulty: QuestionDifficulty | null;
+  tag: string | null;
+  questionType: QuestionType | null;
+  drawCount: number;
+  scorePerQuestion: number;
+  candidateCount: number;
+}
+
+export interface PoolRuleInput {
+  categoryId: string | null;
+  difficulty: QuestionDifficulty | null;
+  tag: string | null;
+  questionType: QuestionType | null;
+  drawCount: number;
+  scorePerQuestion: number;
 }
 
 export interface VersionDetail {
@@ -306,6 +338,7 @@ export interface VersionDetail {
   archivedAt: string | null;
   questions: VersionQuestion[];
   rowVersion: string;
+  poolRules: PoolRule[];
 }
 
 export interface PublishIssue {

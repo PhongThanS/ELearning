@@ -18,7 +18,7 @@ import { matchesAny } from "../../utils/answerNormalizer";
 import { isValidNumberAnswer } from "../attempts/playerState";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
-import type { AnswerDataType, Category, ContentFormat, QuestionDetail, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
+import type { AnswerDataType, Category, ContentFormat, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
 
 const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN"];
 const CHOICE_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -142,6 +142,18 @@ export function QuestionsPage() {
     { key: "content", header: "Nội dung", render: (q) => <span className="text-truncate d-inline-block" style={{ maxWidth: 420 }}>{markdownExcerpt(q.contentPreview)}</span> },
     { key: "type", header: "Loại", render: (q) => t(`enums.questionType.${q.questionType}`) + (q.answerDataType ? ` (${t(`enums.answerDataType.${q.answerDataType}`)})` : "") },
     { key: "category", header: t("nav.categories"), render: (q) => q.categoryName ?? "—" },
+    {
+      key: "difficulty",
+      header: "Độ khó / tag",
+      render: (q) => (
+        <>
+          {q.difficulty && <Badge bg="light" text="dark" className="me-1">{t(`enums.difficulty.${q.difficulty}`)}</Badge>}
+          {q.tags.map((tag) => (
+            <Badge key={tag} bg="info-subtle" text="dark" className="me-1">{tag}</Badge>
+          ))}
+        </>
+      ),
+    },
     { key: "score", header: "Điểm", render: (q) => formatNumber(q.defaultScore) },
     { key: "status", header: t("common.status"), render: (q) => <ActiveBadge active={q.isActive} /> },
     { key: "updated", header: t("common.updatedAt"), sortKey: "updatedAt", render: (q) => formatDateTime(q.updatedAt ?? q.createdAt) },
@@ -194,10 +206,23 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
   const { t } = useTranslation();
   return (
     <Row className="g-2 mb-3">
-      <Col md={4}>
+      <Col md={3}>
         <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Mã hoặc nội dung" />
       </Col>
-      <Col md={3}>
+      <Col md={2}>
+        <Form.Select size="sm" aria-label="Độ khó" value={String(list.state.difficulty ?? "")} onChange={(e) => list.setFilter({ difficulty: e.target.value })}>
+          <option value="">Mọi độ khó</option>
+          {DIFFICULTIES.map((d) => (
+            <option key={d} value={d}>{t(`enums.difficulty.${d}`)}</option>
+          ))}
+        </Form.Select>
+      </Col>
+      <Col md={2}>
+        <Form.Control size="sm" aria-label="Tag" placeholder="Tag" defaultValue={String(list.state.tag ?? "")}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); list.setFilter({ tag: e.currentTarget.value.trim() }); } }}
+          onBlur={(e) => list.setFilter({ tag: e.currentTarget.value.trim() })} />
+      </Col>
+      <Col md={2}>
         <Form.Select size="sm" aria-label={t("nav.categories")} value={String(list.state.categoryId ?? "")} onChange={(e) => list.setFilter({ categoryId: e.target.value })}>
           <option value="">Mọi danh mục</option>
           {categories.map((c) => (
@@ -205,7 +230,7 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
           ))}
         </Form.Select>
       </Col>
-      <Col md={3}>
+      <Col md={2}>
         <Form.Select size="sm" aria-label="Loại câu hỏi" value={String(list.state.questionType ?? "")} onChange={(e) => list.setFilter({ questionType: e.target.value })}>
           <option value="">Mọi loại</option>
           {QUESTION_TYPES.map((type) => (
@@ -213,7 +238,7 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
           ))}
         </Form.Select>
       </Col>
-      <Col md={2}>
+      <Col md={1}>
         <Form.Select size="sm" aria-label={t("common.status")} value={String(list.state.isActive ?? "")} onChange={(e) => list.setFilter({ isActive: e.target.value })}>
           <option value="">{t("common.all")}</option>
           <option value="true">{t("common.active")}</option>
@@ -230,6 +255,8 @@ type EditorState = QuestionInput;
 
 const emptyQuestion = (): EditorState => ({
   categoryId: null,
+  difficulty: null,
+  tags: [],
   code: "",
   content: "",
   contentFormat: "MARKDOWN",
@@ -273,6 +300,8 @@ function optionsForType(type: QuestionType, current: EditorState["options"]): Ed
 function toEditorState(q: QuestionDetail): EditorState {
   return {
     categoryId: q.categoryId,
+    difficulty: q.difficulty,
+    tags: q.tags,
     code: q.code,
     content: q.content,
     contentFormat: q.contentFormat,
@@ -315,6 +344,8 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingType, setPendingType] = useState<QuestionType | null>(null);
   const [tryValue, setTryValue] = useState("");
+  // Tag nhập dạng "a, b, c"; tách khi lưu để gõ dấu phẩy không bị mất
+  const [tagText, setTagText] = useState(() => form.tags.join(", "));
 
   const save = useMutation({
     mutationFn: (body: QuestionInput) => (id ? questionsApi.update(id, body) : questionsApi.create(body)),
@@ -341,6 +372,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
     const body: QuestionInput = {
       ...form,
       code: form.code?.trim() || null,
+      tags: parseTags(tagText),
       explanation: form.explanation?.trim() || null,
       options: form.questionType === "FILL_IN" ? [] : form.options,
       acceptedAnswers: form.questionType === "FILL_IN" && form.answerDataType === "TEXT" ? form.acceptedAnswers.filter((a) => a.trim()) : [],
@@ -455,6 +487,21 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
           <Col lg={4}>
             <Card className="sticky-lg-top" style={{ top: 16 }}>
               <Card.Body>
+                <Form.Group controlId="q-difficulty" className="mb-3">
+                  <Form.Label>Độ khó</Form.Label>
+                  <Form.Select value={form.difficulty ?? ""} onChange={(e) => set({ difficulty: (e.target.value || null) as QuestionDifficulty | null })}>
+                    <option value="">(Không đặt)</option>
+                    {DIFFICULTIES.map((d) => (
+                      <option key={d} value={d}>{t(`enums.difficulty.${d}`)}</option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+                <Form.Group controlId="q-tags" className="mb-3">
+                  <Form.Label>Tag</Form.Label>
+                  <Form.Control value={tagText} placeholder="ví dụ: oop, linq" isInvalid={!!err("tags")} onChange={(e) => setTagText(e.target.value)} />
+                  <Form.Text>Cách nhau bởi dấu phẩy, tối đa 10 tag. Dùng để lọc và lập pool ngẫu nhiên.</Form.Text>
+                  <Form.Control.Feedback type="invalid">{err("tags")}</Form.Control.Feedback>
+                </Form.Group>
                 <Form.Group controlId="q-score" className="mb-3">
                   <Form.Label>Điểm mặc định</Form.Label>
                   <Form.Control type="number" min={0.25} max={100} step={0.25} value={form.defaultScore} isInvalid={!!err("defaultScore")} onChange={(e) => set({ defaultScore: Number(e.target.value) })} />
@@ -647,4 +694,10 @@ function TryNumber({ value, answer, tolerance }: { value: string; answer: number
   const parsed = Number(value.trim().replace(",", "."));
   const ok = answer != null && Math.abs(parsed - answer) <= tolerance + 1e-12;
   return ok ? <Badge bg="success">Đúng</Badge> : <Badge bg="danger">Sai</Badge>;
+}
+
+const DIFFICULTIES: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
+
+function parseTags(text: string): string[] {
+  return [...new Set(text.split(/[,;]/).map((t) => t.trim().toLowerCase()).filter(Boolean))];
 }

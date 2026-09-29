@@ -1,5 +1,6 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
+  PoolRuleInput,
   QuestionImportResult,
   AnswerKeyCorrection,
   UserOverride,
@@ -144,6 +145,12 @@ export const examsApi = {
   updateVersion: (id: string, versionId: string, body: { durationMinutes: number; passPercentage: number | null; scoreVisibility: string; reviewPolicy: string; shuffleQuestions: boolean; shuffleOptions: boolean; rowVersion: string }) =>
     http.put<VersionDetail>(`/exams/${id}/versions/${versionId}`, body),
   deleteVersion: (id: string, versionId: string) => http.delete<void>(`/exams/${id}/versions/${versionId}`),
+  addPoolRule: (id: string, versionId: string, body: PoolRuleInput) =>
+    http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/pool-rules`, body),
+  refreshPoolRule: (id: string, versionId: string, ruleId: string) =>
+    http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/pool-rules/${ruleId}/refresh`),
+  removePoolRule: (id: string, versionId: string, ruleId: string) =>
+    http.delete<VersionDetail>(`/exams/${id}/versions/${versionId}/pool-rules/${ruleId}`),
   preview: (id: string, versionId: string) => http.get<ExamPreview>(`/exams/${id}/versions/${versionId}/preview`),
   validate: (id: string, versionId: string) => http.post<PublishValidation>(`/exams/${id}/versions/${versionId}/validate`),
   publish: (id: string, versionId: string) => http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/publish`),

@@ -80,7 +80,29 @@ public sealed record VersionQuestionDto(
     decimal? NumericTolerance,
     bool CaseSensitive,
     bool IgnoreAccent,
-    string? Explanation);
+    string? Explanation,
+    Guid? PoolRuleId = null);
+
+/// <summary>Quy tắc pool ngẫu nhiên; CandidateCount = số câu ứng viên đã snapshot.</summary>
+public sealed record PoolRuleDto(
+    Guid Id,
+    int Order,
+    Guid? CategoryId,
+    string? CategoryName,
+    QuestionDifficulty? Difficulty,
+    string? Tag,
+    QuestionType? QuestionType,
+    int DrawCount,
+    decimal ScorePerQuestion,
+    int CandidateCount);
+
+public sealed record AddPoolRuleRequest(
+    Guid? CategoryId,
+    QuestionDifficulty? Difficulty,
+    string? Tag,
+    QuestionType? QuestionType,
+    int DrawCount,
+    decimal ScorePerQuestion);
 
 public sealed record VersionDetailDto(
     Guid Id,
@@ -98,7 +120,8 @@ public sealed record VersionDetailDto(
     DateTime? PublishedAt,
     DateTime? ArchivedAt,
     IReadOnlyList<VersionQuestionDto> Questions,
-    string RowVersion);
+    string RowVersion,
+    IReadOnlyList<PoolRuleDto> PoolRules);
 
 public sealed record PublishValidationDto(bool IsValid, IReadOnlyList<PublishIssue> Issues);
 

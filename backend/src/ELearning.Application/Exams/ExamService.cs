@@ -201,6 +201,7 @@ internal sealed class ExamService(
             .Include(e => e.Assignments)
             .Include(e => e.Versions).ThenInclude(v => v.Questions).ThenInclude(q => q.Options)
             .Include(e => e.Versions).ThenInclude(v => v.Questions).ThenInclude(q => q.AcceptedAnswers)
+            .Include(e => e.Versions).ThenInclude(v => v.PoolRules)
             .SingleOrDefaultAsync(e => e.Id == id, ct);
         if (exam is null)
         {
@@ -224,6 +225,7 @@ internal sealed class ExamService(
         var source = await db.Exams.AsNoTracking()
             .Include(e => e.Versions).ThenInclude(v => v.Questions).ThenInclude(q => q.Options)
             .Include(e => e.Versions).ThenInclude(v => v.Questions).ThenInclude(q => q.AcceptedAnswers)
+            .Include(e => e.Versions).ThenInclude(v => v.PoolRules)
             .SingleOrDefaultAsync(e => e.Id == id, ct);
         if (source is null)
         {
@@ -482,8 +484,8 @@ internal sealed class ExamService(
                 v.Id,
                 v.VersionNumber,
                 v.Status,
-                v.Questions.Count,
-                v.Questions.Sum(q => (decimal?)q.Score) ?? 0,
+                v.Questions.Count(q => q.PoolRuleId == null) + (v.PoolRules.Sum(r => (int?)r.DrawCount) ?? 0),
+                (v.Questions.Where(q => q.PoolRuleId == null).Sum(q => (decimal?)q.Score) ?? 0) + (v.PoolRules.Sum(r => (decimal?)(r.DrawCount * r.ScorePerQuestion)) ?? 0),
                 v.PublishedAt,
                 v.ArchivedAt,
                 v.CreatedAt))

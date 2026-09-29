@@ -76,8 +76,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 - Ghi nhận sự kiện lượt thi (mất focus, đổi tab); audit log; health check.
 
 **Sau MVP:**
-- Ngẫu nhiên câu hỏi từ pool. ~~Xáo thứ tự câu / đáp án~~ — **đã làm** (xem `02-nghiep-vu.md` mục 4.4).
-- Độ khó, tag, chấm điểm từng phần.
+- ~~Ngẫu nhiên câu hỏi từ pool~~, ~~xáo thứ tự câu / đáp án~~, ~~độ khó, tag~~ — **đã làm** (xem `02-nghiep-vu.md` mục 4.7, 4.8). Chấm từng phần: xem mục 2.
 - ~~Import câu hỏi từ Excel~~ — **đã làm** (xem `02-nghiep-vu.md` mục 1.3).
 - Khóa học, lớp học, giáo viên; bảng xếp hạng, chứng chỉ.
 - Email, thông báo, SignalR, Redis.

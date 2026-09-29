@@ -93,9 +93,9 @@ internal sealed class QuestionImportWorkbook : IQuestionImportWorkbook
         string?[][] examples =
         [
             ["", category, "SINGLE_CHOICE", "MARKDOWN", "Kiểu dữ liệu nào phù hợp để lưu tiền tệ trong C#?", "1",
-                "float", "double", "decimal", "int", "", "", "C", "", "", "", "", "", "", "decimal có độ chính xác thập phân cao."],
+                "float", "double", "decimal", "int", "", "", "C", "", "", "", "", "", "", "decimal có độ chính xác thập phân cao.", "Dễ", "kiểu dữ liệu, c#"],
             ["", category, "MULTIPLE_CHOICE", "MARKDOWN", "Những từ khóa nào là **access modifier**?", "2",
-                "public", "static", "private", "void", "", "", "A, C", "", "", "", "", "", "", ""],
+                "public", "static", "private", "void", "", "", "A, C", "", "", "", "", "", "", "", "Trung bình", "oop"],
             ["", category, "TRUE_FALSE", "PLAIN", "string trong C# là kiểu tham chiếu.", "1",
                 "", "", "", "", "", "", "Đúng", "", "", "", "", "", "", ""],
             ["", category, "FILL_IN", "PLAIN", "Thủ đô của Việt Nam là gì?", "1",
@@ -136,6 +136,8 @@ internal sealed class QuestionImportWorkbook : IQuestionImportWorkbook
             [QuestionImportColumns.CaseSensitive, "Có / Không (mặc định Không)."],
             [QuestionImportColumns.IgnoreAccent, "Có / Không (mặc định Không). Có: \"ha noi\" được tính đúng với \"Hà Nội\"."],
             [QuestionImportColumns.Explanation, "Không bắt buộc. Hiển thị khi học viên xem lại bài (nếu chính sách cho phép)."],
+            [QuestionImportColumns.Difficulty, "Không bắt buộc: Dễ, Trung bình, Khó (EASY / MEDIUM / HARD). Dùng để lập pool ngẫu nhiên."],
+            [QuestionImportColumns.Tags, "Không bắt buộc: tối đa 10 tag, cách nhau bởi dấu phẩy. Không phân biệt hoa thường."],
             ["", ""],
             ["Lưu ý", $"Tối đa {QuestionImportColumns.MaxRows} câu mỗi lần. Có dòng lỗi thì không câu nào được tạo; sửa theo báo lỗi rồi import lại."],
         ];

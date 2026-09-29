@@ -158,6 +158,17 @@ CREATE TABLE Questions (
 );
 CREATE INDEX IX_Questions_Category_Type ON Questions(CategoryId, QuestionType) INCLUDE (IsActive);
 
+-- (sau MVP) Questions có thêm cột:
+--   Difficulty VARCHAR(40) NULL  -- EASY | MEDIUM | HARD, CHECK CK_Questions_Difficulty
+
+CREATE TABLE QuestionTags (                        -- tag đã chuẩn hóa chữ thường
+    Id         UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
+    QuestionId UNIQUEIDENTIFIER NOT NULL REFERENCES Questions(Id),
+    Tag        NVARCHAR(50)     NOT NULL,
+    CONSTRAINT UQ_QuestionTags_Tag UNIQUE (QuestionId, Tag)
+);
+CREATE INDEX IX_QuestionTags_Tag ON QuestionTags(Tag);
+
 CREATE TABLE QuestionOptions (
     Id           UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_QuestionOptions PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
     QuestionId   UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_QuestionOptions_Question REFERENCES Questions(Id),
@@ -263,6 +274,23 @@ CREATE TABLE ExamQuestions (
 -- Không thêm trùng một câu hỏi nguồn vào cùng version
 CREATE UNIQUE INDEX UX_ExamQuestions_Source ON ExamQuestions(ExamVersionId, SourceQuestionId)
     WHERE SourceQuestionId IS NOT NULL;
+
+-- (sau MVP) ExamQuestions có thêm cột:
+--   PoolRuleId UNIQUEIDENTIFIER NULL REFERENCES ExamPoolRules(Id)  -- khác NULL: câu ứng viên của pool
+--   IX_ExamQuestions_PoolRule (PoolRuleId) WHERE PoolRuleId IS NOT NULL
+
+CREATE TABLE ExamPoolRules (                       -- pool ngẫu nhiên (02-nghiep-vu mục 4.8)
+    Id               UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,   -- domain sinh sẵn (ValueGeneratedNever)
+    ExamVersionId    UNIQUEIDENTIFIER NOT NULL REFERENCES ExamVersions(Id),
+    RuleOrder        INT              NOT NULL,
+    CategoryId       UNIQUEIDENTIFIER NULL REFERENCES QuestionCategories(Id),
+    Difficulty       VARCHAR(40)      NULL,           -- EASY | MEDIUM | HARD
+    Tag              NVARCHAR(50)     NULL,
+    QuestionType     VARCHAR(40)      NULL,
+    DrawCount        INT              NOT NULL CHECK (DrawCount BETWEEN 1 AND 500),
+    ScorePerQuestion DECIMAL(10,2)    NOT NULL CHECK (ScorePerQuestion > 0),
+    CONSTRAINT UQ_ExamPoolRules_Order UNIQUE (ExamVersionId, RuleOrder)
+);
 
 CREATE TABLE ExamQuestionOptions (
     Id             UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_ExamQuestionOptions PRIMARY KEY DEFAULT NEWSEQUENTIALID(),

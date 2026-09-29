@@ -3,6 +3,7 @@ using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
+using ELearning.Domain.Questions;
 using ELearning.Shared;
 using ELearning.Shared.Results;
 using FluentValidation;
@@ -35,6 +36,12 @@ public interface IExamVersionService
 
     Task<Result<ExamPreviewDto>> PreviewAsync(Guid examId, Guid versionId, CancellationToken ct);
 
+    Task<Result<VersionDetailDto>> AddPoolRuleAsync(Guid examId, Guid versionId, AddPoolRuleRequest request, CancellationToken ct);
+
+    Task<Result<VersionDetailDto>> RefreshPoolRuleAsync(Guid examId, Guid versionId, Guid poolRuleId, CancellationToken ct);
+
+    Task<Result<VersionDetailDto>> RemovePoolRuleAsync(Guid examId, Guid versionId, Guid poolRuleId, CancellationToken ct);
+
     Task<Result<PublishValidationDto>> ValidateAsync(Guid examId, Guid versionId, CancellationToken ct);
 
     Task<Result<VersionDetailDto>> PublishAsync(Guid examId, Guid versionId, CancellationToken ct);
@@ -63,7 +70,9 @@ internal sealed class ExamVersionService(
         var versions = await db.ExamVersions.AsNoTracking().Where(v => v.ExamId == examId)
             .OrderByDescending(v => v.VersionNumber)
             .Select(v => new VersionSummaryDto(
-                v.Id, v.VersionNumber, v.Status, v.Questions.Count, v.Questions.Sum(q => (decimal?)q.Score) ?? 0,
+                v.Id, v.VersionNumber, v.Status,
+                v.Questions.Count(q => q.PoolRuleId == null) + (v.PoolRules.Sum(r => (int?)r.DrawCount) ?? 0),
+                (v.Questions.Where(q => q.PoolRuleId == null).Sum(q => (decimal?)q.Score) ?? 0) + (v.PoolRules.Sum(r => (decimal?)(r.DrawCount * r.ScorePerQuestion)) ?? 0),
                 v.PublishedAt, v.ArchivedAt, v.CreatedAt))
             .ToListAsync(ct);
         return versions;
@@ -246,9 +255,10 @@ internal sealed class ExamVersionService(
         }
 
         version.EnsureDraft();
-        if (request.ExamQuestionIds.Count != version.Questions.Count
-            || request.ExamQuestionIds.Distinct().Count() != version.Questions.Count
-            || !request.ExamQuestionIds.All(id => version.Questions.Any(q => q.Id == id)))
+        var fixedQuestions = version.FixedQuestions.ToList();
+        if (request.ExamQuestionIds.Count != fixedQuestions.Count
+            || request.ExamQuestionIds.Distinct().Count() != fixedQuestions.Count
+            || !request.ExamQuestionIds.All(id => fixedQuestions.Exists(q => q.Id == id)))
         {
             return Error.Validation("ORDER_INVALID", "Danh sách sắp xếp phải chứa đúng và đủ các câu hỏi của phiên bản.", "examQuestionIds");
         }
@@ -296,6 +306,125 @@ internal sealed class ExamVersionService(
         return await ToDetailAsync(version, ct);
     }
 
+    public async Task<Result<VersionDetailDto>> AddPoolRuleAsync(
+        Guid examId, Guid versionId, AddPoolRuleRequest request, CancellationToken ct)
+    {
+        var version = await LoadVersionAsync(examId, versionId, tracking: true, ct);
+        if (version is null)
+        {
+            return VersionNotFound;
+        }
+
+        version.EnsureDraft();
+        if (request.Tag is { Length: > Question.MaxTagLength })
+        {
+            return Error.Validation("TAG_TOO_LONG", $"Tag tối đa {Question.MaxTagLength} ký tự.", "tag");
+        }
+
+        var criteria = new PoolRuleCriteria(request.CategoryId, request.Difficulty, request.Tag, request.QuestionType);
+        var candidates = await LoadPoolCandidatesAsync(version, criteria, excludeRuleId: null, ct);
+        if (candidates.IsFailure)
+        {
+            return Result<VersionDetailDto>.Failure(candidates.Errors);
+        }
+
+        var rule = version.AddPoolRule(criteria, request.DrawCount, request.ScorePerQuestion, candidates.Value, Now);
+        audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, newValue: new
+        {
+            PoolRuleAdded = rule.Id,
+            criteria,
+            request.DrawCount,
+            request.ScorePerQuestion,
+            Candidates = candidates.Value.Count,
+        });
+        await db.SaveChangesAsync(ct);
+        return await ToDetailAsync(version, ct);
+    }
+
+    public async Task<Result<VersionDetailDto>> RefreshPoolRuleAsync(Guid examId, Guid versionId, Guid poolRuleId, CancellationToken ct)
+    {
+        var version = await LoadVersionAsync(examId, versionId, tracking: true, ct);
+        var rule = version?.PoolRules.FirstOrDefault(r => r.Id == poolRuleId);
+        if (version is null || rule is null)
+        {
+            return VersionNotFound;
+        }
+
+        version.EnsureDraft();
+        var candidates = await LoadPoolCandidatesAsync(version, rule.Criteria, rule.Id, ct);
+        if (candidates.IsFailure)
+        {
+            return Result<VersionDetailDto>.Failure(candidates.Errors);
+        }
+
+        version.RefreshPoolRule(rule.Id, candidates.Value, Now);
+        audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, newValue: new { PoolRuleRefreshed = rule.Id, Candidates = candidates.Value.Count });
+        await db.SaveChangesAsync(ct);
+        return await ToDetailAsync(version, ct);
+    }
+
+    public async Task<Result<VersionDetailDto>> RemovePoolRuleAsync(Guid examId, Guid versionId, Guid poolRuleId, CancellationToken ct)
+    {
+        var version = await LoadVersionAsync(examId, versionId, tracking: true, ct);
+        if (version is null || version.PoolRules.All(r => r.Id != poolRuleId))
+        {
+            return VersionNotFound;
+        }
+
+        version.RemovePoolRule(poolRuleId);
+        audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, newValue: new { PoolRuleRemoved = poolRuleId });
+        await db.SaveChangesAsync(ct);
+        return await ToDetailAsync(version, ct);
+    }
+
+    /// <summary>
+    /// Câu ứng viên: đang hoạt động, khớp mọi tiêu chí, chưa có trong version (trừ câu của chính quy tắc đang làm mới).
+    /// Đếm trước để không nạp cả ngân hàng khi tiêu chí quá rộng.
+    /// </summary>
+    private async Task<Result<IReadOnlyList<Question>>> LoadPoolCandidatesAsync(
+        ExamVersion version, PoolRuleCriteria criteria, Guid? excludeRuleId, CancellationToken ct)
+    {
+        var existing = version.Questions
+            .Where(q => q.SourceQuestionId != null && (excludeRuleId == null || q.PoolRuleId != excludeRuleId))
+            .Select(q => q.SourceQuestionId!.Value)
+            .ToList();
+        var query = db.Questions.AsNoTracking().Where(q => q.IsActive && !existing.Contains(q.Id));
+        if (criteria.CategoryId is { } categoryId)
+        {
+            query = query.Where(q => q.CategoryId == categoryId);
+        }
+
+        if (criteria.Difficulty is { } difficulty)
+        {
+            query = query.Where(q => q.Difficulty == difficulty);
+        }
+
+        if (criteria.QuestionType is { } type)
+        {
+            query = query.Where(q => q.QuestionType == type);
+        }
+
+        if (!string.IsNullOrWhiteSpace(criteria.Tag))
+        {
+            var tag = Question.NormalizeTag(criteria.Tag);
+            query = query.Where(q => q.Tags.Any(t => t.Tag == tag));
+        }
+
+        var count = await query.CountAsync(ct);
+        if (count > ExamPoolRule.MaxCandidates)
+        {
+            return Error.Validation(
+                "POOL_TOO_LARGE",
+                $"Tiêu chí khớp {count} câu, vượt quá {ExamPoolRule.MaxCandidates}. Hãy lọc thêm theo danh mục, độ khó, tag hoặc loại câu.",
+                "criteria");
+        }
+
+        var candidates = await query.Include(q => q.Options).Include(q => q.AcceptedAnswers)
+            .OrderBy(q => q.Code)
+            .ToListAsync(ct);
+        return Result<IReadOnlyList<Question>>.Success(candidates);
+    }
+
     public async Task<Result<ExamPreviewDto>> PreviewAsync(Guid examId, Guid versionId, CancellationToken ct)
     {
         var exam = await db.Exams.AsNoTracking().SingleOrDefaultAsync(e => e.Id == examId, ct);
@@ -305,7 +434,8 @@ internal sealed class ExamVersionService(
             return VersionNotFound;
         }
 
-        var questions = version.Questions.OrderBy(q => q.QuestionOrder)
+        // Xem trước như học viên: pool được bốc thử một lần (mỗi lần xem trước một bộ khác)
+        var questions = version.DrawQuestions(Random.Shared, allowPartial: version.IsDraft)
             .Select((q, index) => ToPlayerQuestion(q, q.Id, index + 1, optionOrder: null))
             .ToList();
         return new ExamPreviewDto(
@@ -315,7 +445,7 @@ internal sealed class ExamVersionService(
             exam.Instructions,
             version.DurationMinutes,
             questions.Count,
-            version.Questions.Sum(q => q.Score),
+            version.EffectiveMaxScore,
             questions);
     }
 
@@ -404,7 +534,8 @@ internal sealed class ExamVersionService(
     {
         IQueryable<ExamVersion> query = db.ExamVersions
             .Include(v => v.Questions).ThenInclude(q => q.Options)
-            .Include(v => v.Questions).ThenInclude(q => q.AcceptedAnswers);
+            .Include(v => v.Questions).ThenInclude(q => q.AcceptedAnswers)
+            .Include(v => v.PoolRules);
         return (tracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(v => v.Id == versionId && v.ExamId == examId, ct);
     }
 
@@ -439,8 +570,26 @@ internal sealed class ExamVersionService(
                 q.NumericTolerance,
                 q.CaseSensitive,
                 q.IgnoreAccent,
-                q.Explanation);
+                q.Explanation,
+                q.PoolRuleId);
         }).ToList();
+
+        var categoryIds = version.PoolRules.Where(r => r.CategoryId != null).Select(r => r.CategoryId!.Value).Distinct().ToList();
+        var categoryNames = await db.QuestionCategories.AsNoTracking()
+            .Where(c => categoryIds.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+        var poolRules = version.PoolRules.OrderBy(r => r.RuleOrder).Select(r => new PoolRuleDto(
+                r.Id,
+                r.RuleOrder,
+                r.CategoryId,
+                r.CategoryId is { } cid && categoryNames.TryGetValue(cid, out var name) ? name : null,
+                r.Difficulty,
+                r.Tag,
+                r.QuestionType,
+                r.DrawCount,
+                r.ScorePerQuestion,
+                version.PoolCandidates(r.Id).Count()))
+            .ToList();
 
         return new VersionDetailDto(
             version.Id,
@@ -453,11 +602,12 @@ internal sealed class ExamVersionService(
             version.ReviewPolicy,
             version.ShuffleQuestions,
             version.ShuffleOptions,
-            questions.Count,
-            questions.Sum(q => q.Score),
+            version.EffectiveQuestionCount,
+            version.EffectiveMaxScore,
             version.PublishedAt,
             version.ArchivedAt,
             questions,
-            version.RowVersion.ToBase64());
+            version.RowVersion.ToBase64(),
+            poolRules);
     }
 }

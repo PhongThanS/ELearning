@@ -41,10 +41,13 @@ internal sealed class QuestionConfiguration : IEntityTypeConfiguration<Question>
             .HasConstraintName("FK_QuestionOptions_Question").OnDelete(DeleteBehavior.ClientCascade);
         builder.HasMany(q => q.AcceptedAnswers).WithOne().HasForeignKey(a => a.QuestionId)
             .HasConstraintName("FK_QuestionAcceptedAnswers_Question").OnDelete(DeleteBehavior.ClientCascade);
+        builder.HasMany(q => q.Tags).WithOne().HasForeignKey(t => t.QuestionId)
+            .HasConstraintName("FK_QuestionTags_Question").OnDelete(DeleteBehavior.ClientCascade);
 
         builder.ToTable(t =>
         {
             t.HasEnumCheck<ContentFormat>("CK_Questions_ContentFormat", "ContentFormat");
+            t.HasEnumCheck<QuestionDifficulty>("CK_Questions_Difficulty", "Difficulty");
             t.HasEnumCheck<QuestionType>("CK_Questions_Type", "QuestionType");
             t.HasEnumCheck<AnswerDataType>("CK_Questions_AnswerDataType", "AnswerDataType");
             t.HasCheckConstraint(
@@ -66,6 +69,17 @@ internal sealed class QuestionOptionConfiguration : IEntityTypeConfiguration<Que
         builder.Property(o => o.OptionCode).IsCode(10);
         builder.Property(o => o.Content).HasMaxLength(2000).IsRequired();
         builder.HasIndex(o => new { o.QuestionId, o.OptionCode }).IsUnique().HasDatabaseName("UQ_QuestionOptions_Code");
+    }
+}
+
+internal sealed class QuestionTagConfiguration : IEntityTypeConfiguration<QuestionTag>
+{
+    public void Configure(EntityTypeBuilder<QuestionTag> builder)
+    {
+        builder.ConfigureEntity("QuestionTags");
+        builder.Property(t => t.Tag).HasMaxLength(Question.MaxTagLength).IsRequired();
+        builder.HasIndex(t => new { t.QuestionId, t.Tag }).IsUnique().HasDatabaseName("UQ_QuestionTags_Tag");
+        builder.HasIndex(t => t.Tag).HasDatabaseName("IX_QuestionTags_Tag");
     }
 }
 
