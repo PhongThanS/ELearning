@@ -4,21 +4,26 @@ import { Alert } from "react-bootstrap";
 import { useTranslation } from "react-i18next";
 import { Loading } from "../../components/common/Feedback";
 import { Permissions, StudentRole } from "../../constants/permissions";
-import { useAuth } from "./useAuth";
+import { useAuth, type LoginRedirectState } from "./useAuth";
 
 /**
  * Bảo vệ route chỉ phục vụ UX; backend luôn kiểm tra quyền (docs/06-frontend.md mục 1).
  * mustChangePassword → mọi route khác chuyển về /change-password.
  */
 export function RequireAuth({ children }: { children?: ReactNode }) {
-  const { status, user } = useAuth();
+  const { status, user, sessionEnd } = useAuth();
   const location = useLocation();
 
   if (status === "loading") {
     return <Loading />;
   }
   if (status === "anonymous" || !user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname + location.search }} />;
+    // Chủ động đăng xuất: không nhớ trang cũ (người đăng nhập tiếp theo có thể là người khác).
+    const state: LoginRedirectState | undefined =
+      sessionEnd?.reason === "LOGOUT"
+        ? undefined
+        : { from: location.pathname + location.search, userId: sessionEnd?.reason === "EXPIRED" ? sessionEnd.userId : null };
+    return <Navigate to="/login" replace state={state} />;
   }
   if (user.mustChangePassword && location.pathname !== "/change-password") {
     return <Navigate to="/change-password" replace />;

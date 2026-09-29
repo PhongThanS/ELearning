@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi } from "../../services/api";
 import { refreshSession, setSessionHandlers, tokenStore } from "../../services/apiClient";
 import type { AuthResponse, AuthUser } from "../../types/api";
-import { AuthContext, type AuthContextValue, type AuthStatus } from "./useAuth";
+import { AuthContext, type AuthContextValue, type AuthStatus, type SessionEnd } from "./useAuth";
 
 const channelName = "elearning-auth";
 
@@ -17,23 +17,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [sessionEnd, setSessionEnd] = useState<SessionEnd | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   const applySession = useCallback((session: AuthResponse) => {
     tokenStore.set(session.accessToken);
+    userIdRef.current = session.user.id;
     setUser(session.user);
+    setSessionEnd(null);
     setStatus("authenticated");
   }, []);
 
-  const clearSession = useCallback(() => {
-    tokenStore.set(null);
-    setUser(null);
-    setStatus("anonymous");
-    queryClient.clear();
-    clearExamBackups();
-  }, [queryClient]);
+  const clearSession = useCallback(
+    (reason: SessionEnd["reason"]) => {
+      tokenStore.set(null);
+      setSessionEnd(reason === "EXPIRED" ? { reason, userId: userIdRef.current } : { reason });
+      userIdRef.current = null;
+      setUser(null);
+      setStatus("anonymous");
+      queryClient.clear();
+      // Phiên hết hạn giữa giờ thi: giữ backup để đăng nhập lại không mất câu trả lời chưa lưu.
+      if (reason === "LOGOUT") {
+        clearExamBackups();
+      }
+    },
+    [queryClient],
+  );
 
   useEffect(() => {
-    setSessionHandlers({ expired: clearSession, refreshed: applySession });
+    setSessionHandlers({ expired: () => clearSession("EXPIRED"), refreshed: applySession });
     let cancelled = false;
     void refreshSession().then((session) => {
       if (cancelled) {
@@ -50,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (channel) {
       channel.onmessage = (event: MessageEvent<string>) => {
         if (event.data === "logout") {
-          clearSession();
+          clearSession("LOGOUT");
         }
       };
     }
@@ -74,7 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await authApi.logout();
     } finally {
-      clearSession();
+      clearSession("LOGOUT");
       if (typeof BroadcastChannel !== "undefined") {
         const channel = new BroadcastChannel(channelName);
         channel.postMessage("logout");
@@ -87,13 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       status,
       user,
+      sessionEnd,
       login,
       logout,
       applySession,
       hasPermission: (permission) => user?.permissions.includes(permission) ?? false,
       hasRole: (role) => user?.roles.includes(role) ?? false,
     }),
-    [status, user, login, logout, applySession],
+    [status, user, sessionEnd, login, logout, applySession],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

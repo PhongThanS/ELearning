@@ -1,10 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { ReactNode } from "react";
 import { ApiError } from "../../services/apiClient";
-import { AuthContext, type AuthContextValue } from "./useAuth";
+import { AuthContext, resolveLoginRedirect, type AuthContextValue } from "./useAuth";
 import { LoginPage } from "./AuthPages";
 import { RequireAuth, RequirePermission } from "./guards";
 
@@ -12,6 +12,7 @@ function renderWithAuth(ui: ReactNode, auth: Partial<AuthContextValue>, initialP
   const value: AuthContextValue = {
     status: "anonymous",
     user: null,
+    sessionEnd: null,
     login: vi.fn(),
     logout: vi.fn(),
     applySession: vi.fn(),
@@ -58,6 +59,24 @@ describe("LoginPage", () => {
   });
 });
 
+describe("resolveLoginRedirect", () => {
+  it("không có trang cũ → trang chủ", () => {
+    expect(resolveLoginRedirect(null, "u1")).toBe("/");
+  });
+
+  it("deep link lúc chưa đăng nhập → quay lại trang đó", () => {
+    expect(resolveLoginRedirect({ from: "/student/exams/1", userId: null }, "u1")).toBe("/student/exams/1");
+  });
+
+  it("phiên hết hạn, cùng người đăng nhập lại → quay lại trang đang xem", () => {
+    expect(resolveLoginRedirect({ from: "/student/results/9", userId: "u1" }, "u1")).toBe("/student/results/9");
+  });
+
+  it("phiên hết hạn nhưng người khác đăng nhập → trang chủ", () => {
+    expect(resolveLoginRedirect({ from: "/student/results/9", userId: "u1" }, "admin")).toBe("/");
+  });
+});
+
 describe("route guards", () => {
   const routes = (
     <Routes>
@@ -73,6 +92,24 @@ describe("route guards", () => {
   it("chưa đăng nhập → chuyển tới /login", () => {
     renderWithAuth(routes, { status: "anonymous" }, "/secret");
     expect(screen.getByText("trang đăng nhập")).toBeInTheDocument();
+  });
+
+  it("vừa chủ động đăng xuất → tới /login không kèm trang cũ", () => {
+    const LoginProbe = () => {
+      const location = useLocation();
+      return <div>state: {JSON.stringify(location.state)}</div>;
+    };
+    renderWithAuth(
+      <Routes>
+        <Route path="/login" element={<LoginProbe />} />
+        <Route element={<RequireAuth />}>
+          <Route path="/secret" element={<div>nội dung bí mật</div>} />
+        </Route>
+      </Routes>,
+      { status: "anonymous", sessionEnd: { reason: "LOGOUT" } },
+      "/secret",
+    );
+    expect(screen.getByText("state: null")).toBeInTheDocument();
   });
 
   it("phải đổi mật khẩu → chuyển tới /change-password", () => {

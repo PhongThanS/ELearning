@@ -8,7 +8,7 @@ import { useTranslation } from "react-i18next";
 import { authApi } from "../../services/api";
 import { toApiError } from "../../services/apiClient";
 import { describeError } from "../../utils/errors";
-import { useAuth } from "./useAuth";
+import { resolveLoginRedirect, useAuth, type LoginRedirectState } from "./useAuth";
 
 const loginSchema = z.object({
   userName: z.string().trim().min(1, "Vui lòng nhập tên đăng nhập."),
@@ -17,23 +17,23 @@ const loginSchema = z.object({
 
 export function LoginPage() {
   const { t } = useTranslation();
-  const { login, status } = useAuth();
+  const { login, status, user: currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
-  const notice = (location.state as { notice?: string } | null)?.notice;
-  const from = (location.state as { from?: string } | null)?.from ?? "/";
+  const redirectState = location.state as LoginRedirectState | null;
+  const notice = redirectState?.notice;
   const { register, handleSubmit, formState } = useForm<z.infer<typeof loginSchema>>({ resolver: zodResolver(loginSchema) });
 
-  if (status === "authenticated") {
-    return <Navigate to={from} replace />;
+  if (status === "authenticated" && currentUser) {
+    return <Navigate to={resolveLoginRedirect(redirectState, currentUser.id)} replace />;
   }
 
   const onSubmit = handleSubmit(async (values) => {
     setError(null);
     try {
       const user = await login(values.userName, values.password);
-      navigate(user.mustChangePassword ? "/change-password" : from, { replace: true });
+      navigate(user.mustChangePassword ? "/change-password" : resolveLoginRedirect(redirectState, user.id), { replace: true });
     } catch (e) {
       setError(describeError(e));
     }

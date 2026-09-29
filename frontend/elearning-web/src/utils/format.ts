@@ -60,3 +60,15 @@ export function formatNumber(value: number | null | undefined): string {
 export function formatScore(score: number | null | undefined, max: number | null | undefined): string {
   return score == null ? "—" : `${formatNumber(score)}${max == null ? "" : ` / ${formatNumber(max)}`}`;
 }
+
+/** Rút gọn Markdown thành một dòng văn bản thuần cho cột "Nội dung" trong bảng. */
+export function markdownExcerpt(markdown: string): string {
+  return markdown
+    .replace(/```[\w-]*/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
+    .replace(/(\*\*|__|~~|`)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}

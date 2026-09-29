@@ -82,7 +82,13 @@ export ELEARNING_TEST_SQL="Server=localhost;Trusted_Connection=True;TrustServerC
 dotnet test ELearning.sln
 ```
 
-Frontend (`frontend/elearning-web/`, từ M7): `npm run dev`, `npm run lint && npm run typecheck && npm run test`.
+Frontend (chạy trong `frontend/elearning-web/`; dev server proxy `/api` sang backend ở cổng 5136):
+
+```bash
+npm ci
+npm run dev
+npm run lint && npm run typecheck && npm run test && npm run build
+```
 
 **Quy ước về package và analyzer:**
 - Version package được quản lý tập trung ở `backend/Directory.Packages.props`; `PackageReference` trong csproj không ghi version.

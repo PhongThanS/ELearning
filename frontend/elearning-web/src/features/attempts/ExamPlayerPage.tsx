@@ -386,7 +386,7 @@ export function QuestionCard({
                   label={
                     <span className="d-flex gap-2">
                       {question.type !== "TRUE_FALSE" && <strong>{option.code}.</strong>}
-                      <MarkdownView content={option.content} />
+                      <MarkdownView content={option.content} inline />
                     </span>
                   }
                 />

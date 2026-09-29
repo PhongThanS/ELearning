@@ -10,7 +10,7 @@ import { attemptStatusVariant as attemptVariant } from "../../constants/ui";
 import { DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { useListQuery } from "../../hooks/useListQuery";
-import { formatDateTime, formatDuration, formatNumber, formatScore } from "../../utils/format";
+import { formatDateTime, formatDuration, formatNumber, formatScore, markdownExcerpt } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { AdminAttemptRow, AdminResultRow, AuditLog } from "../../types/api";
@@ -158,7 +158,7 @@ function StatsTab({ examId }: { examId: string }) {
             <tr key={s.examQuestionId}>
               <td>{s.order}{s.isVoided && <Badge bg="dark" className="ms-1">hủy</Badge>}</td>
               <td className="small">
-                <Badge bg="light" text="dark">{t(`enums.questionType.${s.type}`)}</Badge> {s.contentPreview}
+                <Badge bg="light" text="dark">{t(`enums.questionType.${s.type}`)}</Badge> {markdownExcerpt(s.contentPreview)}
               </td>
               <td>{s.attemptCount}</td>
               <td>{s.correctCount} / {s.wrongCount} / {s.blankCount}</td>

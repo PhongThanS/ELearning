@@ -12,7 +12,7 @@ import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { useListQuery } from "../../hooks/useListQuery";
-import { formatDateTime, formatNumber } from "../../utils/format";
+import { formatDateTime, formatNumber, markdownExcerpt } from "../../utils/format";
 import { matchesAny } from "../../utils/answerNormalizer";
 import { isValidNumberAnswer } from "../attempts/playerState";
 import { Permissions } from "../../constants/permissions";
@@ -137,7 +137,7 @@ export function QuestionsPage() {
 
   const columns: Column<QuestionListItem>[] = [
     { key: "code", header: t("common.code"), sortKey: "code", render: (q) => <Link to={`/admin/questions/${q.id}/edit`}><code>{q.code}</code></Link> },
-    { key: "content", header: "Nội dung", render: (q) => <span className="text-truncate d-inline-block" style={{ maxWidth: 420 }}>{q.contentPreview}</span> },
+    { key: "content", header: "Nội dung", render: (q) => <span className="text-truncate d-inline-block" style={{ maxWidth: 420 }}>{markdownExcerpt(q.contentPreview)}</span> },
     { key: "type", header: "Loại", render: (q) => t(`enums.questionType.${q.questionType}`) + (q.answerDataType ? ` (${t(`enums.answerDataType.${q.answerDataType}`)})` : "") },
     { key: "category", header: t("nav.categories"), render: (q) => q.categoryName ?? "—" },
     { key: "score", header: "Điểm", render: (q) => formatNumber(q.defaultScore) },

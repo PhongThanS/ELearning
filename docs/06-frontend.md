@@ -243,3 +243,17 @@ type ExamPlayerState = {
 - **"Đánh dấu xem lại" được lưu lên server**, vì spec gốc chỉ giữ trong state nên bị mất khi F5.
 - **Debounce 500 ms**, nằm trong khoảng 300–700 ms của spec gốc.
 - **Route kết quả đổi thành số nhiều** (`/student/results/:attemptId`) và bổ sung các route còn thiếu: `/admin/categories`, `/admin/groups`, `/admin/roles`, `/admin/audit-logs`, `/admin/attempts/:id`, `/student/profile`, `/change-password`.
+
+**Bổ sung khi triển khai (M7):**
+
+- **Code splitting theo route** bằng `React.lazy`: màn hình quản trị, player và `react-markdown` không nằm trong bundle đăng nhập. Học viên chỉ tải phần của học viên.
+- **Nội dung lựa chọn đáp án render inline** (`MarkdownView inline`). Chế độ này chỉ giữ `strong`, `em`, `del`, `code`, `a`, `br`; đoạn văn thành `span`; khối code bị gỡ thành `code` inline. Lý do: `<label>` không được chứa `div` / `p` / `pre`. Nội dung lựa chọn cần khối code thì đưa lên đề bài.
+- **Cột "Nội dung" trong bảng** (danh sách câu hỏi, builder, thống kê câu hỏi) hiển thị bản rút gọn văn bản thuần (`markdownExcerpt`), không render Markdown.
+- **Điều hướng sau đăng nhập:**
+  - Chủ động đăng xuất (kể cả đăng xuất từ tab khác) → đăng nhập lại luôn về trang chủ theo vai trò.
+  - Phiên hết hạn → chỉ quay lại trang đang xem nếu **cùng người dùng** đăng nhập lại (`resolveLoginRedirect`). Tránh việc người dùng sau trên máy dùng chung bị đưa vào trang của người trước.
+  - Deep link lúc chưa đăng nhập vẫn được giữ.
+- **Backup bài làm trong `sessionStorage`:** chỉ xóa khi chủ động đăng xuất. Phiên hết hạn giữa giờ thi thì giữ lại, để đăng nhập lại không mất câu trả lời chưa lưu. Backup gắn với `attemptId`, và server luôn kiểm tra chủ sở hữu lượt thi.
+- **Giờ hiển thị và ô nhập giờ luôn theo giờ Việt Nam** (`Asia/Ho_Chi_Minh`), không theo múi giờ máy. Ô `datetime-local` được hiểu là giờ Việt Nam rồi đổi sang UTC trước khi gửi.
+- **Thông báo lỗi lấy theo `code`** trong `i18n/vi.json` (`errors.<CODE>`). Không có bản dịch thì dùng `message` của server.
+- **Dev server:** Vite proxy `/api` và `/health` sang `http://localhost:5136`. Cookie refresh vì thế là same-origin, giống môi trường production sau Nginx.

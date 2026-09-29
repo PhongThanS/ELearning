@@ -1,5 +1,5 @@
 import { matchesAny, normalizeAnswer } from "./answerNormalizer";
-import { formatDateTime, formatDuration, utcIsoToVnLocal, vnLocalToUtcIso } from "./format";
+import { formatDateTime, formatDuration, markdownExcerpt, utcIsoToVnLocal, vnLocalToUtcIso } from "./format";
 
 describe("answerNormalizer (khớp thuật toán server)", () => {
   it("NFC: chuỗi tổ hợp khớp chuỗi dựng sẵn", () => {
@@ -30,6 +30,12 @@ describe("format", () => {
     expect(vnLocalToUtcIso("2026-09-29T09:05")).toBe("2026-09-29T02:05:00.000Z");
     expect(utcIsoToVnLocal("2026-09-29T02:05:00.000Z")).toBe("2026-09-29T09:05");
     expect(vnLocalToUtcIso("")).toBeNull();
+  });
+
+  it("rút gọn Markdown thành văn bản thuần", () => {
+    expect(markdownExcerpt("Đoạn code sau in ra gì? ```csharp\nvar x = 1;\n```")).toBe("Đoạn code sau in ra gì? var x = 1;");
+    expect(markdownExcerpt("Những từ khóa nào là **access modifier** trong `C#`?")).toBe("Những từ khóa nào là access modifier trong C#?");
+    expect(markdownExcerpt("# Tiêu đề\n- [liên kết](https://x.vn)")).toBe("Tiêu đề liên kết");
   });
 
   it("thời lượng", () => {

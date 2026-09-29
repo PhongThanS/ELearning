@@ -53,3 +53,7 @@
 .player-header {
   z-index: 1030;
 }
+
+.md-inline-p + .md-inline-p::before {
+  content: " ";
+}

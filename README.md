@@ -15,7 +15,7 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M5 | Lượt thi: start (an toàn khi song song), autosave theo `clientSeq`, khóa dòng, ân hạn, sự kiện, nộp bài idempotent, job tự nộp, đóng đề buộc nộp | Xong |
 | M6 | Chấm điểm: 4 grader, chuẩn hóa tiếng Việt, câu hủy, tổng kết, chính sách xem điểm / xem lại, điểm chính thức | Xong |
 | M8 | Vận hành admin: gia hạn / buộc nộp / hủy lượt, sửa đáp án / hủy câu + chấm lại, kết quả + export Excel, dashboard, thống kê câu hỏi, audit log | Xong |
-| M7 | Frontend React: đăng nhập, khu vực admin (user, nhóm, vai trò, câu hỏi, đề, publish, kết quả, chấm lại, audit), khu vực học viên (danh sách đề, làm bài có autosave / timer, kết quả, lịch sử) | Xong phần chính |
+| M7 | Frontend React: đăng nhập, khu vực admin (user, nhóm, vai trò, câu hỏi, đề, publish, kết quả, chấm lại, audit), khu vực học viên (danh sách đề, làm bài có autosave / timer, kết quả, lịch sử) | Xong |
 | M9–M10 | Kiểm thử E2E / load, triển khai | Chưa làm |
 
 ## Yêu cầu
@@ -43,6 +43,17 @@ dotnet run --project src/ELearning.Api --launch-profile http
   - OpenAPI: http://localhost:5136/openapi/v1.json
   - Health: http://localhost:5136/health/live và http://localhost:5136/health/ready
 
+## Chạy frontend
+
+```bash
+cd frontend/elearning-web
+npm ci
+npm run dev
+```
+
+- Mở http://localhost:5173. Vite proxy `/api` sang backend ở http://localhost:5136, nên cần chạy backend trước.
+- Kiểm tra: `npm run lint && npm run typecheck && npm run test && npm run build`.
+
 ## Chạy test
 
 Integration test và API test chạy trên **SQL Server thật**. Mỗi lần chạy, test tạo một database tạm `ELearningTest_<guid>` rồi xóa khi xong.
@@ -64,6 +75,7 @@ backend/
   src/ELearning.Infrastructure  EF Core, migration, Dapper, bảo mật, job nền
   src/ELearning.Shared          Result, mã lỗi, phân trang
   tests/                        Unit, Integration, Api, TestSupport
+frontend/elearning-web/          React + TypeScript + Vite
 docs/                           Thiết kế (nguồn chuẩn)
 .github/workflows/              CI
 ```

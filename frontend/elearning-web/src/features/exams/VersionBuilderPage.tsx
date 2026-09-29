@@ -10,7 +10,7 @@ import { describeError } from "../../utils/errors";
 import { Pager, PageHeader } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { useListQuery } from "../../hooks/useListQuery";
-import { formatNumber } from "../../utils/format";
+import { formatNumber, markdownExcerpt } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import { QuestionCard } from "../attempts/ExamPlayerPage";
@@ -121,7 +121,7 @@ function QuestionPicker({ existing, onAdd, busy }: { existing: VersionQuestion[]
                 />
                 <div className="small">
                   <code>{q.code}</code> <Badge bg="light" text="dark">{t(`enums.questionType.${q.questionType}`)}</Badge> {added && <Badge bg="success">Đã có</Badge>}
-                  <div>{q.contentPreview}</div>
+                  <div>{markdownExcerpt(q.contentPreview)}</div>
                 </div>
               </ListGroup.Item>
             );

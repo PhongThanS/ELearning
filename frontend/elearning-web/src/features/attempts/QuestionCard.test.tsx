@@ -30,6 +30,24 @@ describe("QuestionCard", () => {
     expect(onSelect).toHaveBeenLastCalledWith([]);
   });
 
+  it("nội dung lựa chọn render inline, không có phần tử block bên trong label", () => {
+    render(
+      <QuestionCard
+        question={{ ...base, type: "SINGLE_CHOICE", answerDataType: null, options: [{ code: "A", content: "Dùng `async`\n\n**await**" }] }}
+        total={1}
+        draft={{ selectedOptions: [], answerText: null, isMarkedForReview: false }}
+        onSelect={vi.fn()}
+        onText={vi.fn()}
+        onMark={vi.fn()}
+      />,
+    );
+
+    const label = document.querySelector("label")!;
+    expect(label.querySelector("div, p, pre")).toBeNull();
+    expect(screen.getByText("async").tagName).toBe("CODE");
+    expect(screen.getByRole("radio", { name: /await/ })).toBeInTheDocument();
+  });
+
   it("câu điền số báo sai định dạng ngay trên ô nhập", () => {
     render(
       <QuestionCard
