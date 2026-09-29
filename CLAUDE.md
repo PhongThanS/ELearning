@@ -99,6 +99,12 @@ deploy/scripts/backup.sh full
 deploy/scripts/restore-test.sh
 ```
 
+Load test k6 (chạy trên staging, chi tiết `load-tests/README.md`; `SMOKE=1` để kiểm tra nhanh kịch bản):
+
+```bash
+BASE_URL=https://<staging> ADMIN_PASSWORD='...' load-tests/run.sh all
+```
+
 **Quy ước về package và analyzer:**
 - Version package được quản lý tập trung ở `backend/Directory.Packages.props`; `PackageReference` trong csproj không ghi version.
 - Analyzer rule được cấu hình ở `.editorconfig` gốc; migration EF được loại khỏi analyzer.

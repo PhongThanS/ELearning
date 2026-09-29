@@ -292,7 +292,7 @@ Trước khi start, UI cảnh báo khi thời gian thực tế sẽ ít hơn `Du
 - **Ân hạn** `Exam:SubmitGraceSeconds = 30`: request lưu đáp án hoặc nộp bài mà server nhận được khi `now ≤ ExpiredAt + 30s` vẫn được chấp nhận. Mục đích là bù độ trễ mạng.
 - Sau khoảng ân hạn: request lưu đáp án bị từ chối với lỗi `ATTEMPT_EXPIRED`, và lượt thi được tự nộp ngay trong chính request đó.
 - **Job nền** `AttemptExpirationWorker` (`BackgroundService`, chạy mỗi 60 giây):
-  - Tìm các lượt `IN_PROGRESS` có `ExpiredAt + grace < now`, mỗi lần tối đa 100 lượt.
+  - Tìm các lượt `IN_PROGRESS` có `ExpiredAt + grace < now`, lấy theo lô 100 lượt (`Exam:ExpirationSweepBatchSize`) và lặp tới khi hết, nên nhiều lượt hết giờ cùng lúc (cùng `EndAt`) được nộp ngay trong một vòng quét.
   - Nộp từng lượt trong transaction riêng, với `AUTO_SUBMITTED` và `SubmitReason = TIME_EXPIRED`.
   - Nhờ chuyển trạng thái nguyên tử, chạy nhiều instance cũng không bị chấm trùng.
 - Admin **gia hạn** cho một lượt: `ExpiredAt += N phút`, cộng dồn vào `TimeExtensionMinutes`, có audit. Được phép vượt quá `EndAt`.
@@ -394,6 +394,7 @@ Mọi thao tác đều yêu cầu lý do và ghi audit.
 - **(M5) Start trả 201 khi tạo lượt mới, 200 kèm `resumed: true` khi trả về lượt đang làm**, kể cả khi hai request start chạy song song (bắt cả lỗi unique lẫn trường hợp request kia vừa tạo xong giữa hai lần đọc).
 - **(M5) Lưu đáp án theo lô là "tất cả hoặc không":** một phần tử sai dạng (`INVALID_OPTION`, `INVALID_ANSWER_SHAPE`, `INVALID_NUMBER_FORMAT`) → 422 cho cả lô, không lưu gì; `field` chỉ rõ `answers[i]`. Gửi `selectedOptions: []` hoặc `answerText: ""` = xóa câu trả lời.
 - **(M5) Nộp muộn:** học viên bấm nộp sau ân hạn → ghi `AUTO_SUBMITTED` / `TIME_EXPIRED`, và `SubmittedAt = ExpiredAt` (thời gian làm bài không vượt quá hạn).
+- **(M9) Vòng quét tự nộp xử lý hết mọi lô**, không dừng sau lô đầu tiên. Trước đây mỗi vòng chỉ nộp 100 lượt, nên 500 lượt hết giờ cùng `EndAt` mất khoảng 5,5 phút (5 vòng × 60 giây + ân hạn), vượt ngưỡng `expiry-sweep` < 5 phút (`08-kiem-thu.md` mục 7). Lượt bị lỗi khi nộp được bỏ qua tới vòng sau để vòng hiện tại không lặp mãi.
 - **(M5) Sự kiện của lượt đã kết thúc** được bỏ qua (trả `accepted: 0`), không báo lỗi.
 - **(M6) Câu chọn nhiều không chọn gì luôn sai**, kể cả khi dữ liệu hỏng có tập đáp án rỗng.
 - **(M6) Điểm chính thức trên danh sách đề của học viên** chỉ hiện khi `ScoreVisibility` cho phép; lượt bị hủy bị loại.

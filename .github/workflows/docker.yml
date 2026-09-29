@@ -3,9 +3,9 @@ name: docker
 on:
   push:
     branches: [main]
-    paths: ["backend/src/**", "backend/Dockerfile", "backend/*.props", "frontend/elearning-web/**", "deploy/**", "docker-compose*.yml", ".dockerignore", ".github/workflows/docker.yml"]
+    paths: ["backend/src/**", "backend/Dockerfile", "backend/*.props", "frontend/elearning-web/**", "deploy/**", "docker-compose*.yml", ".dockerignore", "load-tests/**", ".github/workflows/docker.yml"]
   pull_request:
-    paths: ["backend/src/**", "backend/Dockerfile", "backend/*.props", "frontend/elearning-web/**", "deploy/**", "docker-compose*.yml", ".dockerignore", ".github/workflows/docker.yml"]
+    paths: ["backend/src/**", "backend/Dockerfile", "backend/*.props", "frontend/elearning-web/**", "deploy/**", "docker-compose*.yml", ".dockerignore", "load-tests/**", ".github/workflows/docker.yml"]
 
 permissions:
   contents: read
@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -37,6 +37,40 @@ jobs:
           curl -fsS http://localhost:8080/health/ready
           curl -fsS -o /dev/null http://localhost:8080/
           curl -fsSI http://localhost:8080/ | grep -i "content-security-policy"
+
+      # Chạy cả 4 kịch bản k6 với ít VU: kiểm tra kịch bản còn khớp API và các ngưỡng về tính đúng
+      # (không 5xx, mỗi học viên 1 lượt, nộp idempotent, job tự nộp). Đo hiệu năng thật chạy trên staging.
+      - name: Load test scripts (k6 smoke)
+        env:
+          BASE_URL: http://localhost:8080
+          ADMIN_PASSWORD: LoadTest_Admin#2026
+          SMOKE: "1"
+          VUS: "10"
+          START_WINDOW_SECONDS: "10"
+          DURATION: 1m
+          RAMP_SECONDS: "10"
+          MIN_THINK_SECONDS: "2"
+          MAX_THINK_SECONDS: "5"
+          PREP_SECONDS: "30"
+          WAVE_SECONDS: "15"
+          LEAD_SECONDS: "10"
+        run: |
+          # Production bắt admin đổi mật khẩu khởi tạo trước khi dùng API (D-25)
+          api() { curl -fsS -H 'Content-Type: application/json' -H 'X-Requested-With: XMLHttpRequest' "$@"; }
+          initial=$(grep '^ADMIN_INITIAL_PASSWORD=' .env | cut -d= -f2-)
+          token=$(api -X POST http://localhost:8080/api/auth/login \
+            -d "$(jq -n --arg p "$initial" '{userName: "admin", password: $p}')" | jq -r .data.accessToken)
+          api -X POST http://localhost:8080/api/auth/change-password -H "Authorization: Bearer $token" \
+            -d "$(jq -n --arg c "$initial" --arg n "$ADMIN_PASSWORD" '{currentPassword: $c, newPassword: $n}')" > /dev/null
+          load-tests/run.sh all
+
+      - name: Upload k6 summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-smoke
+          path: load-tests/results/
+          if-no-files-found: ignore
 
       - name: Logs on failure
         if: failure()

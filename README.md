@@ -16,7 +16,7 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M6 | Chấm điểm: 4 grader, chuẩn hóa tiếng Việt, câu hủy, tổng kết, chính sách xem điểm / xem lại, điểm chính thức | Xong |
 | M8 | Vận hành admin: gia hạn / buộc nộp / hủy lượt, sửa đáp án / hủy câu + chấm lại, kết quả + export Excel, dashboard, thống kê câu hỏi, audit log | Xong |
 | M7 | Frontend React: đăng nhập, khu vực admin (user, nhóm, vai trò, câu hỏi, đề, publish, kết quả, chấm lại, audit), khu vực học viên (danh sách đề, làm bài có autosave / timer, kết quả, lịch sử) | Xong |
-| M9 | Kiểm thử: E2E Playwright (học viên, admin, hết giờ) | E2E xong; load test k6 chưa làm |
+| M9 | Kiểm thử: E2E Playwright (học viên, admin, hết giờ), load test k6 (`load-tests/`: start dồn dập, autosave liên tục, đợt nộp bài, job tự nộp) | Xong (cần chạy đo thật trên staging) |
 | M10 | Triển khai: Docker Compose (SQL Server, migration bundle, tài khoản DB quyền tối thiểu, API, Nginx + HTTPS), backup / thử khôi phục | Xong |
 
 ## Yêu cầu
@@ -76,6 +76,10 @@ Integration test và API test chạy trên **SQL Server thật**. Mỗi lần ch
   ```
 - **Không đặt biến:** test tự khởi động SQL Server bằng Testcontainers, nên cần Docker (CI dùng cách này).
 
+## Load test
+
+Kịch bản k6 ở [`load-tests/`](load-tests/README.md), chạy trên staging: `BASE_URL=https://<staging> ADMIN_PASSWORD='...' load-tests/run.sh all`. Ngưỡng ở [docs/08-kiem-thu.md](docs/08-kiem-thu.md) mục 7.
+
 ## Cấu trúc
 
 ```text
@@ -87,6 +91,7 @@ backend/
   src/ELearning.Shared          Result, mã lỗi, phân trang
   tests/                        Unit, Integration, Api, TestSupport
 frontend/elearning-web/          React + TypeScript + Vite
+load-tests/                     Kịch bản k6 (xem load-tests/README.md)
 docs/                           Thiết kế (nguồn chuẩn)
 .github/workflows/              CI
 ```
