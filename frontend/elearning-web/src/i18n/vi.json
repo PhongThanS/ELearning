@@ -41,6 +41,15 @@
     "preview": "Xem trước",
     "required": "Bắt buộc"
   },
+  "media": {
+    "insert": "Chèn ảnh",
+    "insertInto": "Chèn ảnh vào {{target}}",
+    "uploading": "Đang tải ảnh…",
+    "inserted": "Đã chèn ảnh.",
+    "unavailable": "(ảnh không hiển thị được)",
+    "hint": "PNG, JPEG, GIF hoặc WebP, tối đa 2 MB. Ảnh được chèn dạng ![mô tả](media:…); sửa phần mô tả để hỗ trợ trình đọc màn hình.",
+    "switchedToMarkdown": "Đã bật Markdown để hiển thị ảnh."
+  },
   "nav": {
     "dashboard": "Tổng quan",
     "users": "Người dùng",
@@ -242,6 +251,10 @@
     "RATE_LIMITED": "Bạn thao tác quá nhanh. Vui lòng thử lại sau.",
     "INTERNAL_ERROR": "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.",
     "VERSION_IMMUTABLE": "Phiên bản đã publish không thể chỉnh sửa.",
-    "RESULT_NOT_AVAILABLE": "Kết quả chưa sẵn sàng."
+    "RESULT_NOT_AVAILABLE": "Kết quả chưa sẵn sàng.",
+    "MEDIA_FILE_REQUIRED": "Vui lòng chọn file ảnh.",
+    "MEDIA_TOO_LARGE": "Ảnh quá lớn (tối đa 2 MB).",
+    "MEDIA_TYPE_NOT_ALLOWED": "Chỉ nhận ảnh PNG, JPEG, GIF hoặc WebP.",
+    "MEDIA_NOT_FOUND": "Có ảnh trong nội dung không tồn tại. Hãy tải ảnh lên lại."
   }
 }

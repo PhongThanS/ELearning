@@ -81,7 +81,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 - Khóa học, lớp học, giáo viên; bảng xếp hạng, chứng chỉ.
 - Email, thông báo, SignalR, Redis.
 - Chống gian lận nâng cao, thống kê nâng cao.
-- ~~Câu tự luận và chấm tay~~, ~~chấm từng phần~~ — **đã làm** (xem `02-nghiep-vu.md` mục 2.2, 2.3). Đính kèm hình ảnh / file: chưa làm.
+- ~~Câu tự luận và chấm tay~~, ~~chấm từng phần~~ — **đã làm** (xem `02-nghiep-vu.md` mục 2.2, 2.3). ~~Ảnh trong câu hỏi~~ — **đã làm** (đề, lựa chọn, giải thích; xem `02-nghiep-vu.md` mục 1.4). Đính kèm file khác (PDF, âm thanh): chưa làm.
 
 ## 6. Yêu cầu phi chức năng
 

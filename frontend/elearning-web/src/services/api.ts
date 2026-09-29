@@ -1,6 +1,7 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
   ManualGradeResult,
+  MediaUpload,
   ManualGradingItem,
   PoolRuleInput,
   QuestionImportResult,
@@ -109,6 +110,15 @@ export const questionsApi = {
     const form = new FormData();
     form.append("file", file);
     return http.post<QuestionImportResult>(`/questions/import?dryRun=${dryRun}`, form);
+  },
+};
+
+/** Ảnh trong câu hỏi (D-27): PNG / JPEG / GIF / WebP, tối đa 2 MB; server kiểm tra lại. */
+export const mediaApi = {
+  upload: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<MediaUpload>("/media", form);
   },
 };
 

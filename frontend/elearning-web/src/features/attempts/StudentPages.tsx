@@ -8,6 +8,7 @@ import { ConfirmDialog, Empty, ErrorAlert, Loading } from "../../components/comm
 import { describeError } from "../../utils/errors";
 import { availabilityVariant } from "../../constants/ui";
 import { MarkdownView } from "../../components/common/MarkdownView";
+import { MediaUrls } from "../../components/common/MediaUrls";
 import { Pager } from "../../components/common/DataTable";
 import { formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
 import type { StudentExamDetail, StudentExamItem } from "../../types/api";
@@ -245,7 +246,7 @@ export function ResultPage() {
       </Card>
 
       {r.reviewAvailable && r.questions && (
-        <>
+        <MediaUrls value={r.media}>
           <h2 className="h5">{t("result.review")}</h2>
           {r.questions.map((q) => (
             <Card key={q.id} className={`mb-3 border-${q.isVoided ? "secondary" : q.isCorrect ? "success" : "danger"}`}>
@@ -283,7 +284,7 @@ export function ResultPage() {
                       return (
                         <li key={o.code} className={`px-2 py-1 rounded mb-1 ${correct ? "bg-success-subtle" : selected ? "bg-danger-subtle" : ""}`}>
                           <strong>{q.type === "TRUE_FALSE" ? "" : `${optionLabel(index)}. `}</strong>
-                          {o.content}
+                          <MarkdownView content={o.content} inline />
                           {selected && <Badge bg="secondary" className="ms-2">{t("result.yourAnswer")}</Badge>}
                           {correct && <Badge bg="success" className="ms-2">{t("result.correctAnswer")}</Badge>}
                         </li>
@@ -299,7 +300,7 @@ export function ResultPage() {
               </Card.Body>
             </Card>
           ))}
-        </>
+        </MediaUrls>
       )}
     </>
   );

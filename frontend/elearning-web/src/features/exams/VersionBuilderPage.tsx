@@ -9,6 +9,7 @@ import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { Pager, PageHeader } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
+import { MediaUrls } from "../../components/common/MediaUrls";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatNumber, markdownExcerpt } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
@@ -233,7 +234,7 @@ function SelectedQuestions({
               </div>
             </div>
             <div className="mt-1">
-              <MarkdownView content={q.content} format={q.contentFormat} />
+              <MarkdownView content={q.content} format={q.contentFormat} media={version.media} />
             </div>
             <div className="small text-secondary">
               Đáp án:{" "}
@@ -288,7 +289,7 @@ function AnswerKeyForm({ examId, version, question, onHide }: { examId: string; 
       </Modal.Header>
       <Modal.Body>
         {regrade.error && <Alert variant="danger">{describeError(regrade.error)}</Alert>}
-        <MarkdownView content={question.content} format={question.contentFormat} />
+        <MarkdownView content={question.content} format={question.contentFormat} media={version.media} />
         {question.questionType === "FILL_IN" ? (
           question.answerDataType === "NUMBER" ? (
             <Row className="g-2">
@@ -316,7 +317,7 @@ function AnswerKeyForm({ examId, version, question, onHide }: { examId: string; 
                 id={`ak-${o.optionCode}`}
                 type={single ? "radio" : "checkbox"}
                 name="ak-options"
-                label={`${o.optionCode}. ${o.content}`}
+                label={<>{o.optionCode}. <MarkdownView content={o.content} inline media={version.media} /></>}
                 checked={codes.includes(o.optionCode)}
                 onChange={(e) => setCodes(single ? [o.optionCode] : e.target.checked ? [...codes, o.optionCode] : codes.filter((c) => c !== o.optionCode))}
               />
@@ -413,7 +414,7 @@ function PreviewTab({ examId, versionId }: { examId: string; versionId: string }
   }
   const p = query.data;
   return (
-    <>
+    <MediaUrls value={p.media}>
       <Alert variant="secondary" className="small">Hiển thị đúng như học viên thấy (không có đáp án). Chế độ xem trước không lưu và không tính giờ.</Alert>
       {p.instructions && (
         <Card className="mb-3">
@@ -435,7 +436,7 @@ function PreviewTab({ examId, versionId }: { examId: string; versionId: string }
           />
         </div>
       ))}
-    </>
+    </MediaUrls>
   );
 }
 

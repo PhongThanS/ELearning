@@ -18,6 +18,7 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M7 | Frontend React: đăng nhập, khu vực admin (user, nhóm, vai trò, câu hỏi, đề, publish, kết quả, chấm lại, audit), khu vực học viên (danh sách đề, làm bài có autosave / timer, kết quả, lịch sử) | Xong |
 | M9 | Kiểm thử: E2E Playwright (học viên, admin, hết giờ), load test k6 (`load-tests/`: start dồn dập, autosave liên tục, đợt nộp bài, job tự nộp) | Xong (cần chạy đo thật trên staging) |
 | M10 | Triển khai: Docker Compose (SQL Server, migration bundle, tài khoản DB quyền tối thiểu, API, Nginx + HTTPS), backup / thử khôi phục, giám sát (chỉ số, `/health/alerts`, container `monitor` gửi webhook) | Xong |
+| Sau MVP | Import câu hỏi Excel, xáo câu / đáp án, pool ngẫu nhiên, độ khó / tag, tự luận + chấm tay, chấm từng phần, ảnh trong đề / lựa chọn / giải thích | Xong |
 
 ## Yêu cầu
 

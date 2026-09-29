@@ -62,6 +62,8 @@ Lỗi nghiệp vụ (422):
 |---|---|---|
 | `VALIDATION_FAILED` | 400 | Lỗi validation chung (chi tiết nằm trong `errors[]`) |
 | `INVALID_VALUE` | 400 | Giá trị không đọc được khi binding (sai kiểu, JSON hỏng) |
+| `MEDIA_FILE_REQUIRED` / `MEDIA_TOO_LARGE` / `MEDIA_TYPE_NOT_ALLOWED` | 400 | Upload ảnh: thiếu file, quá `Media:MaxBytes`, không phải PNG / JPEG / GIF / WebP |
+| `MEDIA_NOT_FOUND` | 400 / 404 | Nội dung câu hỏi tham chiếu ảnh không tồn tại (400); URL ảnh sai chữ ký, hết hạn hoặc không có ảnh (404) |
 | `METHOD_NOT_ALLOWED` | 405 | Phương thức HTTP không được hỗ trợ trên route |
 | `UNAUTHENTICATED` | 401 | Thiếu token hoặc chưa đăng nhập |
 | `INVALID_CREDENTIALS` | 401 | Sai tài khoản hoặc mật khẩu (thông báo chung, không nói sai phần nào) |
@@ -168,9 +170,13 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | PATCH | `/api/questions/{id}/status` | `Question.Update` |
 | POST | `/api/questions/{id}/clone` | `Question.Create` |
 | GET | `/api/questions/import/template` → file `.xlsx` | `Question.Create` |
+| POST | `/api/media` (multipart, trường `file`) → 201 `{ id, contentType, sizeBytes, url, markdown }`. PNG / JPEG / GIF / WebP nhận diện theo nội dung file, tối đa `Media:MaxBytes` (2 MB); cùng nội dung trả lại ảnh cũ. Lỗi 400 `MEDIA_FILE_REQUIRED` / `MEDIA_TOO_LARGE` / `MEDIA_TYPE_NOT_ALLOWED` | `Question.Create` |
+| GET | `/api/media/{id}?exp=&sig=` → file ảnh. URL do server ký (HMAC, hết hạn sau 6–12 giờ), không cần đăng nhập, không rate limit; sai chữ ký / hết hạn / không có → 404 `MEDIA_NOT_FOUND` | — |
 | POST | `/api/questions/import?dryRun=` (multipart, trường `file`) → `QuestionImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, code, questionType, contentPreview, issues[{ field, code, message }] }] }`. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY` | `Question.Create` |
 
-Không có `DELETE` cho câu hỏi và danh mục (D-16).
+Không có `DELETE` cho câu hỏi, danh mục và ảnh (D-16).
+
+**Ảnh trong nội dung (D-27):** nội dung Markdown chứa `![mô tả](media:<id>)`. Mọi DTO trả nội dung có thêm `media: { "<id>": "<url đã ký>" }`, chỉ gồm ảnh của các trường có trong DTO đó: `QuestionDetail`, `VersionDetail`, `ExamPreview`, `Attempt` (đề + lựa chọn), `StudentResult` (thêm giải thích khi `reviewAvailable`), `AdminAttemptDetail`, `ManualGradingItem`. Lưu câu hỏi có ảnh không tồn tại → 400 `MEDIA_NOT_FOUND`.
 
 Ví dụ tạo câu hỏi:
 ```json
@@ -355,6 +361,9 @@ Kiểm tra quyền luôn dựa trên **permission**. Bảng dưới chỉ thể 
 ADMIN không thi thay học viên. Muốn thử đề thì dùng `preview`.
 
 ## 8. Quyết định / Giả định
+
+- **(D-27) Upload ảnh cần `Question.Create`**, không cần `Question.Update`: tải ảnh là tạo nội dung mới, còn gắn ảnh vào câu hỏi vẫn phải qua quyền tạo / sửa câu hỏi.
+- **(D-27) `GET /api/media/{id}` không đăng nhập mà dùng chữ ký trong URL**, vì thẻ `<img>` không gửi được access token đang giữ trong bộ nhớ (D-15). Chữ ký chỉ được sinh cho ảnh nằm trong DTO mà người gọi đã được phép xem.
 
 - **D-13:** spec gốc lẫn lộn giữa `ApiResponse` và ProblemDetails; chốt dùng `ApiResponse` cho mọi response và thêm `traceId`.
 - **Thêm 429** vào bảng status, vì spec gốc có rate limit nhưng không có mã lỗi tương ứng.

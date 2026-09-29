@@ -367,7 +367,7 @@ export function AttemptAdminPage() {
                 {formatScore(q.score, q.maxScore)} {q.isVoided && <Badge bg="dark">hủy</Badge>}
               </span>
             </div>
-            <MarkdownView content={q.content} />
+            <MarkdownView content={q.content} media={a.media} />
             <div className="small">
               <span className="text-secondary">Trả lời:</span>{" "}
               {q.type === "FILL_IN" ? q.answerText ?? "(bỏ trống)" : q.selectedOptions.join(", ") || "(bỏ trống)"} ·{" "}

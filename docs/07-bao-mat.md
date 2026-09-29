@@ -116,7 +116,13 @@ Dùng `Microsoft.AspNetCore.RateLimiting`. Key theo IP với các endpoint chưa
   ```
 - Header bổ sung: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
 - SQL: chỉ dùng truy vấn tham số hóa (EF Core, Dapper với tham số). Không nối chuỗi từ input.
-- Upload file (sau MVP): kiểm tra MIME và kích thước, lưu ở object storage, truy cập qua signed URL.
+- **Upload ảnh (D-27):**
+  - Chỉ PNG / JPEG / GIF / WebP, nhận diện theo **chữ ký file** (magic bytes), không tin phần mở rộng hay `Content-Type` của client. **Không nhận SVG** (chứa được script).
+  - Tối đa 2 MB (`Media:MaxBytes`); tên file lưu là SHA-256, không dùng tên client gửi làm đường dẫn; ghi file tạm rồi đổi tên.
+  - Tải ảnh về qua **URL đã ký** HMAC-SHA256 (khóa dẫn xuất từ `Jwt:SigningKey` bằng HKDF), hết hạn sau 6–12 giờ, so sánh chữ ký thời gian cố định. Sai chữ ký / hết hạn đều trả 404 như ảnh không tồn tại.
+  - Response ảnh có `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cross-Origin-Resource-Policy: same-origin`, `Cache-Control: private`.
+  - **Chống lộ đáp án:** server chỉ ký ảnh xuất hiện trong các trường của DTO đang trả về. Player không có ảnh của giải thích; trang kết quả chỉ có khi `ReviewPolicy` cho xem lại. Có API test khẳng định id ảnh giải thích không xuất hiện trong JSON khi đang thi và khi `ReviewPolicy = NEVER`.
+  - CSP giữ nguyên `img-src 'self' data:` vì ảnh phục vụ cùng origin; frontend không hiển thị ảnh ngoài.
 
 ## 8. CORS
 

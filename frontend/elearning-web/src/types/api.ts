@@ -188,6 +188,8 @@ export interface QuestionDetail {
   difficulty: QuestionDifficulty | null;
   tags: string[];
   partialScoring: boolean;
+  /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
+  media?: MediaUrlMap;
 }
 
 export interface QuestionInput {
@@ -341,6 +343,8 @@ export interface VersionDetail {
   questions: VersionQuestion[];
   rowVersion: string;
   poolRules: PoolRule[];
+  /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
+  media?: MediaUrlMap;
 }
 
 export interface PublishIssue {
@@ -379,6 +383,8 @@ export interface ExamPreview {
   questionCount: number;
   maxScore: number;
   questions: PlayerQuestion[];
+  /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
+  media?: MediaUrlMap;
 }
 
 export interface Assignments {
@@ -465,6 +471,8 @@ export interface Attempt {
   expiredAt: string;
   serverTime: string;
   questions: AttemptQuestion[];
+  /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
+  media?: MediaUrlMap;
 }
 
 export interface SaveAnswerItem {
@@ -525,6 +533,8 @@ export interface StudentResult {
   questions: ReviewQuestion[] | null;
   /** Còn câu tự luận chờ chấm tay: điểm chưa công bố. */
   pendingManualGrading: boolean;
+  /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
+  media?: MediaUrlMap;
 }
 
 export interface StudentHistoryItem {
@@ -617,6 +627,8 @@ export interface AdminAttemptDetail {
   gradingRevision: number | null;
   answers: AdminAnswer[];
   events: { type: AttemptEventType; clientTime: string | null; serverTime: string; ipAddress: string | null; detail: string | null }[];
+  /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
+  media?: MediaUrlMap;
 }
 
 export interface AdminResultRow {
@@ -762,6 +774,8 @@ export interface ManualGradingItem {
   manualScore: number | null;
   manualComment: string | null;
   manualGradedAt: string | null;
+  /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
+  media?: MediaUrlMap;
 }
 
 export interface ManualGradeResult {
@@ -771,4 +785,16 @@ export interface ManualGradeResult {
   percentage: number;
   passed: boolean | null;
   pendingManualCount: number;
+}
+
+/** id ảnh (GUID chữ thường) → URL đã ký, xem MarkdownView. */
+export type MediaUrlMap = Record<string, string>;
+
+export interface MediaUpload {
+  id: string;
+  contentType: string;
+  sizeBytes: number;
+  url: string;
+  /** Chuỗi chèn vào nội dung: ![](media:<id>) */
+  markdown: string;
 }
