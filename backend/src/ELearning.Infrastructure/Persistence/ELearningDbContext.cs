@@ -4,6 +4,7 @@ using ELearning.Domain.Audit;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Identity;
+using ELearning.Domain.Media;
 using ELearning.Domain.Questions;
 using ELearning.Domain.Results;
 using ELearning.Infrastructure.Persistence.Converters;
@@ -70,6 +71,8 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
     public DbSet<ExamResultHistory> ExamResultHistory => Set<ExamResultHistory>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+
+    public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

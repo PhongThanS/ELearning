@@ -24,6 +24,8 @@ public static class ApiServiceCollectionExtensions
             .ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<MonitoringOptions>().BindConfiguration(MonitoringOptions.SectionName)
             .ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<MediaOptions>().BindConfiguration(MediaOptions.SectionName)
+            .ValidateDataAnnotations().ValidateOnStart();
         return services;
     }
 

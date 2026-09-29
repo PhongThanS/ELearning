@@ -52,6 +52,19 @@ UNION ALL SELECT 'ExamResults', (SELECT COUNT(*) FROM [$DB].dbo.ExamResults), (S
 UNION ALL SELECT 'Migrations', (SELECT COUNT(*) FROM [$DB].dbo.__EFMigrationsHistory), (SELECT COUNT(*) FROM [$TARGET].dbo.__EFMigrationsHistory);
 DBCC CHECKDB (N'$TARGET') WITH NO_INFOMSGS;"
 
+# Mọi ảnh mà bản khôi phục tham chiếu phải có trong bản sao ảnh (D-27)
+MEDIA_BACKUP="$HOST_DIR/media"
+mapfile -t HASHES < <(docker compose exec -T -e SQLCMDPASSWORD="$SQL_SA_PASSWORD" sqlserver \
+  /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -C -b -h -1 -W -Q "SET NOCOUNT ON; SELECT Sha256 FROM [$TARGET].dbo.MediaFiles" | tr -d '\r' | grep -E '^[0-9a-f]{64}$' || true)
+MISSING=0
+for h in "${HASHES[@]}"; do
+  [[ -f "$MEDIA_BACKUP/${h:0:2}/$h" ]] || { echo "Thiếu ảnh $h trong $MEDIA_BACKUP" >&2; MISSING=$((MISSING + 1)); }
+done
+echo "Ảnh: ${#HASHES[@]} trong database, thiếu $MISSING trong bản sao"
+if (( MISSING > 0 )); then
+  exit 1
+fi
+
 echo "RESTORE TEST OK: $TARGET khôi phục trong ${ELAPSED} giây ($(date -u +%FT%TZ)). Ghi kết quả này vào sổ vận hành."
 if [[ "$KEEP" != "--keep" ]]; then
   sqlcmd "ALTER DATABASE [$TARGET] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$TARGET];"

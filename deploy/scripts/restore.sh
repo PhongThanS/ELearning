@@ -4,8 +4,9 @@
 # - Tên file là tên trong BACKUP_DIR (không kèm đường dẫn).
 # - Mọi file trừ file cuối được restore WITH NORECOVERY; file cuối WITH RECOVERY.
 # - Không có --replace thì từ chối ghi đè database đang tồn tại.
-# Khôi phục đè database đang chạy: dừng API trước (docker compose stop api), chạy với --target ELearningDb --replace,
+# Khôi phục đè database đang chạy: dừng API trước (docker compose stop api), chạy với --target ELearningDb --replace --with-media,
 # rồi bật lại API và dùng chức năng gia hạn cho các lượt thi bị ảnh hưởng.
+# --with-media: chép ảnh câu hỏi còn thiếu từ BACKUP_DIR/media về MEDIA_DIR (chỉ thêm, không ghi đè), rồi đặt lại quyền.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -17,11 +18,13 @@ export MSYS_NO_PATHCONV=1
 
 TARGET=""
 REPLACE=""
+WITH_MEDIA=""
 FILES=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --target) TARGET="$2"; shift 2 ;;
     --replace) REPLACE=", REPLACE"; shift ;;
+    --with-media) WITH_MEDIA=1; shift ;;
     *) FILES+=("$1"); shift ;;
   esac
 done
@@ -56,4 +59,8 @@ for i in "${!FILES[@]}"; do
   echo "restore $FILE ($RECOVERY)"
   sqlcmd "$SQL"
 done
+if [[ -n "$WITH_MEDIA" ]]; then
+  deploy/scripts/media-sync.sh "${BACKUP_DIR:-./backups}/media" "${MEDIA_DIR:-./media}"
+  docker compose run --rm --no-deps media-init
+fi
 echo "Khôi phục xong $TARGET trong $(( $(date +%s) - START )) giây."

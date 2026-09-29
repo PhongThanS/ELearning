@@ -6,6 +6,9 @@ public static class ErrorCodes
     // 400 / 405
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string InvalidValue = "INVALID_VALUE";
+    public const string MediaFileRequired = "MEDIA_FILE_REQUIRED";
+    public const string MediaTooLarge = "MEDIA_TOO_LARGE";
+    public const string MediaTypeNotAllowed = "MEDIA_TYPE_NOT_ALLOWED";
     public const string MethodNotAllowed = "METHOD_NOT_ALLOWED";
 
     // 401
@@ -26,6 +29,7 @@ public static class ErrorCodes
     public const string ExamNotFound = "EXAM_NOT_FOUND";
     public const string AttemptNotFound = "ATTEMPT_NOT_FOUND";
     public const string QuestionNotFound = "QUESTION_NOT_FOUND";
+    public const string MediaNotFound = "MEDIA_NOT_FOUND";
 
     // 409
     public const string ConcurrencyConflict = "CONCURRENCY_CONFLICT";

@@ -1,6 +1,7 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Media;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Questions;
 using ELearning.Shared;
@@ -39,6 +40,8 @@ internal sealed class QuestionService(
     IAuditService audit,
     ICurrentUser currentUser,
     TimeProvider time,
+    IMediaService media,
+    MediaLinks mediaLinks,
     IValidator<QuestionInput> createValidator,
     IValidator<UpdateQuestionRequest> updateValidator) : IQuestionService
 {
@@ -123,6 +126,11 @@ internal sealed class QuestionService(
     public async Task<Result<QuestionDetailDto>> CreateAsync(QuestionInput request, CancellationToken ct)
     {
         var errors = await createValidator.ValidateToErrorsAsync(request, ct);
+        if (errors.Count == 0)
+        {
+            errors = [.. await media.ValidateReferencesAsync(MediaTexts(request), "content", ct)];
+        }
+
         if (errors.Count > 0)
         {
             return Result<QuestionDetailDto>.Failure(errors);
@@ -157,6 +165,11 @@ internal sealed class QuestionService(
     public async Task<Result<QuestionDetailDto>> UpdateAsync(Guid id, UpdateQuestionRequest request, CancellationToken ct)
     {
         var errors = await updateValidator.ValidateToErrorsAsync(request, ct);
+        if (errors.Count == 0)
+        {
+            errors = [.. await media.ValidateReferencesAsync(MediaTexts(request), "content", ct)];
+        }
+
         if (errors.Count > 0)
         {
             return Result<QuestionDetailDto>.Failure(errors);
@@ -304,6 +317,11 @@ internal sealed class QuestionService(
             q.RowVersion.ToBase64(),
             q.Difficulty,
             q.Tags.Select(t => t.Tag).Order(StringComparer.Ordinal).ToList(),
-            q.PartialScoring);
+            q.PartialScoring,
+            mediaLinks.For([q.Content, q.Explanation, .. q.Options.Select(o => o.Content)]));
     }
+
+    /// <summary>Các trường Markdown có thể chứa ảnh <c>media:&lt;id&gt;</c> (D-27).</summary>
+    internal static IEnumerable<string?> MediaTexts(QuestionInput input) =>
+        [input.Content, input.Explanation, .. (input.Options ?? []).Select(o => o.Content)];
 }

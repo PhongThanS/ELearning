@@ -100,6 +100,19 @@ services:
         condition: service_completed_successfully
     restart: "no"
 
+  # Thư mục ảnh câu hỏi trên máy chủ thuộc user của API (uid 1654 = APP_UID của image .NET), kể cả file chép lại khi khôi phục
+  media-init:
+    image: elearning-api:${IMAGE_TAG:-local}
+    user: "0"
+    entrypoint: ["sh", "-c", "chown -R 1654:1654 /var/lib/elearning/media"]
+    volumes:
+      - ${MEDIA_DIR:-./media}:/var/lib/elearning/media
+    network_mode: none
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    restart: "no"
+
   api:
     image: elearning-api:${IMAGE_TAG:-local}
     build:
@@ -107,9 +120,12 @@ services:
       dockerfile: backend/Dockerfile
       target: api
     environment: *api-env
+    # Ảnh câu hỏi (D-27): bất biến, tên theo SHA-256; backup.sh sao lưu cùng database (docs/09-van-hanh.md mục 6)
+    volumes:
+      - ${MEDIA_DIR:-./media}:/var/lib/elearning/media
     networks: [backend]
     depends_on:
-      seed:
+      media-init:
         condition: service_completed_successfully
     restart: unless-stopped
     stop_grace_period: 30s

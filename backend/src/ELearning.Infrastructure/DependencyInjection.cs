@@ -1,8 +1,10 @@
 using ELearning.Application.Admin;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Media;
 using ELearning.Application.Questions;
 using ELearning.Infrastructure.BackgroundJobs;
 using ELearning.Infrastructure.Excel;
+using ELearning.Infrastructure.Media;
 using ELearning.Infrastructure.Persistence;
 using ELearning.Infrastructure.Persistence.Seed;
 using ELearning.Infrastructure.Queries;
@@ -44,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IReportQuery, ReportQuery>();
         services.AddSingleton<IResultExporter, ResultExporter>();
         services.AddSingleton<IQuestionImportWorkbook, QuestionImportWorkbook>();
+        services.AddSingleton<IMediaStore, FileSystemMediaStore>();
         services.AddHostedService<AttemptExpirationWorker>();
         services.AddHostedService<MonitoringSnapshotWorker>();
 

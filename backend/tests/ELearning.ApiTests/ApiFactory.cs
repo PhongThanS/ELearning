@@ -21,6 +21,9 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     private readonly SqlServerTestDatabase _database = new();
 
+    /// <summary>Thư mục ảnh riêng cho mỗi factory (Media:RootPath), xóa khi xong.</summary>
+    public string MediaRoot { get; } = Path.Combine(Path.GetTempPath(), $"elearning-media-{Guid.NewGuid():N}");
+
     public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);
 
     /// <summary>Giới hạn login mỗi phút; test rate limit dùng factory riêng với giá trị thấp.</summary>
@@ -32,6 +35,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await base.DisposeAsync();
         await _database.DisposeAsync();
+        if (Directory.Exists(MediaRoot))
+        {
+            Directory.Delete(MediaRoot, recursive: true);
+        }
     }
 
     /// <summary>Client HTTPS; cookie refresh token được test tự quản lý (đọc Set-Cookie, gửi header Cookie).</summary>
@@ -57,6 +64,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("RateLimits:AttemptWriteBurst", "100000");
         builder.UseSetting("Exam:ExpirationWorkerEnabled", "false");
         builder.UseSetting("Monitoring:SnapshotEnabled", "false");
+        builder.UseSetting("Media:RootPath", MediaRoot);
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();

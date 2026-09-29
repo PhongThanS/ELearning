@@ -1,6 +1,7 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Media;
 using ELearning.Domain.Common;
 using ELearning.Domain.Questions;
 using ELearning.Shared.Results;
@@ -27,6 +28,7 @@ internal sealed class QuestionImportService(
     IAuditService audit,
     ICurrentUser currentUser,
     TimeProvider time,
+    IMediaService media,
     IValidator<QuestionInput> validator) : IQuestionImportService
 {
     /// <summary>Tên trường của validator → tên cột trong file, để thông báo lỗi chỉ đúng chỗ cần sửa.</summary>
@@ -131,6 +133,12 @@ internal sealed class QuestionImportService(
     private async Task ValidateAsync(ImportRow row, CancellationToken ct)
     {
         foreach (var error in await validator.ValidateToErrorsAsync(row.Input!, ct))
+        {
+            row.Issues.Add(new QuestionImportIssue(ColumnFor(error.Field), error.Code, error.Message));
+        }
+
+        // Ảnh media:<id> phải đã được tải lên trước (D-27)
+        foreach (var error in await media.ValidateReferencesAsync(QuestionService.MediaTexts(row.Input!), "content", ct))
         {
             row.Issues.Add(new QuestionImportIssue(ColumnFor(error.Field), error.Code, error.Message));
         }

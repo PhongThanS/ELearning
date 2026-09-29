@@ -121,7 +121,8 @@ public sealed record VersionDetailDto(
     DateTime? ArchivedAt,
     IReadOnlyList<VersionQuestionDto> Questions,
     string RowVersion,
-    IReadOnlyList<PoolRuleDto> PoolRules);
+    IReadOnlyList<PoolRuleDto> PoolRules,
+    IReadOnlyDictionary<string, string>? Media = null);
 
 public sealed record PublishValidationDto(bool IsValid, IReadOnlyList<PublishIssue> Issues);
 
@@ -147,7 +148,8 @@ public sealed record ExamPreviewDto(
     int DurationMinutes,
     int QuestionCount,
     decimal MaxScore,
-    IReadOnlyList<PlayerQuestionDto> Questions);
+    IReadOnlyList<PlayerQuestionDto> Questions,
+    IReadOnlyDictionary<string, string>? Media = null);
 
 public sealed record AssignedGroupDto(Guid Id, string Code, string Name, int MemberCount);
 
