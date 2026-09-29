@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IQuestionService, QuestionService>();
+        services.AddScoped<IQuestionImportService, QuestionImportService>();
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IExamVersionService, ExamVersionService>();
 

@@ -1,5 +1,6 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
+  QuestionImportResult,
   AnswerKeyCorrection,
   UserOverride,
   AdminAttemptDetail,
@@ -99,6 +100,13 @@ export const questionsApi = {
   update: (id: string, body: QuestionInput) => http.put<QuestionDetail>(`/questions/${id}`, body),
   setStatus: (id: string, isActive: boolean) => http.patch<QuestionDetail>(`/questions/${id}/status`, { isActive }),
   clone: (id: string) => http.post<QuestionDetail>(`/questions/${id}/clone`),
+  importTemplate: () => downloadFile("/questions/import/template", undefined, "mau-import-cau-hoi.xlsx"),
+  /** dryRun: chỉ kiểm tra. Tất cả hoặc không: có dòng lỗi thì không tạo câu nào. */
+  import: (file: File, dryRun: boolean) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<QuestionImportResult>(`/questions/import?dryRun=${dryRun}`, form);
+  },
 };
 
 export interface ExamDetailsBody {
@@ -180,24 +188,24 @@ export const adminApi = {
     http.get<QuestionStat[]>("/admin/reports/question-statistics", { examId, versionId }),
   auditLogs: (q: Query) => http.get<Paged<AuditLog>>("/admin/audit-logs", q),
 
-  /** Tải file Excel qua Axios (có Authorization) rồi lưu bằng blob. */
-  exportResults: async (examId: string, official: boolean) => {
-    try {
-      const response = await apiClient.get<Blob>(`/admin/exams/${examId}/results/export`, {
-        params: { official },
-        responseType: "blob",
-      });
-      const disposition = String(response.headers["content-disposition"] ?? "");
-      const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disposition);
-      const fileName = decodeURIComponent(match?.[1] ?? match?.[2] ?? "ket-qua.xlsx");
-      const url = URL.createObjectURL(response.data);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      throw toApiError(error);
-    }
-  },
+  exportResults: (examId: string, official: boolean) =>
+    downloadFile(`/admin/exams/${examId}/results/export`, { official }, "ket-qua.xlsx"),
 };
+
+/** Tải file qua Axios (có Authorization) rồi lưu bằng blob; tên file lấy từ Content-Disposition. */
+async function downloadFile(url: string, params: object | undefined, fallbackName: string): Promise<void> {
+  try {
+    const response = await apiClient.get<Blob>(url, { params, responseType: "blob" });
+    const disposition = String(response.headers["content-disposition"] ?? "");
+    const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(disposition);
+    const fileName = decodeURIComponent(match?.[1] ?? match?.[2] ?? fallbackName);
+    const objectUrl = URL.createObjectURL(response.data);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    link.click();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    throw toApiError(error);
+  }
+}

@@ -3,6 +3,7 @@ using ELearning.Api.Security;
 using ELearning.Application.Questions;
 using ELearning.Domain.Identity;
 using ELearning.Shared.Paging;
+using ELearning.Shared.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ELearning.Api.Controllers;
@@ -43,8 +44,43 @@ public sealed class QuestionCategoriesController(ICategoryService categories) : 
 
 /// <summary>Ngân hàng câu hỏi (docs/05-api.md mục 6.3). Không có DELETE (D-16).</summary>
 [Route("api/questions")]
-public sealed class QuestionsController(IQuestionService questions) : ApiControllerBase
+public sealed class QuestionsController(IQuestionService questions, IQuestionImportService imports) : ApiControllerBase
 {
+    private const long MaxImportBytes = 5 * 1024 * 1024;
+    private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    /// <summary>File mẫu import câu hỏi (kèm hướng dẫn và danh sách mã danh mục).</summary>
+    [HttpGet("import/template")]
+    [HasPermission(Permissions.QuestionCreate)]
+    [ProducesResponseType<FileContentResult>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ImportTemplate(CancellationToken ct) =>
+        File(await imports.CreateTemplateAsync(ct), XlsxContentType, "mau-import-cau-hoi.xlsx");
+
+    /// <summary>
+    /// Import câu hỏi từ .xlsx (tối đa 5 MB, 1000 câu). dryRun=true chỉ kiểm tra. Tất cả hoặc không:
+    /// có dòng lỗi thì không tạo câu nào, kết quả trả về lỗi theo từng dòng.
+    /// </summary>
+    [HttpPost("import")]
+    [HasPermission(Permissions.QuestionCreate)]
+    [RequestSizeLimit(MaxImportBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxImportBytes + 64 * 1024)]
+    [ProducesResponseType<ApiResponse<QuestionImportResult>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> Import(IFormFile? file, [FromQuery] bool dryRun, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_REQUIRED", "Vui lòng chọn file Excel.", "file")));
+        }
+
+        if (file.Length > MaxImportBytes || !file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_INVALID", "Chỉ nhận file .xlsx, tối đa 5 MB.", "file")));
+        }
+
+        await using var stream = file.OpenReadStream();
+        return ToResponse(await imports.ImportAsync(stream, dryRun, ct));
+    }
+
     [HttpGet]
     [HasPermission(Permissions.QuestionView)]
     [ProducesResponseType<ApiResponse<PagedResult<QuestionListItemDto>>>(StatusCodes.Status200OK)]

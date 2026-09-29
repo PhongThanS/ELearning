@@ -167,6 +167,8 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | PUT | `/api/questions/{id}` (kèm `rowVersion`) | `Question.Update` |
 | PATCH | `/api/questions/{id}/status` | `Question.Update` |
 | POST | `/api/questions/{id}/clone` | `Question.Create` |
+| GET | `/api/questions/import/template` → file `.xlsx` | `Question.Create` |
+| POST | `/api/questions/import?dryRun=` (multipart, trường `file`) → `QuestionImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, code, questionType, contentPreview, issues[{ field, code, message }] }] }`. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY` | `Question.Create` |
 
 Không có `DELETE` cho câu hỏi và danh mục (D-16).
 

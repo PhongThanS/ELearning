@@ -11,6 +11,7 @@ import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
+import { QuestionImportDialog } from "./QuestionImportDialog";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatNumber, markdownExcerpt } from "../../utils/format";
 import { matchesAny } from "../../utils/answerNormalizer";
@@ -126,6 +127,7 @@ export function QuestionsPage() {
   const list = useListQuery({ categoryId: initialCategory });
   const query = useQuery({ queryKey: ["questions", list.params], queryFn: () => questionsApi.list(list.params) });
   const categories = useActiveCategories();
+  const [importing, setImporting] = useState(false);
   const action = useMutation({
     mutationFn: async (run: () => Promise<{ id: string }>) => run(),
     onSuccess: () => {
@@ -172,8 +174,16 @@ export function QuestionsPage() {
     <>
       <PageHeader
         title={t("nav.questions")}
-        actions={hasPermission(Permissions.QuestionCreate) && <Link to="/admin/questions/create" className="btn btn-primary">{t("common.create")}</Link>}
+        actions={
+          hasPermission(Permissions.QuestionCreate) && (
+            <>
+              <Button variant="outline-primary" onClick={() => setImporting(true)}>Import Excel</Button>
+              <Link to="/admin/questions/create" className="btn btn-primary">{t("common.create")}</Link>
+            </>
+          )
+        }
       />
+      <QuestionImportDialog show={importing} onHide={() => setImporting(false)} />
       <QuestionFilters list={list} categories={categories.data?.items ?? []} />
       <DataTable data={query.data} columns={columns} rowKey={(q) => q.id} isLoading={query.isLoading} error={query.error} sort={list.state} onSort={list.toggleSort} onPage={list.setPage} />
     </>

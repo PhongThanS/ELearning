@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IAttemptLock, AttemptLock>();
         services.AddScoped<IReportQuery, ReportQuery>();
         services.AddSingleton<IResultExporter, ResultExporter>();
+        services.AddSingleton<IQuestionImportWorkbook, QuestionImportWorkbook>();
         services.AddHostedService<AttemptExpirationWorker>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();

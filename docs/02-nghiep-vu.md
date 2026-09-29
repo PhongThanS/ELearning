@@ -36,6 +36,17 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 - **HTML thô bị vô hiệu hóa** khi render (không bật `rehype-raw`). Liên kết chỉ nhận `http`/`https`. Chưa hỗ trợ hình ảnh (xem mục đính kèm ở tài liệu sau MVP).
 - Lý do: đề demo là "C# Basic", cần hiển thị code nhiều dòng; plain text không đủ.
 
+### 1.3 Import câu hỏi từ Excel (sau MVP, đã làm)
+
+- File `.xlsx` tối đa 5 MB, tối đa 1.000 câu mỗi lần. Đọc sheet `CauHoi` (không có thì sheet đầu tiên). Cột được nhận theo **tiêu đề**, không theo vị trí.
+- File mẫu (`GET /api/questions/import/template`) có sẵn sheet hướng dẫn và danh sách mã danh mục đang hoạt động.
+- Cột: `Mã`, `Danh mục` (mã), `Loại`, `Định dạng`, `Nội dung`, `Điểm`, `Lựa chọn A` … `Lựa chọn J`, `Đáp án đúng`, `Kiểu đáp án`, `Đáp án chấp nhận` (cách nhau bởi `|` hoặc xuống dòng), `Đáp án số`, `Sai số`, `Phân biệt hoa thường`, `Bỏ qua dấu`, `Giải thích`.
+- `Loại` nhận mã enum hoặc tên tiếng Việt. Đúng / Sai nhận `Đúng` / `Sai` / `TRUE` / `FALSE`. Số nhận dấu phẩy hoặc dấu chấm thập phân. Định dạng mặc định là `MARKDOWN`.
+- Mỗi dòng đi qua **đúng validator và domain của chức năng tạo câu hỏi**. Không có quy tắc hợp lệ riêng cho import.
+- Kiểm tra thêm: danh mục phải tồn tại và đang hoạt động; mã câu không trùng câu đã có và không trùng nhau trong file; lựa chọn phải liên tục từ A.
+- **Tất cả hoặc không:** có một dòng lỗi thì không câu nào được tạo, kết quả trả lỗi theo từng dòng (số dòng Excel + tên cột). `dryRun=true` chỉ kiểm tra.
+- Import thành công ghi một audit `QUESTIONS_IMPORTED` (số câu và danh sách mã).
+
 ## 2. Chấm điểm
 
 Mỗi câu chỉ có hai kết quả: đúng (điểm tối đa) hoặc sai (0 điểm). Chấm từng phần là tính năng sau MVP; schema không cần đổi khi thêm.

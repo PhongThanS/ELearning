@@ -78,7 +78,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 **Sau MVP:**
 - Ngẫu nhiên câu hỏi từ pool; xáo thứ tự câu / đáp án (schema đã chuẩn bị sẵn).
 - Độ khó, tag, chấm điểm từng phần.
-- Import câu hỏi từ Excel *(ưu tiên cao nhất sau MVP)*.
+- ~~Import câu hỏi từ Excel~~ — **đã làm** (xem `02-nghiep-vu.md` mục 1.3).
 - Khóa học, lớp học, giáo viên; bảng xếp hạng, chứng chỉ.
 - Email, thông báo, SignalR, Redis.
 - Chống gian lận nâng cao, thống kê nâng cao.

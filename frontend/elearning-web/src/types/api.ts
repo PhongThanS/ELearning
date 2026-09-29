@@ -673,3 +673,27 @@ export interface AnswerKeyCorrection {
   correctedByName: string;
   correctedAt: string;
 }
+
+export interface QuestionImportIssue {
+  field: string | null;
+  code: string;
+  message: string;
+}
+
+export interface QuestionImportRow {
+  rowNumber: number;
+  code: string | null;
+  questionType: QuestionType | null;
+  contentPreview: string;
+  issues: QuestionImportIssue[];
+}
+
+/** Kết quả import câu hỏi từ Excel; imported = false thì không câu nào được tạo. */
+export interface QuestionImportResult {
+  dryRun: boolean;
+  imported: boolean;
+  totalRows: number;
+  validRows: number;
+  importedCount: number;
+  rows: QuestionImportRow[];
+}
