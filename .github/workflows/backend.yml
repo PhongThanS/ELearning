@@ -40,8 +40,9 @@ jobs:
       - name: Format check
         run: dotnet format ELearning.sln --verify-no-changes --no-restore
 
+      # `dotnet ef`: -c là --context, cấu hình build phải ghi --configuration
       - name: Pending model changes
-        run: dotnet ef migrations has-pending-model-changes -p src/ELearning.Infrastructure -s src/ELearning.Api --no-build -c Release
+        run: dotnet ef migrations has-pending-model-changes -p src/ELearning.Infrastructure -s src/ELearning.Api --no-build --configuration Release
 
       # Integration / API test dùng Testcontainers (Docker có sẵn trên runner ubuntu).
       - name: Test
