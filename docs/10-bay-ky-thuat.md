@@ -176,6 +176,11 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 - **Thuộc tính tính toán kiểu `IEnumerable<Entity>`** (ví dụ `ExamVersion.FixedQuestions`) bị EF hiểu là navigation và tạo FK bóng `ExamVersionId1`. Phải `Ignore(...)` trong configuration.
 - **Enum mới phải thêm vào `DomainEnums`** của DbContext, nếu không cột thành `int` thay vì `VARCHAR(40)` UPPER_SNAKE_CASE.
 
+## 19c. Phát hiện khi triển khai Docker / Nginx
+
+- **`location /x/` (có `/` cuối) + `proxy_pass` làm Nginx trả 301 cho request `/x`** (không có `/` cuối). Với `location /api/media/`, `POST /api/media` (upload ảnh) bị chuyển hướng và hỏng — chỉ lộ ra khi đi qua Nginx, không lộ khi dev qua Vite proxy. Cách làm: thêm `location = /api/media` khớp chính xác; bật `absolute_redirect off` để redirect giữ đúng host / cổng (container nghe 80, bên ngoài 8080).
+- **Ảnh `loading="lazy"` không tải khi tab bị ẩn**: kiểm tra tự động trên trình duyệt ẩn sẽ thấy ảnh `complete=false` dù server trả đúng — không phải lỗi.
+
 ## 20. Quyết định / Giả định
 
 - Mọi mục trong file này là quy tắc bắt buộc. Nếu có lý do để làm khác thì phải ghi lại thành quyết định mới trong `00-muc-luc.md`.
