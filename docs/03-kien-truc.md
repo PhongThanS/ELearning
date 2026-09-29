@@ -80,7 +80,7 @@ ELearning/
 Chiều phụ thuộc: `Api → Application → Domain`, `Infrastructure → Application + Domain`. **Domain không phụ thuộc gì.**
 
 ### 3.1 `ELearning.Api`
-- Controller, middleware, cấu hình xác thực / phân quyền, OpenAPI, DI, CORS, rate limit, health check.
+- Controller, middleware, cấu hình xác thực / phân quyền, OpenAPI, DI, CORS, rate limit, health check (gồm `/health/alerts`, `Monitoring/`).
 - Chỉ xử lý những việc thuộc về HTTP.
 - **Không đặt logic nghiệp vụ trong controller.** Controller chỉ gọi application service rồi chuyển `Result` thành `ApiResponse`.
 
@@ -96,6 +96,7 @@ Application/
 ├── Grading/
 ├── Results/
 ├── Reports/
+├── Monitoring/       # OperationalMetrics (meter ELearning), AlertRules, đếm lượt quá hạn (D-26)
 └── Audit/
 ```
 
@@ -116,7 +117,7 @@ Infrastructure/
 ├── Repositories/            # IExamRepository, IAttemptRepository, ...
 ├── Queries/                 # Dapper: IExamReportQuery, IDashboardQuery
 ├── Security/                # JwtTokenService, RefreshTokenService, PasswordHasher
-├── BackgroundJobs/          # AttemptExpirationWorker
+├── BackgroundJobs/          # AttemptExpirationWorker, MonitoringSnapshotWorker
 └── Excel/                   # ResultExporter
 ```
 Không viết hàng trăm lệnh `.Has...()` trong `OnModelCreating`; dùng `ApplyConfigurationsFromAssembly`.

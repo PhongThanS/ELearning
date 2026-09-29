@@ -1,5 +1,6 @@
 using ELearning.Api.Common;
 using ELearning.Api.Extensions;
+using ELearning.Api.Monitoring;
 using ELearning.Api.Security;
 using ELearning.Application;
 using ELearning.Application.Common.Abstractions;
@@ -43,6 +44,7 @@ if (seedOnly || app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
+app.UseMiddleware<RequestMetricsMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages(StatusCodeResponses.WriteAsync);
 
@@ -84,6 +86,13 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains(HealthCheckResponseWriter.ReadyTag),
     ResponseWriter = HealthCheckResponseWriter.WriteAsync,
+}).AllowAnonymous();
+
+// Cảnh báo tối thiểu (docs/09-van-hanh.md mục 7): 503 khi có điều kiện cần báo; deploy/scripts/monitor.sh gọi mỗi phút.
+app.MapHealthChecks("/health/alerts", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains(HealthCheckResponseWriter.AlertTag),
+    ResponseWriter = HealthCheckResponseWriter.WriteDetailedAsync,
 }).AllowAnonymous();
 
 await app.RunAsync();

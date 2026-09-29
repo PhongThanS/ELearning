@@ -1,5 +1,6 @@
 using ELearning.Application.Attempts;
 using ELearning.Application.Common.Options;
+using ELearning.Application.Monitoring;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ internal sealed class AttemptExpirationWorker(
     IServiceScopeFactory scopeFactory,
     TimeProvider time,
     IOptions<ExamOptions> options,
+    OperationalMetrics metrics,
     ILogger<AttemptExpirationWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -25,6 +27,8 @@ internal sealed class AttemptExpirationWorker(
             return;
         }
 
+        // Mốc để /health/alerts phát hiện job ngừng quét (docs/09-van-hanh.md mục 7)
+        metrics.RecordWorkerStarted();
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(options.Value.ExpirationSweepIntervalSeconds), time);
         do
         {

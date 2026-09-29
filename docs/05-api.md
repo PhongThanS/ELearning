@@ -333,6 +333,7 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 |---|---|---|
 | GET | `/health/live` | — (tiến trình còn sống) |
 | GET | `/health/ready` | — (kiểm tra SQL Server) |
+| GET | `/health/alerts` | — (cảnh báo tối thiểu: `database`, `error-rate`, `attempt-backlog`, `expiration-worker`; 503 khi có lỗi; **Nginx chặn từ bên ngoài**, xem `09-van-hanh.md` mục 7.1) |
 | GET | `/openapi/v1.json`, `/swagger` | Chỉ ở Development / Staging |
 
 ## 7. Ma trận phân quyền theo vai trò mặc định

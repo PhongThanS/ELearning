@@ -5,6 +5,7 @@ using ELearning.Application.Auth;
 using ELearning.Application.Exams;
 using ELearning.Application.Grading;
 using ELearning.Application.Groups;
+using ELearning.Application.Monitoring;
 using ELearning.Application.Questions;
 using ELearning.Application.Roles;
 using ELearning.Application.Users;
@@ -43,6 +44,10 @@ public static class DependencyInjection
         services.AddScoped<IAnswerKeyService, AnswerKeyService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IManualGradingService, ManualGradingService>();
+
+        // IMeterFactory do host đăng ký (AddMetrics)
+        services.AddSingleton<OperationalMetrics>();
+        services.AddScoped<IAttemptBacklogQuery, AttemptBacklogQuery>();
         return services;
     }
 }

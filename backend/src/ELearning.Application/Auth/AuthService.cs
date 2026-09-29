@@ -2,6 +2,7 @@ using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Common.Options;
+using ELearning.Application.Monitoring;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Identity;
 using ELearning.Shared;
@@ -36,6 +37,7 @@ internal sealed class AuthService(
     IAuditService audit,
     ICurrentUser currentUser,
     TimeProvider time,
+    OperationalMetrics metrics,
     IOptions<AuthOptions> authOptions,
     IOptions<JwtOptions> jwtOptions,
     IValidator<RegisterRequest> registerValidator,
@@ -100,11 +102,13 @@ internal sealed class AuthService(
         {
             audit.Write(AuditActions.UserLoginFailed, newValue: new { UserName = Truncate(request.UserName, 100) });
             await db.SaveChangesAsync(ct);
+            metrics.RecordLoginFailure();
             return InvalidCredentials;
         }
 
         if (user.IsLockedOut(Now))
         {
+            metrics.RecordLoginFailure();
             return AccountLocked;
         }
 
@@ -119,6 +123,7 @@ internal sealed class AuthService(
             }
 
             await db.SaveChangesAsync(ct);
+            metrics.RecordLoginFailure();
             return locked ? AccountLocked : InvalidCredentials;
         }
 

@@ -1,4 +1,5 @@
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Monitoring;
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Grading;
@@ -16,9 +17,23 @@ public interface IGradingService
 }
 
 /// <summary>Chỉ biết dữ liệu chấm; không biết HTTP, JWT, UI (docs/03-kien-truc.md mục 4).</summary>
-internal sealed class GradingService(IAppDbContext db, GradingEngine engine, TimeProvider time) : IGradingService
+internal sealed class GradingService(IAppDbContext db, GradingEngine engine, TimeProvider time, OperationalMetrics metrics) : IGradingService
 {
     public async Task<AttemptScore> GradeAsync(ExamAttempt attempt, CancellationToken ct)
+    {
+        try
+        {
+            return await GradeCoreAsync(attempt, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Đếm để cảnh báo (docs/09-van-hanh.md mục 7); lỗi vẫn được ném tiếp cho transaction rollback.
+            metrics.RecordGradingFailure();
+            throw;
+        }
+    }
+
+    private async Task<AttemptScore> GradeCoreAsync(ExamAttempt attempt, CancellationToken ct)
     {
         var version = await db.ExamVersions.AsNoTracking().SingleAsync(v => v.Id == attempt.ExamVersionId, ct);
         var questions = await LoadSnapshotAsync(attempt.ExamVersionId, ct);

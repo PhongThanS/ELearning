@@ -171,6 +171,37 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 
 **Sau MVP:** OpenTelemetry (trace + metrics), dashboard Grafana.
 
+### 7.1 Cách làm (M10, D-26)
+
+**Chỉ số** — `OperationalMetrics` (Application) ghi ra meter `ELearning` và giữ tổng trong cửa sổ trượt 5 phút:
+
+| Chỉ số | Nguồn |
+|---|---|
+| Thời gian xử lý request p50 / p95 theo endpoint, số request theo status | Meter có sẵn `Microsoft.AspNetCore.Hosting` (`http.server.request.duration`, tag `http.route`, `http.response.status_code`) và log request của Serilog |
+| `elearning.http.server_errors` | Response 5xx (middleware ngoài cùng, không tính `/health/*`) |
+| `elearning.auth.login_failures` | Đăng nhập sai mật khẩu, tài khoản không tồn tại hoặc bị khóa |
+| `elearning.grading.failures` | `GradingService` ném lỗi |
+| `elearning.db.errors` | Exception SQL Server dẫn tới 500 (không tính trùng khóa / xung đột dữ liệu) |
+| `elearning.attempts.auto_submitted`, `…auto_submit_failures`, `…sweep.duration` | Mỗi vòng `AttemptExpirationWorker` |
+| `elearning.attempts.in_progress`, `…overdue`, `…oldest_overdue` (giây) | Đo mỗi phút; `oldest_overdue` là **độ trễ worker** |
+
+- Đọc trực tiếp: `dotnet-counters monitor -n ELearning.Api --counters ELearning,Microsoft.AspNetCore.Hosting`.
+- Mỗi `Monitoring:SnapshotIntervalSeconds` (60 giây) API ghi một dòng log `Monitoring: …` có cấu trúc với các số trên, để công cụ gom log vẽ biểu đồ. Khi có điều kiện cảnh báo, ghi thêm dòng `ALERT <mục>` ở mức Warning.
+
+**Cảnh báo** — `/health/alerts` trả 503 khi một check lỗi, kèm số liệu từng check:
+
+| Check | Lỗi khi |
+|---|---|
+| `database` | Không kết nối được SQL Server (giống `/health/ready`) |
+| `error-rate` | 5xx > `ErrorRatePercent` (1%) trong `ErrorRateWindowMinutes` (5 phút), khi có ít nhất `ErrorRateMinRequests` (50) request |
+| `attempt-backlog` | Lượt `IN_PROGRESS` quá hạn (đã hết ân hạn) lâu nhất đã quá `ExpiredAt` hơn `OverdueAttemptMinutes` (5 phút) |
+| `expiration-worker` | Job tự nộp chạy trên instance này nhưng không xong vòng quét nào trong 3 chu kỳ (`Exam:ExpirationSweepIntervalSeconds`) |
+
+- `/health/alerts` **bị Nginx chặn** (404) từ bên ngoài; chỉ gọi trong mạng nội bộ (`http://api:8080`).
+- Container `monitor` (`deploy/scripts/monitor.sh`, image `curlimages/curl`) mỗi phút kiểm tra `/health/ready`, `/health/alerts`, trang chủ qua Nginx, và có file backup mới (`BACKUP_FULL_MAX_AGE_HOURS` = 26, `BACKUP_LOG_MAX_AGE_MINUTES` = 30). Khi một mục chuyển sang lỗi, còn lỗi sau mỗi 30 phút, hoặc hết lỗi, nó gửi webhook `ALERT_WEBHOOK_URL` (Slack, Mattermost, Google Chat, Teams; Discord đặt `ALERT_WEBHOOK_FIELD=content`). Không đặt webhook thì cảnh báo nằm trong `docker compose logs monitor`.
+- `deploy/scripts/backup.sh` lỗi ở bất kỳ bước nào → gửi webhook ngay (`deploy/scripts/notify.sh`) và thoát với mã lỗi. Cron không chạy thì mục `backup-full` / `backup-log` của `monitor` báo.
+- Kiểm tra nhanh: `docker compose run --rm -e MONITOR_ONCE=1 monitor` (thoát 1 nếu có mục lỗi; CI chạy bước này).
+
 ## 8. CI/CD
 
 GitHub Actions (hoặc tương đương), chạy trên mọi PR:
@@ -210,3 +241,6 @@ Trên nhánh `main`:
 - **(M10) Tài khoản DB tách biệt:** migration dùng `sa` (hoặc tài khoản có quyền DDL), API và seed dùng `APP_DB_LOGIN` không có quyền DDL. `NEXT VALUE FOR` cần `UPDATE` trên sequence nên được cấp riêng.
 - **(M10) `ReverseProxy:KnownNetworks` (CIDR)** được thêm bên cạnh `KnownProxies`, vì IP container Nginx thay đổi mỗi lần tạo lại.
 - **(M10) Lịch backup chạy bằng cron của máy chủ**, không thêm container scheduler (không thêm hạ tầng khi chưa có quyết định).
+- **(M10) D-26 — Giám sát không thêm hạ tầng:** chỉ số qua `System.Diagnostics.Metrics` + dòng log `Monitoring` mỗi phút; cảnh báo qua health check `/health/alerts` + container `monitor` gửi webhook. Chưa dùng Prometheus / OpenTelemetry / Grafana (sau MVP); khi thêm, meter `ELearning` dùng lại được nguyên vẹn.
+- **(M10) Tổng trong cửa sổ trượt là của từng instance.** Chạy nhiều instance API thì mỗi instance tự tính tỉ lệ 5xx; `attempt-backlog` đọc từ database nên đúng cho cả hệ thống.
+- **(M10) `error-rate` cần tối thiểu 50 request trong cửa sổ**, để lúc vắng (ví dụ 1 lỗi / 10 request) không báo nhầm. Các ngưỡng là giả định *(cần xác nhận)*, đổi ở section `Monitoring`.

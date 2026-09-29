@@ -1,4 +1,6 @@
+using System.Data.Common;
 using System.Diagnostics;
+using ELearning.Application.Monitoring;
 using ELearning.Domain.Common;
 using ELearning.Shared;
 using ELearning.Shared.Results;
@@ -6,13 +8,14 @@ using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ELearning.Api.Common;
 
 /// <summary>
 /// Chuyển exception thành ApiResponse. Không bao giờ trả stack trace (docs/07-bao-mat.md mục 1).
 /// </summary>
-public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
+public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, OperationalMetrics metrics) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
@@ -49,6 +52,11 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
 
         if (status >= StatusCodes.Status500InternalServerError)
         {
+            if (IsDatabaseError(exception))
+            {
+                metrics.RecordDatabaseError();
+            }
+
             logger.LogError(exception, "Unhandled exception for {Method} {Path}", httpContext.Request.Method, httpContext.Request.Path);
         }
         else
@@ -64,6 +72,11 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
     private static (int Status, ApiResponse<object> Response) Map(
         ErrorType type, IReadOnlyList<Error> errors, string traceId, string? message = null) =>
         (ErrorMapping.ToStatusCode(type), ApiResponse.Fail(errors, traceId, message));
+
+    /// <summary>Lỗi phía SQL Server (timeout, mất kết nối, deadlock hết lượt retry…), cho chỉ số "số lỗi DB".</summary>
+    private static bool IsDatabaseError(Exception exception) =>
+        exception is DbException or DbUpdateException or RetryLimitExceededException
+        || exception.InnerException is DbException;
 
     private static string? ToCamelCase(string? name) =>
         string.IsNullOrEmpty(name) ? null : char.ToLowerInvariant(name[0]) + name[1..];

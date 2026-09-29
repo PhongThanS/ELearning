@@ -4,6 +4,7 @@ using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Common.Options;
 using ELearning.Application.Exams;
 using ELearning.Application.Grading;
+using ELearning.Application.Monitoring;
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Results;
@@ -103,6 +104,7 @@ internal sealed class AttemptExpirationService(
     IAttemptFinalizer finalizer,
     TimeProvider time,
     IOptions<ExamOptions> examOptions,
+    OperationalMetrics metrics,
     ILogger<AttemptExpirationService> logger) : IAttemptExpirationService, IExamAttemptCloser
 {
     /// <summary>
@@ -112,6 +114,7 @@ internal sealed class AttemptExpirationService(
     public async Task<int> ProcessExpiredAsync(CancellationToken ct)
     {
         var options = examOptions.Value;
+        var startedAt = time.GetTimestamp();
         var cutoff = time.GetUtcNow().UtcDateTime.AddSeconds(-options.SubmitGraceSeconds);
 
         // Lượt lỗi được bỏ qua tới vòng quét sau, để không lấy lại mãi cùng một lô.
@@ -149,6 +152,7 @@ internal sealed class AttemptExpirationService(
 
             if (ids.Count < options.ExpirationSweepBatchSize)
             {
+                metrics.RecordSweep(processed, failed.Count, time.GetElapsedTime(startedAt));
                 return processed;
             }
         }

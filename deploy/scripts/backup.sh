@@ -23,6 +23,11 @@ HOST_DIR="${BACKUP_DIR:-./backups}"
 CONTAINER_DIR="/var/opt/mssql/backup"
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
 
+# Lỗi ở bất kỳ bước nào → gửi cảnh báo qua webhook (ALERT_WEBHOOK_URL trong .env, docs/09-van-hanh.md mục 7)
+# rồi thoát với mã lỗi để cron / log ghi nhận. Container monitor còn cảnh báo khi không có file backup mới.
+set -E
+trap 'code=$?; deploy/scripts/notify.sh "Backup $TYPE thất bại (mã $code, dòng $LINENO) lúc $(date -u +%FT%TZ)" || true; exit $code' ERR
+
 case "$TYPE" in
   full) FILE="${DB}_full_${TS}.bak"; SQL="BACKUP DATABASE [$DB] TO DISK = N'$CONTAINER_DIR/$FILE' WITH CHECKSUM, INIT, NAME = N'$DB full $TS'"; KEEP_DAYS=30 ;;
   diff) FILE="${DB}_diff_${TS}.bak"; SQL="BACKUP DATABASE [$DB] TO DISK = N'$CONTAINER_DIR/$FILE' WITH DIFFERENTIAL, CHECKSUM, INIT, NAME = N'$DB diff $TS'"; KEEP_DAYS=7 ;;

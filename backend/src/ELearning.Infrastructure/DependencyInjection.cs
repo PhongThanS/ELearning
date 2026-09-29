@@ -45,6 +45,7 @@ public static class DependencyInjection
         services.AddSingleton<IResultExporter, ResultExporter>();
         services.AddSingleton<IQuestionImportWorkbook, QuestionImportWorkbook>();
         services.AddHostedService<AttemptExpirationWorker>();
+        services.AddHostedService<MonitoringSnapshotWorker>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<ITokenService, TokenService>();

@@ -38,6 +38,13 @@ jobs:
           curl -fsS -o /dev/null http://localhost:8080/
           curl -fsSI http://localhost:8080/ | grep -i "content-security-policy"
 
+      - name: Monitoring checks
+        run: |
+          # /health/alerts chỉ dùng nội bộ: qua Nginx phải là 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health/alerts)" = 404
+          # Một vòng monitor.sh trong mạng compose; chưa có backup nên bỏ kiểm tra backup
+          docker compose run --rm --no-deps -e MONITOR_ONCE=1 -e BACKUP_FULL_MAX_AGE_HOURS= -e BACKUP_LOG_MAX_AGE_MINUTES= monitor
+
       # Chạy cả 4 kịch bản k6 với ít VU: kiểm tra kịch bản còn khớp API và các ngưỡng về tính đúng
       # (không 5xx, mỗi học viên 1 lượt, nộp idempotent, job tự nộp). Đo hiệu năng thật chạy trên staging.
       - name: Load test scripts (k6 smoke)
