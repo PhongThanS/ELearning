@@ -152,6 +152,7 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 
 **Công cụ (M10, đã làm)** — chạy từ thư mục gốc, đọc `.env`:
 - `deploy/scripts/backup.sh full|diff|log`: backup `WITH CHECKSUM`, kiểm tra `RESTORE VERIFYONLY`, xóa bản quá hạn (full 30 ngày, diff / log 7 ngày). Lịch chạy bằng cron của máy chủ (ví dụ ở đầu script).
+- **Máy Windows chạy Docker Desktop** (không có cron): `powershell -ExecutionPolicy Bypass -File deployscriptswindowsegister-backup-tasks.ps1` đăng ký 3 task trong Task Scheduler (`ELearningBackup full|diff|log`, cùng lịch như trên). Task chạy `backup.sh` qua Git Bash, ẩn cửa sổ (`run-backup.vbs`), chạy bù khi lỡ lịch, ghi log vào `backupsackup.log`; chỉ chạy khi người dùng đã đăng nhập (Docker Desktop cũng vậy), nên bật "Start Docker Desktop when you sign in".
 - `deploy/scripts/restore.sh --target <db> [--replace] full.bak [diff.bak] [log.trn ...]`: khôi phục một chuỗi backup.
 - `deploy/scripts/restore-test.sh`: lấy full mới nhất + diff mới nhất sau nó + mọi log sau đó, khôi phục vào `<DB>_RestoreTest`, so số dòng các bảng chính với bản gốc, chạy `DBCC CHECKDB`, in thời gian khôi phục, rồi xóa database thử. **Chạy mỗi tháng** và ghi kết quả vào sổ vận hành.
 - File backup nằm ở `BACKUP_DIR` trên máy chủ; cần đồng bộ ra nơi khác (offsite) và mã hóa ở đó (SQL Server Express không mã hóa backup).
