@@ -105,39 +105,53 @@ internal sealed class AttemptExpirationService(
     IOptions<ExamOptions> examOptions,
     ILogger<AttemptExpirationService> logger) : IAttemptExpirationService, IExamAttemptCloser
 {
+    /// <summary>
+    /// Xử lý theo lô cho tới khi hết lượt quá hạn: nhiều lượt hết giờ cùng lúc (cùng EndAt) phải xong trong một vòng quét,
+    /// không phải chờ mỗi 60 giây một lô (docs/08-kiem-thu.md mục 7, kịch bản expiry-sweep).
+    /// </summary>
     public async Task<int> ProcessExpiredAsync(CancellationToken ct)
     {
         var options = examOptions.Value;
         var cutoff = time.GetUtcNow().UtcDateTime.AddSeconds(-options.SubmitGraceSeconds);
-        var ids = await db.ExamAttempts.AsNoTracking()
-            .Where(a => a.Status == AttemptStatus.InProgress && a.ExpiredAt < cutoff)
-            .OrderBy(a => a.ExpiredAt)
-            .Select(a => a.Id)
-            .Take(options.ExpirationSweepBatchSize)
-            .ToListAsync(ct);
 
+        // Lượt lỗi được bỏ qua tới vòng quét sau, để không lấy lại mãi cùng một lô.
+        var failed = new List<Guid>();
         var processed = 0;
-        foreach (var id in ids)
+        while (true)
         {
-            try
+            var ids = await db.ExamAttempts.AsNoTracking()
+                .Where(a => a.Status == AttemptStatus.InProgress && a.ExpiredAt < cutoff && !failed.Contains(a.Id))
+                .OrderBy(a => a.ExpiredAt)
+                .Select(a => a.Id)
+                .Take(options.ExpirationSweepBatchSize)
+                .ToListAsync(ct);
+
+            foreach (var id in ids)
             {
-                if (await finalizer.FinalizeAsync(id, SubmitReason.TimeExpired, ct))
+                try
                 {
-                    processed++;
+                    if (await finalizer.FinalizeAsync(id, SubmitReason.TimeExpired, ct))
+                    {
+                        processed++;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // Một lượt lỗi không được chặn các lượt khác; vòng quét sau sẽ thử lại.
+                    logger.LogError(ex, "Tự nộp lượt thi {AttemptId} thất bại", id);
+                    failed.Add(id);
+                }
+                finally
+                {
+                    db.ChangeTracker.Clear();
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+
+            if (ids.Count < options.ExpirationSweepBatchSize)
             {
-                // Một lượt lỗi không được chặn các lượt khác; vòng sau sẽ thử lại.
-                logger.LogError(ex, "Tự nộp lượt thi {AttemptId} thất bại", id);
-            }
-            finally
-            {
-                db.ChangeTracker.Clear();
+                return processed;
             }
         }
-
-        return processed;
     }
 
     public async Task<int> ForceSubmitInProgressAsync(Guid examId, CancellationToken ct)

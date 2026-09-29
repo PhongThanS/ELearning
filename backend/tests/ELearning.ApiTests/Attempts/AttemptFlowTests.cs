@@ -1,6 +1,7 @@
 using System.Net;
 using ELearning.ApiTests.Admin;
 using ELearning.Application.Attempts;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ELearning.ApiTests.Attempts;
@@ -251,6 +252,36 @@ public class AttemptFlowTests(ApiFactory factory)
         result.Data!.Status.Should().Be("AUTO_SUBMITTED");
         result.Data.ScoreVisible.Should().BeTrue();
         result.Data.TotalScore.Should().Be(0m);
+    }
+
+    [Fact]
+    public async Task Expiration_sweep_drains_every_batch_in_one_run()
+    {
+        // Bug: mỗi vòng quét chỉ xử lý một lô, nên 500 lượt hết giờ cùng lúc phải chờ 5 vòng (≈ 5 phút).
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var exam = await kit.CreatePublishedExamAsync(durationMinutes: 1);
+        var clients = new List<HttpClient>();
+        var attemptIds = new List<Guid>();
+        for (var i = 0; i < 5; i++)
+        {
+            var (student, _, _) = await kit.CreateStudentAsync();
+            clients.Add(student);
+            attemptIds.Add((await AttemptTestKit.StartAsync(student, exam.Id)).AttemptId);
+        }
+
+        factory.Time.Advance(TimeSpan.FromMinutes(2));
+        await using var smallBatches = factory.WithWebHostBuilder(b => b.UseSetting("Exam:ExpirationSweepBatchSize", "2"));
+        await using (var scope = smallBatches.Services.CreateAsyncScope())
+        {
+            var processed = await scope.ServiceProvider.GetRequiredService<IAttemptExpirationService>().ProcessExpiredAsync(CancellationToken.None);
+            processed.Should().BeGreaterThanOrEqualTo(5, "lô 2 lượt được lặp tới khi hết lượt quá hạn");
+        }
+
+        for (var i = 0; i < clients.Count; i++)
+        {
+            var (_, result) = await clients[i].GetJsonAsync<ResultView>($"/api/student/attempts/{attemptIds[i]}/result");
+            result.Data!.Status.Should().Be("AUTO_SUBMITTED");
+        }
     }
 
     [Fact]

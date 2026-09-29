@@ -120,6 +120,9 @@
 
 - Chạy trên môi trường staging có cấu hình giống production, trước mỗi release lớn và trước kỳ thi quy mô lớn đầu tiên.
 - Ghi kết quả vào `docs/` hoặc artifact CI.
+- Kịch bản nằm ở `load-tests/` (cách chạy, biến môi trường: `load-tests/README.md`); chạy bằng `load-tests/run.sh <kịch bản|all>`, tóm tắt lưu ở `load-tests/results/`.
+- Ngoài ngưỡng độ trễ, mọi kịch bản còn có ngưỡng về tính đúng: không có 5xx, không có lượt thi sai (start lần hai trả lượt khác, lưu đáp án không được áp dụng, nộp lại ra kết quả khác, thiếu / thừa lượt), mọi `check` đạt.
+- CI (`docker.yml`) chạy cả 4 kịch bản ở chế độ `SMOKE=1` (10 VU, thời gian ngắn, bỏ ngưỡng độ trễ) trên stack Docker Compose, để kịch bản luôn khớp với API.
 
 ## 8. Quyết định / Giả định
 
@@ -130,4 +133,8 @@
 
 - **Bắt buộc SQL Server thật cho integration test.** Spec gốc cho phép "database kiểm thử" chung chung; chốt Testcontainers vì các cơ chế quan trọng chỉ có trên SQL Server.
 - **Thêm load test k6** (spec gốc không có) cùng các ca kiểm thử tương tranh (start / submit / lưu đáp án song song).
+- **(M9) Dữ liệu load test tạo qua API admin**, không ghi thẳng vào database: nhóm `LOADTEST` với học viên `lt.hv.0001…` (dùng lại giữa các lần chạy) và một đề mới mỗi lần chạy (1 lượt, gán cho nhóm). Nhờ vậy kịch bản cũng kiểm tra luôn API admin và không phụ thuộc schema.
+- **(M9) `expiry-sweep` dùng `EndAt`** để mọi lượt có cùng `ExpiredAt` (D-05), và đo `max(SubmittedAt) − EndAt` theo giờ server, gồm cả ân hạn 30 giây và chu kỳ quét 60 giây.
+- **(M9) `exam-start-burst` mặc định start tuần tự hai lần** (như F5); start song song trong cùng một người (`DOUBLE_START=1`) là tùy chọn vì đã có integration test cho tranh chấp này.
+- **(M9) Không chạy load test trên production** vì kịch bản tạo học viên, câu hỏi và đề. Trên staging, các đề `LT-…` và học viên `lt.hv.…` có thể tắt sau khi chạy (không xóa cứng, D-16).
 - **Thêm ca kiểm thử cho NFC, dấu thập phân kiểu Việt, `đ`, và hậu tố `Z`** của thời gian, là các lỗi dễ gặp ở `10-bay-ky-thuat.md`.

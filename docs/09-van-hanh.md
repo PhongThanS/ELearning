@@ -91,7 +91,7 @@ Nginx (TLS, gzip, CSP/HSTS headers, rate limit thô)
 - **Chỉ scale API ngang khi thực sự cần.** Khi chạy nhiều instance:
   - Cache permission / trạng thái user phải chuyển sang Redis, hoặc giảm TTL xuống 30 giây.
   - Rate limit chuyển sang Nginx hoặc dùng store dùng chung.
-  - `AttemptExpirationWorker` chạy ở mọi instance vẫn an toàn nhờ chuyển trạng thái nguyên tử. Có thể thêm `sp_getapplock` để giảm tranh chấp.
+  - `AttemptExpirationWorker` chạy ở mọi instance vẫn an toàn nhờ chuyển trạng thái nguyên tử. Có thể thêm `sp_getapplock` để giảm tranh chấp. Mỗi vòng quét lặp theo lô `Exam:ExpirationSweepBatchSize` tới khi hết lượt quá hạn.
   - Refresh token không phụ thuộc instance, vì trạng thái nằm trong DB.
 - **Khung giờ deploy:** không deploy khi có đề đang mở theo lịch. Admin xem được lịch đề trong dashboard.
 
