@@ -29,11 +29,11 @@ public static class RateLimitPolicies
 
             options.AddPolicy(AuthLogin, ctx => RateLimitPartition.GetFixedWindowLimiter(
                 $"login:{IpKey(ctx)}",
-                _ => FixedWindow(Limit("AuthLoginPerMinute", 10))));
+                _ => FixedWindow(Limit("AuthLoginPerMinute", 600))));
 
             options.AddPolicy(AuthRefresh, ctx => RateLimitPartition.GetFixedWindowLimiter(
                 $"refresh:{IpKey(ctx)}",
-                _ => FixedWindow(Limit("AuthRefreshPerMinute", 30))));
+                _ => FixedWindow(Limit("AuthRefreshPerMinute", 1200))));
 
             options.AddPolicy(AttemptWrite, ctx => RateLimitPartition.GetTokenBucketLimiter(
                 $"attempt-write:{UserKey(ctx)}",

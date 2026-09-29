@@ -244,15 +244,13 @@ function Timer({ remainingMs }: { remainingMs: number }) {
 
 function SaveIndicator({ status, online }: { status: SaveStatus; online: boolean }) {
   const { t } = useTranslation();
-  if (!online) {
-    return <Badge bg="warning" text="dark">{t("player.unsaved")}</Badge>;
-  }
   const map: Record<SaveStatus, [string, string]> = {
     saved: ["success", t("player.saved")],
     saving: ["secondary", t("player.saving")],
     unsaved: ["warning", t("player.unsaved")],
   };
-  const [bg, text] = map[status];
+  // Mất mạng: câu đã lưu vẫn là đã lưu; câu đang chờ hiển thị "chưa lưu" (không phải "đang lưu").
+  const [bg, text] = map[!online && status === "saving" ? "unsaved" : status];
   return (
     <Badge bg={bg} text={bg === "warning" ? "dark" : undefined} role="status">
       {text}

@@ -84,13 +84,14 @@ Dùng `Microsoft.AspNetCore.RateLimiting`. Key theo IP với các endpoint chưa
 
 | Policy | Áp dụng | Giới hạn *(cần xác nhận)* |
 |---|---|---|
-| `auth-login` | `/api/auth/login`, `/register`, `/forgot-password` | 10 request / phút / IP |
-| `auth-refresh` | `/api/auth/refresh` | 30 request / phút / IP |
+| `auth-login` | `/api/auth/login`, `/register`, `/forgot-password` | 600 request / phút / IP |
+| `auth-refresh` | `/api/auth/refresh` | 1200 request / phút / IP |
 | `attempt-write` | lưu đáp án, sự kiện | 60 request / phút / user (token bucket, cho phép dồn 20) |
 | `attempt-action` | start, submit | 10 request / phút / user |
 | `default` | mọi endpoint khác | 300 request / phút / user |
 
 - Vượt giới hạn → 429 `RATE_LIMITED`, kèm `Retry-After`.
+- Giới hạn theo IP phải đủ cho **cả phòng thi dùng chung một IP NAT** đăng nhập cùng lúc (chỉ tiêu 500 lượt start / 60 giây ở `01-tong-quan.md` mục 6). Nếu một điểm thi có nhiều học viên hơn sau cùng một IP, tăng `RateLimits:AuthLoginPerMinute` và `RateLimits:AuthRefreshPerMinute`.
 - Khi chạy sau Nginx: cấu hình `ForwardedHeaders` với `KnownProxies` / `KnownNetworks` để lấy đúng IP thật. **Không** tin header `X-Forwarded-For` từ nguồn bất kỳ.
 
 ## 6. Chống lộ đáp án
@@ -184,3 +185,8 @@ Tham chiếu: Nghị định 13/2023/NĐ-CP và Luật Bảo vệ dữ liệu c�
 - **D-10:** `Auth:AllowSelfRegistration = false` ở Production. Tài khoản do admin tạo (import Excel là tính năng sau MVP).
 - **Danh sách audit hợp nhất** từ spec gốc §31 và §119, bổ sung các thao tác mới (chấm lại, gán đề, thao tác trên lượt thi).
 - **Giới hạn rate limit và chính sách mật khẩu** là giả định *(cần xác nhận)*.
+- **(M9) Nâng giới hạn `auth-login` từ 10 lên 600, `auth-refresh` từ 30 lên 1200 request / phút / IP.**
+  - Lý do: học viên trong một phòng thi thường đi ra Internet qua cùng một IP NAT. SPA gọi `/auth/refresh` mỗi lần tải trang. Với 10 / 30 thì đợt đăng nhập đầu giờ bị 429, trái với chỉ tiêu 500 lượt start / 60 giây.
+  - Chống dò mật khẩu từng tài khoản vẫn do cơ chế khóa tài khoản đảm nhận (5 lần sai → khóa 15 phút). Giới hạn theo IP chỉ còn vai trò chặn phun request hàng loạt.
+  - Đã cân nhắc đổi key của `auth-refresh` sang theo refresh token, nhưng token xoay vòng sau mỗi lần refresh nên key mới liên tục; giữ theo IP.
+  - *(cần xác nhận)* Nếu muốn chặt hơn: thêm `limit_req` theo IP ở Nginx cho `/api/auth/login`, cấu hình riêng theo mạng của điểm thi.
