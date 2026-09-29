@@ -60,7 +60,8 @@ public sealed record QuestionDetailDto(
     DateTime? UpdatedAt,
     string RowVersion,
     QuestionDifficulty? Difficulty,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    bool PartialScoring);
 
 public sealed record QuestionOptionInput(string? OptionCode, string Content, bool IsCorrect);
 
@@ -97,6 +98,9 @@ public record QuestionInput
     public bool IgnoreAccent { get; init; }
 
     public QuestionDifficulty? Difficulty { get; init; }
+
+    /// <summary>Chỉ câu chọn nhiều: chấm từng phần (docs/02-nghiep-vu.md mục 2).</summary>
+    public bool PartialScoring { get; init; }
 
     /// <summary>Tối đa 10 tag, mỗi tag tối đa 50 ký tự; lưu dạng chữ thường.</summary>
     public IReadOnlyList<string>? Tags { get; init; }
@@ -171,6 +175,16 @@ internal class QuestionInputValidator<T> : AbstractValidator<T>
                     && o.Count(x => x.IsCorrect) == 1)
                 .WithErrorCode("TRUE_FALSE_INVALID")
                 .WithMessage("Câu Đúng/Sai phải có 2 lựa chọn TRUE, FALSE và đúng 1 đáp án đúng."));
+
+        When(q => q.QuestionType == QuestionType.Essay, () =>
+        {
+            RuleFor(q => q.Options).Must(o => o is null || o.Count == 0)
+                .WithErrorCode("ESSAY_HAS_NO_OPTIONS").WithMessage("Câu tự luận không có lựa chọn.");
+            RuleFor(q => q.AcceptedAnswers).Must(a => a is null || a.All(string.IsNullOrWhiteSpace))
+                .WithErrorCode("ESSAY_HAS_NO_ANSWER_KEY").WithMessage("Câu tự luận không có đáp án chấp nhận; dùng phần giải thích làm đáp án mẫu.");
+            RuleFor(q => q.AnswerDataType).Null()
+                .WithErrorCode("ESSAY_HAS_NO_DATA_TYPE").WithMessage("Câu tự luận không có kiểu đáp án.");
+        });
 
         When(q => q.QuestionType == QuestionType.FillIn, () =>
         {

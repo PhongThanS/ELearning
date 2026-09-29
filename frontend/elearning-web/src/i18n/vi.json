@@ -85,7 +85,8 @@
       "SINGLE_CHOICE": "Chọn một",
       "MULTIPLE_CHOICE": "Chọn nhiều",
       "TRUE_FALSE": "Đúng / Sai",
-      "FILL_IN": "Điền đáp án"
+      "FILL_IN": "Điền đáp án",
+      "ESSAY": "Tự luận"
     },
     "difficulty": {
       "EASY": "Dễ",
@@ -176,6 +177,8 @@
     "confirmText": "Sau khi nộp bạn không thể sửa câu trả lời.",
     "multiTab": "Bài thi đang mở ở một tab khác. Hãy chỉ làm bài trên một tab.",
     "fillPlaceholder": "Nhập câu trả lời",
+    "essayPlaceholder": "Viết bài làm của bạn…",
+    "essayCount": "{{count}} / {{max}} ký tự",
     "numberHint": "Nhập số, dùng dấu phẩy hoặc dấu chấm cho phần thập phân (ví dụ 3,5).",
     "numberInvalid": "Số không hợp lệ. Ví dụ hợp lệ: 3,5 hoặc 3.5",
     "tracking": "Hệ thống ghi nhận việc rời khỏi trang thi."
@@ -206,6 +209,9 @@
     "passed": "Đạt",
     "failed": "Chưa đạt",
     "hidden": "Đã nộp bài. Điểm chưa được công bố.",
+    "pendingManual": "Bài có câu tự luận đang chờ chấm. Điểm sẽ hiển thị khi chấm xong.",
+    "grading": "Đang chấm",
+    "graderComment": "Nhận xét của người chấm",
     "hiddenUntil": "Đã nộp bài. Điểm sẽ được công bố lúc {{time}}.",
     "reviewUntil": "Bạn có thể xem lại bài từ {{time}}.",
     "review": "Xem lại bài",

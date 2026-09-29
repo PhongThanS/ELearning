@@ -109,10 +109,11 @@ internal sealed class AttemptService(
             var visibility = ResultPolicy.Evaluate(
                 a.Status, version.ScoreVisibility, version.ReviewPolicy, exam.EndAt, state.Used, state.Allowed, Now);
             results.TryGetValue(a.Id, out var r);
-            var show = visibility.ScoreVisible && r is not null;
+            var pending = r is { PendingManualCount: > 0 };
+            var show = visibility.ScoreVisible && r is not null && !pending;
             return new StudentAttemptSummaryDto(
                 a.Id, a.AttemptNumber, a.Status, a.StartedAt, a.ExpiredAt, a.SubmittedAt, show,
-                show ? r!.TotalScore : null, show ? r!.MaxScore : null, show ? r!.Percentage : null, show ? r!.Passed : null);
+                show ? r!.TotalScore : null, show ? r!.MaxScore : null, show ? r!.Percentage : null, show ? r!.Passed : null, pending);
         }).ToList();
 
         return new StudentExamDetailDto(
@@ -360,10 +361,12 @@ internal sealed class AttemptService(
         var state = (await LoadUserExamStatesAsync(userId, [exam.Id], ct))[exam.Id];
         var visibility = ResultPolicy.Evaluate(
             attempt.Status, version.ScoreVisibility, version.ReviewPolicy, exam.EndAt, state.Used, state.Allowed, Now);
-        var show = visibility.ScoreVisible && result is not null;
+        // Còn câu tự luận chờ chấm tay: chưa công bố điểm và chưa cho xem lại (điểm đang là tạm tính)
+        var pending = result is { PendingManualCount: > 0 };
+        var show = visibility.ScoreVisible && result is not null && !pending;
 
         IReadOnlyList<ReviewQuestionDto>? review = null;
-        if (visibility.ReviewAvailable && result is not null)
+        if (visibility.ReviewAvailable && result is not null && !pending)
         {
             review = await BuildReviewAsync(attempt, ct);
         }
@@ -387,7 +390,8 @@ internal sealed class AttemptService(
             show ? result!.Passed : null,
             review is not null,
             visibility.ReviewAvailableAt,
-            review);
+            review,
+            pending);
     }
 
     public async Task<PagedResult<StudentHistoryItemDto>> HistoryAsync(Guid userId, StudentHistoryQuery query, CancellationToken ct)
@@ -403,7 +407,7 @@ internal sealed class AttemptService(
                 Exam = db.Exams.Where(e => e.Id == a.ExamId).Select(e => new { e.Code, e.Name, e.EndAt }).Single(),
                 Version = db.ExamVersions.Where(v => v.Id == a.ExamVersionId).Select(v => new { v.ScoreVisibility, v.ReviewPolicy }).Single(),
                 Result = db.ExamResults.Where(r => r.AttemptId == a.Id)
-                    .Select(r => new { r.TotalScore, r.MaxScore, r.Percentage, r.Passed }).SingleOrDefault(),
+                    .Select(r => new { r.TotalScore, r.MaxScore, r.Percentage, r.Passed, r.PendingManualCount }).SingleOrDefault(),
             })
             .ToListAsync(ct);
 
@@ -411,14 +415,15 @@ internal sealed class AttemptService(
         var items = rows.Select(r =>
         {
             // Lịch sử chỉ cần biết có được xem điểm hay không; không cần số lượt còn lại.
+            var pending = r.Result is { PendingManualCount: > 0 };
             var visible = ResultPolicy.Evaluate(
                 r.Attempt.Status, r.Version.ScoreVisibility, r.Version.ReviewPolicy, r.Exam.EndAt, 0, int.MaxValue, now).ScoreVisible
-                && r.Result is not null;
+                && r.Result is not null && !pending;
             return new StudentHistoryItemDto(
                 r.Attempt.Id, r.Attempt.ExamId, r.Exam.Code, r.Exam.Name, r.Attempt.AttemptNumber, r.Attempt.Status,
                 r.Attempt.StartedAt, r.Attempt.SubmittedAt, visible,
                 visible ? r.Result!.TotalScore : null, visible ? r.Result!.MaxScore : null,
-                visible ? r.Result!.Percentage : null, visible ? r.Result!.Passed : null);
+                visible ? r.Result!.Percentage : null, visible ? r.Result!.Passed : null, pending);
         }).ToList();
 
         return new PagedResult<StudentHistoryItemDto>(items, query.Page, query.PageSize, total);
@@ -458,7 +463,7 @@ internal sealed class AttemptService(
         var results = await db.ExamResults.AsNoTracking()
             .Where(r => examIds.Contains(r.ExamId) && r.UserId == userId
                 && db.ExamAttempts.Any(a => a.Id == r.AttemptId && a.Status != AttemptStatus.Cancelled))
-            .Select(r => new { r.ExamId, r.TotalScore, r.SubmittedAt })
+            .Select(r => new { r.ExamId, r.TotalScore, r.SubmittedAt, r.PendingManualCount })
             .ToListAsync(ct);
 
         var now = Now;
@@ -483,7 +488,8 @@ internal sealed class AttemptService(
                 : ExamAvailability.Available;
 
             // Điểm chính thức theo RetakeScoringPolicy (D-08), chỉ hiện khi chính sách cho xem điểm.
-            var examResults = results.Where(r => r.ExamId == exam.Id).ToList();
+            // Kết quả còn câu tự luận chờ chấm chưa được tính vào điểm chính thức hiển thị cho học viên
+            var examResults = results.Where(r => r.ExamId == exam.Id && r.PendingManualCount == 0).ToList();
             var scoreVisible = version.ScoreVisibility == ScoreVisibility.Immediate
                 || (version.ScoreVisibility == ScoreVisibility.AfterExamEnd && exam.EndAt is { } e && e <= now);
             decimal? official = !scoreVisible || examResults.Count == 0 ? null
@@ -541,6 +547,13 @@ internal sealed class AttemptService(
     {
         var codes = (item.SelectedOptions ?? []).Select(c => c.Trim().ToUpperInvariant()).Distinct().ToList();
         var text = string.IsNullOrWhiteSpace(item.AnswerText) ? null : item.AnswerText.Trim();
+
+        if (question.QuestionType == QuestionType.Essay)
+        {
+            return codes.Count > 0
+                ? (Error.Business(ErrorCodes.InvalidAnswerShape, "Câu tự luận không có lựa chọn.") with { Field = $"{field}.selectedOptions" }, null, null)
+                : (null, text, null);
+        }
 
         if (question.QuestionType == QuestionType.FillIn)
         {
@@ -603,7 +616,8 @@ internal sealed class AttemptService(
                 q.Answer.IsCorrect ?? false,
                 q.Answer.Score ?? 0,
                 eq.IsVoided,
-                eq.Explanation);
+                eq.Explanation,
+                q.Answer.ManualComment);
         }).ToList();
     }
 }

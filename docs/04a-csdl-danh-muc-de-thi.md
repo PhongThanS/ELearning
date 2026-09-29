@@ -160,6 +160,8 @@ CREATE INDEX IX_Questions_Category_Type ON Questions(CategoryId, QuestionType) I
 
 -- (sau MVP) Questions có thêm cột:
 --   Difficulty VARCHAR(40) NULL  -- EASY | MEDIUM | HARD, CHECK CK_Questions_Difficulty
+--   PartialScoring BIT NOT NULL  -- chấm từng phần (chỉ MULTIPLE_CHOICE); ExamQuestions cũng có cột này (snapshot)
+--   QuestionType thêm giá trị ESSAY (Questions, ExamQuestions, ExamPoolRules)
 
 CREATE TABLE QuestionTags (                        -- tag đã chuẩn hóa chữ thường
     Id         UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,

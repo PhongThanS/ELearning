@@ -107,6 +107,7 @@ internal sealed class ResultAdminService(
             x.r.CorrectCount,
             x.r.TotalQuestion,
             x.r.Passed,
+            x.r.PendingManualCount,
         }).ToListAsync(ct);
 
         var official = raw
@@ -120,6 +121,6 @@ internal sealed class ResultAdminService(
         return raw.Select(r => new AdminResultRowDto(
             r.AttemptId, r.Id, r.UserName, r.FullName, r.Email, r.AttemptNumber, r.Status, r.StartedAt, r.SubmittedAt,
             r.DurationSeconds, r.TotalScore, r.MaxScore, r.Percentage, r.CorrectCount, r.TotalQuestion, r.Passed,
-            official.Contains(r.AttemptId))).ToList();
+            official.Contains(r.AttemptId), r.PendingManualCount)).ToList();
     }
 }

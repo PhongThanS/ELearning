@@ -124,7 +124,7 @@ export interface Permission {
 
 // ----- Ngân hàng câu hỏi -----
 
-export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "FILL_IN";
+export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "FILL_IN" | "ESSAY";
 export type AnswerDataType = "TEXT" | "NUMBER";
 export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
 export type ContentFormat = "PLAIN" | "MARKDOWN";
@@ -187,6 +187,7 @@ export interface QuestionDetail {
   rowVersion: string;
   difficulty: QuestionDifficulty | null;
   tags: string[];
+  partialScoring: boolean;
 }
 
 export interface QuestionInput {
@@ -207,6 +208,7 @@ export interface QuestionInput {
   caseSensitive: boolean;
   ignoreAccent: boolean;
   rowVersion?: string;
+  partialScoring: boolean;
 }
 
 // ----- Đề thi -----
@@ -430,6 +432,7 @@ export interface StudentAttemptSummary {
   maxScore: number | null;
   percentage: number | null;
   passed: boolean | null;
+  pendingManualGrading: boolean;
 }
 
 export interface StudentExamDetail extends Omit<StudentExamItem, never> {
@@ -496,6 +499,8 @@ export interface ReviewQuestion {
   score: number;
   isVoided: boolean;
   explanation: string | null;
+  /** Nhận xét của người chấm (câu tự luận). */
+  manualComment: string | null;
 }
 
 export interface StudentResult {
@@ -518,6 +523,8 @@ export interface StudentResult {
   reviewAvailable: boolean;
   reviewAvailableAt: string | null;
   questions: ReviewQuestion[] | null;
+  /** Còn câu tự luận chờ chấm tay: điểm chưa công bố. */
+  pendingManualGrading: boolean;
 }
 
 export interface StudentHistoryItem {
@@ -534,6 +541,7 @@ export interface StudentHistoryItem {
   maxScore: number | null;
   percentage: number | null;
   passed: boolean | null;
+  pendingManualGrading: boolean;
 }
 
 // ----- Admin -----
@@ -629,6 +637,8 @@ export interface AdminResultRow {
   totalQuestion: number;
   passed: boolean | null;
   isOfficial: boolean;
+  /** Số câu tự luận chờ chấm tay; điểm đang là tạm tính khi khác 0. */
+  pendingManualCount: number;
 }
 
 export interface RegradeSummary {
@@ -731,4 +741,34 @@ export interface QuestionImportResult {
   validRows: number;
   importedCount: number;
   rows: QuestionImportRow[];
+}
+
+/** Một câu tự luận cần / đã chấm tay. */
+export interface ManualGradingItem {
+  attemptId: string;
+  attemptQuestionId: string;
+  userId: string;
+  userName: string;
+  fullName: string;
+  attemptNumber: number;
+  submittedAt: string | null;
+  questionOrder: number;
+  examQuestionId: string;
+  content: string;
+  contentFormat: ContentFormat;
+  explanation: string | null;
+  maxScore: number;
+  answerText: string | null;
+  manualScore: number | null;
+  manualComment: string | null;
+  manualGradedAt: string | null;
+}
+
+export interface ManualGradeResult {
+  attemptId: string;
+  totalScore: number;
+  maxScore: number;
+  percentage: number;
+  passed: boolean | null;
+  pendingManualCount: number;
 }

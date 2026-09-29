@@ -47,6 +47,16 @@ public sealed class ExamResult : Entity
 
     public DateTime? RegradedAt { get; private set; }
 
+    /// <summary>Số câu tự luận chờ chấm tay; khác 0 thì điểm là tạm tính, chưa công bố cho học viên.</summary>
+    public int PendingManualCount { get; private set; }
+
+    /// <summary>Cập nhật điểm sau khi chấm tay (không ghi lịch sử chấm lại vì không có sửa đáp án).</summary>
+    public void ApplyManualGrading(AttemptScore score, DateTime now)
+    {
+        ApplyScore(score);
+        GradedAt = now;
+    }
+
     public IReadOnlyCollection<ExamResultHistory> History => _history;
 
     public static ExamResult Create(ExamAttempt attempt, AttemptScore score, DateTime now)
@@ -97,6 +107,7 @@ public sealed class ExamResult : Entity
         MaxScore = score.MaxScore;
         Percentage = score.Percentage;
         Passed = score.Passed;
+        PendingManualCount = score.PendingManualCount;
     }
 }
 

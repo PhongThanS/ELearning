@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IResultAdminService, ResultAdminService>();
         services.AddScoped<IAnswerKeyService, AnswerKeyService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IManualGradingService, ManualGradingService>();
         return services;
     }
 }

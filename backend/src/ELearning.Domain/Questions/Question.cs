@@ -20,7 +20,8 @@ public sealed record QuestionData(
     IReadOnlyList<OptionData> Options,
     IReadOnlyList<string> AcceptedAnswers,
     QuestionDifficulty? Difficulty = null,
-    IReadOnlyList<string>? Tags = null);
+    IReadOnlyList<string>? Tags = null,
+    bool PartialScoring = false);
 
 public sealed record OptionData(string OptionCode, string Content, bool IsCorrect);
 
@@ -85,6 +86,9 @@ public sealed class Question : Entity, IHasRowVersion
 
     public QuestionDifficulty? Difficulty { get; private set; }
 
+    /// <summary>Chỉ câu chọn nhiều: chấm từng phần theo số lựa chọn đúng / sai.</summary>
+    public bool PartialScoring { get; private set; }
+
     public IReadOnlyCollection<QuestionTag> Tags => _tags;
 
     /// <summary>Chuẩn hóa tag: NFC, bỏ khoảng trắng thừa, chữ thường (so khớp không phân biệt hoa thường).</summary>
@@ -137,7 +141,8 @@ public sealed class Question : Entity, IHasRowVersion
         _options.OrderBy(o => o.DisplayOrder).Select(o => new OptionData(o.OptionCode, o.Content, o.IsCorrect)).ToList(),
         _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList(),
         Difficulty,
-        _tags.Select(t => t.Tag).Order(StringComparer.Ordinal).ToList());
+        _tags.Select(t => t.Tag).Order(StringComparer.Ordinal).ToList(),
+        PartialScoring);
 
     /// <summary>
     /// Kiểm tra bất biến của một câu hỏi (lớp phòng thủ thứ hai sau FluentValidation).
@@ -209,6 +214,13 @@ public sealed class Question : Entity, IHasRowVersion
                 }
 
                 break;
+            case QuestionType.Essay:
+                if (data.Options.Count > 0 || data.AcceptedAnswers.Count > 0 || data.AnswerDataType is not null)
+                {
+                    errors.Add("Câu tự luận không có lựa chọn và đáp án chấp nhận.");
+                }
+
+                break;
         }
 
         if (codes.Distinct(StringComparer.Ordinal).Count() != codes.Count)
@@ -243,6 +255,7 @@ public sealed class Question : Entity, IHasRowVersion
         Explanation = string.IsNullOrWhiteSpace(data.Explanation) ? null : AnswerNormalizer.CleanContent(data.Explanation);
         DefaultScore = data.DefaultScore;
         Difficulty = data.Difficulty;
+        PartialScoring = data.QuestionType == QuestionType.MultipleChoice && data.PartialScoring;
 
         var tags = (data.Tags ?? []).Select(NormalizeTag).Where(t => t.Length > 0).Distinct(StringComparer.Ordinal).ToList();
         if (tags.Count > MaxTags || tags.Exists(t => t.Length > MaxTagLength))

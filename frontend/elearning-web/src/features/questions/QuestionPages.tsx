@@ -20,7 +20,7 @@ import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { AnswerDataType, Category, ContentFormat, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
 
-const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN"];
+const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
 const CHOICE_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
 // ======================= Danh mục =======================
@@ -257,6 +257,7 @@ const emptyQuestion = (): EditorState => ({
   categoryId: null,
   difficulty: null,
   tags: [],
+  partialScoring: false,
   code: "",
   content: "",
   contentFormat: "MARKDOWN",
@@ -284,7 +285,7 @@ function optionsForType(type: QuestionType, current: EditorState["options"]): Ed
       { optionCode: "FALSE", content: "Sai", isCorrect: false },
     ];
   }
-  if (type === "FILL_IN") {
+  if (type === "FILL_IN" || type === "ESSAY") {
     return [];
   }
   const base = current.filter((o) => CHOICE_CODES.includes(o.optionCode));
@@ -302,6 +303,7 @@ function toEditorState(q: QuestionDetail): EditorState {
     categoryId: q.categoryId,
     difficulty: q.difficulty,
     tags: q.tags,
+    partialScoring: q.partialScoring,
     code: q.code,
     content: q.content,
     contentFormat: q.contentFormat,
@@ -374,7 +376,8 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
       code: form.code?.trim() || null,
       tags: parseTags(tagText),
       explanation: form.explanation?.trim() || null,
-      options: form.questionType === "FILL_IN" ? [] : form.options,
+      options: form.questionType === "FILL_IN" || form.questionType === "ESSAY" ? [] : form.options,
+      partialScoring: form.questionType === "MULTIPLE_CHOICE" && form.partialScoring,
       acceptedAnswers: form.questionType === "FILL_IN" && form.answerDataType === "TEXT" ? form.acceptedAnswers.filter((a) => a.trim()) : [],
       correctAnswerNumber: form.answerDataType === "NUMBER" ? form.correctAnswerNumber : null,
       numericTolerance: form.answerDataType === "NUMBER" ? (form.numericTolerance ?? 0) : null,
@@ -467,10 +470,22 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
               <Card.Body>
                 <h2 className="h6">Đáp án</h2>
                 {err("options") && <Alert variant="danger" className="py-2">{err("options")}</Alert>}
-                {form.questionType === "FILL_IN" ? (
+                {form.questionType === "ESSAY" ? (
+                  <Alert variant="info" className="small mb-0">
+                    Câu tự luận không chấm tự động: học viên viết bài, người có quyền <em>Chấm tay</em> chấm điểm từng bài
+                    (tab “Chấm tự luận” ở trang kết quả đề). Ghi đáp án mẫu / hướng dẫn chấm vào phần Giải thích.
+                  </Alert>
+                ) : form.questionType === "FILL_IN" ? (
                   <FillInEditor form={form} set={set} errors={errors} tryValue={tryValue} setTryValue={setTryValue} />
                 ) : (
-                  <OptionsEditor form={form} set={set} errors={errors} />
+                  <>
+                    <OptionsEditor form={form} set={set} errors={errors} />
+                    {form.questionType === "MULTIPLE_CHOICE" && (
+                      <Form.Check className="mt-2" type="switch" id="q-partial" checked={form.partialScoring}
+                        onChange={(e) => set({ partialScoring: e.target.checked })}
+                        label="Chấm từng phần: điểm = điểm câu × (số lựa chọn đúng đã chọn − số lựa chọn sai đã chọn) / số đáp án đúng, không âm" />
+                    )}
+                  </>
                 )}
               </Card.Body>
             </Card>

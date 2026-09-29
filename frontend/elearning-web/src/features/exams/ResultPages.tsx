@@ -9,6 +9,7 @@ import { useToast } from "../../components/common/toast";
 import { attemptStatusVariant as attemptVariant } from "../../constants/ui";
 import { DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
+import { ManualGradingTab } from "./ManualGradingTab";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatDuration, formatNumber, formatScore, markdownExcerpt } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
@@ -50,6 +51,11 @@ export function ExamResultsPage() {
             <StatsTab examId={id} />
           </Tab>
         )}
+        {hasPermission(Permissions.AttemptGrade) && (
+          <Tab eventKey="manual" title="Chấm tự luận">
+            <ManualGradingTab examId={id} />
+          </Tab>
+        )}
         {hasPermission(Permissions.ExamView) && (
           <Tab eventKey="corrections" title="Sửa đáp án">
             <CorrectionsTab examId={id} />
@@ -72,7 +78,12 @@ function ResultsTab({ examId }: { examId: string }) {
     { key: "user", header: t("auth.userNameOnly"), sortKey: "userName", render: (r) => <>{r.userName}<div className="small text-secondary">{r.fullName}</div></> },
     { key: "attempt", header: "Lượt", render: (r) => <>#{r.attemptNumber} {r.isOfficial && <Badge bg="primary">chính thức</Badge>}</> },
     { key: "status", header: t("common.status"), render: (r) => <Badge bg={attemptVariant[r.status]}>{t(`enums.attemptStatus.${r.status}`)}</Badge> },
-    { key: "score", header: "Điểm", sortKey: "totalScore", render: (r) => `${formatScore(r.totalScore, r.maxScore)} (${formatNumber(r.percentage)}%)` },
+    { key: "score", header: "Điểm", sortKey: "totalScore", render: (r) => (
+      <>
+        {formatScore(r.totalScore, r.maxScore)} ({formatNumber(r.percentage)}%)
+        {r.pendingManualCount > 0 && <Badge bg="warning" text="dark" className="ms-1" title="Điểm tạm tính">Chờ chấm {r.pendingManualCount}</Badge>}
+      </>
+    ) },
     { key: "correct", header: "Đúng", render: (r) => `${r.correctCount}/${r.totalQuestion}` },
     { key: "passed", header: "Kết quả", render: (r) => (r.passed == null ? "—" : <Badge bg={r.passed ? "success" : "danger"}>{r.passed ? "Đạt" : "Chưa đạt"}</Badge>) },
     { key: "submitted", header: "Nộp lúc", sortKey: "submittedAt", render: (r) => formatDateTime(r.submittedAt) },

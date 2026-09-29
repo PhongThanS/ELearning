@@ -49,7 +49,7 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 
 ## 2. Chấm điểm
 
-Mỗi câu chỉ có hai kết quả: đúng (điểm tối đa) hoặc sai (0 điểm). Chấm từng phần là tính năng sau MVP; schema không cần đổi khi thêm.
+Mặc định mỗi câu chỉ có hai kết quả: đúng (điểm tối đa) hoặc sai (0 điểm). Ngoại lệ (sau MVP, đã làm): câu chọn nhiều bật **chấm từng phần** (mục 2.2) và câu **tự luận** chấm tay (mục 2.3).
 
 | Loại | Đúng khi |
 |---|---|
@@ -57,6 +57,7 @@ Mỗi câu chỉ có hai kết quả: đúng (điểm tối đa) hoặc sai (0 �
 | `MULTIPLE_CHOICE` | Tập option đã chọn **bằng đúng** tập option đúng (không phân biệt thứ tự) |
 | `FILL_IN` + `TEXT` | `Normalize(bài làm)` trùng `Normalize(một trong các đáp án chấp nhận)` |
 | `FILL_IN` + `NUMBER` | Parse được và `|bài làm − đáp án| ≤ NumericTolerance` |
+| `ESSAY` | Không chấm tự động; điểm do người chấm nhập (mục 2.3). "Đúng" khi điểm chấm tay = điểm tối đa |
 
 **Ví dụ `MULTIPLE_CHOICE`** với đáp án đúng `{A, C, D}`:
 - `{A, C, D}` → đúng.
@@ -79,6 +80,25 @@ Passed      = PassPercentage is null ? null : Percentage >= PassPercentage
 CorrectCount = số câu có IsCorrect = true (câu bị hủy tính là đúng)
 ```
 Publish không cho phép `MaxScore = 0`, nên phép chia luôn hợp lệ.
+
+### 2.2 Chấm từng phần câu chọn nhiều (sau MVP, đã làm)
+
+- Bật theo từng câu (`PartialScoring`, chỉ `MULTIPLE_CHOICE`), được snapshot vào `ExamQuestions` như mọi dữ liệu chấm (D-01).
+- Chọn khớp hoàn toàn → điểm tối đa, `IsCorrect = true`. Còn lại:
+  ```text
+  Score = round(Điểm câu × max(0, số lựa chọn đúng đã chọn − số lựa chọn sai đã chọn) / số đáp án đúng, 2, AwayFromZero)
+  ```
+  `IsCorrect = false` (`CorrectCount` chỉ đếm câu đúng hoàn toàn).
+- Ví dụ đáp án `{A, C}`, điểm 2: `{A, C, D}` → 1 điểm; `{A}` → 1 điểm; `{A, B, D}` → 0 điểm.
+
+### 2.3 Câu tự luận và chấm tay (sau MVP, đã làm)
+
+- `ESSAY`: không có lựa chọn / đáp án chấp nhận; phần **Giải thích** dùng làm đáp án mẫu / hướng dẫn chấm. Bài làm tối đa 20.000 ký tự (`AttemptAnswers.AnswerText` là `NVARCHAR(MAX)`).
+- Khi nộp: câu tự luận bỏ trống → 0 điểm; có trả lời → **chờ chấm tay**, tạm tính 0 điểm. `ExamResults.PendingManualCount` = số câu chờ chấm; khác 0 thì `Passed = null`.
+- Người có quyền `Attempt.Grade` chấm từng bài: điểm từ 0 đến điểm tối đa của câu, bội số 0,25, kèm nhận xét (tối đa 2000 ký tự). Chấm trong transaction có khóa dòng lượt thi (D-21), sau đó **chấm lại cả lượt thi từ snapshot** và cập nhật `ExamResults`; ghi audit `ANSWER_MANUALLY_GRADED` (điểm cũ → mới). Chấm lại một câu đã chấm được phép (sửa điểm), cũng có audit.
+- Điểm chấm tay lưu ở `AttemptAnswers.ManualScore`, không bị mất khi chấm lại tự động (sửa đáp án câu khác, D-11). Câu tự luận **không sửa đáp án được**, chỉ **hủy câu** (mọi người được điểm tối đa).
+- Học viên: khi còn câu chờ chấm thì **chưa thấy điểm và chưa xem lại bài** (hiện "đang chấm"), kể cả khi chính sách cho xem ngay; điểm chính thức hiển thị cho học viên bỏ qua lượt còn chờ chấm. Chấm xong thì áp chính sách hiển thị như bình thường; nhận xét hiện trong phần xem lại.
+- Admin: bảng kết quả hiện điểm tạm tính kèm nhãn "Chờ chấm N"; tab "Chấm tự luận" lọc chờ chấm / đã chấm.
 
 ## 3. Chuẩn hóa đáp án điền (D-12)
 

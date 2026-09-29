@@ -22,6 +22,9 @@ import {
 } from "./playerState";
 import { useAttemptEvents, useAutosave, useCountdown, type SaveStatus } from "./playerHooks";
 
+/** Khớp giới hạn server (AttemptContracts.MaxAnswerTextLength). */
+const ESSAY_MAX_LENGTH = 20_000;
+
 /** Trang làm bài (docs/06-frontend.md mục 4). */
 export function ExamPlayerPage() {
   const { attemptId = "" } = useParams();
@@ -338,7 +341,22 @@ export function QuestionCard({
         </div>
         <MarkdownView content={question.content} format={question.contentFormat} />
 
-        {question.type === "FILL_IN" ? (
+        {question.type === "ESSAY" ? (
+          <Form.Group controlId={`${name}-essay`} className="mt-3">
+            <Form.Label className="visually-hidden">{t("player.essayPlaceholder")}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={10}
+              value={draft.answerText ?? ""}
+              placeholder={t("player.essayPlaceholder")}
+              maxLength={ESSAY_MAX_LENGTH}
+              readOnly={readOnly}
+              onChange={(e) => onText(e.target.value)}
+              onPaste={onPaste}
+            />
+            <Form.Text>{t("player.essayCount", { count: (draft.answerText ?? "").length, max: ESSAY_MAX_LENGTH })}</Form.Text>
+          </Form.Group>
+        ) : question.type === "FILL_IN" ? (
           <Form.Group controlId={`${name}-text`} className="mt-3">
             <Form.Label className="visually-hidden">{t("player.fillPlaceholder")}</Form.Label>
             <Form.Control

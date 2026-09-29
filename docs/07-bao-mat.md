@@ -68,7 +68,7 @@ Role.View  Role.Manage  Role.Assign
 Category.View  Category.Manage
 Question.View  Question.Create  Question.Update
 Exam.View  Exam.Create  Exam.Update  Exam.Delete  Exam.Publish  Exam.Close  Exam.Assign  Exam.Regrade
-Attempt.View  Attempt.Manage
+Attempt.View  Attempt.Manage  Attempt.Grade (chấm tay tự luận)
 Result.View  Result.Export
 Report.View
 Audit.View

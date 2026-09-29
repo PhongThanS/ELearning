@@ -29,6 +29,7 @@ public static class QuestionImportColumns
     public const string Explanation = "Giải thích";
     public const string Difficulty = "Độ khó";
     public const string Tags = "Tag";
+    public const string PartialScoring = "Chấm từng phần";
 
     /// <summary>Số câu tối đa mỗi lần import.</summary>
     public const int MaxRows = 1000;
@@ -41,7 +42,7 @@ public static class QuestionImportColumns
         Code, Category, Type, Format, Content, Score,
         .. OptionCodes.Take(6).Select(c => OptionPrefix + c),
         Correct, AnswerDataType, AcceptedAnswers, CorrectNumber, Tolerance, CaseSensitive, IgnoreAccent, Explanation,
-        Difficulty, Tags,
+        Difficulty, Tags, PartialScoring,
     ];
 
     public static string Normalize(string header) =>
@@ -96,7 +97,7 @@ internal static class QuestionImportMapper
         if (type is null)
         {
             issues.Add(new(QuestionImportColumns.Type, "QUESTION_TYPE_INVALID",
-                "Loại câu hỏi phải là SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE hoặc FILL_IN (hoặc Chọn một, Chọn nhiều, Đúng / Sai, Điền đáp án)."));
+                "Loại câu hỏi phải là SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE, FILL_IN hoặc ESSAY (hoặc Chọn một, Chọn nhiều, Đúng / Sai, Điền đáp án, Tự luận)."));
             return (null, Get(QuestionImportColumns.Category));
         }
 
@@ -130,6 +131,7 @@ internal static class QuestionImportMapper
                 .Split([',', ';', '|', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
             CaseSensitive = ParseBool(Get(QuestionImportColumns.CaseSensitive), QuestionImportColumns.CaseSensitive, issues),
             IgnoreAccent = ParseBool(Get(QuestionImportColumns.IgnoreAccent), QuestionImportColumns.IgnoreAccent, issues),
+            PartialScoring = ParseBool(Get(QuestionImportColumns.PartialScoring), QuestionImportColumns.PartialScoring, issues),
         };
 
         var correct = Get(QuestionImportColumns.Correct);
@@ -137,6 +139,7 @@ internal static class QuestionImportMapper
         {
             QuestionType.SingleChoice or QuestionType.MultipleChoice => input with { Options = ChoiceOptions(Get, correct, issues) },
             QuestionType.TrueFalse => input with { Options = TrueFalseOptions(correct, issues) },
+            QuestionType.Essay => input,
             _ => FillIn(input, Get, issues),
         };
         return (input, Get(QuestionImportColumns.Category));
@@ -149,6 +152,7 @@ internal static class QuestionImportMapper
             "MULTIPLE_CHOICE" or "MULTIPLECHOICE" or "CHỌNNHIỀU" => QuestionType.MultipleChoice,
             "TRUE_FALSE" or "TRUEFALSE" or "ĐÚNG/SAI" => QuestionType.TrueFalse,
             "FILL_IN" or "FILLIN" or "ĐIỀNĐÁPÁN" or "ĐIỀN" => QuestionType.FillIn,
+            "ESSAY" or "TỰLUẬN" => QuestionType.Essay,
             _ => null,
         };
 

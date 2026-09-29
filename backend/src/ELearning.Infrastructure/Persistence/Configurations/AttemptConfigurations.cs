@@ -78,7 +78,10 @@ internal sealed class AttemptAnswerConfiguration : IEntityTypeConfiguration<Atte
     public void Configure(EntityTypeBuilder<AttemptAnswer> builder)
     {
         builder.ConfigureEntity("AttemptAnswers");
-        builder.Property(a => a.AnswerText).HasMaxLength(1000);
+        // NVARCHAR(MAX): bài tự luận tới 20.000 ký tự (AttemptContracts.MaxAnswerTextLength)
+        builder.Property(a => a.AnswerText);
+        builder.Property(a => a.ManualComment).HasMaxLength(2000);
+        builder.HasUserReference(a => a.ManualGradedBy, "FK_AttemptAnswers_ManualGradedBy");
         builder.Property(a => a.AnswerNumber).HasColumnType(ConfigurationExtensions.SqlDecimalAnswer);
         builder.HasIndex(a => a.AttemptQuestionId).IsUnique().HasDatabaseName("UQ_AttemptAnswers_Question");
 

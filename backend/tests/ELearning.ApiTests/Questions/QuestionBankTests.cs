@@ -157,7 +157,7 @@ public class QuestionBankTests(ApiFactory factory)
     {
         var admin = await AdminAsync();
 
-        var (response, _) = await admin.PostJsonAsync<object>("/api/questions", new { content = "X", questionType = "ESSAY" });
+        var (response, _) = await admin.PostJsonAsync<object>("/api/questions", new { content = "X", questionType = "MATCHING" });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }

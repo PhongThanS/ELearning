@@ -60,7 +60,11 @@ CREATE TABLE AttemptQuestions (                    -- D-01: chỉ tham chiếu +
 CREATE TABLE AttemptAnswers (
     Id                UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_AttemptAnswers PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
     AttemptQuestionId UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_AttemptAnswers_Question REFERENCES AttemptQuestions(Id),
-    AnswerText        NVARCHAR(1000) NULL,         -- chuỗi gốc của FILL_IN (cả TEXT lẫn NUMBER)
+    AnswerText        NVARCHAR(MAX)  NULL,         -- chuỗi gốc của FILL_IN (TEXT / NUMBER) và bài tự luận (≤ 20.000 ký tự)
+    ManualScore       DECIMAL(10,2)  NULL,         -- điểm chấm tay (ESSAY); giữ nguyên khi chấm lại tự động
+    ManualComment     NVARCHAR(2000) NULL,
+    ManualGradedBy    UNIQUEIDENTIFIER NULL REFERENCES Users(Id),
+    ManualGradedAt    DATETIME2(3)   NULL,
     AnswerNumber      DECIMAL(30,10) NULL,         -- giá trị đã parse khi NUMBER
     IsAnswered        BIT            NOT NULL CONSTRAINT DF_AttemptAnswers_IsAnswered DEFAULT 0,
     IsMarkedForReview BIT            NOT NULL CONSTRAINT DF_AttemptAnswers_IsMarked DEFAULT 0,
@@ -102,6 +106,7 @@ CREATE INDEX IX_AttemptEvents_Attempt ON AttemptEvents(AttemptId, ServerTime);
 ## 2. Kết quả
 
 ```sql
+-- (sau MVP) ExamResults có thêm PendingManualCount INT NOT NULL: số câu tự luận chờ chấm tay (02-nghiep-vu mục 2.3)
 CREATE TABLE ExamResults (                         -- D-20: nguồn điểm duy nhất
     Id              UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_ExamResults PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
     AttemptId       UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_ExamResults_Attempt REFERENCES ExamAttempts(Id),

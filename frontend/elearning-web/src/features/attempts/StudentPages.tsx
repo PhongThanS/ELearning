@@ -159,7 +159,7 @@ export function StudentExamDetailPage() {
                     <td>{t(`enums.attemptStatus.${a.status}`)}</td>
                     <td>{formatDateTime(a.startedAt)}</td>
                     <td>{formatDateTime(a.submittedAt)}</td>
-                    <td>{a.scoreVisible ? formatScore(a.totalScore, a.maxScore) : "—"}</td>
+                    <td>{a.scoreVisible ? formatScore(a.totalScore, a.maxScore) : a.pendingManualGrading ? <Badge bg="warning" text="dark">{t("result.grading")}</Badge> : "—"}</td>
                     <td>
                       {a.status === "SUBMITTED" || a.status === "AUTO_SUBMITTED" ? (
                         <Link to={`/student/results/${a.attemptId}`}>{t("student.viewResult")}</Link>
@@ -233,7 +233,9 @@ export function ResultPage() {
             </Row>
           ) : (
             <Alert variant="info" className="mb-0">
-              {r.reviewAvailableAt ? t("result.hiddenUntil", { time: formatDateTime(r.reviewAvailableAt) }) : t("result.hidden")}
+              {r.pendingManualGrading
+                ? t("result.pendingManual")
+                : r.reviewAvailableAt ? t("result.hiddenUntil", { time: formatDateTime(r.reviewAvailableAt) }) : t("result.hidden")}
             </Alert>
           )}
           {r.scoreVisible && !r.reviewAvailable && r.reviewAvailableAt && (
@@ -256,7 +258,15 @@ export function ResultPage() {
                 </div>
                 {q.isVoided && <Alert variant="secondary" className="py-1 small my-2">{t("result.voided")}</Alert>}
                 <MarkdownView content={q.content} format={q.contentFormat} />
-                {q.type === "FILL_IN" ? (
+                {q.type === "ESSAY" ? (
+                  <>
+                    <div className="small fw-semibold mt-2">{t("result.yourAnswer")}</div>
+                    <div className="border rounded p-2 small" style={{ whiteSpace: "pre-wrap" }}>{q.answerText || t("result.noAnswer")}</div>
+                    {q.manualComment && (
+                      <div className="small mt-2"><strong>{t("result.graderComment")}:</strong> <span style={{ whiteSpace: "pre-wrap" }}>{q.manualComment}</span></div>
+                    )}
+                  </>
+                ) : q.type === "FILL_IN" ? (
                   <dl className="row small mb-0">
                     <dt className="col-sm-3">{t("result.yourAnswer")}</dt>
                     <dd className="col-sm-9">{q.answerText || t("result.noAnswer")}</dd>
@@ -330,7 +340,7 @@ export function HistoryPage() {
                     <td>{formatDateTime(h.startedAt)}</td>
                     <td>{formatDateTime(h.submittedAt)}</td>
                     <td>
-                      {h.scoreVisible ? formatScore(h.totalScore, h.maxScore) : "—"}
+                      {h.scoreVisible ? formatScore(h.totalScore, h.maxScore) : h.pendingManualGrading ? <Badge bg="warning" text="dark">{t("result.grading")}</Badge> : "—"}
                       {h.passed != null && h.scoreVisible && (
                         <Badge bg={h.passed ? "success" : "danger"} className="ms-2">
                           {h.passed ? t("result.passed") : t("result.failed")}

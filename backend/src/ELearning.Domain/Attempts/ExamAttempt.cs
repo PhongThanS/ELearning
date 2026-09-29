@@ -252,10 +252,33 @@ public sealed class AttemptAnswer : Entity
 
     public DateTime? GradedAt { get; private set; }
 
+    /// <summary>Điểm chấm tay (câu tự luận). Giữ nguyên khi chấm lại tự động (sửa đáp án câu khác).</summary>
+    public decimal? ManualScore { get; private set; }
+
+    public string? ManualComment { get; private set; }
+
+    public Guid? ManualGradedBy { get; private set; }
+
+    public DateTime? ManualGradedAt { get; private set; }
+
     public IReadOnlyCollection<AttemptAnswerOption> SelectedOptions => _selectedOptions;
 
     public StudentAnswer ToStudentAnswer() =>
-        new(_selectedOptions.Select(o => o.OptionCode).ToList(), AnswerText, AnswerNumber);
+        new(_selectedOptions.Select(o => o.OptionCode).ToList(), AnswerText, AnswerNumber, ManualScore);
+
+    /// <summary>Chấm tay: 0 ≤ điểm ≤ điểm tối đa của câu, bội số của 0,25.</summary>
+    public void GradeManually(decimal score, decimal maxScore, string? comment, Guid gradedBy, DateTime now)
+    {
+        if (score < 0 || score > maxScore || score * 4 % 1 != 0)
+        {
+            throw new DomainException(DomainErrorCodes.InvalidAttempt, $"Điểm phải từ 0 đến {maxScore} và là bội số của 0,25.");
+        }
+
+        ManualScore = score;
+        ManualComment = string.IsNullOrWhiteSpace(comment) ? null : comment.Trim();
+        ManualGradedBy = gradedBy;
+        ManualGradedAt = now;
+    }
 
     /// <summary>
     /// Ghi câu trả lời nếu clientSeq mới hơn giá trị đang lưu (D-18). Trả về false nếu bị bỏ qua do cũ hơn.

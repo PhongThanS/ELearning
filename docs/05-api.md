@@ -216,6 +216,8 @@ Ví dụ tạo câu hỏi:
 | POST | `/api/exams/{id}/versions/{versionId}/pool-rules` `{ categoryId?, difficulty?, tag?, questionType?, drawCount, scorePerQuestion }` → `VersionDetail` (có `poolRules[]`). Lỗi: `POOL_TOO_LARGE` | `Exam.Update` |
 | POST | `/api/exams/{id}/versions/{versionId}/pool-rules/{ruleId}/refresh` (snapshot lại câu ứng viên) | `Exam.Update` |
 | DELETE | `/api/exams/{id}/versions/{versionId}/pool-rules/{ruleId}` | `Exam.Update` |
+| GET | `/api/admin/exams/{examId}/manual-grading?status=PENDING\|GRADED\|ALL&examQuestionId=&page=` → câu tự luận cần / đã chấm | `Attempt.Grade` |
+| POST | `/api/admin/attempts/{attemptId}/questions/{attemptQuestionId}/manual-grade` `{ score, comment? }` → `{ totalScore, maxScore, percentage, passed, pendingManualCount }` | `Attempt.Grade` |
 | GET | `/api/exams/{id}/user-overrides?page=&pageSize=` | `Exam.View` | Học viên đang được cấp thêm lượt (`extraAttempts > 0`), mới nhất trước |
 | PUT | `/api/exams/{id}/user-overrides/{userId}` `{ extraAttempts, note }` | `Attempt.Manage` |
 

@@ -257,9 +257,10 @@ internal sealed class QuestionService(
             input.Explanation,
             input.DefaultScore,
             options,
-            input.AcceptedAnswers?.ToList() ?? [],
+            input.QuestionType == QuestionType.FillIn ? input.AcceptedAnswers?.ToList() ?? [] : [],
             input.Difficulty,
-            input.Tags?.ToList() ?? []);
+            input.Tags?.ToList() ?? [],
+            input.QuestionType == QuestionType.MultipleChoice && input.PartialScoring);
     }
 
     private async Task<Error?> ValidateCategoryAsync(Guid? categoryId, CancellationToken ct) =>
@@ -302,6 +303,7 @@ internal sealed class QuestionService(
             q.UpdatedAt,
             q.RowVersion.ToBase64(),
             q.Difficulty,
-            q.Tags.Select(t => t.Tag).Order(StringComparer.Ordinal).ToList());
+            q.Tags.Select(t => t.Tag).Order(StringComparer.Ordinal).ToList(),
+            q.PartialScoring);
     }
 }

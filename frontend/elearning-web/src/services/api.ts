@@ -1,5 +1,7 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
+  ManualGradeResult,
+  ManualGradingItem,
   PoolRuleInput,
   QuestionImportResult,
   AnswerKeyCorrection,
@@ -194,6 +196,9 @@ export const adminApi = {
   questionStats: (examId: string, versionId?: string) =>
     http.get<QuestionStat[]>("/admin/reports/question-statistics", { examId, versionId }),
   auditLogs: (q: Query) => http.get<Paged<AuditLog>>("/admin/audit-logs", q),
+  manualGrading: (examId: string, q: Query) => http.get<Paged<ManualGradingItem>>(`/admin/exams/${examId}/manual-grading`, q),
+  manualGrade: (attemptId: string, attemptQuestionId: string, score: number, comment: string | null) =>
+    http.post<ManualGradeResult>(`/admin/attempts/${attemptId}/questions/${attemptQuestionId}/manual-grade`, { score, comment }),
 
   exportResults: (examId: string, official: boolean) =>
     downloadFile(`/admin/exams/${examId}/results/export`, { official }, "ket-qua.xlsx"),

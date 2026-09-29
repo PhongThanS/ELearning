@@ -14,7 +14,8 @@ public sealed record GradingQuestion(
     decimal? CorrectAnswerNumber,
     decimal? NumericTolerance,
     bool CaseSensitive,
-    bool IgnoreAccent)
+    bool IgnoreAccent,
+    bool PartialScoring = false)
 {
     public static GradingQuestion From(ExamQuestion q) => new(
         q.QuestionType,
@@ -26,18 +27,21 @@ public sealed record GradingQuestion(
         q.CorrectAnswerNumber,
         q.NumericTolerance,
         q.CaseSensitive,
-        q.IgnoreAccent);
+        q.IgnoreAccent,
+        q.PartialScoring);
 }
 
 /// <summary>Câu trả lời của học viên cho một câu.</summary>
-public sealed record StudentAnswer(IReadOnlyCollection<string> SelectedOptionCodes, string? AnswerText, decimal? AnswerNumber)
+/// <param name="ManualScore">Điểm chấm tay (câu tự luận); null = chưa chấm.</param>
+public sealed record StudentAnswer(IReadOnlyCollection<string> SelectedOptionCodes, string? AnswerText, decimal? AnswerNumber, decimal? ManualScore = null)
 {
     public static readonly StudentAnswer Empty = new([], null, null);
 
     public bool IsAnswered => SelectedOptionCodes.Count > 0 || !string.IsNullOrWhiteSpace(AnswerText);
 }
 
-public sealed record GradingResult(bool IsCorrect, decimal Score, decimal MaxScore)
+/// <param name="NeedsManualGrading">Câu tự luận có trả lời nhưng chưa được chấm tay: tạm tính 0 điểm.</param>
+public sealed record GradingResult(bool IsCorrect, decimal Score, decimal MaxScore, bool NeedsManualGrading = false)
 {
     public static GradingResult Correct(decimal max) => new(true, max, max);
 
@@ -80,9 +84,40 @@ public sealed class MultipleChoiceGrader : IQuestionGrader
     public GradingResult Grade(GradingQuestion question, StudentAnswer answer)
     {
         var selected = answer.SelectedOptionCodes.ToHashSet(StringComparer.Ordinal);
-        return selected.Count > 0 && selected.SetEquals(question.CorrectOptionCodes)
-            ? GradingResult.Correct(question.Score)
-            : GradingResult.Wrong(question.Score);
+        if (selected.Count > 0 && selected.SetEquals(question.CorrectOptionCodes))
+        {
+            return GradingResult.Correct(question.Score);
+        }
+
+        if (!question.PartialScoring || question.CorrectOptionCodes.Count == 0)
+        {
+            return GradingResult.Wrong(question.Score);
+        }
+
+        // Chấm từng phần: (số lựa chọn đúng đã chọn − số lựa chọn sai đã chọn) / tổng số đáp án đúng, không âm
+        var right = selected.Count(question.CorrectOptionCodes.Contains);
+        var wrong = selected.Count - right;
+        var ratio = Math.Max(0, right - wrong) / (decimal)question.CorrectOptionCodes.Count;
+        var score = Math.Round(question.Score * ratio, 2, MidpointRounding.AwayFromZero);
+        return new GradingResult(false, score, question.Score);
+    }
+}
+
+/// <summary>Tự luận: bỏ trống → 0 điểm; có trả lời → dùng điểm chấm tay, chưa chấm thì chờ chấm (tạm 0 điểm).</summary>
+public sealed class EssayGrader : IQuestionGrader
+{
+    public QuestionType Type => QuestionType.Essay;
+
+    public GradingResult Grade(GradingQuestion question, StudentAnswer answer)
+    {
+        if (!answer.IsAnswered)
+        {
+            return GradingResult.Wrong(question.Score);
+        }
+
+        return answer.ManualScore is { } manual
+            ? new GradingResult(manual >= question.Score, Math.Min(manual, question.Score), question.Score)
+            : new GradingResult(false, 0m, question.Score, NeedsManualGrading: true);
     }
 }
 
@@ -135,14 +170,17 @@ public sealed class GradingEngine
     }
 
     public static GradingEngine Default { get; } =
-        new([new SingleChoiceGrader(), new MultipleChoiceGrader(), new TrueFalseGrader(), new FillInGrader()]);
+        new([new SingleChoiceGrader(), new MultipleChoiceGrader(), new TrueFalseGrader(), new FillInGrader(), new EssayGrader()]);
 
     public GradingResult Grade(GradingQuestion question, StudentAnswer answer) =>
         question.IsVoided ? GradingResult.Correct(question.Score) : _graders[question.QuestionType].Grade(question, answer);
 }
 
 /// <summary>Tổng kết một lượt thi (docs/02-nghiep-vu.md mục 2). Dùng decimal, làm tròn AwayFromZero.</summary>
-public sealed record AttemptScore(int TotalQuestion, int AnsweredCount, int CorrectCount, decimal TotalScore, decimal MaxScore, decimal Percentage, bool? Passed)
+/// <param name="PendingManualCount">Số câu tự luận chờ chấm tay; khác 0 thì điểm là tạm tính và Passed = null.</param>
+public sealed record AttemptScore(
+    int TotalQuestion, int AnsweredCount, int CorrectCount, decimal TotalScore, decimal MaxScore, decimal Percentage, bool? Passed,
+    int PendingManualCount = 0)
 {
     public static AttemptScore Calculate(
         IReadOnlyCollection<(GradingResult Result, bool IsAnswered)> questions, decimal? passPercentage)
@@ -150,6 +188,7 @@ public sealed record AttemptScore(int TotalQuestion, int AnsweredCount, int Corr
         var max = questions.Sum(q => q.Result.MaxScore);
         var total = questions.Sum(q => q.Result.Score);
         var percentage = max == 0 ? 0 : Math.Round(total / max * 100m, 2, MidpointRounding.AwayFromZero);
+        var pending = questions.Count(q => q.Result.NeedsManualGrading);
         return new AttemptScore(
             questions.Count,
             questions.Count(q => q.IsAnswered),
@@ -157,6 +196,7 @@ public sealed record AttemptScore(int TotalQuestion, int AnsweredCount, int Corr
             total,
             max,
             percentage,
-            passPercentage is { } pass ? percentage >= pass : null);
+            pending == 0 && passPercentage is { } pass ? percentage >= pass : null,
+            pending);
     }
 }

@@ -34,6 +34,7 @@ public static class Permissions
 
     public const string AttemptView = "Attempt.View";
     public const string AttemptManage = "Attempt.Manage";
+    public const string AttemptGrade = "Attempt.Grade";
 
     public const string ResultView = "Result.View";
     public const string ResultExport = "Result.Export";
@@ -70,6 +71,7 @@ public static class Permissions
         [ExamRegrade] = "Sửa đáp án và chấm lại",
         [AttemptView] = "Xem lượt thi",
         [AttemptManage] = "Thao tác trên lượt thi",
+        [AttemptGrade] = "Chấm tay câu tự luận",
         [ResultView] = "Xem kết quả",
         [ResultExport] = "Export kết quả",
         [ReportView] = "Xem báo cáo",

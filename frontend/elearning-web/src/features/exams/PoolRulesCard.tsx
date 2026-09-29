@@ -7,7 +7,7 @@ import { formatNumber } from "../../utils/format";
 import type { PoolRuleInput, QuestionDifficulty, QuestionType, VersionDetail } from "../../types/api";
 
 const DIFFICULTIES: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
-const TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN"];
+const TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
 const emptyRule = (): PoolRuleInput => ({ categoryId: null, difficulty: null, tag: null, questionType: null, drawCount: 5, scorePerQuestion: 1 });
 
 /**

@@ -47,6 +47,8 @@ public sealed class ExamQuestion : Entity
 
     public bool IgnoreAccent { get; private set; }
 
+    public bool PartialScoring { get; private set; }
+
     public string? Explanation { get; private set; }
 
     public decimal Score { get; private set; }
@@ -83,7 +85,8 @@ public sealed class ExamQuestion : Entity
         Explanation,
         Score,
         _options.OrderBy(o => o.DisplayOrder).Select(o => new OptionData(o.OptionCode, o.Content, o.IsCorrect)).ToList(),
-        _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList());
+        _acceptedAnswers.OrderBy(a => a.DisplayOrder).Select(a => a.AnswerText).ToList(),
+        PartialScoring: PartialScoring);
 
     internal ExamQuestion CopyTo(Guid versionId, int order, DateTime now, Guid? poolRuleId = null)
     {
@@ -125,6 +128,11 @@ public sealed class ExamQuestion : Entity
         decimal? correctAnswerNumber,
         decimal? numericTolerance)
     {
+        if (QuestionType == QuestionType.Essay)
+        {
+            throw new DomainException(DomainErrorCodes.InvalidQuestion, "Câu tự luận không có đáp án để sửa; điểm do người chấm quyết định (có thể hủy câu).");
+        }
+
         var data = ToData();
         var corrected = data with
         {
@@ -207,6 +215,7 @@ public sealed class ExamQuestion : Entity
         CaseSensitive = data.CaseSensitive;
         IgnoreAccent = data.IgnoreAccent;
         Explanation = data.Explanation;
+        PartialScoring = data.QuestionType == QuestionType.MultipleChoice && data.PartialScoring;
 
         _options.Clear();
         for (var i = 0; i < data.Options.Count; i++)

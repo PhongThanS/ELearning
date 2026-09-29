@@ -13,7 +13,8 @@ public sealed class AdminController(
     IAdminAttemptService attempts,
     IResultAdminService results,
     IAnswerKeyService answerKeys,
-    IReportService reports) : ApiControllerBase
+    IReportService reports,
+    IManualGradingService manualGrading) : ApiControllerBase
 {
     // ----- Lượt thi -----
 
@@ -47,6 +48,20 @@ public sealed class AdminController(
         ToResponse(await attempts.CancelAsync(attemptId, request, ct));
 
     // ----- Kết quả -----
+
+    // ----- Chấm tay câu tự luận -----
+
+    [HttpGet("admin/exams/{examId:guid}/manual-grading")]
+    [HasPermission(Permissions.AttemptGrade)]
+    [ProducesResponseType<ApiResponse<PagedResult<ManualGradingItemDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ManualGradingQueue(Guid examId, [FromQuery] ManualGradingQuery query, CancellationToken ct) =>
+        ToResponse(await manualGrading.ListAsync(examId, query, ct));
+
+    [HttpPost("admin/attempts/{attemptId:guid}/questions/{attemptQuestionId:guid}/manual-grade")]
+    [HasPermission(Permissions.AttemptGrade)]
+    [ProducesResponseType<ApiResponse<ManualGradeResultDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ManualGrade(Guid attemptId, Guid attemptQuestionId, ManualGradeRequest request, CancellationToken ct) =>
+        ToResponse(await manualGrading.GradeAsync(attemptId, attemptQuestionId, request, ct));
 
     [HttpGet("admin/exams/{examId:guid}/results")]
     [HasPermission(Permissions.ResultView)]

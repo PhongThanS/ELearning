@@ -42,7 +42,8 @@ public sealed record StudentAttemptSummaryDto(
     decimal? TotalScore,
     decimal? MaxScore,
     decimal? Percentage,
-    bool? Passed);
+    bool? Passed,
+    bool PendingManualGrading = false);
 
 public sealed record StudentExamDetailDto(
     Guid ExamId,
@@ -128,7 +129,8 @@ public sealed record ReviewQuestionDto(
     bool IsCorrect,
     decimal Score,
     bool IsVoided,
-    string? Explanation);
+    string? Explanation,
+    string? ManualComment = null);
 
 /// <summary>Kết quả cho học viên, đã áp chính sách hiển thị (D-09, docs/05-api.md mục 6.7).</summary>
 public sealed record StudentResultDto(
@@ -150,7 +152,8 @@ public sealed record StudentResultDto(
     bool? Passed,
     bool ReviewAvailable,
     DateTime? ReviewAvailableAt,
-    IReadOnlyList<ReviewQuestionDto>? Questions);
+    IReadOnlyList<ReviewQuestionDto>? Questions,
+    bool PendingManualGrading = false);
 
 public sealed record StudentHistoryItemDto(
     Guid AttemptId,
@@ -165,7 +168,8 @@ public sealed record StudentHistoryItemDto(
     decimal? TotalScore,
     decimal? MaxScore,
     decimal? Percentage,
-    bool? Passed);
+    bool? Passed,
+    bool PendingManualGrading = false);
 
 public sealed record StudentExamListQuery : PageRequest;
 
@@ -173,6 +177,9 @@ public sealed record StudentHistoryQuery : PageRequest;
 
 internal sealed class SaveAnswersRequestValidator : AbstractValidator<SaveAnswersRequest>
 {
+    /// <summary>Đủ cho bài tự luận; câu điền ngắn hơn nhiều nhưng không cần giới hạn riêng.</summary>
+    public const int MaxAnswerTextLength = 20_000;
+
     public const int MaxItems = 50;
 
     public SaveAnswersRequestValidator()
@@ -184,7 +191,8 @@ internal sealed class SaveAnswersRequestValidator : AbstractValidator<SaveAnswer
         RuleForEach(r => r.Answers).ChildRules(item =>
         {
             item.RuleFor(i => i.ClientSeq).GreaterThan(0).WithErrorCode("CLIENT_SEQ_INVALID").WithMessage("clientSeq phải lớn hơn 0.");
-            item.RuleFor(i => i.AnswerText).MaximumLength(1000).WithErrorCode("ANSWER_TOO_LONG").WithMessage("Câu trả lời tối đa 1000 ký tự.");
+            item.RuleFor(i => i.AnswerText).MaximumLength(MaxAnswerTextLength).WithErrorCode("ANSWER_TOO_LONG")
+                .WithMessage($"Câu trả lời tối đa {MaxAnswerTextLength} ký tự.");
             item.RuleFor(i => i.SelectedOptions).Must(o => o is null || o.Count <= 10)
                 .WithErrorCode("TOO_MANY_OPTIONS").WithMessage("Chọn quá nhiều lựa chọn.");
         });

@@ -25,6 +25,7 @@ export const Permissions = {
   ExamRegrade: "Exam.Regrade",
   AttemptView: "Attempt.View",
   AttemptManage: "Attempt.Manage",
+  AttemptGrade: "Attempt.Grade",
   ResultView: "Result.View",
   ResultExport: "Result.Export",
   ReportView: "Report.View",

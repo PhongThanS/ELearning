@@ -114,7 +114,8 @@ public sealed record AdminResultRowDto(
     int CorrectCount,
     int TotalQuestion,
     bool? Passed,
-    bool IsOfficial);
+    bool IsOfficial,
+    int PendingManualCount = 0);
 
 public sealed record ExportFile(string FileName, string ContentType, byte[] Content);
 
