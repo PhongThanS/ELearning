@@ -4,6 +4,7 @@
 // Đề có EndAt = sau pha bắt đầu + LEAD_SECONDS, thời lượng 60 phút, nên ExpiredAt = EndAt cho mọi lượt (D-05).
 // Thời gian đo = max(SubmittedAt) − EndAt, lấy từ server; gồm cả 30 giây ân hạn và chu kỳ quét 60 giây.
 import { check, sleep } from 'k6';
+import exec from 'k6/execution';
 import { Trend } from 'k6/metrics';
 import { adminSession, Session, sleepUntil } from '../lib/api.js';
 import { ADMIN_PASSWORD, ADMIN_USER, int, STUDENT_PASSWORD, thresholds, userName, VUS } from '../lib/config.js';
@@ -46,7 +47,9 @@ export function setup() {
 
 export function starter(ctx) {
   sleep(Math.random() * WINDOW);
-  const session = new Session(userName(__VU), STUDENT_PASSWORD);
+  // __VU đánh số chung cho mọi scenario (VU của observer cũng chiếm một số), nên lấy thứ tự lượt chạy của
+  // scenario này: 0 … VUS − 1, mỗi VU đúng một lượt.
+  const session = new Session(userName(exec.scenario.iterationInTest + 1), STUDENT_PASSWORD);
   if (!session.login()) {
     return;
   }
