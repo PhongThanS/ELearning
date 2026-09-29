@@ -67,8 +67,10 @@ public sealed class ExamAttempt : Entity, IHasRowVersion
     /// Bắt đầu lượt thi: ExpiredAt = min(StartedAt + thời lượng, EndAt) (D-05);
     /// tạo sẵn câu hỏi (đánh số lại 1..N) và câu trả lời trống.
     /// </summary>
+    /// <param name="random">Nguồn ngẫu nhiên khi phiên bản bật xáo câu / đáp án (test truyền seed cố định).</param>
     public static ExamAttempt Start(
-        Exam exam, ExamVersion version, Guid userId, int attemptNumber, DateTime now, string? ip, string? userAgent)
+        Exam exam, ExamVersion version, Guid userId, int attemptNumber, DateTime now, string? ip, string? userAgent,
+        Random? random = null)
     {
         if (version.Status != ExamVersionStatus.Published || version.ExamId != exam.Id)
         {
@@ -95,14 +97,42 @@ public sealed class ExamAttempt : Entity, IHasRowVersion
             CreatedAt = now,
         };
 
-        var order = 1;
-        foreach (var question in version.Questions.OrderBy(q => q.QuestionOrder))
+        // Xáo (nếu bật) được chốt vào AttemptQuestions lúc bắt đầu: tải lại trang vẫn giữ nguyên thứ tự
+        random ??= Random.Shared;
+        var questions = version.Questions.OrderBy(q => q.QuestionOrder).ToArray();
+        if (version.ShuffleQuestions)
         {
-            attempt._questions.Add(new AttemptQuestion(question.Id, order++, optionOrder: null));
+            random.Shuffle(questions);
+        }
+
+        var order = 1;
+        foreach (var question in questions)
+        {
+            attempt._questions.Add(new AttemptQuestion(question.Id, order++, ShuffledOptionOrder(version, question, random)));
         }
 
         attempt.QuestionCount = attempt._questions.Count;
         return attempt;
+    }
+
+    /// <summary>
+    /// Thứ tự lựa chọn đã xáo, ví dụ "C,A,D,B". Không xáo câu Đúng/Sai (thứ tự Đúng → Sai là quy ước) và câu điền.
+    /// </summary>
+    private static string? ShuffledOptionOrder(ExamVersion version, ExamQuestion question, Random random)
+    {
+        if (!version.ShuffleOptions || question.QuestionType is not (QuestionType.SingleChoice or QuestionType.MultipleChoice))
+        {
+            return null;
+        }
+
+        var codes = question.Options.OrderBy(o => o.DisplayOrder).Select(o => o.OptionCode).ToArray();
+        if (codes.Length == 0)
+        {
+            throw new InvalidOperationException("Phải nạp Options của ExamQuestion trước khi bắt đầu lượt thi có xáo đáp án.");
+        }
+
+        random.Shuffle(codes);
+        return string.Join(",", codes);
     }
 
     /// <summary>Còn nhận câu trả lời: đang làm và chưa quá ExpiredAt + ân hạn (D-05).</summary>

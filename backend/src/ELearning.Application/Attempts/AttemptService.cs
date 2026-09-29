@@ -153,7 +153,8 @@ internal sealed class AttemptService(
                 return Error.Business(ErrorCodes.ExamNotAvailable, "Đề thi hiện không mở.");
         }
 
-        var version = await db.ExamVersions.AsNoTracking().Include(v => v.Questions)
+        // Option cần cho việc xáo đáp án lúc bắt đầu (ExamAttempt.Start)
+        var version = await db.ExamVersions.AsNoTracking().Include(v => v.Questions).ThenInclude(q => q.Options)
             .SingleAsync(v => v.ExamId == examId && v.Status == ExamVersionStatus.Published, ct);
         var nextNumber = (await db.ExamAttempts.Where(a => a.ExamId == examId && a.UserId == userId)
             .MaxAsync(a => (int?)a.AttemptNumber, ct) ?? 0) + 1;

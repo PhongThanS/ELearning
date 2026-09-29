@@ -72,3 +72,11 @@ export function markdownExcerpt(markdown: string): string {
     .replace(/\s+/g, " ")
     .trim();
 }
+
+/**
+ * Nhãn lựa chọn theo vị trí hiển thị (A, B, C…). Khi đề xáo đáp án, mã gốc vẫn được gửi lên server
+ * nhưng học viên luôn thấy nhãn theo thứ tự trên màn hình.
+ */
+export function optionLabel(index: number): string {
+  return String.fromCharCode(65 + index);
+}

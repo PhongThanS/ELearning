@@ -206,7 +206,7 @@ Ví dụ tạo câu hỏi:
 | GET | `/api/exams/{id}/versions` | `Exam.View` |
 | POST | `/api/exams/{id}/versions` `{ copyFromVersionId? }` (tạo version DRAFT mới) | `Exam.Update` |
 | GET | `/api/exams/{id}/versions/{versionId}` | `Exam.View` |
-| PUT | `/api/exams/{id}/versions/{versionId}` (cấu hình version, chỉ khi DRAFT) | `Exam.Update` |
+| PUT | `/api/exams/{id}/versions/{versionId}` (cấu hình version, chỉ khi DRAFT; gồm `shuffleQuestions`, `shuffleOptions`, mặc định `false`) | `Exam.Update` |
 | DELETE | `/api/exams/{id}/versions/{versionId}` (chỉ khi DRAFT) | `Exam.Update` |
 | GET | `/api/exams/{id}/versions/{versionId}/preview` (hiển thị đúng như học viên thấy) | `Exam.View` |
 | POST | `/api/exams/{id}/versions/{versionId}/validate` (kiểm tra thử, không publish) | `Exam.Update` |

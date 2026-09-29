@@ -246,7 +246,7 @@ ExamAttempts ──< AttemptQuestions ──> ExamQuestions   (tham chiếu snap
 ## 7. Quyết định / Giả định
 
 - **D-20:** bỏ `ExamAttempts.TotalScore` và `CorrectCount` để tránh hai nguồn dữ liệu. `ExamResults` bổ sung `ExamVersionId`, `StartedAt`, `SubmittedAt`, `DurationSeconds`, `AnsweredCount`.
-- **Bảng `AttemptQuestionOptions` của spec gốc bị bỏ**, thay bằng cột `OptionOrder`. MVP chưa xáo đáp án nên giá trị luôn NULL.
+- **Bảng `AttemptQuestionOptions` của spec gốc bị bỏ**, thay bằng cột `OptionOrder`. Khi version bật `ShuffleOptions`, cột lưu thứ tự đã xáo của câu chọn một / chọn nhiều; còn lại là NULL.
 - **`AttemptEvents` được thêm vào MVP** vì chi phí thấp và rất hữu ích khi xử lý khiếu nại.
 - **Chấm lại chỉ giữ lịch sử điểm tổng** (`ExamResultHistory`). Lịch sử điểm từng câu có thể dựng lại từ `AnswerKeyCorrections` khi cần.
 - **Không đặt FK trên `AuditLogs.UserId`** để log không bị chặn hoặc bị mất khi dữ liệu user thay đổi.

@@ -9,7 +9,9 @@ public sealed record VersionSettings(
     int DurationMinutes,
     decimal? PassPercentage,
     ScoreVisibility ScoreVisibility,
-    ReviewPolicy ReviewPolicy);
+    ReviewPolicy ReviewPolicy,
+    bool ShuffleQuestions = false,
+    bool ShuffleOptions = false);
 
 /// <summary>Một lỗi chặn publish; Field để UI dẫn tới đúng bước.</summary>
 public sealed record PublishIssue(string Code, string Message, string? Field = null);
@@ -68,7 +70,7 @@ public sealed class ExamVersion : Entity, IHasRowVersion
 
     public bool IsDraft => Status == ExamVersionStatus.Draft;
 
-    public VersionSettings Settings => new(DurationMinutes, PassPercentage, ScoreVisibility, ReviewPolicy);
+    public VersionSettings Settings => new(DurationMinutes, PassPercentage, ScoreVisibility, ReviewPolicy, ShuffleQuestions, ShuffleOptions);
 
     public static ExamVersion CreateDraft(Guid examId, int versionNumber, VersionSettings settings, Guid createdBy, DateTime now)
     {
@@ -300,5 +302,7 @@ public sealed class ExamVersion : Entity, IHasRowVersion
         PassPercentage = settings.PassPercentage;
         ScoreVisibility = settings.ScoreVisibility;
         ReviewPolicy = settings.ReviewPolicy;
+        ShuffleQuestions = settings.ShuffleQuestions;
+        ShuffleOptions = settings.ShuffleOptions;
     }
 }

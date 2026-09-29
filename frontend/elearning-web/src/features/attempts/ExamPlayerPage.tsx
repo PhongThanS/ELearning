@@ -7,7 +7,7 @@ import { studentApi } from "../../services/api";
 import { ErrorAlert, Loading } from "../../components/common/Feedback";
 import { describeError } from "../../utils/errors";
 import { MarkdownView } from "../../components/common/MarkdownView";
-import { formatDuration, formatNumber } from "../../utils/format";
+import { formatDuration, formatNumber, optionLabel } from "../../utils/format";
 import type { Attempt, AttemptQuestion } from "../../types/api";
 import {
   clearBackup,
@@ -360,7 +360,7 @@ export function QuestionCard({
         ) : (
           <fieldset className="mt-3">
             <legend className="visually-hidden">{t("player.question", { order: question.order, total })}</legend>
-            {question.options.map((option) => {
+            {question.options.map((option, index) => {
               const multiple = question.type === "MULTIPLE_CHOICE";
               const checked = draft.selectedOptions.includes(option.code);
               return (
@@ -383,7 +383,7 @@ export function QuestionCard({
                   }
                   label={
                     <span className="d-flex gap-2">
-                      {question.type !== "TRUE_FALSE" && <strong>{option.code}.</strong>}
+                      {question.type !== "TRUE_FALSE" && <strong>{optionLabel(index)}.</strong>}
                       <MarkdownView content={option.content} inline />
                     </span>
                   }

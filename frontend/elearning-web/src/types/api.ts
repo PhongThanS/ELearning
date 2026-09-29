@@ -298,6 +298,8 @@ export interface VersionDetail {
   passPercentage: number | null;
   scoreVisibility: ScoreVisibility;
   reviewPolicy: ReviewPolicy;
+  shuffleQuestions: boolean;
+  shuffleOptions: boolean;
   questionCount: number;
   maxScore: number;
   publishedAt: string | null;

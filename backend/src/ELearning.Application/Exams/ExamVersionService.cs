@@ -126,7 +126,8 @@ internal sealed class ExamVersionService(
         }
 
         var old = version.Settings;
-        version.UpdateSettings(new VersionSettings(request.DurationMinutes, request.PassPercentage, request.ScoreVisibility, request.ReviewPolicy));
+        version.UpdateSettings(new VersionSettings(
+            request.DurationMinutes, request.PassPercentage, request.ScoreVisibility, request.ReviewPolicy, request.ShuffleQuestions, request.ShuffleOptions));
         audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, old, version.Settings);
         await db.SaveChangesAsync(ct);
         return await ToDetailAsync(version, ct);
@@ -450,6 +451,8 @@ internal sealed class ExamVersionService(
             version.PassPercentage,
             version.ScoreVisibility,
             version.ReviewPolicy,
+            version.ShuffleQuestions,
+            version.ShuffleOptions,
             questions.Count,
             questions.Sum(q => q.Score),
             version.PublishedAt,

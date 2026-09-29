@@ -141,7 +141,7 @@ export const examsApi = {
 
   createVersion: (id: string, copyFromVersionId?: string) => http.post<VersionDetail>(`/exams/${id}/versions`, { copyFromVersionId }),
   version: (id: string, versionId: string) => http.get<VersionDetail>(`/exams/${id}/versions/${versionId}`),
-  updateVersion: (id: string, versionId: string, body: { durationMinutes: number; passPercentage: number | null; scoreVisibility: string; reviewPolicy: string; rowVersion: string }) =>
+  updateVersion: (id: string, versionId: string, body: { durationMinutes: number; passPercentage: number | null; scoreVisibility: string; reviewPolicy: string; shuffleQuestions: boolean; shuffleOptions: boolean; rowVersion: string }) =>
     http.put<VersionDetail>(`/exams/${id}/versions/${versionId}`, body),
   deleteVersion: (id: string, versionId: string) => http.delete<void>(`/exams/${id}/versions/${versionId}`),
   preview: (id: string, versionId: string) => http.get<ExamPreview>(`/exams/${id}/versions/${versionId}/preview`),

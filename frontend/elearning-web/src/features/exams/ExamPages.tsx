@@ -153,12 +153,21 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
   );
 }
 
+export interface VersionSettingsValue {
+  durationMinutes: number;
+  passPercentage: number | null;
+  scoreVisibility: ScoreVisibility;
+  reviewPolicy: ReviewPolicy;
+  shuffleQuestions: boolean;
+  shuffleOptions: boolean;
+}
+
 export function VersionSettingsFields({
   value,
   onChange,
   disabled,
 }: {
-  value: { durationMinutes: number; passPercentage: number | null; scoreVisibility: ScoreVisibility; reviewPolicy: ReviewPolicy };
+  value: VersionSettingsValue;
   onChange: (v: typeof value) => void;
   disabled?: boolean;
 }) {
@@ -205,6 +214,13 @@ export function VersionSettingsFields({
           </Form.Select>
         </Form.Group>
       </Col>
+      <Col md={12}>
+        <Form.Check inline type="switch" id="v-shuffle-questions" label="Xáo thứ tự câu hỏi" disabled={disabled}
+          checked={value.shuffleQuestions} onChange={(e) => onChange({ ...value, shuffleQuestions: e.target.checked })} />
+        <Form.Check inline type="switch" id="v-shuffle-options" label="Xáo thứ tự đáp án (câu chọn một / chọn nhiều)" disabled={disabled}
+          checked={value.shuffleOptions} onChange={(e) => onChange({ ...value, shuffleOptions: e.target.checked })} />
+        <Form.Text className="d-block">Mỗi lượt thi có thứ tự riêng, cố định từ lúc bắt đầu; điểm không phụ thuộc thứ tự.</Form.Text>
+      </Col>
     </Row>
   );
 }
@@ -223,7 +239,9 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
     accessMode: "ASSIGNED",
     retakeScoringPolicy: "HIGHEST",
   });
-  const [settings, setSettings] = useState({ durationMinutes: 60, passPercentage: 50 as number | null, scoreVisibility: "IMMEDIATE" as ScoreVisibility, reviewPolicy: "NEVER" as ReviewPolicy });
+  const [settings, setSettings] = useState<VersionSettingsValue>({
+    durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "NEVER", shuffleQuestions: false, shuffleOptions: false,
+  });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const create = useMutation({
     mutationFn: () => examsApi.create({ ...toBody(form), ...settings }),

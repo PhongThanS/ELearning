@@ -372,6 +372,8 @@ function SettingsTab({ examId, version, canEdit, onSaved }: { examId: string; ve
     passPercentage: version.passPercentage,
     scoreVisibility: version.scoreVisibility,
     reviewPolicy: version.reviewPolicy,
+    shuffleQuestions: version.shuffleQuestions,
+    shuffleOptions: version.shuffleOptions,
   });
   const save = useMutation({
     mutationFn: () => examsApi.updateVersion(examId, version.id, { ...value, rowVersion: version.rowVersion }),

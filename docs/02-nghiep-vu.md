@@ -110,6 +110,13 @@ Mỗi câu `FILL_IN` + `TEXT` có từ 1 đến 20 đáp án chấp nhận (bả
 
 ## 4. Đề thi và version
 
+### 4.4 Xáo câu hỏi / đáp án (sau MVP, đã làm)
+
+- Cấu hình theo **version** (`ShuffleQuestions`, `ShuffleOptions`), sửa được khi version còn DRAFT như các cấu hình khác.
+- Thứ tự được **chốt lúc bắt đầu lượt thi** vào `AttemptQuestions.QuestionOrder` / `OptionOrder` (ví dụ `C,A,D,B`). Tải lại trang, thi tiếp trên máy khác hay xem lại bài đều thấy đúng thứ tự đó. Mỗi lượt thi có thứ tự riêng.
+- Chỉ xáo đáp án của câu chọn một / chọn nhiều. Câu Đúng / Sai giữ thứ tự Đúng → Sai; câu điền không có lựa chọn.
+- Học viên luôn thấy nhãn **theo vị trí trên màn hình** (A, B, C…); client vẫn gửi **mã gốc** của lựa chọn nên chấm điểm, sửa đáp án và thống kê không phụ thuộc thứ tự. Màn hình admin hiển thị mã gốc.
+
 ### 4.1 Phân chia trường (D-03)
 
 | Nằm ở `Exams` (sửa được sau publish, có audit) | Nằm ở `ExamVersions` (bất biến sau publish) |
@@ -117,7 +124,7 @@ Mỗi câu `FILL_IN` + `TEXT` có từ 1 đến 20 đáp án chấp nhận (bả
 | `Code`, `Name`, `Description`, `Instructions` | `DurationMinutes` |
 | `StartAt`, `EndAt` | `PassPercentage` |
 | `MaxAttempts` | `ScoreVisibility`, `ReviewPolicy` |
-| `AccessMode`, danh sách gán đề | `ShuffleQuestions`, `ShuffleOptions` (sau MVP, mặc định `false`) |
+| `AccessMode`, danh sách gán đề | `ShuffleQuestions`, `ShuffleOptions` (mặc định `false`, xem mục 4.4) |
 | `RetakeScoringPolicy` (khóa khi đã có lượt thi) | Danh sách câu hỏi và điểm |
 
 ### 4.2 Trạng thái đề thi (D-04)

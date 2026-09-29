@@ -128,7 +128,8 @@ internal sealed class ExamService(
             return Error.Conflict(ErrorCodes.DuplicateCode, "Mã đề đã tồn tại.");
         }
 
-        var settings = new VersionSettings(request.DurationMinutes, request.PassPercentage, request.ScoreVisibility, request.ReviewPolicy);
+        var settings = new VersionSettings(
+            request.DurationMinutes, request.PassPercentage, request.ScoreVisibility, request.ReviewPolicy, request.ShuffleQuestions, request.ShuffleOptions);
         var exam = Exam.Create(code, request.ToDetails(), settings, currentUser.RequiredUserId, Now);
         db.Exams.Add(exam);
         audit.Write(AuditActions.ExamCreated, nameof(Exam), exam.Id, newValue: new { exam.Code, exam.Name });

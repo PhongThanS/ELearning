@@ -9,7 +9,7 @@ import { describeError } from "../../utils/errors";
 import { availabilityVariant } from "../../constants/ui";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { Pager } from "../../components/common/DataTable";
-import { formatDateTime, formatDuration, formatNumber, formatScore } from "../../utils/format";
+import { formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
 import type { StudentExamDetail, StudentExamItem } from "../../types/api";
 
 export function StudentExamsPage() {
@@ -267,12 +267,12 @@ export function ResultPage() {
                   </dl>
                 ) : (
                   <ul className="list-unstyled mb-0">
-                    {q.options.map((o) => {
+                    {q.options.map((o, index) => {
                       const selected = q.selectedOptions.includes(o.code);
                       const correct = q.correctOptions.includes(o.code);
                       return (
                         <li key={o.code} className={`px-2 py-1 rounded mb-1 ${correct ? "bg-success-subtle" : selected ? "bg-danger-subtle" : ""}`}>
-                          <strong>{q.type === "TRUE_FALSE" ? "" : `${o.code}. `}</strong>
+                          <strong>{q.type === "TRUE_FALSE" ? "" : `${optionLabel(index)}. `}</strong>
                           {o.content}
                           {selected && <Badge bg="secondary" className="ms-2">{t("result.yourAnswer")}</Badge>}
                           {correct && <Badge bg="success" className="ms-2">{t("result.correctAnswer")}</Badge>}

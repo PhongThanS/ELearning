@@ -91,6 +91,8 @@ public sealed record VersionDetailDto(
     decimal? PassPercentage,
     ScoreVisibility ScoreVisibility,
     ReviewPolicy ReviewPolicy,
+    bool ShuffleQuestions,
+    bool ShuffleOptions,
     int QuestionCount,
     decimal MaxScore,
     DateTime? PublishedAt,
@@ -175,6 +177,10 @@ public sealed record CreateExamRequest : ExamDetailsInput
     public ScoreVisibility ScoreVisibility { get; init; } = ScoreVisibility.Immediate;
 
     public ReviewPolicy ReviewPolicy { get; init; } = ReviewPolicy.Never;
+
+    public bool ShuffleQuestions { get; init; }
+
+    public bool ShuffleOptions { get; init; }
 }
 
 public sealed record UpdateExamRequest : ExamDetailsInput
@@ -190,7 +196,9 @@ public sealed record UpdateVersionRequest(
     decimal? PassPercentage,
     ScoreVisibility ScoreVisibility,
     ReviewPolicy ReviewPolicy,
-    string RowVersion);
+    string RowVersion,
+    bool ShuffleQuestions = false,
+    bool ShuffleOptions = false);
 
 public sealed record CreateVersionRequest(Guid? CopyFromVersionId);
 
