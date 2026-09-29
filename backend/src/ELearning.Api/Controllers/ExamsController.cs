@@ -71,6 +71,12 @@ public sealed class ExamsController(IExamService exams, IExamVersionService vers
     public async Task<ActionResult> SetAssignments(Guid id, SetAssignmentsRequest request, CancellationToken ct) =>
         ToResponse(await exams.SetAssignmentsAsync(id, request, ct));
 
+    [HttpGet("{id:guid}/user-overrides")]
+    [HasPermission(Permissions.ExamView)]
+    [ProducesResponseType<ApiResponse<PagedResult<UserOverrideListItemDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ListUserOverrides(Guid id, [FromQuery] PageRequest query, CancellationToken ct) =>
+        ToResponse(await exams.ListUserOverridesAsync(id, query, ct));
+
     [HttpPut("{id:guid}/user-overrides/{userId:guid}")]
     [HasPermission(Permissions.AttemptManage)]
     [ProducesResponseType<ApiResponse<UserOverrideDto>>(StatusCodes.Status200OK)]

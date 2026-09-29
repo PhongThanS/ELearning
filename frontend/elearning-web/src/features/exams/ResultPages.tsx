@@ -50,6 +50,11 @@ export function ExamResultsPage() {
             <StatsTab examId={id} />
           </Tab>
         )}
+        {hasPermission(Permissions.ExamView) && (
+          <Tab eventKey="corrections" title="Sửa đáp án">
+            <CorrectionsTab examId={id} />
+          </Tab>
+        )}
       </Tabs>
     </>
   );
@@ -183,6 +188,78 @@ function StatsTab({ examId }: { examId: string }) {
 }
 
 /** Chi tiết một lượt thi cho admin: câu trả lời, đáp án, sự kiện, thao tác (docs/06-frontend.md mục 3.4). */
+/** Lịch sử sửa đáp án / hủy câu của mọi phiên bản (D-11); điểm cũ nằm ở lịch sử điểm của từng lượt thi. */
+function CorrectionsTab({ examId }: { examId: string }) {
+  const query = useQuery({ queryKey: ["answer-key-corrections", examId], queryFn: () => examsApi.answerKeyCorrections(examId) });
+  if (query.error) {
+    return <ErrorAlert error={query.error} />;
+  }
+  if (!query.data) {
+    return <Loading />;
+  }
+  if (query.data.length === 0) {
+    return <p className="text-secondary">Chưa có lần sửa đáp án hay hủy câu nào.</p>;
+  }
+  return (
+    <div className="table-responsive">
+      <Table size="sm" bordered className="align-middle">
+        <thead>
+          <tr>
+            <th>Thời điểm</th>
+            <th>Câu</th>
+            <th>Thao tác</th>
+            <th>Đáp án cũ</th>
+            <th>Đáp án mới</th>
+            <th>Lý do</th>
+            <th className="text-end">Bài chấm lại</th>
+            <th>Người thực hiện</th>
+          </tr>
+        </thead>
+        <tbody>
+          {query.data.map((c) => (
+            <tr key={c.id}>
+              <td className="text-nowrap">{formatDateTime(c.correctedAt)}</td>
+              <td className="text-nowrap">v{c.versionNumber} · câu {c.questionOrder}</td>
+              <td>
+                {c.correctionType === "VOID" ? <Badge bg="danger">Hủy câu</Badge> : <Badge bg="primary">Sửa đáp án</Badge>}
+              </td>
+              <td className="small">{describeAnswerKey(c.oldKeyJson)}</td>
+              <td className="small">{c.correctionType === "VOID" ? "—" : describeAnswerKey(c.newKeyJson)}</td>
+              <td className="small">{c.reason}</td>
+              <td className="text-end">{c.affectedAttemptCount}</td>
+              <td>{c.correctedByName}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+    </div>
+  );
+}
+
+const answerKeyLabels: Record<string, string> = {
+  correctOptions: "Đáp án đúng",
+  acceptedAnswers: "Chấp nhận",
+  correctAnswerNumber: "Số",
+  numericTolerance: "Sai số",
+  isVoided: "Đã hủy",
+};
+
+/** Hiển thị gọn đáp án lưu dạng JSON: "Đáp án đúng: A, C · Sai số: 0". */
+function describeAnswerKey(json: string): string {
+  try {
+    const value: unknown = JSON.parse(json);
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      return String(value);
+    }
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== null && v !== undefined && !(Array.isArray(v) && v.length === 0))
+      .map(([k, v]) => `${answerKeyLabels[k] ?? k}: ${Array.isArray(v) ? v.join(", ") : typeof v === "boolean" ? (v ? "có" : "không") : String(v)}`)
+      .join(" · ");
+  } catch {
+    return json;
+  }
+}
+
 export function AttemptAdminPage() {
   const { t } = useTranslation();
   const { attemptId = "" } = useParams();

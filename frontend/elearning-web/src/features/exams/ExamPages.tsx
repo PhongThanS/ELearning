@@ -9,7 +9,7 @@ import { ConfirmDialog, ErrorAlert, Loading } from "../../components/common/Feed
 import { examStatusVariant } from "../../constants/ui";
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
-import { DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
+import { DataTable, PageHeader, Pager, SearchBox, type Column } from "../../components/common/DataTable";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatNumber, utcIsoToVnLocal, vnLocalToUtcIso } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
@@ -324,6 +324,7 @@ export function ExamDetailPage() {
         <Col xl={5}>
           <VersionsCard exam={exam} />
           <AssignmentsCard exam={exam} />
+          <UserOverridesCard exam={exam} />
         </Col>
       </Row>
 
@@ -420,12 +421,25 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
+  const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
+  const [deleting, setDeleting] = useState<ExamDetail["versions"][number] | null>(null);
   const createVersion = useMutation({
     mutationFn: () => examsApi.createVersion(exam.id),
     onSuccess: (v) => navigate(`/admin/exams/${exam.id}/versions/${v.id}`),
     onError: (e) => toast.error(e),
   });
+  const deleteVersion = useMutation({
+    mutationFn: (versionId: string) => examsApi.deleteVersion(exam.id, versionId),
+    onSuccess: () => {
+      setDeleting(null);
+      toast.success("Đã xóa phiên bản nháp.");
+      void queryClient.invalidateQueries({ queryKey: ["exam", exam.id] });
+    },
+    onError: (e) => toast.error(e),
+  });
+  // Đề chưa publish lần nào chỉ có một phiên bản: xóa đề thay vì xóa phiên bản
+  const canDeleteDraft = exam.status !== "DRAFT" && hasPermission(Permissions.ExamUpdate);
 
   return (
     <Card className="mb-3">
@@ -446,6 +460,7 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
               <th>Số câu</th>
               <th>Điểm</th>
               <th>Publish</th>
+              {canDeleteDraft && <th aria-label={t("common.actions")} />}
             </tr>
           </thead>
           <tbody>
@@ -458,11 +473,163 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
                 <td>{v.questionCount}</td>
                 <td>{formatNumber(v.maxScore)}</td>
                 <td>{formatDateTime(v.publishedAt)}</td>
+                {canDeleteDraft && (
+                  <td className="text-end">
+                    {v.status === "DRAFT" && (
+                      <Button size="sm" variant="link" className="text-danger p-0" aria-label={`Xóa phiên bản ${v.versionNumber}`} onClick={() => setDeleting(v)}>
+                        {t("common.delete")}
+                      </Button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </Table>
       </Card.Body>
+      <ConfirmDialog
+        show={!!deleting}
+        title={`Xóa phiên bản nháp v${deleting?.versionNumber ?? ""}`}
+        body="Phiên bản nháp và các câu hỏi đã thêm vào sẽ bị xóa. Phiên bản đang dùng không bị ảnh hưởng."
+        variant="danger"
+        busy={deleteVersion.isPending}
+        onCancel={() => setDeleting(null)}
+        onConfirm={() => deleteVersion.mutate(deleting!.id)}
+      />
+    </Card>
+  );
+}
+
+/** Cấp thêm lượt thi cho từng học viên (docs/02-nghiep-vu.md; bảng ExamUserOverrides). */
+function UserOverridesCard({ exam }: { exam: ExamDetail }) {
+  const { t } = useTranslation();
+  const toast = useToast();
+  const queryClient = useQueryClient();
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission(Permissions.AttemptManage);
+  const [page, setPage] = useState(1);
+  const overrides = useQuery({
+    queryKey: ["user-overrides", exam.id, page],
+    queryFn: () => examsApi.userOverrides(exam.id, { page, pageSize: 10 }),
+  });
+  const [userSearch, setUserSearch] = useState("");
+  const users = useQuery({
+    queryKey: ["users", "search", userSearch],
+    queryFn: () => usersApi.list({ keyword: userSearch, pageSize: 10, roleCode: "STUDENT", isActive: true }),
+    enabled: canManage && userSearch.length >= 2,
+  });
+  const [editing, setEditing] = useState<{ userId: string; label: string; extraAttempts: number; note: string } | null>(null);
+  const save = useMutation({
+    mutationFn: (v: { userId: string; extraAttempts: number; note: string }) =>
+      examsApi.setUserOverride(exam.id, v.userId, v.extraAttempts, v.note.trim() || undefined),
+    onSuccess: () => {
+      setEditing(null);
+      setUserSearch("");
+      toast.success(t("common.saved"));
+      void queryClient.invalidateQueries({ queryKey: ["user-overrides", exam.id] });
+    },
+    onError: (e) => toast.error(e),
+  });
+
+  return (
+    <Card className="mb-3">
+      <Card.Body>
+        <h2 className="h6">Cấp thêm lượt thi</h2>
+        <p className="small text-secondary">
+          Mỗi học viên được {exam.maxAttempts} lượt; số lượt cấp thêm được cộng vào giới hạn này cho riêng người đó.
+        </p>
+        {overrides.error && <ErrorAlert error={overrides.error} />}
+        {overrides.data && overrides.data.items.length === 0 && <p className="small mb-2">Chưa cấp thêm lượt cho ai.</p>}
+        {overrides.data && overrides.data.items.length > 0 && (
+          <Table size="sm" className="mb-2">
+            <thead>
+              <tr>
+                <th>Học viên</th>
+                <th className="text-center">Thêm</th>
+                <th>Ghi chú</th>
+                {canManage && <th aria-label={t("common.actions")} />}
+              </tr>
+            </thead>
+            <tbody>
+              {overrides.data.items.map((o) => (
+                <tr key={o.userId}>
+                  <td>
+                    {o.userName}
+                    <div className="small text-secondary">{o.fullName}</div>
+                  </td>
+                  <td className="text-center">+{o.extraAttempts}</td>
+                  <td className="small">
+                    {o.note}
+                    <div className="text-secondary">{formatDateTime(o.updatedAt)}</div>
+                  </td>
+                  {canManage && (
+                    <td className="text-end text-nowrap">
+                      <Button size="sm" variant="link" className="p-0 me-2" aria-label={`Sửa lượt cấp thêm cho ${o.userName}`}
+                        onClick={() => setEditing({ userId: o.userId, label: o.userName, extraAttempts: o.extraAttempts, note: o.note ?? "" })}>
+                        {t("common.edit")}
+                      </Button>
+                      <Button size="sm" variant="link" className="p-0 text-danger" aria-label={`Thu hồi lượt cấp thêm của ${o.userName}`}
+                        disabled={save.isPending} onClick={() => save.mutate({ userId: o.userId, extraAttempts: 0, note: "Thu hồi" })}>
+                        Thu hồi
+                      </Button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        )}
+        {overrides.data && overrides.data.totalPages > 1 && <Pager data={overrides.data} onPage={setPage} />}
+        {canManage && (
+          <>
+            <Form.Control size="sm" aria-label="Tìm học viên để cấp thêm lượt" placeholder="Cấp thêm lượt cho học viên…"
+              value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
+            {users.data?.items.map((u) => (
+              <Button key={u.id} size="sm" variant="link" className="d-block px-0"
+                onClick={() => {
+                  const current = overrides.data?.items.find((o) => o.userId === u.id);
+                  setEditing({ userId: u.id, label: u.userName, extraAttempts: current?.extraAttempts ?? 1, note: current?.note ?? "" });
+                }}>
+                + {u.userName} — {u.fullName}
+              </Button>
+            ))}
+          </>
+        )}
+      </Card.Body>
+
+      <Modal show={!!editing} onHide={() => setEditing(null)} centered>
+        <Form
+          onSubmit={(e) => {
+            e.preventDefault();
+            save.mutate(editing!);
+          }}
+        >
+          <Modal.Header closeButton>
+            <Modal.Title as="h2" className="h5">Cấp thêm lượt — {editing?.label}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            {editing && (
+              <>
+                <Form.Group className="mb-3" controlId="override-extra">
+                  <Form.Label>Số lượt cấp thêm</Form.Label>
+                  <Form.Control type="number" min={0} max={50} required value={editing.extraAttempts}
+                    onChange={(e) => setEditing({ ...editing, extraAttempts: Number(e.target.value) })} />
+                  <Form.Text>Tổng số lượt của học viên này: {exam.maxAttempts + (editing.extraAttempts || 0)}. Nhập 0 để thu hồi.</Form.Text>
+                </Form.Group>
+                <Form.Group controlId="override-note">
+                  <Form.Label>Ghi chú</Form.Label>
+                  <Form.Control as="textarea" rows={2} maxLength={500} value={editing.note}
+                    onChange={(e) => setEditing({ ...editing, note: e.target.value })} />
+                </Form.Group>
+              </>
+            )}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setEditing(null)}>{t("common.cancel")}</Button>
+            <Button type="submit" disabled={save.isPending}>{t("common.save")}</Button>
+          </Modal.Footer>
+        </Form>
+      </Modal>
     </Card>
   );
 }

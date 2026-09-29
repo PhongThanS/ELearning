@@ -502,13 +502,14 @@ export function RolesPage() {
   const canManage = hasPermission(Permissions.RoleManage);
   const roles = useQuery({ queryKey: ["roles"], queryFn: rolesApi.list });
   const permissions = useQuery({ queryKey: ["permissions"], queryFn: rolesApi.permissions });
-  const [newRole, setNewRole] = useState<{ code: string; name: string } | null>(null);
+  // id có giá trị: sửa vai trò; không có: tạo mới
+  const [editing, setEditing] = useState<{ id?: string; code: string; name: string; isActive: boolean } | null>(null);
   const change = useMutation({
     mutationFn: async (action: () => Promise<unknown>) => action(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["roles"] });
       toast.success(t("common.saved"));
-      setNewRole(null);
+      setEditing(null);
     },
     onError: (e) => toast.error(e),
   });
@@ -522,7 +523,7 @@ export function RolesPage() {
 
   return (
     <>
-      <PageHeader title={t("nav.roles")} actions={canManage && <Button onClick={() => setNewRole({ code: "", name: "" })}>{t("common.create")}</Button>} />
+      <PageHeader title={t("nav.roles")} actions={canManage && <Button onClick={() => setEditing({ code: "", name: "", isActive: true })}>{t("common.create")}</Button>} />
       <div className="table-responsive">
         <Table size="sm" bordered className="align-middle">
           <thead>
@@ -530,8 +531,18 @@ export function RolesPage() {
               <th scope="col">Permission</th>
               {roles.data.map((r) => (
                 <th key={r.id} scope="col" className="text-center">
-                  {r.code}
-                  {r.isSystem && <Badge bg="secondary" className="ms-1">hệ thống</Badge>}
+                  <div>
+                    {r.code}
+                    {r.isSystem && <Badge bg="secondary" className="ms-1">hệ thống</Badge>}
+                    {!r.isActive && <Badge bg="warning" text="dark" className="ms-1">{t("common.inactive")}</Badge>}
+                  </div>
+                  <div className="small fw-normal text-secondary">{r.name}</div>
+                  {canManage && !r.isSystem && (
+                    <Button size="sm" variant="link" className="p-0" aria-label={`${t("common.edit")} ${r.code}`}
+                      onClick={() => setEditing({ id: r.id, code: r.code, name: r.name, isActive: r.isActive })}>
+                      {t("common.edit")}
+                    </Button>
+                  )}
                 </th>
               ))}
             </tr>
@@ -564,27 +575,42 @@ export function RolesPage() {
         </Table>
       </div>
       <p className="small text-secondary">Vai trò ADMIN luôn có mọi quyền. Thay đổi có hiệu lực ngay với người dùng đang đăng nhập.</p>
-      <Modal show={!!newRole} onHide={() => setNewRole(null)} centered>
+      <Modal show={!!editing} onHide={() => setEditing(null)} centered>
         <Form
           onSubmit={(e) => {
             e.preventDefault();
-            change.mutate(() => rolesApi.create({ code: newRole!.code, name: newRole!.name, permissionIds: [] }));
+            const role = editing!;
+            change.mutate(() =>
+              role.id
+                ? rolesApi.update(role.id, { name: role.name, isActive: role.isActive })
+                : rolesApi.create({ code: role.code, name: role.name, permissionIds: [] }),
+            );
           }}
         >
           <Modal.Header closeButton>
-            <Modal.Title as="h2" className="h5">Tạo vai trò</Modal.Title>
+            <Modal.Title as="h2" className="h5">{editing?.id ? `Sửa vai trò ${editing.code}` : "Tạo vai trò"}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            {newRole &&
-              (["code", "name"] as const).map((name) => (
-                <Form.Group className="mb-3" controlId={`role-${name}`} key={name}>
-                  <Form.Label>{t(`common.${name}`)} *</Form.Label>
-                  <Form.Control value={newRole[name]} required onChange={(e) => setNewRole({ ...newRole, [name]: e.target.value })} />
+            {editing && (
+              <>
+                <Form.Group className="mb-3" controlId="role-code">
+                  <Form.Label>{t("common.code")} *</Form.Label>
+                  <Form.Control value={editing.code} required disabled={!!editing.id} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
                 </Form.Group>
-              ))}
+                <Form.Group className="mb-3" controlId="role-name">
+                  <Form.Label>{t("common.name")} *</Form.Label>
+                  <Form.Control value={editing.name} required onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                </Form.Group>
+                {editing.id && (
+                  <Form.Check type="switch" id="role-active" label={t("common.active")} checked={editing.isActive}
+                    onChange={(e) => setEditing({ ...editing, isActive: e.target.checked })} />
+                )}
+              </>
+            )}
           </Modal.Body>
           <Modal.Footer>
-            <Button type="submit" disabled={change.isPending}>{t("common.create")}</Button>
+            <Button variant="secondary" onClick={() => setEditing(null)}>{t("common.cancel")}</Button>
+            <Button type="submit" disabled={change.isPending}>{editing?.id ? t("common.save") : t("common.create")}</Button>
           </Modal.Footer>
         </Form>
       </Modal>

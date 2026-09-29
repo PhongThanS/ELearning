@@ -1,5 +1,7 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
+  AnswerKeyCorrection,
+  UserOverride,
   AdminAttemptDetail,
   AdminAttemptRow,
   AdminResultRow,
@@ -124,8 +126,10 @@ export const examsApi = {
   assignments: (id: string) => http.get<Assignments>(`/exams/${id}/assignments`),
   setAssignments: (id: string, groupIds: string[], userIds: string[]) =>
     http.put<Assignments>(`/exams/${id}/assignments`, { groupIds, userIds }),
+  userOverrides: (id: string, q: Query) => http.get<Paged<UserOverride>>(`/exams/${id}/user-overrides`, q),
   setUserOverride: (id: string, userId: string, extraAttempts: number, note?: string) =>
     http.put(`/exams/${id}/user-overrides/${userId}`, { extraAttempts, note }),
+  answerKeyCorrections: (id: string) => http.get<AnswerKeyCorrection[]>(`/exams/${id}/answer-key-corrections`),
 
   createVersion: (id: string, copyFromVersionId?: string) => http.post<VersionDetail>(`/exams/${id}/versions`, { copyFromVersionId }),
   version: (id: string, versionId: string) => http.get<VersionDetail>(`/exams/${id}/versions/${versionId}`),

@@ -34,6 +34,8 @@ public interface IExamService
     Task<Result<AssignmentsDto>> SetAssignmentsAsync(Guid id, SetAssignmentsRequest request, CancellationToken ct);
 
     Task<Result<UserOverrideDto>> SetUserOverrideAsync(Guid id, Guid userId, SetUserOverrideRequest request, CancellationToken ct);
+
+    Task<Result<PagedResult<UserOverrideListItemDto>>> ListUserOverridesAsync(Guid id, PageRequest query, CancellationToken ct);
 }
 
 /// <summary>
@@ -388,6 +390,27 @@ internal sealed class ExamService(
             request.Note);
         await db.SaveChangesAsync(ct);
         return new UserOverrideDto(entry.ExamId, entry.UserId, entry.ExtraAttempts, entry.Note, entry.UpdatedAt);
+    }
+
+    public async Task<Result<PagedResult<UserOverrideListItemDto>>> ListUserOverridesAsync(
+        Guid id, PageRequest query, CancellationToken ct)
+    {
+        if (!await db.Exams.AnyAsync(e => e.Id == id, ct))
+        {
+            return ExamNotFound;
+        }
+
+        // Chỉ liệt kê các override còn hiệu lực (ExtraAttempts = 0 tương đương chưa cấp)
+        var overrides =
+            from o in db.ExamUserOverrides.AsNoTracking()
+            join u in db.Users.AsNoTracking() on o.UserId equals u.Id
+            where o.ExamId == id && o.ExtraAttempts > 0
+            orderby o.UpdatedAt descending
+            select new UserOverrideListItemDto(u.Id, u.UserName, u.FullName, o.ExtraAttempts, o.Note, o.UpdatedAt);
+
+        var total = await overrides.CountAsync(ct);
+        var items = await overrides.Skip(query.Skip).Take(query.PageSize).ToListAsync(ct);
+        return new PagedResult<UserOverrideListItemDto>(items, query.Page, query.PageSize, total);
     }
 
     internal static List<Error> CrossRuleIssues(ExamDetails details, VersionSettings settings, bool hasAssignments)

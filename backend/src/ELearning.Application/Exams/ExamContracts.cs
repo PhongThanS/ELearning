@@ -132,6 +132,9 @@ public sealed record AssignmentsDto(AccessMode AccessMode, IReadOnlyList<Assigne
 
 public sealed record UserOverrideDto(Guid ExamId, Guid UserId, int ExtraAttempts, string? Note, DateTime UpdatedAt);
 
+public sealed record UserOverrideListItemDto(
+    Guid UserId, string UserName, string FullName, int ExtraAttempts, string? Note, DateTime UpdatedAt);
+
 public record ExamDetailsInput
 {
     public string Name { get; init; } = string.Empty;

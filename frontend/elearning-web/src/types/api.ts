@@ -645,3 +645,31 @@ export interface AuditLog {
   ipAddress: string | null;
   traceId: string | null;
 }
+
+/** Số lượt cấp thêm cho một học viên ở một đề (ExamUserOverrides). */
+export interface UserOverride {
+  userId: string;
+  userName: string;
+  fullName: string;
+  extraAttempts: number;
+  note: string | null;
+  updatedAt: string;
+}
+
+export type AnswerKeyCorrectionType = "ANSWER_KEY" | "VOID";
+
+/** Lịch sử sửa đáp án / hủy câu (D-11). */
+export interface AnswerKeyCorrection {
+  id: string;
+  examQuestionId: string;
+  versionNumber: number;
+  questionOrder: number;
+  correctionType: AnswerKeyCorrectionType;
+  oldKeyJson: string;
+  newKeyJson: string;
+  reason: string;
+  affectedAttemptCount: number;
+  correctedBy: string;
+  correctedByName: string;
+  correctedAt: string;
+}

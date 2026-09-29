@@ -211,6 +211,7 @@ Ví dụ tạo câu hỏi:
 | POST | `/api/exams/{id}/versions/{versionId}/publish` | `Exam.Publish` |
 | GET | `/api/exams/{id}/assignments` | `Exam.View` |
 | PUT | `/api/exams/{id}/assignments` `{ groupIds, userIds }` | `Exam.Assign` |
+| GET | `/api/exams/{id}/user-overrides?page=&pageSize=` | `Exam.View` | Học viên đang được cấp thêm lượt (`extraAttempts > 0`), mới nhất trước |
 | PUT | `/api/exams/{id}/user-overrides/{userId}` `{ extraAttempts, note }` | `Attempt.Manage` |
 
 ### 6.5 Câu hỏi trong version (chỉ khi version là DRAFT)
