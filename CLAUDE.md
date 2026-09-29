@@ -97,6 +97,7 @@ cp .env.example .env
 docker compose up -d --build
 deploy/scripts/backup.sh full
 deploy/scripts/restore-test.sh
+docker compose run --rm -e MONITOR_ONCE=1 monitor   # một vòng kiểm tra giám sát (docs/09 mục 7.1)
 ```
 
 Load test k6 (chạy trên staging, chi tiết `load-tests/README.md`; `SMOKE=1` để kiểm tra nhanh kịch bản):

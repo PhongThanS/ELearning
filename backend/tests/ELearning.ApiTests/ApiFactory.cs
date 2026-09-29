@@ -56,6 +56,7 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("RateLimits:AttemptWritePerMinute", "100000");
         builder.UseSetting("RateLimits:AttemptWriteBurst", "100000");
         builder.UseSetting("Exam:ExpirationWorkerEnabled", "false");
+        builder.UseSetting("Monitoring:SnapshotEnabled", "false");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ELearning.Api.Common;
+using ELearning.Api.Monitoring;
 using ELearning.Application.Common.Options;
 using ELearning.Infrastructure.Persistence;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -20,6 +21,8 @@ public static class ApiServiceCollectionExtensions
             .Validate(o => TimeZoneExists(o.BusinessTimeZone), "App:BusinessTimeZone không phải múi giờ hợp lệ.")
             .ValidateOnStart();
         services.AddOptions<ExamOptions>().BindConfiguration(ExamOptions.SectionName)
+            .ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<MonitoringOptions>().BindConfiguration(MonitoringOptions.SectionName)
             .ValidateDataAnnotations().ValidateOnStart();
         return services;
     }
@@ -53,8 +56,12 @@ public static class ApiServiceCollectionExtensions
 
     public static IServiceCollection AddApiHealthChecks(this IServiceCollection services)
     {
+        services.AddMetrics();
         services.AddHealthChecks()
-            .AddDbContextCheck<ELearningDbContext>("database", tags: [HealthCheckResponseWriter.ReadyTag]);
+            .AddDbContextCheck<ELearningDbContext>("database", tags: [HealthCheckResponseWriter.ReadyTag, HealthCheckResponseWriter.AlertTag])
+            .AddCheck<ErrorRateHealthCheck>("error-rate", tags: [HealthCheckResponseWriter.AlertTag])
+            .AddCheck<AttemptBacklogHealthCheck>("attempt-backlog", tags: [HealthCheckResponseWriter.AlertTag])
+            .AddCheck<ExpirationWorkerHealthCheck>("expiration-worker", tags: [HealthCheckResponseWriter.AlertTag]);
         return services;
     }
 

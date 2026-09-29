@@ -17,7 +17,7 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M8 | Vận hành admin: gia hạn / buộc nộp / hủy lượt, sửa đáp án / hủy câu + chấm lại, kết quả + export Excel, dashboard, thống kê câu hỏi, audit log | Xong |
 | M7 | Frontend React: đăng nhập, khu vực admin (user, nhóm, vai trò, câu hỏi, đề, publish, kết quả, chấm lại, audit), khu vực học viên (danh sách đề, làm bài có autosave / timer, kết quả, lịch sử) | Xong |
 | M9 | Kiểm thử: E2E Playwright (học viên, admin, hết giờ), load test k6 (`load-tests/`: start dồn dập, autosave liên tục, đợt nộp bài, job tự nộp) | Xong (cần chạy đo thật trên staging) |
-| M10 | Triển khai: Docker Compose (SQL Server, migration bundle, tài khoản DB quyền tối thiểu, API, Nginx + HTTPS), backup / thử khôi phục | Xong |
+| M10 | Triển khai: Docker Compose (SQL Server, migration bundle, tài khoản DB quyền tối thiểu, API, Nginx + HTTPS), backup / thử khôi phục, giám sát (chỉ số, `/health/alerts`, container `monitor` gửi webhook) | Xong |
 
 ## Yêu cầu
 
@@ -64,6 +64,7 @@ docker compose up -d --build
 
 - Mở http://localhost:8080, đăng nhập `admin` với `ADMIN_INITIAL_PASSWORD` trong `.env` (bắt buộc đổi mật khẩu lần đầu). Môi trường Production không có dữ liệu demo.
 - HTTPS, backup, thử khôi phục: xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 5.1 và 6.
+- Giám sát và cảnh báo: đặt `ALERT_WEBHOOK_URL` trong `.env`; container `monitor` gửi webhook khi API / Nginx lỗi, tỉ lệ 5xx cao, có lượt thi quá hạn chưa nộp hoặc thiếu backup. Xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 7.1.
 
 ## Chạy test
 
