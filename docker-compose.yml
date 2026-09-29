@@ -1,0 +1,138 @@
+# Toàn bộ hệ thống: SQL Server → migration → tài khoản app → seed → API → Nginx (SPA + proxy /api).
+#   cp .env.example .env    # sửa mật khẩu / khóa
+#   docker compose up -d --build
+#   mở http://localhost:${HTTP_PORT:-8080}
+# Production có HTTPS: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Chi tiết: docs/09-van-hanh.md mục 5.
+
+name: elearning
+
+x-sql-admin: &sql-admin "Server=sqlserver,1433;Database=${DB_NAME:-ELearningDb};User Id=sa;Password=${SQL_SA_PASSWORD:?SQL_SA_PASSWORD chưa đặt};TrustServerCertificate=True;Encrypt=True"
+x-sql-app: &sql-app "Server=sqlserver,1433;Database=${DB_NAME:-ELearningDb};User Id=${APP_DB_LOGIN:-elearning_app};Password=${APP_DB_PASSWORD:?APP_DB_PASSWORD chưa đặt};TrustServerCertificate=True;Encrypt=True"
+
+x-api-env: &api-env
+  ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+  ConnectionStrings__DefaultConnection: *sql-app
+  Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY chưa đặt}
+  Seed__AdminPassword: ${ADMIN_INITIAL_PASSWORD:?ADMIN_INITIAL_PASSWORD chưa đặt}
+  App__PublicOrigin: ${PUBLIC_ORIGIN:-http://localhost:8080}
+  Auth__AllowSelfRegistration: ${ALLOW_SELF_REGISTRATION:-false}
+  # Chỉ tin X-Forwarded-For từ mạng nội bộ của compose (Nginx), xem mạng "backend" bên dưới
+  ReverseProxy__KnownNetworks__0: 172.28.0.0/24
+  TZ: Asia/Ho_Chi_Minh
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD}
+      # Express miễn phí nhưng giới hạn 10 GB / DB; production nên dùng Standard (có license)
+      MSSQL_PID: ${MSSQL_PID:-Express}
+      MSSQL_BACKUP_DIR: /var/opt/mssql/backup
+    volumes:
+      - sqldata:/var/opt/mssql
+      - ${BACKUP_DIR:-./backups}:/var/opt/mssql/backup
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  # Áp migration bằng bundle, trước khi API chạy (không Migrate() lúc khởi động)
+  migrate:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: migrator
+    image: elearning-migrator:${IMAGE_TAG:-local}
+    command: ["--connection", *sql-admin]
+    environment:
+      ConnectionStrings__DefaultConnection: *sql-admin
+    networks: [backend]
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+
+  # Tài khoản DB của ứng dụng: chỉ đọc / ghi dữ liệu, không DDL
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    entrypoint: ["/opt/mssql-tools18/bin/sqlcmd"]
+    command:
+      - -S
+      - sqlserver
+      - -U
+      - sa
+      - -P
+      - ${SQL_SA_PASSWORD}
+      - -C
+      - -b
+      - -i
+      - /scripts/init-app-login.sql
+      - -v
+      - DB_NAME=${DB_NAME:-ELearningDb}
+      - APP_LOGIN=${APP_DB_LOGIN:-elearning_app}
+      - APP_PASSWORD=${APP_DB_PASSWORD}
+    volumes:
+      - ./deploy/sql:/scripts:ro
+    networks: [backend]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # Seed role, permission, admin khởi tạo (Production: admin phải đổi mật khẩu lần đầu; không có dữ liệu demo)
+  seed:
+    image: elearning-api:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: api
+    command: ["--seed"]
+    environment: *api-env
+    networks: [backend]
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    image: elearning-api:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: api
+    environment: *api-env
+    networks: [backend]
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  web:
+    image: elearning-web:${IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: frontend/elearning-web/Dockerfile
+    environment:
+      API_UPSTREAM: api:8080
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    networks: [backend]
+    depends_on:
+      - api
+    restart: unless-stopped
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
+
+volumes:
+  sqldata:

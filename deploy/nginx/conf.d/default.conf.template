@@ -1,0 +1,24 @@
+# HTTP — dùng khi chạy thử local hoặc khi TLS kết thúc ở load balancer phía trước.
+# Production tự phục vụ HTTPS: dùng deploy/nginx/tls/default.conf.template (docker-compose.prod.yml).
+# File là template: ${API_UPSTREAM} được thay lúc container khởi động.
+
+upstream api_backend {
+    server ${API_UPSTREAM};
+    keepalive 32;
+}
+
+# Rate limit thô theo IP (API có rate limit chi tiết riêng). Đủ rộng cho cả phòng thi sau một IP NAT.
+limit_req_zone $binary_remote_addr zone=api_per_ip:10m rate=200r/s;
+
+# HTTP: không gửi HSTS
+map $scheme $hsts_header {
+    default "";
+}
+
+server_tokens off;
+
+server {
+    listen 80 default_server;
+    server_name _;
+    include /etc/nginx/snippets/app.conf;
+}

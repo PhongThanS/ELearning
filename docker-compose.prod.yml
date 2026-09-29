@@ -1,0 +1,16 @@
+# Production: Nginx tự phục vụ HTTPS (TLS + HSTS, HTTP chuyển hướng sang HTTPS).
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Chuẩn bị: đặt chứng chỉ vào ${CERT_DIR:-./deploy/certs}/fullchain.pem và privkey.pem,
+# đặt SERVER_NAME và PUBLIC_ORIGIN=https://<domain> trong .env.
+# Nếu TLS kết thúc ở load balancer phía trước thì KHÔNG dùng file này; giữ cấu hình HTTP mặc định.
+
+services:
+  web:
+    environment:
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME chưa đặt}
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/tls/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${CERT_DIR:-./deploy/certs}:/etc/nginx/certs:ro

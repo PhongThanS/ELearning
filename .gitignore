@@ -493,3 +493,7 @@ test-results/
 .env
 .env.*
 !.env.example
+
+# Triển khai
+backups/
+deploy/certs/

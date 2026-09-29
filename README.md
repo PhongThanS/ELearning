@@ -16,7 +16,8 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M6 | Chấm điểm: 4 grader, chuẩn hóa tiếng Việt, câu hủy, tổng kết, chính sách xem điểm / xem lại, điểm chính thức | Xong |
 | M8 | Vận hành admin: gia hạn / buộc nộp / hủy lượt, sửa đáp án / hủy câu + chấm lại, kết quả + export Excel, dashboard, thống kê câu hỏi, audit log | Xong |
 | M7 | Frontend React: đăng nhập, khu vực admin (user, nhóm, vai trò, câu hỏi, đề, publish, kết quả, chấm lại, audit), khu vực học viên (danh sách đề, làm bài có autosave / timer, kết quả, lịch sử) | Xong |
-| M9–M10 | Kiểm thử E2E / load, triển khai | Chưa làm |
+| M9 | Kiểm thử: E2E Playwright (học viên, admin, hết giờ) | E2E xong; load test k6 chưa làm |
+| M10 | Triển khai: Docker Compose (SQL Server, migration bundle, tài khoản DB quyền tối thiểu, API, Nginx + HTTPS), backup / thử khôi phục | Xong |
 
 ## Yêu cầu
 
@@ -53,6 +54,16 @@ npm run dev
 
 - Mở http://localhost:5173. Vite proxy `/api` sang backend ở http://localhost:5136, nên cần chạy backend trước.
 - Kiểm tra: `npm run lint && npm run typecheck && npm run test && npm run build`.
+
+## Chạy bằng Docker (cả hệ thống)
+
+```bash
+cp .env.example .env        # đổi toàn bộ mật khẩu / khóa trước khi dùng thật
+docker compose up -d --build
+```
+
+- Mở http://localhost:8080, đăng nhập `admin` với `ADMIN_INITIAL_PASSWORD` trong `.env` (bắt buộc đổi mật khẩu lần đầu). Môi trường Production không có dữ liệu demo.
+- HTTPS, backup, thử khôi phục: xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 5.1 và 6.
 
 ## Chạy test
 

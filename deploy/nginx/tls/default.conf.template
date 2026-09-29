@@ -1,0 +1,40 @@
+# HTTPS (production). Chứng chỉ gắn vào /etc/nginx/certs (xem docker-compose.prod.yml):
+#   fullchain.pem, privkey.pem
+# ${SERVER_NAME}, ${API_UPSTREAM} được thay lúc container khởi động.
+
+upstream api_backend {
+    server ${API_UPSTREAM};
+    keepalive 32;
+}
+
+limit_req_zone $binary_remote_addr zone=api_per_ip:10m rate=200r/s;
+
+# HSTS chỉ gửi qua HTTPS (docs/09-van-hanh.md mục 9). Thêm preload khi chắc chắn mọi subdomain dùng HTTPS.
+map $scheme $hsts_header {
+    https "max-age=31536000; includeSubDomains";
+    default "";
+}
+
+server_tokens off;
+
+# HTTP chỉ chuyển hướng sang HTTPS
+server {
+    listen 80 default_server;
+    server_name ${SERVER_NAME};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name ${SERVER_NAME};
+
+    ssl_certificate /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    include /etc/nginx/snippets/app.conf;
+}

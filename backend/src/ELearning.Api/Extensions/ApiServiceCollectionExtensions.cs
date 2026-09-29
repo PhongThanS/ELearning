@@ -68,6 +68,12 @@ public static class ApiServiceCollectionExtensions
             {
                 options.KnownProxies.Add(IPAddress.Parse(proxy));
             }
+
+            // Dải mạng của proxy (CIDR), ví dụ mạng Docker của Nginx có IP container thay đổi mỗi lần tạo lại
+            foreach (var network in configuration.GetSection("ReverseProxy:KnownNetworks").Get<string[]>() ?? [])
+            {
+                options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(network));
+            }
         });
         return services;
     }

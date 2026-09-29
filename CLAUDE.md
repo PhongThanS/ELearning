@@ -90,6 +90,15 @@ npm run dev
 npm run lint && npm run typecheck && npm run test && npm run build
 ```
 
+Cả hệ thống bằng Docker (chạy ở thư mục gốc; bí mật trong `.env`, không commit; chi tiết `docs/09-van-hanh.md` mục 5.1, 6):
+
+```bash
+cp .env.example .env
+docker compose up -d --build
+deploy/scripts/backup.sh full
+deploy/scripts/restore-test.sh
+```
+
 **Quy ước về package và analyzer:**
 - Version package được quản lý tập trung ở `backend/Directory.Packages.props`; `PackageReference` trong csproj không ghi version.
 - Analyzer rule được cấu hình ở `.editorconfig` gốc; migration EF được loại khỏi analyzer.

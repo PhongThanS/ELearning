@@ -95,6 +95,45 @@ Nginx (TLS, gzip, CSP/HSTS headers, rate limit thô)
   - Refresh token không phụ thuộc instance, vì trạng thái nằm trong DB.
 - **Khung giờ deploy:** không deploy khi có đề đang mở theo lịch. Admin xem được lịch đề trong dashboard.
 
+### 5.1 Triển khai bằng Docker Compose (M10, đã làm)
+
+```text
+docker-compose.yml          sqlserver → migrate → db-init → seed → api → web
+docker-compose.prod.yml     override: Nginx HTTPS (80 → 443, HSTS), gắn chứng chỉ
+backend/Dockerfile          target api (aspnet, user không phải root) và migrator (EF migration bundle)
+frontend/elearning-web/Dockerfile   build Vite → nginx (template envsubst)
+deploy/nginx/               cấu hình Nginx: header bảo mật, cache, proxy /api, trang lỗi tĩnh
+deploy/sql/init-app-login.sql       tài khoản app quyền tối thiểu + RECOVERY FULL
+deploy/scripts/             backup.sh, restore.sh, restore-test.sh
+.env.example                mọi bí mật / tham số (sao chép thành .env, không commit)
+```
+
+**Chạy thử trên một máy:**
+```bash
+cp .env.example .env        # đổi toàn bộ mật khẩu / khóa
+docker compose up -d --build
+# http://localhost:8080 — đăng nhập admin / ADMIN_INITIAL_PASSWORD, đổi mật khẩu lần đầu
+```
+
+**Thứ tự khởi động** (mỗi bước chỉ chạy khi bước trước thành công):
+1. `sqlserver` healthy (sqlcmd `SELECT 1`).
+2. `migrate`: migration bundle bằng tài khoản quản trị (`sa`), tạo database nếu chưa có.
+3. `db-init`: tạo / cập nhật login `APP_DB_LOGIN` (`db_datareader`, `db_datawriter`, `EXECUTE`, `UPDATE` trên sequence mã câu hỏi), đặt `RECOVERY FULL`.
+4. `seed`: `--seed` bằng tài khoản app (role, permission, admin khởi tạo).
+5. `api` (Kestrel HTTP 8080, chỉ trong mạng nội bộ) và `web` (Nginx, cổng `HTTP_PORT`).
+
+**Production có HTTPS:** đặt `fullchain.pem`, `privkey.pem` vào `deploy/certs/`, đặt `SERVER_NAME`, `PUBLIC_ORIGIN=https://<domain>`, rồi
+`docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`. Nếu TLS kết thúc ở load balancer phía trước thì giữ cấu hình HTTP và bật module realip của Nginx.
+
+**Cập nhật phiên bản:** `docker compose build` → `docker compose up -d`. `migrate` / `db-init` / `seed` chạy lại (idempotent) trước khi `api` mới khởi động. Không deploy khi có đề đang mở (mục 5).
+
+**Ghi chú:**
+- API tin `X-Forwarded-For` chỉ từ mạng compose `172.28.0.0/24` (`ReverseProxy:KnownNetworks`); Nginx **ghi đè** header này bằng IP thật của client, nên client không giả mạo được IP (rate limit theo IP phụ thuộc vào điều này).
+- Nginx: CSP `default-src 'self'` (chỉ `style-src` có `'unsafe-inline'` cho thuộc tính style của React), `X-Frame-Options DENY`, `nosniff`, HSTS chỉ qua HTTPS; `index.html` không cache, `/assets/*` cache 1 năm; `client_max_body_size 6m` cho import Excel; rate limit thô 200 request/giây/IP cho `/api`; trang 50x tĩnh.
+- **Docker Desktop (Windows / Mac) chuyển tiếp cổng qua proxy**, nên mọi client hiện ra cùng một IP gateway (`172.28.0.1`) → rate limit theo IP gom chung. Chỉ dùng để chạy thử; máy chủ Linux (Docker Engine) giữ nguyên IP thật của client.
+- Đã chạy thử trên máy dev: `docker compose up` → migrate / db-init / seed / api / web; bắt buộc đổi mật khẩu admin lần đầu; tài khoản app quyền tối thiểu sinh mã câu hỏi qua SEQUENCE; Excel (ClosedXML) chạy trên Linux; backup full + log → `restore-test.sh` khôi phục đủ dữ liệu trong 2 giây; cấu hình HTTPS (`nginx -t`, 301, HSTS) với chứng chỉ tự ký.
+- `MSSQL_PID=Express` mặc định (giới hạn 10 GB / database, không nén / mã hóa backup). Production nên dùng Standard có license.
+
 ## 6. Backup và khôi phục
 
 Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nhận)*.
@@ -109,6 +148,12 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 - Lưu backup ở một vị trí khác với máy chủ DB (ổ riêng và bản sao offsite), có mã hóa.
 - **Thử khôi phục mỗi tháng** vào một server riêng, có ghi lại thời gian khôi phục thực tế. Backup chưa từng được khôi phục thử thì chưa được coi là chiến lược backup hợp lệ.
 - Sự cố DB giữa giờ thi: khôi phục xong thì admin dùng chức năng **gia hạn** cho các lượt thi bị ảnh hưởng. `ExpiredAt` không tự dừng khi hệ thống ngừng hoạt động.
+
+**Công cụ (M10, đã làm)** — chạy từ thư mục gốc, đọc `.env`:
+- `deploy/scripts/backup.sh full|diff|log`: backup `WITH CHECKSUM`, kiểm tra `RESTORE VERIFYONLY`, xóa bản quá hạn (full 30 ngày, diff / log 7 ngày). Lịch chạy bằng cron của máy chủ (ví dụ ở đầu script).
+- `deploy/scripts/restore.sh --target <db> [--replace] full.bak [diff.bak] [log.trn ...]`: khôi phục một chuỗi backup.
+- `deploy/scripts/restore-test.sh`: lấy full mới nhất + diff mới nhất sau nó + mọi log sau đó, khôi phục vào `<DB>_RestoreTest`, so số dòng các bảng chính với bản gốc, chạy `DBCC CHECKDB`, in thời gian khôi phục, rồi xóa database thử. **Chạy mỗi tháng** và ghi kết quả vào sổ vận hành.
+- File backup nằm ở `BACKUP_DIR` trên máy chủ; cần đồng bộ ra nơi khác (offsite) và mã hóa ở đó (SQL Server Express không mã hóa backup).
 
 ## 7. Giám sát
 
@@ -161,3 +206,7 @@ Trên nhánh `main`:
 - **Chốt một domain, Nginx route `/api`**, để cookie `SameSite=Strict` hoạt động và không cần CORS.
 - **Lịch backup, RPO / RTO và ngưỡng cảnh báo** là giả định *(cần xác nhận)* với đơn vị vận hành.
 - **Seq / Elastic** là gợi ý; công cụ gom log cụ thể tùy hạ tầng.
+- **(M10) Docker Compose là cách triển khai tham chiếu** (một máy chủ). Kubernetes / nhiều instance API chưa làm; khi cần xem mục 5 (cache permission, rate limit dùng chung).
+- **(M10) Tài khoản DB tách biệt:** migration dùng `sa` (hoặc tài khoản có quyền DDL), API và seed dùng `APP_DB_LOGIN` không có quyền DDL. `NEXT VALUE FOR` cần `UPDATE` trên sequence nên được cấp riêng.
+- **(M10) `ReverseProxy:KnownNetworks` (CIDR)** được thêm bên cạnh `KnownProxies`, vì IP container Nginx thay đổi mỗi lần tạo lại.
+- **(M10) Lịch backup chạy bằng cron của máy chủ**, không thêm container scheduler (không thêm hạ tầng khi chưa có quyết định).
