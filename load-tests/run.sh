@@ -27,7 +27,7 @@ fi
 
 mkdir -p results
 k6() {
-  if command -v k6 >/dev/null 2>&1; then
+  if type -P k6 >/dev/null; then  # chỉ tìm trong PATH, không nhận chính hàm này
     command k6 "$@"
   else
     local env_args=()
