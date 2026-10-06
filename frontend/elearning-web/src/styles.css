@@ -1,28 +1,279 @@
-/* Bổ sung nhỏ cho Bootstrap 5; không dùng UI framework thứ hai (docs/06-frontend.md mục 5). */
+/* Bổ sung cho Bootstrap 5 (theme ở theme.scss); không dùng UI framework thứ hai (docs/06-frontend.md mục 5). */
 
-:focus-visible {
-  outline: 3px solid #0d6efd;
-  outline-offset: 2px;
+:root {
+  --brand-gradient: linear-gradient(135deg, #5b4ee6 0%, #8b5cf6 55%, #ec4899 100%);
+  --sidebar-bg: linear-gradient(180deg, #1e1b4b 0%, #2e1065 100%);
 }
 
-.admin-sidebar {
-  width: 220px;
-  min-height: calc(100vh - 56px);
-  flex-shrink: 0;
+:focus-visible {
+  outline: 3px solid #8b5cf6;
+  outline-offset: 2px;
 }
 
 .min-w-0 {
   min-width: 0;
 }
 
+/* ---------- Thương hiệu ---------- */
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.7rem;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-size: 1.15rem;
+  box-shadow: 0 4px 12px rgba(91, 78, 230, 0.35);
+}
+
+.brand-sub {
+  font-size: 0.75rem;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.user-menu-toggle::after {
+  margin-left: 0.25rem;
+}
+
+/* ---------- Khu quản trị ---------- */
+.admin-shell {
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  padding: 1.25rem 0.85rem;
+  background: var(--sidebar-bg);
+  color: #e0e7ff;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+.admin-offcanvas.offcanvas {
+  background: var(--sidebar-bg);
+  color: #e0e7ff;
+}
+
+.sidebar-brand {
+  display: block;
+  padding: 0 0.5rem 1.25rem;
+}
+
+.sidebar-link.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.7rem;
+  color: #c7d2fe;
+  font-weight: 500;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.sidebar-link.nav-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.sidebar-link.nav-link.active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.sidebar-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.sidebar-foot {
+  padding: 1rem 0.5rem 0;
+  color: #a5b4fc;
+  opacity: 0.8;
+}
+
+.admin-topbar {
+  height: 60px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--bs-border-color);
+  position: sticky;
+  top: 0;
+  z-index: 1020;
+}
+
+/* ---------- Khu học viên ---------- */
+.student-navbar {
+  background: var(--brand-gradient);
+  box-shadow: 0 4px 18px rgba(91, 78, 230, 0.25);
+}
+
+.student-navbar .student-nav-link.active {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 0.6rem;
+}
+
+.page-hero {
+  border-radius: 1.1rem;
+  padding: 1.5rem;
+  color: #fff;
+  background: var(--brand-gradient);
+  position: relative;
+  overflow: hidden;
+}
+
+.page-hero::after {
+  content: "";
+  position: absolute;
+  right: -3rem;
+  top: -3rem;
+  width: 12rem;
+  height: 12rem;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- Trang đăng nhập ---------- */
+.public-shell {
+  background: var(--bs-body-bg);
+}
+
+.public-hero {
+  position: relative;
+  overflow: hidden;
+  width: 46%;
+  padding: 4rem;
+  background: var(--brand-gradient);
+}
+
+.hero-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(2px);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hero-blob-1 {
+  width: 22rem;
+  height: 22rem;
+  right: -6rem;
+  top: -6rem;
+}
+
+.hero-blob-2 {
+  width: 16rem;
+  height: 16rem;
+  left: -5rem;
+  bottom: -5rem;
+  background: rgba(20, 184, 166, 0.25);
+}
+
+.hero-feature-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--accent-strong);
+  font-size: 1.15rem;
+}
+
+/* ---------- Thẻ thống kê / thẻ đề thi có màu nhấn ---------- */
+.stat-card {
+  border-left: 4px solid var(--accent) !important;
+}
+
+.stat-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  border-radius: 0.85rem;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 1.25rem;
+}
+
+.exam-card {
+  overflow: hidden;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.exam-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(30, 27, 75, 0.12);
+}
+
+.exam-card-band {
+  height: 6px;
+  background: var(--accent);
+}
+
+.exam-card .progress {
+  height: 0.45rem;
+}
+
+.exam-card .progress-bar {
+  background: var(--accent);
+}
+
+.score-ring {
+  --size: 7.5rem;
+  display: inline-grid;
+  place-items: center;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) calc(var(--value) * 1%), var(--bs-tertiary-bg) 0);
+}
+
+.score-ring > span {
+  display: grid;
+  place-items: center;
+  width: calc(var(--size) - 1.3rem);
+  height: calc(var(--size) - 1.3rem);
+  border-radius: 50%;
+  background: var(--bs-body-bg);
+  font-weight: 700;
+  font-size: 1.35rem;
+  color: var(--accent-strong);
+}
+
+/* ---------- Nội dung câu hỏi ---------- */
 .md-content p:last-child {
   margin-bottom: 0;
 }
 
 .md-content pre {
-  background: #f6f8fa;
-  border: 1px solid #e1e4e8;
-  border-radius: 0.375rem;
+  background: #f6f7fb;
+  border: 1px solid #e3e7f0;
+  border-radius: 0.6rem;
   padding: 0.75rem;
   overflow-x: auto;
   font-size: 0.875rem;
@@ -30,28 +281,6 @@
 
 .md-content code {
   font-family: SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-}
-
-.option-item {
-  cursor: pointer;
-}
-
-.option-item:has(input:checked) {
-  background-color: var(--bs-primary-bg-subtle);
-  border-color: var(--bs-primary) !important;
-}
-
-.option-item .form-check-input {
-  margin-left: 0;
-  margin-right: 0.5rem;
-}
-
-.nav-question {
-  min-width: 3rem;
-}
-
-.player-header {
-  z-index: 1030;
 }
 
 .md-inline-p + .md-inline-p::before {
@@ -64,6 +293,7 @@
   max-width: 100%;
   height: auto;
   margin: 0.5rem 0;
+  border-radius: 0.5rem;
 }
 
 .md-inline .md-image {
@@ -71,4 +301,58 @@
   max-height: 10rem;
   margin: 0.25rem 0;
   vertical-align: middle;
+}
+
+/* Ảnh đã chọn trong trình soạn câu hỏi, chưa lưu lên máy chủ */
+.pending-image {
+  width: 9rem;
+  padding: 0.35rem;
+  border: 1px dashed var(--bs-warning);
+  border-radius: 0.6rem;
+  background: var(--bs-body-bg);
+}
+
+.pending-image img {
+  display: block;
+  width: 100%;
+  height: 6rem;
+  object-fit: contain;
+  border-radius: 0.4rem;
+  background: var(--bs-tertiary-bg);
+}
+
+/* ---------- Làm bài ---------- */
+.player-shell {
+  min-height: 100vh;
+}
+
+.player-header {
+  z-index: 1030;
+}
+
+.option-item {
+  cursor: pointer;
+  border-radius: 0.7rem !important;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.option-item:hover {
+  background-color: #f6f5ff;
+}
+
+.option-item:has(input:checked) {
+  background-color: var(--bs-primary-bg-subtle);
+  border-color: var(--bs-primary) !important;
+  box-shadow: 0 0 0 1px var(--bs-primary);
+}
+
+.option-item .form-check-input {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+
+.nav-question {
+  min-width: 3rem;
+  border-radius: 0.6rem !important;
+  font-weight: 600;
 }

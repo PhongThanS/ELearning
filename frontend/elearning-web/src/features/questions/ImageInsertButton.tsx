@@ -1,13 +1,8 @@
 import { useRef } from "react";
-import { Button, Spinner } from "react-bootstrap";
-import { useMutation } from "@tanstack/react-query";
+import { Button } from "react-bootstrap";
 import { useTranslation } from "react-i18next";
-import { mediaApi } from "../../services/api";
 import { useToast } from "../../components/common/toast";
-import type { MediaUpload } from "../../types/api";
-
-/** Loại ảnh server nhận (D-27); server vẫn kiểm tra lại theo nội dung file. */
-const ACCEPT = "image/png,image/jpeg,image/gif,image/webp";
+import { IMAGE_TYPES, newPendingId, readAsDataUrl, validateImage, type PendingImage } from "./pendingImages";
 
 /** Chèn chuỗi vào vị trí con trỏ (hoặc cuối), thêm khoảng trắng để ảnh không dính vào chữ. */
 export function insertAt(text: string, insert: string, position: number | null | undefined): string {
@@ -19,35 +14,44 @@ export function insertAt(text: string, insert: string, position: number | null |
   return `${before}${lead}${insert}${trail}${after}`;
 }
 
-/** Nút tải ảnh lên và trả về chuỗi Markdown `![](media:<id>)` để chèn vào nội dung. */
+/**
+ * Nút chọn ảnh: kiểm tra loại / dung lượng ngay trên máy và trả về ảnh chờ lưu để xem trước.
+ * Ảnh chỉ được tải lên server khi người dùng bấm Lưu câu hỏi (xem pendingImages.ts).
+ */
 export function ImageInsertButton({
   target,
-  onInserted,
+  onPicked,
   size = "sm",
 }: {
   /** Tên phần nhận ảnh cho trình đọc màn hình, ví dụ "đề bài" hay "lựa chọn A". */
   target: string;
-  onInserted: (upload: MediaUpload) => void;
+  onPicked: (image: PendingImage) => void;
   size?: "sm" | "lg";
 }) {
   const { t } = useTranslation();
   const toast = useToast();
   const input = useRef<HTMLInputElement>(null);
-  const upload = useMutation({
-    mutationFn: (file: File) => mediaApi.upload(file),
-    onSuccess: (result) => {
-      onInserted(result);
-      toast.success(t("media.inserted"));
-    },
-    onError: (error) => toast.error(error),
-  });
+
+  const pick = async (file: File) => {
+    const problem = validateImage(file);
+    if (problem) {
+      toast.error(t(problem === "type" ? "media.invalidType" : "media.tooLarge"));
+      return;
+    }
+    try {
+      onPicked({ id: newPendingId(), file, previewUrl: await readAsDataUrl(file) });
+      toast.info(t("media.picked"));
+    } catch (error) {
+      toast.error(error);
+    }
+  };
 
   return (
     <>
       <input
         ref={input}
         type="file"
-        accept={ACCEPT}
+        accept={IMAGE_TYPES.join(",")}
         className="d-none"
         aria-hidden="true"
         tabIndex={-1}
@@ -55,26 +59,18 @@ export function ImageInsertButton({
           const file = e.target.files?.[0];
           e.target.value = "";
           if (file) {
-            upload.mutate(file);
+            void pick(file);
           }
         }}
       />
       <Button
-        variant="outline-secondary"
+        variant="outline-primary"
         size={size}
-        disabled={upload.isPending}
         aria-label={t("media.insertInto", { target })}
         title={t("media.hint")}
         onClick={() => input.current?.click()}
       >
-        {upload.isPending ? (
-          <>
-            <Spinner size="sm" animation="border" className="me-1" aria-hidden="true" />
-            {t("media.uploading")}
-          </>
-        ) : (
-          <>🖼 {t("media.insert")}</>
-        )}
+        🖼 {t("media.insert")}
       </Button>
     </>
   );

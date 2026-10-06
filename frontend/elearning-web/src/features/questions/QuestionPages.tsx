@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Card, Col, Form, InputGroup, Modal, Row, Tab, Tab
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { categoriesApi, questionsApi } from "../../services/api";
+import { categoriesApi, mediaApi, questionsApi } from "../../services/api";
 import { toApiError } from "../../services/apiClient";
 import { ErrorAlert, Loading } from "../../components/common/Feedback";
 import { useActiveCategories } from "../../hooks/useCategories";
@@ -13,6 +13,7 @@ import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../.
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
 import { ImageInsertButton, insertAt } from "./ImageInsertButton";
+import { imageMarkdown, referencedPending, removeImageRefs, replacePendingIds, type PendingImage } from "./pendingImages";
 import { QuestionImportDialog } from "./QuestionImportDialog";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatNumber, markdownExcerpt } from "../../utils/format";
@@ -20,7 +21,7 @@ import { matchesAny } from "../../utils/answerNormalizer";
 import { isValidNumberAnswer } from "../attempts/playerState";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
-import type { AnswerDataType, Category, ContentFormat, MediaUpload, MediaUrlMap, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
+import type { AnswerDataType, Category, ContentFormat, MediaUrlMap, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
 
 const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
 const CHOICE_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -354,18 +355,33 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   const { hasPermission } = useAuth();
   const canUpload = hasPermission(Permissions.QuestionCreate);
   const [media, setMedia] = useState<MediaUrlMap>(() => existing?.media ?? {});
+  // Ảnh mới chọn, chỉ nằm trên máy (data URL) cho tới khi bấm Lưu
+  const [pending, setPending] = useState<PendingImage[]>([]);
+  const previewMedia: MediaUrlMap = { ...media, ...Object.fromEntries(pending.map((img) => [img.id, img.previewUrl])) };
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const explanationRef = useRef<HTMLTextAreaElement>(null);
 
+  // Lưu: tải lên ảnh chờ lưu còn được dùng → thay mã tạm bằng id thật → lưu câu hỏi (D-27).
+  // Server lưu ảnh vào thư mục ảnh (Media:RootPath) theo SHA-256, nên bấm Lưu lại sau lỗi không tạo ảnh trùng.
   const save = useMutation({
-    mutationFn: (body: QuestionInput) => (id ? questionsApi.update(id, body) : questionsApi.create(body)),
-    onSuccess: (saved) => {
+    mutationFn: async (body: QuestionInput) => {
+      const replacements: Record<string, string> = {};
+      for (const image of referencedPending(textsOf(body), pending)) {
+        const uploaded = await mediaApi.upload(image.file);
+        replacements[image.id] = uploaded.id.toLowerCase();
+      }
+      const finalBody = mapTexts(body, (text) => replacePendingIds(text, replacements));
+      const saved = await (id ? questionsApi.update(id, finalBody) : questionsApi.create(finalBody));
+      return { saved, replacements };
+    },
+    onSuccess: ({ saved, replacements }) => {
       void queryClient.invalidateQueries({ queryKey: ["questions"] });
       queryClient.setQueryData(["question", saved.id], saved);
       setMedia((m) => ({ ...m, ...saved.media }));
+      setPending([]);
       toast.success(t("common.saved"));
       navigate(`/admin/questions/${saved.id}/edit`, { replace: true });
-      setForm((f) => ({ ...f, rowVersion: saved.rowVersion, code: saved.code }));
+      setForm((f) => ({ ...mapTexts(f, (text) => replacePendingIds(text, replacements)), rowVersion: saved.rowVersion, code: saved.code }));
     },
     onError: (e) => setErrors(toApiError(e).fieldErrors()),
   });
@@ -396,23 +412,29 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
 
   const err = (field: string) => errors[field];
 
-  /** Upload xong mới chèn nên dùng state mới nhất (người dùng có thể đã gõ tiếp trong lúc tải). */
-  const addImage = (upload: MediaUpload, apply: (f: EditorState, markdown: string) => Partial<EditorState>) => {
-    setMedia((m) => ({ ...m, [upload.id.toLowerCase()]: upload.url }));
-    setForm((f) => ({ ...f, ...apply(f, upload.markdown) }));
+  /** Đọc file xong mới chèn nên dùng state mới nhất (người dùng có thể đã gõ tiếp trong lúc đọc). */
+  const addImage = (image: PendingImage, apply: (f: EditorState, markdown: string) => Partial<EditorState>) => {
+    setPending((list) => [...list, image]);
+    setForm((f) => ({ ...f, ...apply(f, imageMarkdown(image.id, image.file.name.replace(/\.[^.]+$/, ""))) }));
   };
-  const insertIntoContent = (upload: MediaUpload) => {
+  /** Bỏ một ảnh chờ lưu: xóa khỏi mọi chỗ đã chèn và không tải lên. */
+  const discardImage = (imageId: string) => {
+    setPending((list) => list.filter((img) => img.id !== imageId));
+    setForm((f) => mapTexts(f, (text) => removeImageRefs(text, imageId)));
+  };
+  const usedPending = referencedPending(textsOf(form), pending);
+  const insertIntoContent = (upload: PendingImage) => {
     if (form.contentFormat === "PLAIN") {
       toast.info(t("media.switchedToMarkdown"));
     }
     const position = contentRef.current?.selectionStart;
     addImage(upload, (f, md) => ({ content: insertAt(f.content, md, position), contentFormat: "MARKDOWN" }));
   };
-  const insertIntoExplanation = (upload: MediaUpload) => {
+  const insertIntoExplanation = (upload: PendingImage) => {
     const position = explanationRef.current?.selectionStart;
     addImage(upload, (f, md) => ({ explanation: insertAt(f.explanation ?? "", md, position) }));
   };
-  const insertIntoOption = (index: number, upload: MediaUpload) =>
+  const insertIntoOption = (index: number, upload: PendingImage) =>
     addImage(upload, (f, md) => ({ options: f.options.map((o, i) => (i === index ? { ...o, content: insertAt(o.content, md, null) } : o)) }));
   const hasChoices = form.questionType !== "FILL_IN" && form.questionType !== "ESSAY";
 
@@ -486,12 +508,15 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                         checked={form.contentFormat === "MARKDOWN"}
                         onChange={(e) => set({ contentFormat: (e.target.checked ? "MARKDOWN" : "PLAIN") as ContentFormat })}
                       />
-                      {canUpload && <ImageInsertButton target="đề bài" onInserted={insertIntoContent} />}
+                      {canUpload && <ImageInsertButton target="đề bài" onPicked={insertIntoContent} />}
                     </div>
                     {canUpload && <Form.Text>{t("media.hint")}</Form.Text>}
+                    {pending.length > 0 && (
+                      <PendingImageStrip images={pending} used={usedPending} onDiscard={discardImage} />
+                    )}
                   </Tab>
                   <Tab eventKey="preview" title={t("common.preview")}>
-                    <MediaUrls value={media}>
+                    <MediaUrls value={previewMedia}>
                       <div className="border rounded p-3">
                         <MarkdownView content={form.content || "_(trống)_"} format={form.contentFormat} />
                         {hasChoices && (
@@ -545,7 +570,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                 <Form.Group controlId="q-explanation">
                   <div className="d-flex align-items-center mb-2">
                     <Form.Label className="me-auto mb-0">Giải thích (hiển thị khi xem lại bài, Markdown)</Form.Label>
-                    {canUpload && <ImageInsertButton target="phần giải thích" onInserted={insertIntoExplanation} />}
+                    {canUpload && <ImageInsertButton target="phần giải thích" onPicked={insertIntoExplanation} />}
                   </div>
                   <Form.Control ref={explanationRef} as="textarea" rows={3} value={form.explanation ?? ""} onChange={(e) => set({ explanation: e.target.value })} />
                 </Form.Group>
@@ -575,7 +600,12 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   <Form.Control type="number" min={0.25} max={100} step={0.25} value={form.defaultScore} isInvalid={!!err("defaultScore")} onChange={(e) => set({ defaultScore: Number(e.target.value) })} />
                   <Form.Control.Feedback type="invalid">{err("defaultScore")}</Form.Control.Feedback>
                 </Form.Group>
-                <Button type="submit" className="w-100" disabled={save.isPending}>{t("common.save")}</Button>
+                <Button type="submit" className="w-100" disabled={save.isPending}>
+                  {save.isPending && usedPending.length > 0 ? t("media.uploadingOnSave", { count: usedPending.length }) : id ? t("common.save") : t("common.create")}
+                </Button>
+                {usedPending.length > 0 && !save.isPending && (
+                  <Form.Text className="d-block mt-1">{t("media.willUpload", { count: usedPending.length })}</Form.Text>
+                )}
               </Card.Body>
             </Card>
           </Col>
@@ -610,7 +640,7 @@ function OptionsEditor({
   set: (p: Partial<EditorState>) => void;
   errors: Record<string, string>;
   /** Chèn ảnh vào cuối nội dung lựa chọn (D-27); không có quyền tải ảnh thì không hiện nút. */
-  onImage?: (index: number, upload: MediaUpload) => void;
+  onImage?: (index: number, upload: PendingImage) => void;
 }) {
   const single = form.questionType !== "MULTIPLE_CHOICE";
   const trueFalse = form.questionType === "TRUE_FALSE";
@@ -655,7 +685,7 @@ function OptionsEditor({
           />
           {!trueFalse && (
             <>
-              {onImage && <ImageInsertButton size="sm" target={`lựa chọn ${option.optionCode}`} onInserted={(upload) => onImage(index, upload)} />}
+              {onImage && <ImageInsertButton size="sm" target={`lựa chọn ${option.optionCode}`} onPicked={(upload) => onImage(index, upload)} />}
               <Button variant="outline-secondary" aria-label="Lên" onClick={() => move(index, -1)}>↑</Button>
               <Button variant="outline-secondary" aria-label="Xuống" onClick={() => move(index, 1)}>↓</Button>
               <Button
@@ -780,4 +810,47 @@ const DIFFICULTIES: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
 
 function parseTags(text: string): string[] {
   return [...new Set(text.split(/[,;]/).map((t) => t.trim().toLowerCase()).filter(Boolean))];
+}
+
+/** Mọi đoạn văn bản có thể chứa ảnh: đề bài, giải thích, nội dung lựa chọn. */
+function textsOf(q: Pick<QuestionInput, "content" | "explanation" | "options">): string[] {
+  return [q.content, q.explanation ?? "", ...q.options.map((o) => o.content)];
+}
+
+function mapTexts<T extends Pick<QuestionInput, "content" | "explanation" | "options">>(q: T, map: (text: string) => string): T {
+  return {
+    ...q,
+    content: map(q.content),
+    explanation: q.explanation == null ? q.explanation : map(q.explanation),
+    options: q.options.map((o) => ({ ...o, content: map(o.content) })),
+  };
+}
+
+/** Ảnh đã chọn nhưng chưa lưu: xem trước, trạng thái, bỏ ảnh. */
+function PendingImageStrip({ images, used, onDiscard }: { images: PendingImage[]; used: PendingImage[]; onDiscard: (id: string) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="pending-images mt-3">
+      <div className="small fw-semibold mb-2">{t("media.pendingTitle", { count: images.length })}</div>
+      <div className="d-flex flex-wrap gap-2">
+        {images.map((img) => {
+          const isUsed = used.some((u) => u.id === img.id);
+          return (
+            <figure key={img.id} className="pending-image mb-0">
+              <img src={img.previewUrl} alt={img.file.name} />
+              <figcaption className="small">
+                <span className="text-truncate d-block" title={img.file.name}>{img.file.name}</span>
+                <Badge bg={isUsed ? "warning" : "secondary"} text={isUsed ? "dark" : undefined}>
+                  {isUsed ? t("media.pendingBadge") : t("media.unusedBadge")}
+                </Badge>{" "}
+                <Button variant="link" size="sm" className="p-0 text-danger" aria-label={t("media.discard", { name: img.file.name })} onClick={() => onDiscard(img.id)}>
+                  {t("media.discardShort")}
+                </Button>
+              </figcaption>
+            </figure>
+          );
+        })}
+      </div>
+    </div>
+  );
 }

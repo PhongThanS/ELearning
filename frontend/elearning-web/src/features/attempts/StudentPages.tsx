@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Alert, Badge, Button, Card, Col, ListGroup, Row, Table } from "react-bootstrap";
+import { useState, type CSSProperties } from "react";
+import { Alert, Badge, Button, Card, Col, ListGroup, ProgressBar, Row, Table } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -11,16 +11,49 @@ import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
 import { Pager } from "../../components/common/DataTable";
 import { formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
-import type { StudentExamDetail, StudentExamItem } from "../../types/api";
+import { useAuth } from "../auth/useAuth";
+import type { ExamAvailability, StudentExamDetail, StudentExamItem } from "../../types/api";
+
+/** Màu nhấn cố định theo đề (cùng đề luôn cùng màu), xem .accent-* trong theme.scss. */
+const EXAM_ACCENTS = ["indigo", "sky", "teal", "violet", "orange", "pink", "green", "amber"];
+function examAccent(examId: string): string {
+  let hash = 0;
+  for (const ch of examId) {
+    hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  }
+  return EXAM_ACCENTS[hash % EXAM_ACCENTS.length]!;
+}
+
+const AVAILABILITY_ICON: Record<ExamAvailability, string> = {
+  AVAILABLE: "bi-play-circle-fill",
+  IN_PROGRESS: "bi-hourglass-split",
+  NOT_STARTED: "bi-calendar-event",
+  NO_ATTEMPTS_LEFT: "bi-check2-circle",
+  ENDED: "bi-flag-fill",
+  CLOSED: "bi-lock-fill",
+};
 
 export function StudentExamsPage() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
   const query = useQuery({ queryKey: ["student-exams", page], queryFn: () => studentApi.exams({ page, pageSize: 20 }) });
+  const { user } = useAuth();
+  const items = query.data?.items ?? [];
+  const ready = items.filter((e) => e.availability === "AVAILABLE" || e.availability === "IN_PROGRESS").length;
 
   return (
     <>
-      <h1 className="h4 mb-3">{t("student.exams")}</h1>
+      <section className="page-hero mb-4">
+        <div className="position-relative" style={{ zIndex: 1 }}>
+          <div className="opacity-75 small">{t("student.greeting")}</div>
+          <h1 className="h3 fw-bold mb-1">{user?.fullName}</h1>
+          <p className="mb-0 opacity-75">{query.data ? t("student.readyCount", { count: ready }) : t("student.exams")}</p>
+        </div>
+      </section>
+      <h2 className="h5 mb-3">
+        <i className="bi bi-journal-text text-primary me-2" aria-hidden="true" />
+        {t("student.exams")}
+      </h2>
       {query.error && <ErrorAlert error={query.error} onRetry={() => void query.refetch()} />}
       {query.isLoading && <Loading />}
       {query.data && query.data.items.length === 0 && <Empty text={t("student.noExams")} />}
@@ -38,27 +71,48 @@ export function StudentExamsPage() {
 
 function ExamCard({ exam }: { exam: StudentExamItem }) {
   const { t } = useTranslation();
+  const accent = examAccent(exam.examId);
+  const actionable = exam.availability === "AVAILABLE" || exam.availability === "IN_PROGRESS";
   return (
-    <Card className="h-100">
+    <Card className={`h-100 exam-card accent-${accent}`}>
+      <div className="exam-card-band" />
       <Card.Body className="d-flex flex-column">
-        <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-          <Card.Title as="h2" className="h6 mb-0">
-            {exam.name}
-          </Card.Title>
-          <Badge bg={availabilityVariant[exam.availability]}>{t(`enums.availability.${exam.availability}`)}</Badge>
+        <div className="d-flex align-items-start gap-3 mb-3">
+          <span className="stat-icon" aria-hidden="true">
+            <i className={`bi ${AVAILABILITY_ICON[exam.availability]}`} />
+          </span>
+          <div className="min-w-0 flex-grow-1">
+            <Card.Title as="h3" className="h6 mb-1">{exam.name}</Card.Title>
+            <Badge bg={availabilityVariant[exam.availability]}>{t(`enums.availability.${exam.availability}`)}</Badge>
+          </div>
         </div>
-        <ul className="list-unstyled small text-secondary mb-3">
-          <li>{t("student.duration", { minutes: exam.durationMinutes })} · {t("student.questions", { count: exam.questionCount })}</li>
-          <li>{t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}</li>
+        <ul className="list-unstyled small text-secondary mb-3 d-grid gap-1">
+          <li>
+            <i className="bi bi-stopwatch me-2" aria-hidden="true" />
+            {t("student.duration", { minutes: exam.durationMinutes })} · {t("student.questions", { count: exam.questionCount })}
+          </li>
           {(exam.startAt || exam.endAt) && (
             <li>
-              {t("student.window")}: {formatDateTime(exam.startAt)} – {formatDateTime(exam.endAt)}
+              <i className="bi bi-calendar3 me-2" aria-hidden="true" />
+              {formatDateTime(exam.startAt)} – {formatDateTime(exam.endAt)}
             </li>
           )}
-          {exam.officialScore != null && <li>{t("student.officialScore", { score: formatNumber(exam.officialScore) })}</li>}
+          {exam.officialScore != null && (
+            <li className="text-body fw-semibold">
+              <i className="bi bi-star-fill text-warning me-2" aria-hidden="true" />
+              {t("student.officialScore", { score: formatNumber(exam.officialScore) })}
+            </li>
+          )}
         </ul>
-        <Link to={`/student/exams/${exam.examId}`} className="btn btn-outline-primary btn-sm mt-auto">
-          {exam.availability === "IN_PROGRESS" ? t("student.continue") : t("common.detail")}
+        <div className="small text-secondary mb-1">{t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}</div>
+        <ProgressBar
+          now={exam.maxAttempts > 0 ? (exam.usedAttempts / exam.maxAttempts) * 100 : 0}
+          className="mb-3"
+          aria-label={t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}
+        />
+        <Link to={`/student/exams/${exam.examId}`} className={`btn btn-sm mt-auto ${actionable ? "btn-primary" : "btn-outline-primary"}`}>
+          {exam.availability === "IN_PROGRESS" ? t("student.continue") : actionable ? t("student.start") : t("common.detail")}
+          <i className="bi bi-arrow-right ms-1" aria-hidden="true" />
         </Link>
       </Card.Body>
     </Card>
@@ -211,24 +265,34 @@ export function ResultPage() {
             {formatDateTime(r.submittedAt)} · {t("result.duration")}: {formatDuration(r.durationSeconds)}
           </p>
           {r.scoreVisible ? (
-            <Row className="text-center g-3">
-              <Col xs={6} md={3}>
-                <div className="display-6">{formatScore(r.totalScore, r.maxScore)}</div>
+            <Row className="align-items-center text-center g-3">
+              <Col xs={12} md={3}>
+                {/* Vòng tròn phần trăm: xanh khi đạt, đỏ khi chưa đạt, tím khi đề không xét đạt */}
+                <div
+                  className={`score-ring accent-${r.passed == null ? "indigo" : r.passed ? "green" : "pink"}`}
+                  style={{ "--value": Math.min(100, Math.max(0, r.percentage ?? 0)) } as CSSProperties}
+                  role="img"
+                  aria-label={`${t("result.percentage")} ${formatNumber(r.percentage)}%`}
+                >
+                  <span>{formatNumber(r.percentage)}%</span>
+                </div>
+              </Col>
+              <Col xs={4} md={3}>
+                <div className="fs-2 fw-bold text-primary">{formatScore(r.totalScore, r.maxScore)}</div>
                 <div className="small text-secondary">{t("result.score")}</div>
               </Col>
-              <Col xs={6} md={3}>
-                <div className="display-6">{formatNumber(r.percentage)}%</div>
-                <div className="small text-secondary">{t("result.percentage")}</div>
-              </Col>
-              <Col xs={6} md={3}>
-                <div className="display-6">
+              <Col xs={4} md={3}>
+                <div className="fs-2 fw-bold text-info-emphasis">
                   {r.correctCount}/{r.totalQuestion}
                 </div>
                 <div className="small text-secondary">{t("result.correct")}</div>
               </Col>
               {r.passed != null && (
-                <Col xs={6} md={3}>
-                  <div className={`display-6 ${r.passed ? "text-success" : "text-danger"}`}>{r.passed ? t("result.passed") : t("result.failed")}</div>
+                <Col xs={4} md={3}>
+                  <div className={`fs-2 fw-bold ${r.passed ? "text-success" : "text-danger"}`}>
+                    <i className={`bi ${r.passed ? "bi-trophy-fill" : "bi-emoji-frown"} me-2`} aria-hidden="true" />
+                    {r.passed ? t("result.passed") : t("result.failed")}
+                  </div>
                 </Col>
               )}
             </Row>

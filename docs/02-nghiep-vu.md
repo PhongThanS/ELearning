@@ -51,7 +51,7 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 ### 1.4 Ảnh trong câu hỏi (sau MVP, đã làm, D-27)
 
 - Dùng được ở **đề bài, nội dung lựa chọn và giải thích** (đề bài phải là Markdown; chèn ảnh vào đề PLAIN thì trình soạn tự bật Markdown).
-- Admin bấm "Chèn ảnh" → tải lên PNG / JPEG / GIF / WebP tối đa 2 MB → nội dung được chèn `![](media:<id>)`. Sửa phần mô tả trong ngoặc vuông để có văn bản thay thế cho trình đọc màn hình.
+- Admin bấm "Chèn ảnh" → chọn PNG / JPEG / GIF / WebP tối đa 2 MB (kiểm tra ngay trên trình duyệt) → ảnh **chỉ hiển thị xem trước trên máy**, nội dung được chèn mã tạm `![tên file](media:pending-…)`. **Ảnh chỉ được tải lên server khi bấm Tạo mới / Lưu:** chỉ ảnh còn được dùng trong đề, lựa chọn hoặc giải thích mới được tải lên (lưu thành file trong thư mục ảnh `Media:RootPath`, theo SHA-256), mã tạm được thay bằng `media:<id>` thật rồi mới lưu câu hỏi. Ảnh đã bỏ hoặc đã xóa khỏi nội dung không bao giờ lên server. Sửa phần mô tả trong ngoặc vuông để có văn bản thay thế cho trình đọc màn hình.
 - **Ảnh bất biến:** không sửa, không xóa (D-16). Thay ảnh = tải ảnh mới và sửa nội dung. Nhờ vậy version đã publish (snapshot giữ chuỗi `media:<id>`) luôn hiển thị đúng ảnh lúc publish (D-01). Cùng một file tải lên nhiều lần chỉ lưu một bản.
 - Lưu hoặc import câu hỏi có `media:<id>` không tồn tại → lỗi `MEDIA_NOT_FOUND`.
 - **Ảnh không làm lộ đáp án:** học viên chỉ nhận URL của ảnh nằm trong các trường được trả về. Khi đang thi chỉ có ảnh của đề và lựa chọn; ảnh của giải thích chỉ có khi `ReviewPolicy` cho xem lại.

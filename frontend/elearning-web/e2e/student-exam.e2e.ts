@@ -26,7 +26,7 @@ test.describe("học viên làm bài", () => {
     const card = page.locator(".card", { hasText: exam.name });
     await expect(card).toBeVisible();
     await expect(page.getByText("C# Basic")).toHaveCount(0);
-    await card.getByRole("link", { name: "Chi tiết" }).click();
+    await card.getByRole("link", { name: /Bắt đầu làm bài|Chi tiết/ }).click();
 
     await page.getByRole("button", { name: "Bắt đầu làm bài" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Xác nhận" }).click();
