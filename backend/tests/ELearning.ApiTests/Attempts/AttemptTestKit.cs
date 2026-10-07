@@ -73,7 +73,8 @@ internal sealed class AttemptTestKit(ApiFactory factory, HttpClient admin)
         string accessMode = "PUBLIC",
         Guid[]? assignUserIds = null,
         DateTime? endAt = null,
-        decimal passPercentage = 60)
+        decimal passPercentage = 60,
+        Guid[]? assignClassroomIds = null)
     {
         var questionIds = new List<Guid>
         {
@@ -129,9 +130,10 @@ internal sealed class AttemptTestKit(ApiFactory factory, HttpClient admin)
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var versionUrl = $"/api/exams/{exam.Data!.Id}/versions/{exam.Data.DraftVersionId}";
         await admin.PostJsonAsync<object>($"{versionUrl}/questions", new { questionIds });
-        if (assignUserIds is not null)
+        if (assignUserIds is not null || assignClassroomIds is not null)
         {
-            await admin.SendJsonAsync<object>(HttpMethod.Put, $"/api/exams/{exam.Data.Id}/assignments", new { userIds = assignUserIds });
+            await admin.SendJsonAsync<object>(
+                HttpMethod.Put, $"/api/exams/{exam.Data.Id}/assignments", new { userIds = assignUserIds ?? [], classroomIds = assignClassroomIds ?? [] });
         }
 
         var (publish, publishBody) = await admin.PostJsonAsync<object>($"{versionUrl}/publish");

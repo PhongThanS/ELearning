@@ -12,6 +12,9 @@ public static class Permissions
     public const string GroupView = "Group.View";
     public const string GroupManage = "Group.Manage";
 
+    public const string ClassView = "Class.View";
+    public const string ClassManage = "Class.Manage";
+
     public const string RoleView = "Role.View";
     public const string RoleManage = "Role.Manage";
     public const string RoleAssign = "Role.Assign";
@@ -53,6 +56,8 @@ public static class Permissions
         [UserAnonymize] = "Ẩn danh hóa người dùng",
         [GroupView] = "Xem nhóm",
         [GroupManage] = "Quản lý nhóm",
+        [ClassView] = "Xem lớp học",
+        [ClassManage] = "Quản lý lớp học và học viên của lớp",
         [RoleView] = "Xem vai trò và quyền",
         [RoleManage] = "Quản lý vai trò",
         [RoleAssign] = "Gán vai trò cho người dùng",

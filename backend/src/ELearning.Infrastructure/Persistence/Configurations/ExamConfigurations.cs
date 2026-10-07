@@ -1,3 +1,4 @@
+using ELearning.Domain.Classes;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Identity;
@@ -163,6 +164,7 @@ internal sealed class ExamAssignmentConfiguration : IEntityTypeConfiguration<Exa
         builder.ConfigureEntity("ExamAssignments");
         builder.HasOne<UserGroup>().WithMany().HasForeignKey(a => a.GroupId).HasConstraintName("FK_ExamAssignments_Group");
         builder.HasUserReference(a => a.UserId, "FK_ExamAssignments_User");
+        builder.HasOne<Classroom>().WithMany().HasForeignKey(a => a.ClassroomId).HasConstraintName("FK_ExamAssignments_Classroom");
         builder.HasUserReference(a => a.CreatedBy, "FK_ExamAssignments_CreatedBy");
 
         builder.HasIndex(a => new { a.ExamId, a.GroupId }).IsUnique().HasFilter("[GroupId] IS NOT NULL")
@@ -171,10 +173,14 @@ internal sealed class ExamAssignmentConfiguration : IEntityTypeConfiguration<Exa
             .HasDatabaseName("UX_ExamAssignments_User");
         builder.HasIndex(a => a.GroupId).HasFilter("[GroupId] IS NOT NULL").HasDatabaseName("IX_ExamAssignments_GroupId");
         builder.HasIndex(a => a.UserId).HasFilter("[UserId] IS NOT NULL").HasDatabaseName("IX_ExamAssignments_UserId");
+        builder.HasIndex(a => new { a.ExamId, a.ClassroomId }).IsUnique().HasFilter("[ClassroomId] IS NOT NULL")
+            .HasDatabaseName("UX_ExamAssignments_Classroom");
+        builder.HasIndex(a => a.ClassroomId).HasFilter("[ClassroomId] IS NOT NULL").HasDatabaseName("IX_ExamAssignments_ClassroomId");
 
+        // Mỗi dòng gán đúng một đích: nhóm, người hoặc lớp (D-28)
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_ExamAssignments_Target",
-            "([GroupId] IS NULL AND [UserId] IS NOT NULL) OR ([GroupId] IS NOT NULL AND [UserId] IS NULL)"));
+            "(CASE WHEN [GroupId] IS NULL THEN 0 ELSE 1 END + CASE WHEN [UserId] IS NULL THEN 0 ELSE 1 END + CASE WHEN [ClassroomId] IS NULL THEN 0 ELSE 1 END) = 1"));
     }
 }
 

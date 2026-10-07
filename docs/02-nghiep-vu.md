@@ -246,8 +246,16 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 
 - `Exam.AccessMode`:
   - `PUBLIC`: mọi user đang hoạt động có role `STUDENT`.
-  - `ASSIGNED`: chỉ những user được gán trực tiếp, hoặc thuộc một nhóm được gán (bảng `ExamAssignments`).
+  - `ASSIGNED`: chỉ những user được gán trực tiếp, hoặc thuộc một nhóm / lớp học được gán (bảng `ExamAssignments`).
 - Nhóm người dùng (`UserGroups`, `UserGroupMembers`) do admin quản lý. Một user có thể thuộc nhiều nhóm.
+
+### 5.1 Lớp học (sau MVP, đã làm, D-28)
+
+- Lớp (`Classrooms`): mã lớp duy nhất (2–50 ký tự `A-Z a-z 0-9 . _ -`, không đổi sau khi tạo), tên, năm học, ngày bắt đầu / kết thúc (ngày kết thúc ≥ ngày bắt đầu), mô tả.
+- Học viên ↔ lớp là quan hệ **nhiều-nhiều** (`ClassroomStudents`): một học viên học nhiều lớp, một lớp có nhiều học viên. Chỉ user có role `STUDENT` mới được thêm vào lớp; tối đa 500 người mỗi lần thêm; thêm trùng thì bỏ qua.
+- Đề `ASSIGNED` có thể gán cho lớp. Học viên thấy đề khi là thành viên **hiện tại** của một lớp **đang hoạt động** được gán. Rút khỏi lớp hoặc tắt lớp thì mất quyền thấy / bắt đầu đề đó; lượt thi và kết quả đã có vẫn giữ nguyên (D-16).
+- Không xóa lớp: ngừng dùng thì tắt (`IsActive = 0`). Học viên chỉ thấy các lớp đang hoạt động trong "Lớp của tôi", và chỉ lọc được đề theo lớp mình thuộc về.
+- Quản lý lớp cần quyền `Class.View` / `Class.Manage`; gán đề cho lớp vẫn dùng `Exam.Assign`.
 - Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
 - Tự đăng ký được điều khiển bằng `Auth:AllowSelfRegistration`: mặc định `true` ở Development, `false` ở Production.
 

@@ -18,6 +18,8 @@ Học viên  (/student/*)
 /student/attempts/:attemptId  exam player
 /student/results/:attemptId   kết quả / xem lại bài
 /student/history
+/student/classes              lớp của tôi (D-28)
+/student/classes/:classId     đề thi được gán cho lớp
 /student/profile
 
 Quản trị  (/admin/*)
@@ -25,6 +27,7 @@ Quản trị  (/admin/*)
 /admin/dashboard
 /admin/users   /admin/users/:id
 /admin/groups  /admin/groups/:id
+/admin/classes /admin/classes/:id            lớp học, thêm / rút học viên (D-28)
 /admin/roles
 /admin/categories
 /admin/questions   /admin/questions/create   /admin/questions/:id/edit

@@ -14,4 +14,5 @@ public static class DomainErrorCodes
     public const string VersionImmutable = "VERSION_IMMUTABLE";
     public const string InvalidAttempt = "INVALID_ATTEMPT";
     public const string AttemptNotInProgress = "ATTEMPT_NOT_IN_PROGRESS";
+    public const string InvalidClassroom = "INVALID_CLASSROOM";
 }

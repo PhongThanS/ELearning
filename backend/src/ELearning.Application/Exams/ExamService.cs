@@ -319,9 +319,10 @@ internal sealed class ExamService(
     {
         var groupIds = request.GroupIds?.Distinct().ToList() ?? [];
         var userIds = request.UserIds?.Distinct().ToList() ?? [];
-        if (groupIds.Count + userIds.Count > 1000)
+        var classroomIds = request.ClassroomIds?.Distinct().ToList() ?? [];
+        if (groupIds.Count + userIds.Count + classroomIds.Count > 1000)
         {
-            return Error.Validation(ErrorCodes.ValidationFailed, "Tối đa 1000 nhóm và người được gán.", "userIds");
+            return Error.Validation(ErrorCodes.ValidationFailed, "Tối đa 1000 lớp, nhóm và người được gán.", "userIds");
         }
 
         var exam = await db.Exams.Include(e => e.Assignments).SingleOrDefaultAsync(e => e.Id == id, ct);
@@ -340,14 +341,19 @@ internal sealed class ExamService(
             return Error.Validation(ErrorCodes.ValidationFailed, "Có người dùng không tồn tại.", "userIds");
         }
 
-        if (exam.Status != ExamStatus.Draft && exam.AccessMode == AccessMode.Assigned && groupIds.Count + userIds.Count == 0)
+        if (await db.Classrooms.CountAsync(c => classroomIds.Contains(c.Id), ct) != classroomIds.Count)
         {
-            return Error.Business("NO_ASSIGNMENTS", "Đề đã publish ở chế độ giới hạn người thi phải được gán cho ít nhất một nhóm hoặc người.");
+            return Error.Validation(ErrorCodes.ValidationFailed, "Có lớp học không tồn tại.", "classroomIds");
         }
 
-        if (exam.SetAssignments(groupIds, userIds, currentUser.RequiredUserId, Now))
+        if (exam.Status != ExamStatus.Draft && exam.AccessMode == AccessMode.Assigned && groupIds.Count + userIds.Count + classroomIds.Count == 0)
         {
-            audit.Write(AuditActions.ExamAssignmentsChanged, nameof(Exam), exam.Id, newValue: new { GroupIds = groupIds, UserIds = userIds });
+            return Error.Business("NO_ASSIGNMENTS", "Đề đã publish ở chế độ giới hạn người thi phải được gán cho ít nhất một lớp, nhóm hoặc người.");
+        }
+
+        if (exam.SetAssignments(groupIds, userIds, currentUser.RequiredUserId, Now, classroomIds))
+        {
+            audit.Write(AuditActions.ExamAssignmentsChanged, nameof(Exam), exam.Id, newValue: new { GroupIds = groupIds, UserIds = userIds, ClassroomIds = classroomIds });
             await db.SaveChangesAsync(ct);
         }
 
@@ -473,7 +479,10 @@ internal sealed class ExamService(
         var users = await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
             .OrderBy(u => u.UserName)
             .Select(u => new AssignedUserDto(u.Id, u.UserName, u.FullName)).ToListAsync(ct);
-        return new AssignmentsDto(exam.AccessMode, groups, users);
+        var classroomIds = exam.Assignments.Where(a => a.ClassroomId != null).Select(a => a.ClassroomId!.Value).ToList();
+        var classrooms = await db.Classrooms.AsNoTracking().Where(c => classroomIds.Contains(c.Id)).OrderBy(c => c.Code)
+            .Select(c => new AssignedClassroomDto(c.Id, c.Code, c.Name, c.SchoolYear, c.Students.Count)).ToListAsync(ct);
+        return new AssignmentsDto(exam.AccessMode, groups, users, classrooms);
     }
 
     internal async Task<ExamDetailDto> ToDetailAsync(Exam exam, CancellationToken ct)

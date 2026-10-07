@@ -107,6 +107,44 @@ export interface GroupMember {
   addedAt: string;
 }
 
+/** Lớp học (D-28): học viên ↔ lớp nhiều-nhiều. Ngày học dạng "yyyy-MM-dd". */
+export interface Classroom {
+  id: string;
+  code: string;
+  name: string;
+  schoolYear: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  description: string | null;
+  isActive: boolean;
+  studentCount: number;
+  examCount: number;
+  createdAt: string;
+  rowVersion: string;
+}
+
+export interface ClassroomStudent {
+  userId: string;
+  userName: string;
+  fullName: string;
+  email: string;
+  isActive: boolean;
+  joinedAt: string;
+}
+
+export interface MyClassroom {
+  id: string;
+  code: string;
+  name: string;
+  schoolYear: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  description: string | null;
+  studentCount: number;
+  examCount: number;
+  joinedAt: string;
+}
+
 export interface Role {
   id: string;
   code: string;
@@ -391,6 +429,7 @@ export interface Assignments {
   accessMode: AccessMode;
   groups: { id: string; code: string; name: string; memberCount: number }[];
   users: { id: string; userName: string; fullName: string }[];
+  classrooms: { id: string; code: string; name: string; schoolYear: string | null; studentCount: number }[];
 }
 
 // ----- Học viên -----

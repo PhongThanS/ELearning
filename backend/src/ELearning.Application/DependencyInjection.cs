@@ -2,6 +2,7 @@ using ELearning.Application.Admin;
 using ELearning.Application.Attempts;
 using ELearning.Application.Audit;
 using ELearning.Application.Auth;
+using ELearning.Application.Classes;
 using ELearning.Application.Exams;
 using ELearning.Application.Grading;
 using ELearning.Application.Groups;
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IGroupService, GroupService>();
+        services.AddScoped<IClassroomService, ClassroomService>();
         services.AddScoped<IRoleService, RoleService>();
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IQuestionService, QuestionService>();

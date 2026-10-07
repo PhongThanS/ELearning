@@ -73,6 +73,7 @@ const adminNav: { to: string; label: string; permission: string; icon: string; a
   { to: "/admin/exams", label: "nav.exams", permission: Permissions.ExamView, icon: "bi-journal-check", accent: "violet" },
   { to: "/admin/questions", label: "nav.questions", permission: Permissions.QuestionView, icon: "bi-patch-question-fill", accent: "sky" },
   { to: "/admin/categories", label: "nav.categories", permission: Permissions.CategoryView, icon: "bi-folder2-open", accent: "teal" },
+  { to: "/admin/classes", label: "nav.classes", permission: Permissions.ClassView, icon: "bi-easel2-fill", accent: "teal" },
   { to: "/admin/users", label: "nav.users", permission: Permissions.UserView, icon: "bi-people-fill", accent: "green" },
   { to: "/admin/groups", label: "nav.groups", permission: Permissions.GroupView, icon: "bi-diagram-3-fill", accent: "amber" },
   { to: "/admin/roles", label: "nav.roles", permission: Permissions.RoleView, icon: "bi-shield-lock-fill", accent: "orange" },
@@ -171,6 +172,10 @@ export function StudentLayout() {
               <Nav.Link as={NavLink} to="/student/exams" className="student-nav-link">
                 <i className="bi bi-journal-text me-1" aria-hidden="true" />
                 {t("nav.studentExams")}
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/student/classes" className="student-nav-link">
+                <i className="bi bi-easel2 me-1" aria-hidden="true" />
+                {t("nav.myClasses")}
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/history" className="student-nav-link">
                 <i className="bi bi-bar-chart-line me-1" aria-hidden="true" />

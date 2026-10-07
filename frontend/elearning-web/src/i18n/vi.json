@@ -74,7 +74,9 @@
     "profile": "Tài khoản",
     "logout": "Đăng xuất",
     "admin": "Quản trị",
-    "student": "Học viên"
+    "student": "Học viên",
+    "classes": "Lớp học",
+    "myClasses": "Lớp của tôi"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -220,7 +222,13 @@
     "greeting": "Xin chào 👋",
     "readyCount_one": "Bạn có {{count}} đề có thể làm ngay.",
     "readyCount_other": "Bạn có {{count}} đề có thể làm ngay.",
-    "readyCount_zero": "Hiện chưa có đề nào cần làm."
+    "readyCount_zero": "Hiện chưa có đề nào cần làm.",
+    "noClasses": "Bạn chưa thuộc lớp học nào.",
+    "schoolYear": "Năm học {{year}}",
+    "classStats": "{{students}} học viên · {{exams}} đề thi",
+    "classExams": "Xem đề thi của lớp",
+    "noClassExams": "Lớp chưa có đề thi nào dành cho bạn.",
+    "classNotFound": "Không tìm thấy lớp hoặc bạn không còn thuộc lớp này."
   },
   "result": {
     "title": "Kết quả bài thi",
@@ -277,5 +285,24 @@
     "autosave": "Tự động lưu từng câu trả lời, mất mạng không mất bài",
     "timer": "Đồng hồ chính xác theo máy chủ, tự nộp khi hết giờ",
     "results": "Xem điểm và xem lại bài ngay khi được phép"
+  },
+  "classes": {
+    "create": "Tạo lớp học",
+    "edit": "Sửa lớp học",
+    "schoolYear": "Năm học",
+    "startDate": "Ngày bắt đầu",
+    "endDate": "Ngày kết thúc",
+    "period": "Thời gian học",
+    "students": "Học viên",
+    "exams": "Đề được gán",
+    "allStatuses": "Mọi trạng thái",
+    "joinedAt": "Ngày vào lớp",
+    "removeStudent": "Rút khỏi lớp",
+    "addStudent": "Thêm vào lớp",
+    "addStudentLabel": "Thêm học viên vào lớp",
+    "addStudentPlaceholder": "Nhập tên đăng nhập hoặc họ tên (ít nhất 2 ký tự)…",
+    "alreadyMember": "Đã trong lớp",
+    "studentList": "Danh sách học viên",
+    "inactiveHint": "Lớp đang tắt: học viên không thấy các đề được gán cho lớp này."
   }
 }

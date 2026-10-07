@@ -1,6 +1,7 @@
 using ELearning.Application.Common.Abstractions;
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Audit;
+using ELearning.Domain.Classes;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Identity;
@@ -39,6 +40,10 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
     public DbSet<UserGroup> UserGroups => Set<UserGroup>();
 
     public DbSet<UserGroupMember> UserGroupMembers => Set<UserGroupMember>();
+
+    public DbSet<Classroom> Classrooms => Set<Classroom>();
+
+    public DbSet<ClassroomStudent> ClassroomStudents => Set<ClassroomStudent>();
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 

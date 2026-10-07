@@ -17,6 +17,9 @@ import type {
   AuthResponse,
   AuthUser,
   Category,
+  Classroom,
+  ClassroomStudent,
+  MyClassroom,
   Dashboard,
   ExamDetail,
   ExamListItem,
@@ -79,6 +82,25 @@ export const groupsApi = {
   members: (id: string, q: Query) => http.get<Paged<GroupMember>>(`/groups/${id}/members`, q),
   addMembers: (id: string, userIds: string[]) => http.post<Group>(`/groups/${id}/members`, { userIds }),
   removeMember: (id: string, userId: string) => http.delete<Group>(`/groups/${id}/members/${userId}`),
+};
+
+export interface ClassroomInput {
+  name: string;
+  schoolYear: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  description: string | null;
+}
+
+export const classesApi = {
+  list: (q: Query) => http.get<Paged<Classroom>>("/classes", q),
+  get: (id: string) => http.get<Classroom>(`/classes/${id}`),
+  create: (body: ClassroomInput & { code: string }) => http.post<Classroom>("/classes", body),
+  update: (id: string, body: ClassroomInput & { isActive: boolean; rowVersion: string }) => http.put<Classroom>(`/classes/${id}`, body),
+  setStatus: (id: string, isActive: boolean) => http.patch<Classroom>(`/classes/${id}/status`, { isActive }),
+  students: (id: string, q: Query) => http.get<Paged<ClassroomStudent>>(`/classes/${id}/students`, q),
+  addStudents: (id: string, userIds: string[]) => http.post<Classroom>(`/classes/${id}/students`, { userIds }),
+  removeStudent: (id: string, userId: string) => http.delete<Classroom>(`/classes/${id}/students/${userId}`),
 };
 
 export const rolesApi = {
@@ -145,8 +167,8 @@ export const examsApi = {
   close: (id: string, forceSubmitInProgress: boolean) => http.post<ExamDetail>(`/exams/${id}/close`, { forceSubmitInProgress }),
   reopen: (id: string) => http.post<ExamDetail>(`/exams/${id}/reopen`),
   assignments: (id: string) => http.get<Assignments>(`/exams/${id}/assignments`),
-  setAssignments: (id: string, groupIds: string[], userIds: string[]) =>
-    http.put<Assignments>(`/exams/${id}/assignments`, { groupIds, userIds }),
+  setAssignments: (id: string, next: { groupIds: string[]; userIds: string[]; classroomIds: string[] }) =>
+    http.put<Assignments>(`/exams/${id}/assignments`, next),
   userOverrides: (id: string, q: Query) => http.get<Paged<UserOverride>>(`/exams/${id}/user-overrides`, q),
   setUserOverride: (id: string, userId: string, extraAttempts: number, note?: string) =>
     http.put(`/exams/${id}/user-overrides/${userId}`, { extraAttempts, note }),
@@ -184,6 +206,7 @@ export const examsApi = {
 
 export const studentApi = {
   exams: (q: Query) => http.get<Paged<StudentExamItem>>("/student/exams", q),
+  classes: () => http.get<MyClassroom[]>("/student/classes"),
   exam: (id: string) => http.get<StudentExamDetail>(`/student/exams/${id}`),
   start: (id: string) => http.post<Attempt>(`/student/exams/${id}/start`),
   attempt: (id: string) => http.get<Attempt>(`/student/attempts/${id}`),

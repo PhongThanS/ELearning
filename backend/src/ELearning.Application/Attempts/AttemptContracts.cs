@@ -173,7 +173,11 @@ public sealed record StudentHistoryItemDto(
     bool? Passed,
     bool PendingManualGrading = false);
 
-public sealed record StudentExamListQuery : PageRequest;
+public sealed record StudentExamListQuery : PageRequest
+{
+    /// <summary>Chỉ đề được gán cho lớp này (học viên phải thuộc lớp).</summary>
+    public Guid? ClassroomId { get; init; }
+}
 
 public sealed record StudentHistoryQuery : PageRequest;
 

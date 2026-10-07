@@ -10,7 +10,7 @@ import { availabilityVariant } from "../../constants/ui";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
 import { Pager } from "../../components/common/DataTable";
-import { formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
+import { formatDateRange, formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
 import { useAuth } from "../auth/useAuth";
 import type { ExamAvailability, StudentExamDetail, StudentExamItem } from "../../types/api";
 
@@ -116,6 +116,100 @@ function ExamCard({ exam }: { exam: StudentExamItem }) {
         </Link>
       </Card.Body>
     </Card>
+  );
+}
+
+// ======================= Lớp của tôi (D-28) =======================
+
+export function MyClassesPage() {
+  const { t } = useTranslation();
+  const query = useQuery({ queryKey: ["student-classes"], queryFn: studentApi.classes });
+
+  return (
+    <>
+      <h1 className="h4 mb-3">
+        <i className="bi bi-easel2-fill text-primary me-2" aria-hidden="true" />
+        {t("nav.myClasses")}
+      </h1>
+      {query.error && <ErrorAlert error={query.error} onRetry={() => void query.refetch()} />}
+      {query.isLoading && <Loading />}
+      {query.data && query.data.length === 0 && <Empty text={t("student.noClasses")} />}
+      <Row xs={1} md={2} lg={3} className="g-3">
+        {query.data?.map((c) => (
+          <Col key={c.id}>
+            <Card className={`h-100 exam-card accent-${examAccent(c.id)}`}>
+              <div className="exam-card-band" />
+              <Card.Body className="d-flex flex-column">
+                <div className="d-flex align-items-start gap-3 mb-3">
+                  <span className="stat-icon" aria-hidden="true">
+                    <i className="bi bi-easel2-fill" />
+                  </span>
+                  <div className="min-w-0 flex-grow-1">
+                    <Card.Title as="h2" className="h6 mb-1">{c.name}</Card.Title>
+                    <Badge bg="light" text="dark" className="border">{c.code}</Badge>
+                  </div>
+                </div>
+                <ul className="list-unstyled small text-secondary mb-3 d-grid gap-1">
+                  {c.schoolYear && (
+                    <li>
+                      <i className="bi bi-calendar2-range me-2" aria-hidden="true" />
+                      {t("student.schoolYear", { year: c.schoolYear })}
+                    </li>
+                  )}
+                  {(c.startDate || c.endDate) && (
+                    <li>
+                      <i className="bi bi-calendar-week me-2" aria-hidden="true" />
+                      {formatDateRange(c.startDate, c.endDate)}
+                    </li>
+                  )}
+                  <li>
+                    <i className="bi bi-people me-2" aria-hidden="true" />
+                    {t("student.classStats", { students: c.studentCount, exams: c.examCount })}
+                  </li>
+                </ul>
+                {c.description && <p className="small mb-3">{c.description}</p>}
+                <Link to={`/student/classes/${c.id}`} className="btn btn-sm btn-outline-primary mt-auto">
+                  {t("student.classExams")}
+                  <i className="bi bi-arrow-right ms-1" aria-hidden="true" />
+                </Link>
+              </Card.Body>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    </>
+  );
+}
+
+export function MyClassDetailPage() {
+  const { t } = useTranslation();
+  const { classId = "" } = useParams();
+  const [page, setPage] = useState(1);
+  const classes = useQuery({ queryKey: ["student-classes"], queryFn: studentApi.classes });
+  const exams = useQuery({
+    queryKey: ["student-exams", "class", classId, page],
+    queryFn: () => studentApi.exams({ page, pageSize: 20, classroomId: classId }),
+  });
+  const classroom = classes.data?.find((c) => c.id === classId);
+
+  return (
+    <>
+      <Link to="/student/classes" className="small">← {t("nav.myClasses")}</Link>
+      <h1 className="h4 mt-2 mb-1">{classroom ? `${classroom.name} (${classroom.code})` : t("nav.myClasses")}</h1>
+      {classroom?.schoolYear && <p className="text-secondary small">{t("student.schoolYear", { year: classroom.schoolYear })}</p>}
+      {classes.data && !classroom && <Alert variant="warning">{t("student.classNotFound")}</Alert>}
+      {exams.error && <ErrorAlert error={exams.error} onRetry={() => void exams.refetch()} />}
+      {exams.isLoading && <Loading />}
+      {exams.data && exams.data.items.length === 0 && <Empty text={t("student.noClassExams")} />}
+      <Row xs={1} md={2} lg={3} className="g-3 mt-1">
+        {exams.data?.items.map((exam) => (
+          <Col key={exam.examId}>
+            <ExamCard exam={exam} />
+          </Col>
+        ))}
+      </Row>
+      {exams.data && <div className="mt-3"><Pager data={exams.data} onPage={setPage} /></div>}
+    </>
   );
 }
 

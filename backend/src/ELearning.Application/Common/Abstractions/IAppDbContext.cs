@@ -1,5 +1,6 @@
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Audit;
+using ELearning.Domain.Classes;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Identity;
 using ELearning.Domain.Media;
@@ -30,6 +31,10 @@ public interface IAppDbContext
     DbSet<UserGroup> UserGroups { get; }
 
     DbSet<UserGroupMember> UserGroupMembers { get; }
+
+    DbSet<Classroom> Classrooms { get; }
+
+    DbSet<ClassroomStudent> ClassroomStudents { get; }
 
     DbSet<RefreshToken> RefreshTokens { get; }
 

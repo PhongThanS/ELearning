@@ -155,7 +155,10 @@ public sealed record AssignedGroupDto(Guid Id, string Code, string Name, int Mem
 
 public sealed record AssignedUserDto(Guid Id, string UserName, string FullName);
 
-public sealed record AssignmentsDto(AccessMode AccessMode, IReadOnlyList<AssignedGroupDto> Groups, IReadOnlyList<AssignedUserDto> Users);
+public sealed record AssignedClassroomDto(Guid Id, string Code, string Name, string? SchoolYear, int StudentCount);
+
+public sealed record AssignmentsDto(
+    AccessMode AccessMode, IReadOnlyList<AssignedGroupDto> Groups, IReadOnlyList<AssignedUserDto> Users, IReadOnlyList<AssignedClassroomDto> Classrooms);
 
 public sealed record UserOverrideDto(Guid ExamId, Guid UserId, int ExtraAttempts, string? Note, DateTime UpdatedAt);
 
@@ -239,7 +242,7 @@ public sealed record CloseExamRequest(bool ForceSubmitInProgress);
 
 public sealed record CloneExamRequest(string? Code, string? Name);
 
-public sealed record SetAssignmentsRequest(IReadOnlyList<Guid>? GroupIds, IReadOnlyList<Guid>? UserIds);
+public sealed record SetAssignmentsRequest(IReadOnlyList<Guid>? GroupIds, IReadOnlyList<Guid>? UserIds, IReadOnlyList<Guid>? ClassroomIds = null);
 
 public sealed record SetUserOverrideRequest(int ExtraAttempts, string? Note);
 
