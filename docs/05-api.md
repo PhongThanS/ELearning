@@ -156,6 +156,7 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | GET/POST | `/api/classes` (lọc `keyword`, `schoolYear`, `isActive`; sort `code`, `name`, `schoolYear`, `createdAt`) | `Class.View` / `Class.Manage` |
 | GET/PUT | `/api/classes/{id}` (PUT kèm `rowVersion`; mã lớp không đổi) | `Class.View` / `Class.Manage` |
 | PATCH | `/api/classes/{id}/status` `{ isActive }` | `Class.Manage` |
+| DELETE | `/api/classes/{id}` → 204; còn gán cho đề → 409 `CLASSROOM_IN_USE` | `Class.Manage` |
 | GET | `/api/classes/{id}/students` | `Class.View` |
 | POST | `/api/classes/{id}/students` `{ userIds }` (chỉ role `STUDENT`, tối đa 500) | `Class.Manage` |
 | DELETE | `/api/classes/{id}/students/{userId}` | `Class.Manage` |

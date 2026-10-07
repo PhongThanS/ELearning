@@ -86,7 +86,7 @@ CREATE TABLE UserGroupMembers (
 );
 CREATE INDEX IX_UserGroupMembers_User ON UserGroupMembers(UserId);
 
--- Lớp học (D-28): học viên ↔ lớp nhiều-nhiều. Không xóa, chỉ tắt.
+-- Lớp học (D-28): học viên ↔ lớp nhiều-nhiều. Xóa được khi không còn dòng ExamAssignments nào trỏ tới (code xóa ClassroomStudents trước).
 CREATE TABLE Classrooms (
     Id          UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_Classrooms PRIMARY KEY,
     Code        NVARCHAR(50)   NOT NULL CONSTRAINT UQ_Classrooms_Code UNIQUE,

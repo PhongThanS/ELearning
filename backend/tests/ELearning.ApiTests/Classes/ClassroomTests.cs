@@ -107,6 +107,31 @@ public class ClassroomTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Delete_removes_class_and_memberships_but_not_while_assigned_to_an_exam()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var (studentClient, studentId, _) = await kit.CreateStudentAsync();
+        var free = await CreateClassAsync(kit.Admin, "Lớp sẽ xóa");
+        var assigned = await CreateClassAsync(kit.Admin, "Lớp có đề");
+        await kit.Admin.PostJsonAsync<ClassItem>($"/api/classes/{free.Id}/students", new { userIds = new[] { studentId } });
+        var exam = await kit.CreatePublishedExamAsync(accessMode: "ASSIGNED", assignClassroomIds: [assigned.Id]);
+
+        var (blocked, blockedBody) = await kit.Admin.SendJsonAsync<object>(HttpMethod.Delete, $"/api/classes/{assigned.Id}");
+        var (deleted, _) = await kit.Admin.SendJsonAsync<object>(HttpMethod.Delete, $"/api/classes/{free.Id}");
+        var (afterDelete, afterDeleteBody) = await kit.Admin.GetJsonAsync<ClassItem>($"/api/classes/{free.Id}");
+        var (_, mine) = await studentClient.GetJsonAsync<List<MyClassItem>>("/api/student/classes");
+        var (_, stillAssigned) = await kit.Admin.GetJsonAsync<AssignmentsView>($"/api/exams/{exam.Id}/assignments");
+
+        blocked.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        blockedBody.Errors.Single().Code.Should().Be("CLASSROOM_IN_USE");
+        stillAssigned.Data!.Classrooms.Should().ContainSingle(c => c.Id == assigned.Id);
+        deleted.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        afterDelete.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        afterDeleteBody.Errors.Single().Code.Should().Be("CLASSROOM_NOT_FOUND");
+        mine.Data!.Should().NotContain(c => c.Id == free.Id);
+    }
+
+    [Fact]
     public async Task Student_cannot_manage_classes()
     {
         var kit = await AttemptTestKit.CreateAsync(factory);
@@ -114,9 +139,11 @@ public class ClassroomTests(ApiFactory factory)
 
         var (list, _) = await student.GetJsonAsync<object>("/api/classes");
         var (create, _) = await student.PostJsonAsync<object>("/api/classes", new { code = "HACK", name = "X" });
+        var (delete, _) = await student.SendJsonAsync<object>(HttpMethod.Delete, $"/api/classes/{Guid.NewGuid()}");
 
         list.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         create.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        delete.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     private static async Task<ClassItem> CreateClassAsync(HttpClient admin, string name)

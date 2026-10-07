@@ -254,7 +254,8 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 - Lớp (`Classrooms`): mã lớp duy nhất (2–50 ký tự `A-Z a-z 0-9 . _ -`, không đổi sau khi tạo), tên, năm học, ngày bắt đầu / kết thúc (ngày kết thúc ≥ ngày bắt đầu), mô tả.
 - Học viên ↔ lớp là quan hệ **nhiều-nhiều** (`ClassroomStudents`): một học viên học nhiều lớp, một lớp có nhiều học viên. Chỉ user có role `STUDENT` mới được thêm vào lớp; tối đa 500 người mỗi lần thêm; thêm trùng thì bỏ qua.
 - Đề `ASSIGNED` có thể gán cho lớp. Học viên thấy đề khi là thành viên **hiện tại** của một lớp **đang hoạt động** được gán. Rút khỏi lớp hoặc tắt lớp thì mất quyền thấy / bắt đầu đề đó; lượt thi và kết quả đã có vẫn giữ nguyên (D-16).
-- Không xóa lớp: ngừng dùng thì tắt (`IsActive = 0`). Học viên chỉ thấy các lớp đang hoạt động trong "Lớp của tôi", và chỉ lọc được đề theo lớp mình thuộc về.
+- **Xóa lớp** (xóa cứng lớp và các dòng `ClassroomStudents`, có audit `CLASSROOM_DELETED` lưu mã, tên và danh sách học viên): chỉ khi lớp không còn được gán cho đề thi nào; nếu còn → 409 `CLASSROOM_IN_USE`, admin bỏ gán lớp khỏi đề trước hoặc tắt lớp (`IsActive = 0`). Lớp không gắn với lượt thi / kết quả nên xóa không ảnh hưởng điểm hay snapshot (D-16 không áp dụng cho lớp).
+- Học viên chỉ thấy các lớp đang hoạt động trong "Lớp của tôi", và chỉ lọc được đề theo lớp mình thuộc về.
 - Quản lý lớp cần quyền `Class.View` / `Class.Manage`; gán đề cho lớp vẫn dùng `Exam.Assign`.
 - Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
 - Tự đăng ký được điều khiển bằng `Auth:AllowSelfRegistration`: mặc định `true` ở Development, `false` ở Production.

@@ -303,6 +303,9 @@
     "addStudentPlaceholder": "Nhập tên đăng nhập hoặc họ tên (ít nhất 2 ký tự)…",
     "alreadyMember": "Đã trong lớp",
     "studentList": "Danh sách học viên",
-    "inactiveHint": "Lớp đang tắt: học viên không thấy các đề được gán cho lớp này."
+    "inactiveHint": "Lớp đang tắt: học viên không thấy các đề được gán cho lớp này.",
+    "deleted": "Đã xóa lớp học.",
+    "deleteTitle": "Xóa lớp {{code}}?",
+    "deleteBody": "Lớp và danh sách {{count}} học viên của lớp sẽ bị xóa vĩnh viễn (tài khoản học viên, bài làm và điểm vẫn giữ nguyên). Lớp đang được gán cho đề thi thì phải bỏ gán trước."
   }
 }

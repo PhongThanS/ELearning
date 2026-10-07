@@ -76,6 +76,7 @@ public static class AuditActions
     public const string ClassroomCreated = "CLASSROOM_CREATED";
     public const string ClassroomUpdated = "CLASSROOM_UPDATED";
     public const string ClassroomStudentsChanged = "CLASSROOM_STUDENTS_CHANGED";
+    public const string ClassroomDeleted = "CLASSROOM_DELETED";
     public const string RoleCreated = "ROLE_CREATED";
     public const string RoleUpdated = "ROLE_UPDATED";
     public const string RolePermissionsChanged = "ROLE_PERMISSIONS_CHANGED";

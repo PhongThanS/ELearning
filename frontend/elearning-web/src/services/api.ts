@@ -98,6 +98,7 @@ export const classesApi = {
   create: (body: ClassroomInput & { code: string }) => http.post<Classroom>("/classes", body),
   update: (id: string, body: ClassroomInput & { isActive: boolean; rowVersion: string }) => http.put<Classroom>(`/classes/${id}`, body),
   setStatus: (id: string, isActive: boolean) => http.patch<Classroom>(`/classes/${id}/status`, { isActive }),
+  remove: (id: string) => http.delete<void>(`/classes/${id}`),
   students: (id: string, q: Query) => http.get<Paged<ClassroomStudent>>(`/classes/${id}/students`, q),
   addStudents: (id: string, userIds: string[]) => http.post<Classroom>(`/classes/${id}/students`, { userIds }),
   removeStudent: (id: string, userId: string) => http.delete<Classroom>(`/classes/${id}/students/${userId}`),

@@ -69,6 +69,9 @@ public interface IClassroomService
 
     Task<Result<ClassroomDto>> SetStatusAsync(Guid id, SetClassroomStatusRequest request, CancellationToken ct);
 
+    /// <summary>Xóa lớp và danh sách học viên của lớp. Lớp đang được gán cho đề thi thì không xóa được.</summary>
+    Task<Result> DeleteAsync(Guid id, CancellationToken ct);
+
     Task<Result<PagedResult<ClassroomStudentDto>>> ListStudentsAsync(Guid id, ClassroomStudentQuery query, CancellationToken ct);
 
     Task<Result<ClassroomDto>> AddStudentsAsync(Guid id, AddClassroomStudentsRequest request, CancellationToken ct);
@@ -243,6 +246,32 @@ internal sealed class ClassroomService(
         }
 
         return await GetAsync(id, ct);
+    }
+
+    public async Task<Result> DeleteAsync(Guid id, CancellationToken ct)
+    {
+        var classroom = await db.Classrooms.SingleOrDefaultAsync(c => c.Id == id, ct);
+        if (classroom is null)
+        {
+            return ClassroomNotFound;
+        }
+
+        // Xóa ngầm phần gán sẽ đổi người được thi của đề → bắt bỏ gán trước (hoặc tắt lớp)
+        var examCount = await db.ExamAssignments.CountAsync(a => a.ClassroomId == id, ct);
+        if (examCount > 0)
+        {
+            return Error.Conflict(
+                ErrorCodes.ClassroomInUse,
+                $"Lớp đang được gán cho {examCount} đề thi. Bỏ gán lớp khỏi các đề đó trước, hoặc tắt lớp thay vì xóa.");
+        }
+
+        var students = await db.ClassroomStudents.Where(s => s.ClassroomId == id).ToListAsync(ct);
+        db.ClassroomStudents.RemoveRange(students);
+        db.Classrooms.Remove(classroom);
+        audit.Write(AuditActions.ClassroomDeleted, nameof(Classroom), classroom.Id,
+            new { classroom.Code, classroom.Name, classroom.SchoolYear, StudentIds = students.Select(s => s.UserId).ToList() });
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
     }
 
     public async Task<Result<PagedResult<ClassroomStudentDto>>> ListStudentsAsync(Guid id, ClassroomStudentQuery query, CancellationToken ct)

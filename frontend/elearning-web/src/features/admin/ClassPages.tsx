@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { Alert, Button, Card, Col, Form, Modal, Row, Table } from "react-bootstrap";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { classesApi, usersApi, type ClassroomInput } from "../../services/api";
-import { ErrorAlert, Loading } from "../../components/common/Feedback";
+import { ConfirmDialog, ErrorAlert, Loading } from "../../components/common/Feedback";
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
@@ -196,6 +196,20 @@ export function ClassDetailPage() {
     enabled: canManage && search.length >= 2,
   });
   const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const navigate = useNavigate();
+  const remove = useMutation({
+    mutationFn: () => classesApi.remove(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["classes"] });
+      toast.success(t("classes.deleted"));
+      navigate("/admin/classes", { replace: true });
+    },
+    onError: (e) => {
+      setConfirmDelete(false);
+      toast.error(e);
+    },
+  });
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ["class", id] });
     void queryClient.invalidateQueries({ queryKey: ["class-students", id] });
@@ -263,6 +277,10 @@ export function ClassDetailPage() {
               </Button>
               <Button variant={c.isActive ? "outline-warning" : "outline-success"} onClick={() => change.mutate(() => classesApi.setStatus(id, !c.isActive))}>
                 {c.isActive ? t("common.deactivate") : t("common.activate")}
+              </Button>
+              <Button variant="outline-danger" onClick={() => setConfirmDelete(true)}>
+                <i className="bi bi-trash me-1" aria-hidden="true" />
+                {t("common.delete")}
               </Button>
             </>
           )
@@ -335,6 +353,16 @@ export function ClassDetailPage() {
       )}
       <h2 className="h6 mb-2">{t("classes.studentList")}</h2>
       <DataTable data={students.data} columns={columns} rowKey={(s) => s.userId} isLoading={students.isLoading} error={students.error} onPage={list.setPage} />
+      <ConfirmDialog
+        show={confirmDelete}
+        title={t("classes.deleteTitle", { code: c.code })}
+        body={t("classes.deleteBody", { count: c.studentCount })}
+        confirmText={t("common.delete")}
+        variant="danger"
+        busy={remove.isPending}
+        onConfirm={() => remove.mutate()}
+        onCancel={() => setConfirmDelete(false)}
+      />
       {editing && (
         <ClassFormModal
           initial={{

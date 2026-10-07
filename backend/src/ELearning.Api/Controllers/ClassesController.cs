@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace ELearning.Api.Controllers;
 
-/// <summary>Lớp học và học viên của lớp (D-28, docs/05-api.md). Không có DELETE (D-16): ngừng dùng thì tắt lớp.</summary>
+/// <summary>Lớp học và học viên của lớp (D-28, docs/05-api.md). Xóa được khi lớp không còn được gán cho đề thi nào.</summary>
 [Route("api/classes")]
 public sealed class ClassesController(IClassroomService classrooms) : ApiControllerBase
 {
@@ -39,6 +39,15 @@ public sealed class ClassesController(IClassroomService classrooms) : ApiControl
     [ProducesResponseType<ApiResponse<ClassroomDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> SetStatus(Guid id, SetClassroomStatusRequest request, CancellationToken ct) =>
         ToResponse(await classrooms.SetStatusAsync(id, request, ct));
+
+    [HttpDelete("{id:guid}")]
+    [HasPermission(Permissions.ClassManage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var result = await classrooms.DeleteAsync(id, ct);
+        return result.IsSuccess ? NoContent() : Failure(result);
+    }
 
     [HttpGet("{id:guid}/students")]
     [HasPermission(Permissions.ClassView)]
