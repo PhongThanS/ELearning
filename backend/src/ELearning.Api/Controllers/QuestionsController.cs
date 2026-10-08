@@ -40,6 +40,15 @@ public sealed class QuestionCategoriesController(ICategoryService categories) : 
     [ProducesResponseType<ApiResponse<CategoryDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> SetStatus(Guid id, SetActiveRequest request, CancellationToken ct) =>
         ToResponse(await categories.SetActiveAsync(id, request, ct));
+
+    [HttpDelete("{id:guid}")]
+    [HasPermission(Permissions.CategoryManage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> Delete(Guid id, [FromQuery] bool force, CancellationToken ct)
+    {
+        var result = await categories.DeleteAsync(id, force, ct);
+        return result.IsSuccess ? NoContent() : ToResponse(result);
+    }
 }
 
 /// <summary>Ngân hàng câu hỏi (docs/05-api.md mục 6.3). Không có DELETE (D-16).</summary>

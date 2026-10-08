@@ -47,6 +47,8 @@ public interface IGroupService
     Task<Result<GroupDto>> AddMembersAsync(Guid id, AddGroupMembersRequest request, CancellationToken ct);
 
     Task<Result<GroupDto>> RemoveMemberAsync(Guid id, Guid userId, CancellationToken ct);
+
+    Task<Result> DeleteAsync(Guid id, CancellationToken ct = default);
 }
 
 public sealed record UserMemberQuery : PageRequest
@@ -255,6 +257,31 @@ internal sealed class GroupService(
         }
 
         return await GetAsync(id, ct);
+    }
+
+    public async Task<Result> DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        var group = await db.UserGroups.Include(g => g.Members).SingleOrDefaultAsync(g => g.Id == id, ct);
+        if (group is null)
+        {
+            return GroupNotFound;
+        }
+
+        var assignments = await db.ExamAssignments.Where(a => a.GroupId == id).ToListAsync(ct);
+        if (assignments.Count > 0)
+        {
+            db.ExamAssignments.RemoveRange(assignments);
+        }
+
+        if (group.Members.Count > 0)
+        {
+            db.UserGroupMembers.RemoveRange(group.Members);
+        }
+
+        db.UserGroups.Remove(group);
+        audit.Write(AuditActions.GroupDeleted, nameof(UserGroup), group.Id, new { group.Code, group.Name }, null);
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
     }
 
     private static System.Linq.Expressions.Expression<Func<UserGroup, GroupDto>> ToDto() =>

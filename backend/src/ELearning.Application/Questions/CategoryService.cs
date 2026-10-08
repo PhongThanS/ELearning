@@ -35,6 +35,8 @@ public interface ICategoryService
     Task<Result<CategoryDto>> UpdateAsync(Guid id, UpdateCategoryRequest request, CancellationToken ct);
 
     Task<Result<CategoryDto>> SetActiveAsync(Guid id, SetActiveRequest request, CancellationToken ct);
+
+    Task<Result> DeleteAsync(Guid id, bool force = false, CancellationToken ct = default);
 }
 
 internal sealed class CreateCategoryValidator : AbstractValidator<CreateCategoryRequest>
@@ -169,6 +171,49 @@ internal sealed class CategoryService(
         }
 
         return await GetAsync(id, ct);
+    }
+
+    public async Task<Result> DeleteAsync(Guid id, bool force = false, CancellationToken ct = default)
+    {
+        var category = await db.QuestionCategories.SingleOrDefaultAsync(c => c.Id == id, ct);
+        if (category is null)
+        {
+            return CategoryNotFound;
+        }
+
+        var questions = await db.Questions
+            .Include(q => q.Options)
+            .Include(q => q.AcceptedAnswers)
+            .Include(q => q.Tags)
+            .Where(q => q.CategoryId == id)
+            .ToListAsync(ct);
+
+        if (questions.Count > 0)
+        {
+            if (!force)
+            {
+                return Error.Conflict(
+                    "CATEGORY_HAS_QUESTIONS",
+                    $"Chuyên đề '{category.Name}' đang có {questions.Count} câu hỏi trực thuộc. Vui lòng xác nhận xóa để xóa chuyên đề và các câu hỏi trực thuộc.");
+            }
+
+            // Gỡ liên kết SourceQuestionId ở ExamQuestions (nếu có) để snapshot bài thi không bị vỡ và không vi phạm ràng buộc FK
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE ExamQuestions SET SourceQuestionId = NULL WHERE SourceQuestionId IN (SELECT Id FROM Questions WHERE CategoryId = {id})",
+                ct);
+
+            db.Questions.RemoveRange(questions);
+        }
+
+        // Gỡ liên kết CategoryId ở các ExamPoolRules (nếu có)
+        await db.Database.ExecuteSqlInterpolatedAsync(
+            $"UPDATE ExamPoolRules SET CategoryId = NULL WHERE CategoryId = {id}",
+            ct);
+
+        db.QuestionCategories.Remove(category);
+        audit.Write(AuditActions.CategoryDeleted, nameof(QuestionCategory), category.Id, new { category.Code, category.Name }, null);
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
     }
 
     private IQueryable<CategoryDto> Project(IQueryable<QuestionCategory> categories) =>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, Modal, Row, Table } from "react-bootstrap";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { groupsApi, rolesApi, usersApi } from "../../services/api";
@@ -335,16 +335,31 @@ export function UserDetailPage() {
 export function GroupsPage() {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
+  const toast = useToast();
   const queryClient = useQueryClient();
   const list = useListQuery({ sortBy: "code", sortDir: "asc" });
   const query = useQuery({ queryKey: ["groups", list.params], queryFn: () => groupsApi.list(list.params) });
   const [form, setForm] = useState<{ code: string; name: string; description: string } | null>(null);
+  const [deleting, setDeleting] = useState<Group | null>(null);
+
   const create = useMutation({
     mutationFn: () => groupsApi.create(form!),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["sidebar-groups"] });
       setForm(null);
     },
+  });
+
+  const remove = useMutation({
+    mutationFn: (g: Group) => groupsApi.remove(g.id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["sidebar-groups"] });
+      setDeleting(null);
+      toast.success("Đã xóa lớp học thành công.");
+    },
+    onError: (e) => toast.error(e),
   });
 
   const columns: Column<Group>[] = [
@@ -352,6 +367,19 @@ export function GroupsPage() {
     { key: "name", header: t("common.name"), sortKey: "name", render: (g) => g.name },
     { key: "members", header: "Thành viên", render: (g) => g.memberCount },
     { key: "status", header: t("common.status"), render: (g) => <ActiveBadge active={g.isActive} /> },
+    {
+      key: "actions",
+      header: "",
+      className: "text-end",
+      render: (g) =>
+        hasPermission(Permissions.GroupManage) && (
+          <div className="d-inline-flex gap-2">
+            <Button size="sm" variant="link" className="p-0 text-danger" onClick={() => setDeleting(g)}>
+              {t("common.delete")}
+            </Button>
+          </div>
+        ),
+    },
   ];
 
   return (
@@ -364,6 +392,8 @@ export function GroupsPage() {
         <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
       </div>
       <DataTable data={query.data} columns={columns} rowKey={(g) => g.id} isLoading={query.isLoading} error={query.error} sort={list.state} onSort={list.toggleSort} onPage={list.setPage} />
+      
+      {/* Modal Tạo nhóm */}
       <Modal show={!!form} onHide={() => setForm(null)} centered>
         <Form
           onSubmit={(e) => {
@@ -372,7 +402,7 @@ export function GroupsPage() {
           }}
         >
           <Modal.Header closeButton>
-            <Modal.Title as="h2" className="h5">Tạo nhóm</Modal.Title>
+            <Modal.Title as="h2" className="h5">Tạo nhóm lớp học</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             {create.error && <Alert variant="danger">{describeError(create.error)}</Alert>}
@@ -385,9 +415,45 @@ export function GroupsPage() {
               ))}
           </Modal.Body>
           <Modal.Footer>
+            <Button variant="secondary" onClick={() => setForm(null)}>{t("common.cancel")}</Button>
             <Button type="submit" disabled={create.isPending}>{t("common.create")}</Button>
           </Modal.Footer>
         </Form>
+      </Modal>
+
+      {/* Modal Xác nhận xóa */}
+      <Modal show={!!deleting} onHide={() => setDeleting(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" className="h5">Xác nhận xóa lớp học</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleting && (
+            <div>
+              <p>
+                Bạn có chắc chắn muốn xóa lớp học <strong>{deleting.name}</strong> (<code>{deleting.code}</code>)?
+              </p>
+              {deleting.memberCount > 0 ? (
+                <Alert variant="warning" className="mb-0">
+                  ⚠️ Lớp học này đang có <strong>{deleting.memberCount}</strong> thành viên. Thao tác xóa sẽ giải phóng danh sách học viên và đề thi đã gán cho lớp này.
+                </Alert>
+              ) : (
+                <p className="text-secondary small mb-0">Hành động này không thể hoàn tác.</p>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setDeleting(null)} disabled={remove.isPending}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => deleting && remove.mutate(deleting)}
+            disabled={remove.isPending}
+          >
+            {remove.isPending ? "Đang xóa..." : t("common.delete")}
+          </Button>
+        </Modal.Footer>
       </Modal>
     </>
   );
@@ -396,6 +462,7 @@ export function GroupsPage() {
 export function GroupDetailPage() {
   const { t } = useTranslation();
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
@@ -404,17 +471,31 @@ export function GroupDetailPage() {
   const list = useListQuery();
   const members = useQuery({ queryKey: ["group-members", id, list.params], queryFn: () => groupsApi.members(id, list.params) });
   const [search, setSearch] = useState("");
+  const [deletingGroup, setDeletingGroup] = useState(false);
+
   const candidates = useQuery({
     queryKey: ["users", "candidates", search],
     queryFn: () => usersApi.list({ keyword: search, pageSize: 10, isActive: true }),
     enabled: canManage && search.length >= 2,
   });
+
   const change = useMutation({
     mutationFn: async (action: () => Promise<unknown>) => action(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["group", id] });
       void queryClient.invalidateQueries({ queryKey: ["group-members", id] });
       toast.success(t("common.saved"));
+    },
+    onError: (e) => toast.error(e),
+  });
+
+  const removeGroup = useMutation({
+    mutationFn: () => groupsApi.remove(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["groups"] });
+      void queryClient.invalidateQueries({ queryKey: ["sidebar-groups"] });
+      toast.success("Đã xóa lớp học thành công.");
+      navigate("/admin/groups");
     },
     onError: (e) => toast.error(e),
   });
@@ -451,17 +532,43 @@ export function GroupDetailPage() {
         title={`${g.name} (${g.code})`}
         actions={
           canManage && (
-            <Button
-              variant={g.isActive ? "outline-warning" : "outline-success"}
-              onClick={() => change.mutate(() => groupsApi.update(id, { name: g.name, description: g.description, isActive: !g.isActive, rowVersion: g.rowVersion }))}
-            >
-              {g.isActive ? t("common.deactivate") : t("common.activate")}
-            </Button>
+            <div className="d-flex gap-2">
+              <Button
+                variant={g.isActive ? "outline-warning" : "outline-success"}
+                onClick={() => change.mutate(() => groupsApi.update(id, { name: g.name, description: g.description, isActive: !g.isActive, rowVersion: g.rowVersion }))}
+              >
+                {g.isActive ? t("common.deactivate") : t("common.activate")}
+              </Button>
+              <Button variant="outline-danger" onClick={() => setDeletingGroup(true)}>
+                {t("common.delete")}
+              </Button>
+            </div>
           )
         }
       >
         <ActiveBadge active={g.isActive} /> <span className="text-secondary small">{g.memberCount} thành viên</span>
       </PageHeader>
+
+      {/* Modal Xác nhận xóa Group */}
+      <Modal show={deletingGroup} onHide={() => setDeletingGroup(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" className="h5">Xác nhận xóa lớp học</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Bạn có chắc chắn muốn xóa lớp học <strong>{g.name}</strong> (<code>{g.code}</code>)?
+          </p>
+          <p className="text-secondary small mb-0">Hành động này sẽ giải phóng danh sách học viên và gán đề thi của lớp học này.</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setDeletingGroup(false)} disabled={removeGroup.isPending}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="danger" onClick={() => removeGroup.mutate()} disabled={removeGroup.isPending}>
+            {removeGroup.isPending ? "Đang xóa..." : t("common.delete")}
+          </Button>
+        </Modal.Footer>
+      </Modal>
       {canManage && (
         <Card className="mb-3">
           <Card.Body>

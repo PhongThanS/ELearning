@@ -76,6 +76,7 @@ export const groupsApi = {
   create: (body: { code: string; name: string; description?: string | null }) => http.post<Group>("/groups", body),
   update: (id: string, body: { name: string; description: string | null; isActive: boolean; rowVersion: string }) =>
     http.put<Group>(`/groups/${id}`, body),
+  remove: (id: string) => http.delete<void>(`/groups/${id}`),
   members: (id: string, q: Query) => http.get<Paged<GroupMember>>(`/groups/${id}/members`, q),
   addMembers: (id: string, userIds: string[]) => http.post<Group>(`/groups/${id}/members`, { userIds }),
   removeMember: (id: string, userId: string) => http.delete<Group>(`/groups/${id}/members/${userId}`),
@@ -95,6 +96,7 @@ export const categoriesApi = {
   update: (id: string, body: { name: string; isActive: boolean; rowVersion: string }) =>
     http.put<Category>(`/question-categories/${id}`, body),
   setStatus: (id: string, isActive: boolean) => http.patch<Category>(`/question-categories/${id}/status`, { isActive }),
+  remove: (id: string, force = false) => http.delete<void>(`/question-categories/${id}${force ? "?force=true" : ""}`),
 };
 
 export const questionsApi = {
@@ -231,3 +233,4 @@ async function downloadFile(url: string, params: object | undefined, fallbackNam
     throw toApiError(error);
   }
 }
+

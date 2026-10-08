@@ -57,4 +57,13 @@ public sealed class GroupsController(IGroupService groups) : ApiControllerBase
     [ProducesResponseType<ApiResponse<GroupDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> RemoveMember(Guid id, Guid userId, CancellationToken ct) =>
         ToResponse(await groups.RemoveMemberAsync(id, userId, ct));
+
+    [HttpDelete("{id:guid}")]
+    [HasPermission(Permissions.GroupManage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
+    {
+        var result = await groups.DeleteAsync(id, ct);
+        return result.IsSuccess ? NoContent() : ToResponse(result);
+    }
 }

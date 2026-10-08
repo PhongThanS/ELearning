@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "ELearning",
-    "tagline": "Hệ thống thi trực tuyến"
+    "name": "EClass",
+    "tagline": "Dạy học là truyền cảm hứng"
   },
   "common": {
     "save": "Lưu",
@@ -53,9 +53,9 @@
   "nav": {
     "dashboard": "Tổng quan",
     "users": "Người dùng",
-    "groups": "Nhóm",
+    "groups": "Danh sách lớp học",
     "roles": "Vai trò & quyền",
-    "categories": "Danh mục",
+    "categories": "Chuyên đề",
     "questions": "Ngân hàng câu hỏi",
     "exams": "Đề thi",
     "auditLogs": "Nhật ký hệ thống",

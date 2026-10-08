@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Card, Col, Form, Modal, Row, Table } from "react-bootstrap";
+import { Alert, Badge, Button, Card, Col, Form, ListGroup, Modal, Row, Table, Tab, Tabs } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { examsApi, groupsApi, usersApi, type ExamDetailsBody } from "../../services/api";
+import { examsApi, groupsApi, questionsApi, usersApi, type ExamDetailsBody } from "../../services/api";
 import { toApiError } from "../../services/apiClient";
 import { ConfirmDialog, ErrorAlert, Loading } from "../../components/common/Feedback";
 import { examStatusVariant } from "../../constants/ui";
@@ -11,7 +11,8 @@ import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { DataTable, PageHeader, Pager, SearchBox, type Column } from "../../components/common/DataTable";
 import { useListQuery } from "../../hooks/useListQuery";
-import { formatDateTime, formatNumber, utcIsoToVnLocal, vnLocalToUtcIso } from "../../utils/format";
+import { useActiveCategories } from "../../hooks/useCategories";
+import { formatDateTime, formatNumber, markdownExcerpt, utcIsoToVnLocal, vnLocalToUtcIso } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { AccessMode, ExamDetail, ExamListItem, RetakeScoringPolicy, ReviewPolicy, ScoreVisibility } from "../../types/api";
@@ -228,6 +229,8 @@ export function VersionSettingsFields({
 function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const toast = useToast();
+  const [activeTab, setActiveTab] = useState<string>("info");
   const [form, setForm] = useState<ExamForm>({
     code: "",
     name: "",
@@ -243,14 +246,44 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
     durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "NEVER", shuffleQuestions: false, shuffleOptions: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Ngân hàng câu hỏi để chọn khi tạo đề thi
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [customScore, setCustomScore] = useState<string>("");
+  const qList = useListQuery({ isActive: "true", pageSize: 10 });
+  const categoriesQuery = useActiveCategories();
+  const questionsQuery = useQuery({
+    queryKey: ["questions", "create-modal", qList.params],
+    queryFn: () => questionsApi.list(qList.params),
+    enabled: show,
+  });
+
   const create = useMutation({
-    mutationFn: () => examsApi.create({ ...toBody(form), ...settings }),
-    onSuccess: (exam) => navigate(`/admin/exams/${exam.id}/versions/${exam.draftVersionId}`),
+    mutationFn: async () => {
+      const exam = await examsApi.create({ ...toBody(form), ...settings });
+      if (selectedQuestionIds.length > 0 && exam.draftVersionId) {
+        await examsApi.addQuestions(
+          exam.id,
+          exam.draftVersionId,
+          selectedQuestionIds,
+          customScore ? Number(customScore) : null
+        );
+      }
+      return exam;
+    },
+    onSuccess: (exam) => {
+      toast.success(
+        selectedQuestionIds.length > 0
+          ? `Đã tạo đề thi và thêm ${selectedQuestionIds.length} câu hỏi từ ngân hàng câu hỏi!`
+          : t("common.saved")
+      );
+      navigate(`/admin/exams/${exam.id}/versions/${exam.draftVersionId}`);
+    },
     onError: (e) => setErrors(toApiError(e).fieldErrors()),
   });
 
   return (
-    <Modal show={show} onHide={onHide} size="lg" centered>
+    <Modal show={show} onHide={onHide} size="xl" centered>
       <Form
         onSubmit={(e) => {
           e.preventDefault();
@@ -259,17 +292,206 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
         }}
       >
         <Modal.Header closeButton>
-          <Modal.Title as="h2" className="h5">Tạo đề thi</Modal.Title>
+          <Modal.Title as="h2" className="h5">Tạo đề thi mới</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {create.error && <Alert variant="danger">{describeError(create.error)}</Alert>}
-          <ExamFields form={form} set={(p) => setForm({ ...form, ...p })} errors={errors} codeEditable />
-          <hr />
-          <VersionSettingsFields value={settings} onChange={setSettings} />
+
+          <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k ?? "info")} className="mb-3">
+            <Tab eventKey="info" title="1. Thông tin chung & Cấu hình">
+              <ExamFields form={form} set={(p) => setForm({ ...form, ...p })} errors={errors} codeEditable />
+              <hr />
+              <VersionSettingsFields value={settings} onChange={setSettings} />
+            </Tab>
+
+            <Tab
+              eventKey="questions"
+              title={
+                <span>
+                  2. Lấy câu hỏi từ Ngân hàng{" "}
+                  {selectedQuestionIds.length > 0 && (
+                    <Badge bg="primary" pill className="ms-1">
+                      {selectedQuestionIds.length}
+                    </Badge>
+                  )}
+                </span>
+              }
+            >
+              {/* Bộ lọc ngân hàng câu hỏi */}
+              <div className="bg-light p-3 rounded mb-3 border">
+                <Row className="g-2 align-items-center">
+                  <Col md={4}>
+                    <Form.Label className="small fw-bold mb-1">📁 Lọc theo Chuyên đề</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={String(qList.state.categoryId ?? "")}
+                      onChange={(e) => qList.setFilter({ categoryId: e.target.value })}
+                    >
+                      <option value="">-- Tất cả chuyên đề --</option>
+                      {categoriesQuery.data?.items.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.questionCount} câu)
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Label className="small fw-bold mb-1">🔍 Tìm kiếm nội dung / mã</Form.Label>
+                    <SearchBox
+                      value={qList.state.keyword ?? ""}
+                      onSearch={(keyword) => qList.setFilter({ keyword })}
+                      placeholder="Nhập mã hoặc từ khóa nội dung..."
+                    />
+                  </Col>
+                  <Col md={2}>
+                    <Form.Label className="small fw-bold mb-1">Loại câu</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={String(qList.state.questionType ?? "")}
+                      onChange={(e) => qList.setFilter({ questionType: e.target.value })}
+                    >
+                      <option value="">Tất cả loại</option>
+                      <option value="SINGLE_CHOICE">Trắc nghiệm 1 đáp án</option>
+                      <option value="MULTIPLE_CHOICE">Nhiều đáp án</option>
+                      <option value="TRUE_FALSE">Đúng / Sai</option>
+                      <option value="FILL_IN">Điền khuyết</option>
+                      <option value="ESSAY">Tự luận</option>
+                    </Form.Select>
+                  </Col>
+                  <Col md={2}>
+                    <Form.Label className="small fw-bold mb-1">Độ khó</Form.Label>
+                    <Form.Select
+                      size="sm"
+                      value={String(qList.state.difficulty ?? "")}
+                      onChange={(e) => qList.setFilter({ difficulty: e.target.value })}
+                    >
+                      <option value="">Tất cả độ khó</option>
+                      <option value="EASY">Dễ</option>
+                      <option value="MEDIUM">Trung bình</option>
+                      <option value="HARD">Khó</option>
+                    </Form.Select>
+                  </Col>
+                </Row>
+              </div>
+
+              {/* Thanh thao tác chọn nhanh */}
+              <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 p-2 bg-primary-subtle rounded border border-primary-subtle">
+                <div className="d-flex align-items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline-primary"
+                    onClick={() => {
+                      const pageIds = questionsQuery.data?.items.map((q) => q.id) ?? [];
+                      const next = Array.from(new Set([...selectedQuestionIds, ...pageIds]));
+                      setSelectedQuestionIds(next);
+                    }}
+                  >
+                    ✓ Chọn tất cả trên trang
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline-secondary"
+                    disabled={selectedQuestionIds.length === 0}
+                    onClick={() => setSelectedQuestionIds([])}
+                  >
+                    Bỏ chọn tất cả
+                  </Button>
+                  <span className="small fw-bold text-primary">
+                    Đã chọn: {selectedQuestionIds.length} câu hỏi
+                  </span>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="small text-secondary">Điểm mỗi câu:</span>
+                  <Form.Control
+                    size="sm"
+                    type="number"
+                    min={0.25}
+                    max={100}
+                    step={0.25}
+                    style={{ width: 110 }}
+                    placeholder="Mặc định"
+                    value={customScore}
+                    onChange={(e) => setCustomScore(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Danh sách câu hỏi */}
+              {questionsQuery.isLoading && <Loading />}
+              <div style={{ maxHeight: 380, overflowY: "auto" }}>
+                <ListGroup className="mb-2">
+                  {questionsQuery.data?.items.map((q) => {
+                    const isSelected = selectedQuestionIds.includes(q.id);
+                    return (
+                      <ListGroup.Item
+                        key={q.id}
+                        action
+                        onClick={() =>
+                          setSelectedQuestionIds(
+                            isSelected
+                              ? selectedQuestionIds.filter((x) => x !== q.id)
+                              : [...selectedQuestionIds, q.id]
+                          )
+                        }
+                        className={`d-flex gap-3 align-items-start ${isSelected ? "border-primary bg-light" : ""}`}
+                      >
+                        <Form.Check
+                          className="mt-1"
+                          checked={isSelected}
+                          onChange={() => {}}
+                        />
+                        <div className="flex-grow-1 min-w-0">
+                          <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
+                            <code>{q.code}</code>
+                            <Badge bg="secondary" className="fw-normal">{q.categoryName || "Chưa phân loại"}</Badge>
+                            <Badge bg="info" text="dark" className="fw-normal">{t(`enums.questionType.${q.questionType}`)}</Badge>
+                            {q.difficulty && (
+                              <Badge bg="light" text="dark" className="border fw-normal">{t(`enums.difficulty.${q.difficulty}`)}</Badge>
+                            )}
+                            <span className="small text-secondary ms-auto">
+                              Điểm mặc định: <strong>{q.defaultScore}</strong>
+                            </span>
+                          </div>
+                          <div className="small text-dark" style={{ lineHeight: 1.4 }}>
+                            {markdownExcerpt(q.contentPreview)}
+                          </div>
+                        </div>
+                      </ListGroup.Item>
+                    );
+                  })}
+                  {questionsQuery.data?.items.length === 0 && (
+                    <div className="text-center py-4 text-secondary">
+                      Không tìm thấy câu hỏi phù hợp trong ngân hàng câu hỏi.
+                    </div>
+                  )}
+                </ListGroup>
+              </div>
+              {questionsQuery.data && <Pager data={questionsQuery.data} onPage={qList.setPage} />}
+            </Tab>
+          </Tabs>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={onHide}>{t("common.cancel")}</Button>
-          <Button type="submit" disabled={create.isPending}>{t("common.create")}</Button>
+        <Modal.Footer className="d-flex justify-content-between">
+          <div>
+            {activeTab === "info" ? (
+              <Button variant="outline-primary" onClick={() => setActiveTab("questions")}>
+                Tiếp tục: Chọn câu hỏi ({selectedQuestionIds.length}) →
+              </Button>
+            ) : (
+              <Button variant="outline-secondary" onClick={() => setActiveTab("info")}>
+                ← Quay lại thông tin đề
+              </Button>
+            )}
+          </div>
+          <div className="d-flex gap-2">
+            <Button variant="secondary" onClick={onHide}>{t("common.cancel")}</Button>
+            <Button type="submit" disabled={create.isPending} variant="primary">
+              {create.isPending
+                ? "Đang tạo..."
+                : selectedQuestionIds.length > 0
+                ? `Tạo đề thi & Thêm ${selectedQuestionIds.length} câu hỏi`
+                : "Tạo đề thi"}
+            </Button>
+          </div>
         </Modal.Footer>
       </Form>
     </Modal>

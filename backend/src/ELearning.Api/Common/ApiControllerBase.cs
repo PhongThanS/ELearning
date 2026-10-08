@@ -19,6 +19,11 @@ public abstract class ApiControllerBase : ControllerBase
             ? StatusCode(successStatusCode, ApiResponse.Ok(result.Value, TraceId))
             : Failure(result);
 
+    protected ActionResult ToResponse(Result result, int successStatusCode = StatusCodes.Status204NoContent) =>
+        result.IsSuccess
+            ? StatusCode(successStatusCode)
+            : Failure(result);
+
     protected ActionResult Failure(Result result)
     {
         var status = ErrorMapping.ToStatusCode(result.FirstError.Type);

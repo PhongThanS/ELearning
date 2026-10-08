@@ -72,6 +72,7 @@ public static class AuditActions
 
     public const string GroupCreated = "GROUP_CREATED";
     public const string GroupUpdated = "GROUP_UPDATED";
+    public const string GroupDeleted = "GROUP_DELETED";
     public const string GroupMembersChanged = "GROUP_MEMBERS_CHANGED";
     public const string RoleCreated = "ROLE_CREATED";
     public const string RoleUpdated = "ROLE_UPDATED";
@@ -79,6 +80,7 @@ public static class AuditActions
 
     public const string CategoryCreated = "CATEGORY_CREATED";
     public const string CategoryUpdated = "CATEGORY_UPDATED";
+    public const string CategoryDeleted = "CATEGORY_DELETED";
     public const string CategoryStatusChanged = "CATEGORY_STATUS_CHANGED";
     public const string QuestionCreated = "QUESTION_CREATED";
     public const string QuestionUpdated = "QUESTION_UPDATED";

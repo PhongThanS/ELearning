@@ -36,6 +36,8 @@ export function CategoriesPage() {
   const list = useListQuery({ sortBy: "name", sortDir: "asc" });
   const query = useQuery({ queryKey: ["categories", list.params], queryFn: () => categoriesApi.list(list.params) });
   const [editing, setEditing] = useState<{ id?: string; code: string; name: string; rowVersion?: string; isActive?: boolean } | null>(null);
+  const [deleting, setDeleting] = useState<Category | null>(null);
+
   const save = useMutation({
     mutationFn: () =>
       editing!.id
@@ -43,13 +45,29 @@ export function CategoriesPage() {
         : categoriesApi.create({ code: editing!.code, name: editing!.name }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["categories"] });
+      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
       setEditing(null);
       toast.success(t("common.saved"));
     },
   });
+
   const toggle = useMutation({
     mutationFn: (c: Category) => categoriesApi.setStatus(c.id, !c.isActive),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["categories"] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
+    },
+    onError: (e) => toast.error(e),
+  });
+
+  const remove = useMutation({
+    mutationFn: (c: Category) => categoriesApi.remove(c.id, true),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
+      setDeleting(null);
+      toast.success("Đã xóa chuyên đề thành công.");
+    },
     onError: (e) => toast.error(e),
   });
 
@@ -64,14 +82,17 @@ export function CategoriesPage() {
       className: "text-end",
       render: (c) =>
         canManage && (
-          <>
-            <Button size="sm" variant="link" onClick={() => setEditing({ id: c.id, code: c.code, name: c.name, rowVersion: c.rowVersion, isActive: c.isActive })}>
+          <div className="d-inline-flex gap-2">
+            <Button size="sm" variant="link" className="p-0" onClick={() => setEditing({ id: c.id, code: c.code, name: c.name, rowVersion: c.rowVersion, isActive: c.isActive })}>
               {t("common.edit")}
             </Button>
-            <Button size="sm" variant="link" onClick={() => toggle.mutate(c)}>
+            <Button size="sm" variant="link" className="p-0" onClick={() => toggle.mutate(c)}>
               {c.isActive ? t("common.deactivate") : t("common.activate")}
             </Button>
-          </>
+            <Button size="sm" variant="link" className="p-0 text-danger" onClick={() => setDeleting(c)}>
+              {t("common.delete")}
+            </Button>
+          </div>
         ),
     },
   ];
@@ -83,6 +104,8 @@ export function CategoriesPage() {
         <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
       </div>
       <DataTable data={query.data} columns={columns} rowKey={(c) => c.id} isLoading={query.isLoading} error={query.error} sort={list.state} onSort={list.toggleSort} onPage={list.setPage} />
+      
+      {/* Modal Sửa / Thêm */}
       <Modal show={!!editing} onHide={() => setEditing(null)} centered>
         <Form
           onSubmit={(e) => {
@@ -91,7 +114,7 @@ export function CategoriesPage() {
           }}
         >
           <Modal.Header closeButton>
-            <Modal.Title as="h2" className="h5">{editing?.id ? t("common.edit") : t("common.create")} danh mục</Modal.Title>
+            <Modal.Title as="h2" className="h5">{editing?.id ? t("common.edit") : t("common.create")} chuyên đề</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             {save.error && <Alert variant="danger">{describeError(save.error)}</Alert>}
@@ -109,9 +132,45 @@ export function CategoriesPage() {
             )}
           </Modal.Body>
           <Modal.Footer>
+            <Button variant="secondary" onClick={() => setEditing(null)}>{t("common.cancel")}</Button>
             <Button type="submit" disabled={save.isPending}>{t("common.save")}</Button>
           </Modal.Footer>
         </Form>
+      </Modal>
+
+      {/* Modal Xác nhận xóa */}
+      <Modal show={!!deleting} onHide={() => setDeleting(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" className="h5">Xác nhận xóa chuyên đề</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleting && (
+            <div>
+              <p>
+                Bạn có chắc chắn muốn xóa chuyên đề <strong>{deleting.name}</strong> (<code>{deleting.code}</code>)?
+              </p>
+              {deleting.questionCount > 0 ? (
+                <Alert variant="warning" className="mb-0">
+                  ⚠️ Chuyên đề này đang chứa <strong>{deleting.questionCount}</strong> câu hỏi. Thao tác này sẽ xóa chuyên đề và giải phóng các câu hỏi liên quan.
+                </Alert>
+              ) : (
+                <p className="text-secondary small mb-0">Hành động này không thể hoàn tác.</p>
+              )}
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setDeleting(null)} disabled={remove.isPending}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => deleting && remove.mutate(deleting)}
+            disabled={remove.isPending}
+          >
+            {remove.isPending ? "Đang xóa..." : t("common.delete")}
+          </Button>
+        </Modal.Footer>
       </Modal>
     </>
   );

@@ -7,7 +7,7 @@ import { examsApi, questionsApi } from "../../services/api";
 import { ConfirmDialog, ErrorAlert, Loading } from "../../components/common/Feedback";
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
-import { Pager, PageHeader } from "../../components/common/DataTable";
+import { Pager, PageHeader, SearchBox } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
 import { useListQuery } from "../../hooks/useListQuery";
@@ -15,7 +15,6 @@ import { formatNumber, markdownExcerpt } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import { QuestionCard } from "../attempts/ExamPlayerPage";
-import { QuestionFilters } from "../questions/QuestionPages";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { VersionSettingsFields } from "./ExamPages";
 import { PoolRulesCard } from "./PoolRulesCard";
@@ -102,49 +101,298 @@ function QuestionPicker({ existing, onAdd, busy }: { existing: VersionQuestion[]
   const query = useQuery({ queryKey: ["questions", "picker", list.params], queryFn: () => questionsApi.list(list.params) });
   const [selected, setSelected] = useState<string[]>([]);
   const [score, setScore] = useState<string>("");
+  const [showModal, setShowModal] = useState(false);
   const inVersion = new Set(existing.map((q) => q.sourceQuestionId));
   const { t } = useTranslation();
 
+  const handleSelectAllPage = () => {
+    const pageAvailable = query.data?.items.filter((q) => !inVersion.has(q.id)).map((q) => q.id) ?? [];
+    setSelected(Array.from(new Set([...selected, ...pageAvailable])));
+  };
+
+  const handleClearAll = () => {
+    setSelected([]);
+  };
+
   return (
-    <Card>
-      <Card.Body>
-        <h2 className="h6">Ngân hàng câu hỏi</h2>
-        <QuestionFilters list={list} categories={categories.data?.items ?? []} />
-        {query.isLoading && <Loading />}
-        <ListGroup className="mb-2">
-          {query.data?.items.map((q) => {
-            const added = inVersion.has(q.id);
-            return (
-              <ListGroup.Item key={q.id} className="d-flex gap-2 align-items-start">
-                <Form.Check
-                  aria-label={`Chọn ${q.code}`}
-                  disabled={added}
-                  checked={added || selected.includes(q.id)}
-                  onChange={(e) => setSelected(e.target.checked ? [...selected, q.id] : selected.filter((x) => x !== q.id))}
+    <>
+      <Card className="shadow-sm border">
+        <Card.Body>
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <h2 className="h6 mb-0 fw-bold">Ngân hàng câu hỏi</h2>
+            <Button size="sm" variant="outline-primary" onClick={() => setShowModal(true)}>
+              🔍 Mở rộng
+            </Button>
+          </div>
+
+          {/* Bộ lọc tối ưu cho sidebar */}
+          <div className="mb-2">
+            <div className="mb-2">
+              <Form.Select
+                size="sm"
+                value={String(list.state.categoryId ?? "")}
+                onChange={(e) => list.setFilter({ categoryId: e.target.value })}
+              >
+                <option value="">📁 Tất cả chuyên đề</option>
+                {categories.data?.items.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.questionCount} câu)
+                  </option>
+                ))}
+              </Form.Select>
+            </div>
+            <div className="d-flex gap-2">
+              <div className="flex-grow-1">
+                <SearchBox
+                  value={list.state.keyword ?? ""}
+                  onSearch={(keyword) => list.setFilter({ keyword })}
+                  placeholder="Tìm nội dung / mã..."
                 />
-                <div className="small">
-                  <code>{q.code}</code> <Badge bg="light" text="dark">{t(`enums.questionType.${q.questionType}`)}</Badge> {added && <Badge bg="success">Đã có</Badge>}
-                  <div>{markdownExcerpt(q.contentPreview)}</div>
-                </div>
-              </ListGroup.Item>
-            );
-          })}
-        </ListGroup>
-        {query.data && <Pager data={query.data} onPage={list.setPage} />}
-        <InputGroup size="sm" className="mt-2">
-          <Form.Control type="number" min={0.25} max={100} step={0.25} placeholder="Điểm (mặc định của câu)" aria-label="Điểm" value={score} onChange={(e) => setScore(e.target.value)} />
+              </div>
+              <Form.Select
+                size="sm"
+                style={{ width: "40%" }}
+                value={String(list.state.questionType ?? "")}
+                onChange={(e) => list.setFilter({ questionType: e.target.value })}
+              >
+                <option value="">Mọi loại</option>
+                <option value="SINGLE_CHOICE">1 đáp án</option>
+                <option value="MULTIPLE_CHOICE">Nhiều đáp án</option>
+                <option value="TRUE_FALSE">Đúng/Sai</option>
+                <option value="FILL_IN">Điền khuyết</option>
+                <option value="ESSAY">Tự luận</option>
+              </Form.Select>
+            </div>
+          </div>
+
+          {/* Thanh chọn nhanh */}
+          <div className="d-flex justify-content-between align-items-center gap-1 mb-2">
+            <div className="d-flex gap-1">
+              <Button size="sm" variant="light" className="border py-0 px-2 small" onClick={handleSelectAllPage}>
+                ✓ Chọn trang này
+              </Button>
+              {selected.length > 0 && (
+                <Button size="sm" variant="light" className="border py-0 px-2 small text-secondary" onClick={handleClearAll}>
+                  Bỏ chọn
+                </Button>
+              )}
+            </div>
+            <span className="small text-primary fw-bold">
+              {selected.length > 0 ? `Đã chọn ${selected.length} câu` : ""}
+            </span>
+          </div>
+
+          {query.isLoading && <Loading />}
+          <ListGroup className="mb-2">
+            {query.data?.items.map((q) => {
+              const added = inVersion.has(q.id);
+              const isChecked = added || selected.includes(q.id);
+              return (
+                <ListGroup.Item
+                  key={q.id}
+                  className={`d-flex gap-2 align-items-start p-2 ${isChecked && !added ? "bg-light border-primary" : ""}`}
+                >
+                  <Form.Check
+                    aria-label={`Chọn ${q.code}`}
+                    disabled={added}
+                    checked={isChecked}
+                    onChange={(e) => setSelected(e.target.checked ? [...selected, q.id] : selected.filter((x) => x !== q.id))}
+                  />
+                  <div className="small flex-grow-1 min-w-0">
+                    <div className="d-flex flex-wrap align-items-center gap-1 mb-1">
+                      <code>{q.code}</code>
+                      <Badge bg="secondary" className="fw-normal">{q.categoryName || "Chưa phân loại"}</Badge>
+                      <Badge bg="light" text="dark" className="border fw-normal">{t(`enums.questionType.${q.questionType}`)}</Badge>
+                      {added && <Badge bg="success">Đã có trong đề</Badge>}
+                    </div>
+                    <div className="text-truncate">{markdownExcerpt(q.contentPreview)}</div>
+                  </div>
+                </ListGroup.Item>
+              );
+            })}
+            {query.data?.items.length === 0 && (
+              <div className="text-center py-3 text-secondary small">
+                Không tìm thấy câu hỏi trong chuyên đề đã chọn.
+              </div>
+            )}
+          </ListGroup>
+          {query.data && <Pager data={query.data} onPage={list.setPage} />}
+          <InputGroup size="sm" className="mt-2">
+            <Form.Control type="number" min={0.25} max={100} step={0.25} placeholder="Điểm (để trống: mặc định)" aria-label="Điểm" value={score} onChange={(e) => setScore(e.target.value)} />
+            <Button
+              variant="primary"
+              disabled={selected.length === 0 || busy}
+              onClick={() => {
+                onAdd(selected, score ? Number(score) : null);
+                setSelected([]);
+              }}
+            >
+              Thêm {selected.length > 0 ? `${selected.length} ` : ""}câu vào đề
+            </Button>
+          </InputGroup>
+        </Card.Body>
+      </Card>
+
+      {/* Modal mở rộng Ngân hàng câu hỏi để chọn tiện lợi */}
+      <Modal show={showModal} onHide={() => setShowModal(false)} size="xl" centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" className="h5">Lấy câu hỏi từ Ngân hàng câu hỏi</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <div className="bg-light p-3 rounded mb-3 border">
+            <Row className="g-2 align-items-center">
+              <Col md={4}>
+                <Form.Label className="small fw-bold mb-1">📁 Chuyên đề</Form.Label>
+                <Form.Select
+                  size="sm"
+                  value={String(list.state.categoryId ?? "")}
+                  onChange={(e) => list.setFilter({ categoryId: e.target.value })}
+                >
+                  <option value="">-- Tất cả chuyên đề --</option>
+                  {categories.data?.items.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.questionCount} câu)
+                    </option>
+                  ))}
+                </Form.Select>
+              </Col>
+              <Col md={4}>
+                <Form.Label className="small fw-bold mb-1">🔍 Tìm kiếm</Form.Label>
+                <SearchBox
+                  value={list.state.keyword ?? ""}
+                  onSearch={(keyword) => list.setFilter({ keyword })}
+                  placeholder="Mã hoặc từ khóa nội dung..."
+                />
+              </Col>
+              <Col md={2}>
+                <Form.Label className="small fw-bold mb-1">Loại câu</Form.Label>
+                <Form.Select
+                  size="sm"
+                  value={String(list.state.questionType ?? "")}
+                  onChange={(e) => list.setFilter({ questionType: e.target.value })}
+                >
+                  <option value="">Tất cả loại</option>
+                  <option value="SINGLE_CHOICE">1 đáp án</option>
+                  <option value="MULTIPLE_CHOICE">Nhiều đáp án</option>
+                  <option value="TRUE_FALSE">Đúng / Sai</option>
+                  <option value="FILL_IN">Điền khuyết</option>
+                  <option value="ESSAY">Tự luận</option>
+                </Form.Select>
+              </Col>
+              <Col md={2}>
+                <Form.Label className="small fw-bold mb-1">Độ khó</Form.Label>
+                <Form.Select
+                  size="sm"
+                  value={String(list.state.difficulty ?? "")}
+                  onChange={(e) => list.setFilter({ difficulty: e.target.value })}
+                >
+                  <option value="">Tất cả độ khó</option>
+                  <option value="EASY">Dễ</option>
+                  <option value="MEDIUM">Trung bình</option>
+                  <option value="HARD">Khó</option>
+                </Form.Select>
+              </Col>
+            </Row>
+          </div>
+
+          <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2 p-2 bg-primary-subtle rounded border border-primary-subtle">
+            <div className="d-flex align-items-center gap-2">
+              <Button size="sm" variant="outline-primary" onClick={handleSelectAllPage}>
+                ✓ Chọn tất cả trên trang
+              </Button>
+              <Button size="sm" variant="outline-secondary" disabled={selected.length === 0} onClick={handleClearAll}>
+                Bỏ chọn tất cả
+              </Button>
+              <span className="small fw-bold text-primary">
+                Đã chọn: {selected.length} câu hỏi
+              </span>
+            </div>
+            <div className="d-flex align-items-center gap-2">
+              <span className="small text-secondary">Điểm mỗi câu:</span>
+              <Form.Control
+                size="sm"
+                type="number"
+                min={0.25}
+                max={100}
+                step={0.25}
+                style={{ width: 110 }}
+                placeholder="Mặc định"
+                value={score}
+                onChange={(e) => setScore(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {query.isLoading && <Loading />}
+          <div style={{ maxHeight: 400, overflowY: "auto" }}>
+            <ListGroup className="mb-2">
+              {query.data?.items.map((q) => {
+                const added = inVersion.has(q.id);
+                const isSelected = added || selected.includes(q.id);
+                return (
+                  <ListGroup.Item
+                    key={q.id}
+                    action={!added}
+                    onClick={() => {
+                      if (!added) {
+                        setSelected(
+                          selected.includes(q.id)
+                            ? selected.filter((x) => x !== q.id)
+                            : [...selected, q.id]
+                        );
+                      }
+                    }}
+                    className={`d-flex gap-3 align-items-start ${isSelected && !added ? "border-primary bg-light" : ""}`}
+                  >
+                    <Form.Check
+                      className="mt-1"
+                      disabled={added}
+                      checked={isSelected}
+                      onChange={() => {}}
+                    />
+                    <div className="flex-grow-1 min-w-0">
+                      <div className="d-flex flex-wrap align-items-center gap-2 mb-1">
+                        <code>{q.code}</code>
+                        <Badge bg="secondary" className="fw-normal">{q.categoryName || "Chưa phân loại"}</Badge>
+                        <Badge bg="info" text="dark" className="fw-normal">{t(`enums.questionType.${q.questionType}`)}</Badge>
+                        {added ? (
+                          <Badge bg="success">Đã có trong đề</Badge>
+                        ) : (
+                          q.difficulty && <Badge bg="light" text="dark" className="border fw-normal">{t(`enums.difficulty.${q.difficulty}`)}</Badge>
+                        )}
+                        <span className="small text-secondary ms-auto">
+                          Điểm mặc định: <strong>{q.defaultScore}</strong>
+                        </span>
+                      </div>
+                      <div className="small text-dark" style={{ lineHeight: 1.4 }}>
+                        {markdownExcerpt(q.contentPreview)}
+                      </div>
+                    </div>
+                  </ListGroup.Item>
+                );
+              })}
+            </ListGroup>
+          </div>
+          {query.data && <Pager data={query.data} onPage={list.setPage} />}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowModal(false)}>
+            {t("common.cancel")}
+          </Button>
           <Button
+            variant="primary"
             disabled={selected.length === 0 || busy}
             onClick={() => {
               onAdd(selected, score ? Number(score) : null);
               setSelected([]);
+              setShowModal(false);
             }}
           >
-            Thêm {selected.length > 0 ? selected.length : ""} câu
+            Thêm {selected.length > 0 ? `${selected.length} ` : ""}câu vào đề thi
           </Button>
-        </InputGroup>
-      </Card.Body>
-    </Card>
+        </Modal.Footer>
+      </Modal>
+    </>
   );
 }
 
