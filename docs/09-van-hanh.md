@@ -60,6 +60,8 @@ Seed dữ liệu cho Development (chạy khi `--seed` hoặc lần đầu ở De
 - Danh mục: `C#`, `SQL Server`, `ASP.NET`, `ReactJS`, `JavaScript`.
 - Đề demo "C# Basic": 10 câu đủ 4 loại, có code block, 60 phút, `AccessMode = ASSIGNED` gán nhóm `DEMO`.
 
+**Dữ liệu demo** (máy dev / Docker local): `ADMIN_PASSWORD='...' node deploy/scripts/demo-data.mjs` tạo qua API 5 danh mục, 41 câu hỏi đủ 5 loại, 24 học viên `demo.hs01…demo.hs24` (mật khẩu chung: biến `DEMO_STUDENT_PASSWORD`, mặc định ghi trong script), 1 nhóm, 5 lớp học (có học viên thuộc nhiều lớp, một lớp đã tắt) và 7 đề ở các trạng thái: đang mở có lượt đã nộp / đang làm, nhiều lượt, có tự luận chờ chấm, PUBLIC, đã đóng, sắp diễn ra, bản nháp. Chạy lại được: thứ đã có thì dùng lại, đề đã có thì bỏ qua.
+
 **Không bao giờ chạy seed dev ở Production.** Production chỉ seed role, permission và một tài khoản admin khởi tạo; mật khẩu lấy từ biến môi trường, và `MustChangePassword = true`.
 
 ## 4. Migration
