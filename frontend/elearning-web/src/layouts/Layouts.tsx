@@ -69,7 +69,7 @@ function UserMenu({ light = false }: { light?: boolean }) {
 
 /** Mục menu quản trị: mỗi khu một màu nhấn để dễ nhận ra (xem theme.scss, .accent-*). */
 const adminNav: { to: string; label: string; permission: string; icon: string; accent: string }[] = [
-  { to: "/admin/dashboard", label: "nav.dashboard", permission: Permissions.ReportView, icon: "bi-grid-1x2-fill", accent: "indigo" },
+  { to: "/admin/dashboard", label: "nav.dashboard", permission: Permissions.ReportView, icon: "bi-grid-1x2-fill", accent: "blue" },
   { to: "/admin/exams", label: "nav.exams", permission: Permissions.ExamView, icon: "bi-journal-check", accent: "violet" },
   { to: "/admin/questions", label: "nav.questions", permission: Permissions.QuestionView, icon: "bi-patch-question-fill", accent: "sky" },
   { to: "/admin/categories", label: "nav.categories", permission: Permissions.CategoryView, icon: "bi-folder2-open", accent: "teal" },

@@ -363,7 +363,7 @@ export function ResultPage() {
               <Col xs={12} md={3}>
                 {/* Vòng tròn phần trăm: xanh khi đạt, đỏ khi chưa đạt, tím khi đề không xét đạt */}
                 <div
-                  className={`score-ring accent-${r.passed == null ? "indigo" : r.passed ? "green" : "pink"}`}
+                  className={`score-ring accent-${r.passed == null ? "blue" : r.passed ? "green" : "pink"}`}
                   style={{ "--value": Math.min(100, Math.max(0, r.percentage ?? 0)) } as CSSProperties}
                   role="img"
                   aria-label={`${t("result.percentage")} ${formatNumber(r.percentage)}%`}

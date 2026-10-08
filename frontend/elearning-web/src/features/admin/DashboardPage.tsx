@@ -20,7 +20,7 @@ export function DashboardPage() {
   const d = query.data;
   // [nhãn, giá trị, icon Bootstrap Icons, màu nhấn (theme.scss)]
   const tiles: [string, string, string, string][] = [
-    ["Người dùng", formatNumber(d.totalUsers), "bi-people-fill", "indigo"],
+    ["Người dùng", formatNumber(d.totalUsers), "bi-people-fill", "blue"],
     ["Học viên", formatNumber(d.totalStudents), "bi-mortarboard-fill", "violet"],
     ["Đề thi", formatNumber(d.totalExams), "bi-journal-text", "sky"],
     ["Đề đang mở", formatNumber(d.openExams), "bi-unlock-fill", "teal"],

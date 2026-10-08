@@ -47,8 +47,8 @@ export function DataTable<T>({
 
   return (
     <>
-      <div className="table-responsive">
-        <Table hover size="sm" className="align-middle">
+      <div className="table-card table-responsive">
+        <Table hover striped size="sm" className="align-middle">
           <thead>
             <tr>
               {columns.map((c) => (

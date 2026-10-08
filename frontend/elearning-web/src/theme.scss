@@ -1,10 +1,11 @@
 // Theme ELearning (docs/06-frontend.md mục 5): Bootstrap 5 biên dịch từ Sass với bảng màu riêng.
-// Hướng thiết kế: thân thiện, nhiều màu nhưng có chủ đích — màu chính tím chàm, mỗi khu chức năng một màu nhấn,
+// Hướng thiết kế: thân thiện, dịu mắt — màu chính xanh dương, mỗi khu chức năng một màu nhấn,
 // nền sáng dịu, thẻ bo tròn không viền + bóng mờ (tham khảo Soft UI / Tabler, bảng điều khiển học tập).
 // Mọi cặp màu chữ / nền giữ tương phản tối thiểu WCAG AA cho chữ thường.
 
 // ---------- Bảng màu ----------
-$indigo: #5b4ee6;
+$blue: #2563eb;
+$indigo: #4f46e5;
 $violet: #8b5cf6;
 $pink: #ec4899;
 $sky: #0ea5e9;
@@ -15,16 +16,16 @@ $orange: #f97316;
 $red: #e11d48;
 $slate: #64748b;
 
-$primary: $indigo;
+$primary: $blue;
 $secondary: $slate;
 $success: $green;
 $info: $sky;
 $warning: $amber;
 $danger: $red;
-$light: #f3f5fb;
-$dark: #1e1b4b;
+$light: #f1f6fd;
+$dark: #0f1f3d;
 
-$body-bg: #f4f6fb;
+$body-bg: #f3f7fc;
 $body-color: #1f2937;
 $secondary-color: #5b6475;
 $link-decoration: none;
@@ -40,18 +41,18 @@ $border-radius: 0.6rem;
 $border-radius-sm: 0.45rem;
 $border-radius-lg: 0.9rem;
 $border-radius-xl: 1.2rem;
-$border-color: #e3e7f0;
+$border-color: #dfe7f3;
 
 $card-border-width: 0;
 $card-border-radius: 1rem;
 $card-cap-bg: transparent;
-$card-box-shadow: 0 1px 2px rgba(30, 27, 75, 0.06), 0 6px 18px rgba(30, 27, 75, 0.06);
+$card-box-shadow: 0 1px 2px rgba(15, 31, 61, 0.06), 0 6px 18px rgba(15, 31, 61, 0.06);
 
 $btn-font-weight: 500;
 $btn-padding-x: 1rem;
-$input-border-color: #d5dbe7;
-$input-focus-border-color: lighten($indigo, 18%);
-$input-focus-box-shadow: 0 0 0 0.2rem rgba($indigo, 0.2);
+$input-border-color: #d3dceb;
+$input-focus-border-color: lighten($blue, 20%);
+$input-focus-box-shadow: 0 0 0 0.2rem rgba($blue, 0.2);
 
 $badge-font-weight: 600;
 $badge-padding-y: 0.4em;
@@ -60,13 +61,17 @@ $badge-border-radius: 2rem;
 
 $nav-pills-border-radius: 0.6rem;
 $modal-content-border-radius: 1rem;
-$table-cell-padding-y-sm: 0.45rem;
-$table-striped-bg-factor: 0.03;
+$table-cell-padding-y-sm: 0.55rem;
+$table-cell-padding-x-sm: 0.75rem;
+$table-striped-bg: #f7faff;
+$table-hover-bg: #e8f1ff;
+$table-border-color: #e4ecf7;
 
 @import "bootstrap/scss/bootstrap";
 
 // Màu nhấn dùng chung cho thẻ thống kê, thẻ đề thi, biểu tượng (class .accent-<tên>)
 $accents: (
+  "blue": $blue,
   "indigo": $indigo,
   "violet": $violet,
   "pink": $pink,

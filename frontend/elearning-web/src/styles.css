@@ -1,12 +1,15 @@
 /* Bổ sung cho Bootstrap 5 (theme ở theme.scss); không dùng UI framework thứ hai (docs/06-frontend.md mục 5). */
 
 :root {
-  --brand-gradient: linear-gradient(135deg, #5b4ee6 0%, #8b5cf6 55%, #ec4899 100%);
-  --sidebar-bg: linear-gradient(180deg, #1e1b4b 0%, #2e1065 100%);
+  --brand-gradient: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #0ea5e9 100%);
+  --sidebar-bg: linear-gradient(180deg, #0c1f4a 0%, #13306e 100%);
+  --table-head-bg: #eaf2ff;
+  --table-head-color: #1e3a8a;
+  --table-frame: #d6e4f8;
 }
 
 :focus-visible {
-  outline: 3px solid #8b5cf6;
+  outline: 3px solid #60a5fa;
   outline-offset: 2px;
 }
 
@@ -24,7 +27,7 @@
   background: var(--brand-gradient);
   color: #fff;
   font-size: 1.15rem;
-  box-shadow: 0 4px 12px rgba(91, 78, 230, 0.35);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
 }
 
 .brand-sub {
@@ -59,7 +62,7 @@
   flex-shrink: 0;
   padding: 1.25rem 0.85rem;
   background: var(--sidebar-bg);
-  color: #e0e7ff;
+  color: #dbeafe;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -68,7 +71,7 @@
 
 .admin-offcanvas.offcanvas {
   background: var(--sidebar-bg);
-  color: #e0e7ff;
+  color: #dbeafe;
 }
 
 .sidebar-brand {
@@ -82,7 +85,7 @@
   gap: 0.7rem;
   padding: 0.55rem 0.65rem;
   border-radius: 0.7rem;
-  color: #c7d2fe;
+  color: #bfdbfe;
   font-weight: 500;
   transition: background-color 0.15s ease, color 0.15s ease;
 }
@@ -111,7 +114,7 @@
 
 .sidebar-foot {
   padding: 1rem 0.5rem 0;
-  color: #a5b4fc;
+  color: #93c5fd;
   opacity: 0.8;
 }
 
@@ -128,7 +131,7 @@
 /* ---------- Khu học viên ---------- */
 .student-navbar {
   background: var(--brand-gradient);
-  box-shadow: 0 4px 18px rgba(91, 78, 230, 0.25);
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.25);
 }
 
 .student-navbar .student-nav-link.active {
@@ -227,7 +230,7 @@
 
 .exam-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(30, 27, 75, 0.12);
+  box-shadow: 0 10px 28px rgba(15, 31, 61, 0.12);
 }
 
 .exam-card-band {
@@ -271,8 +274,8 @@
 }
 
 .md-content pre {
-  background: #f6f7fb;
-  border: 1px solid #e3e7f0;
+  background: #f5f8fd;
+  border: 1px solid #dfe7f3;
   border-radius: 0.6rem;
   padding: 0.75rem;
   overflow-x: auto;
@@ -337,7 +340,7 @@
 }
 
 .option-item:hover {
-  background-color: #f6f5ff;
+  background-color: #f1f6ff;
 }
 
 .option-item:has(input:checked) {
@@ -355,4 +358,74 @@
   min-width: 3rem;
   border-radius: 0.6rem !important;
   font-weight: 600;
+}
+
+/* ---------- Bảng ---------- */
+/* Tiêu đề nền xanh nhạt, dòng xen kẽ, hover xanh; áp dụng cho mọi bảng Bootstrap. */
+.table > thead > tr > th {
+  background-color: var(--table-head-bg);
+  color: var(--table-head-color);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  border-bottom: 2px solid #bfd6f6;
+  vertical-align: middle;
+}
+
+.table > thead > tr > th .btn-link {
+  color: inherit;
+  font-size: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+
+.table > thead > tr > th .btn-link:hover {
+  color: var(--bs-primary);
+}
+
+.table > tbody > tr:last-child > td {
+  border-bottom-width: 0;
+}
+
+.table > tbody > tr > td {
+  transition: background-color 0.12s ease;
+}
+
+/* Khung bảng danh sách (DataTable): thẻ trắng bo tròn, viền xanh nhạt */
+.table-card {
+  background: #fff;
+  border: 1px solid var(--table-frame);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 31, 61, 0.05), 0 6px 18px rgba(15, 31, 61, 0.05);
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.table-card .table {
+  margin-bottom: 0;
+}
+
+.table-card .table > thead > tr > th:first-child,
+.table-card .table > tbody > tr > td:first-child {
+  padding-left: 1rem;
+}
+
+.table-card .table > thead > tr > th:last-child,
+.table-card .table > tbody > tr > td:last-child {
+  padding-right: 1rem;
+}
+
+.table-card .table > tbody > tr > td:first-child a {
+  font-weight: 600;
+}
+
+/* Bảng nằm trong thẻ: bo góc tiêu đề theo thẻ */
+.card .table > thead > tr > th:first-child {
+  border-top-left-radius: 0.5rem;
+}
+
+.card .table > thead > tr > th:last-child {
+  border-top-right-radius: 0.5rem;
 }
