@@ -120,7 +120,24 @@ function CreateUserModal({ show, onHide, onCreated }: { show: boolean; onHide: (
           {(["userName", "email", "fullName"] as const).map((name) => (
             <Form.Group className="mb-3" controlId={`new-user-${name}`} key={name}>
               <Form.Label>{name === "userName" ? t("auth.userNameOnly") : name === "email" ? t("auth.email") : t("auth.fullName")} *</Form.Label>
-              <Form.Control value={form[name]} isInvalid={!!errors[name]} onChange={(e) => setForm({ ...form, [name]: e.target.value })} required />
+              <Form.Control
+                value={form[name]}
+                isInvalid={!!errors[name]}
+                placeholder={
+                  name === "userName"
+                    ? "VD: nguyen_van_a, giaovien01"
+                    : name === "email"
+                      ? "VD: giaovien@example.com"
+                      : "VD: Nguyễn Văn An"
+                }
+                onChange={(e) => setForm({ ...form, [name]: e.target.value })}
+                required
+              />
+              {name === "userName" && (
+                <Form.Text className="text-muted small">
+                  Tên đăng nhập gồm 3–50 ký tự: chữ không dấu (a-z), số (0-9), dấu chấm (.), gạch dưới (_) hoặc gạch ngang (-). Không dùng khoảng trắng.
+                </Form.Text>
+              )}
               <Form.Control.Feedback type="invalid">{errors[name]}</Form.Control.Feedback>
             </Form.Group>
           ))}
@@ -406,13 +423,41 @@ export function GroupsPage() {
           </Modal.Header>
           <Modal.Body>
             {create.error && <Alert variant="danger">{describeError(create.error)}</Alert>}
-            {form &&
-              (["code", "name", "description"] as const).map((name) => (
-                <Form.Group className="mb-3" controlId={`group-${name}`} key={name}>
-                  <Form.Label>{t(`common.${name}`)}{name !== "description" && " *"}</Form.Label>
-                  <Form.Control value={form[name]} required={name !== "description"} onChange={(e) => setForm({ ...form, [name]: e.target.value })} />
+            {form && (
+              <>
+                <Form.Group className="mb-3" controlId="group-code">
+                  <Form.Label>{t("common.code")} *</Form.Label>
+                  <Form.Control
+                    value={form.code}
+                    required
+                    placeholder="VD: 12A1-2026, LOP-TOAN-01"
+                    onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  />
+                  <Form.Text className="text-muted small">
+                    Mã nhóm gồm 2–100 ký tự: chữ không dấu (A-Z), số (0-9), gạch ngang (-), gạch dưới (_) hoặc chấm (.). Không dùng dấu cách.
+                  </Form.Text>
                 </Form.Group>
-              ))}
+                <Form.Group className="mb-3" controlId="group-name">
+                  <Form.Label>{t("common.name")} *</Form.Label>
+                  <Form.Control
+                    value={form.name}
+                    required
+                    placeholder="VD: Lớp 12A1 (Niên khóa 2025-2026)"
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3" controlId="group-description">
+                  <Form.Label>{t("common.description")}</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    value={form.description}
+                    placeholder="Mô tả nhóm / lớp học (tùy chọn)"
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  />
+                </Form.Group>
+              </>
+            )}
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={() => setForm(null)}>{t("common.cancel")}</Button>
@@ -702,11 +747,25 @@ export function RolesPage() {
               <>
                 <Form.Group className="mb-3" controlId="role-code">
                   <Form.Label>{t("common.code")} *</Form.Label>
-                  <Form.Control value={editing.code} required disabled={!!editing.id} onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
+                  <Form.Control
+                    value={editing.code}
+                    required
+                    disabled={!!editing.id}
+                    placeholder="VD: TEACHER, EXAM_REVIEWER"
+                    onChange={(e) => setEditing({ ...editing, code: e.target.value })}
+                  />
+                  <Form.Text className="text-muted small">
+                    Mã vai trò gồm 2–50 ký tự: chữ không dấu, số, gạch dưới; bắt đầu bằng chữ cái.
+                  </Form.Text>
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="role-name">
                   <Form.Label>{t("common.name")} *</Form.Label>
-                  <Form.Control value={editing.name} required onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                  <Form.Control
+                    value={editing.name}
+                    required
+                    placeholder="VD: Giáo viên bộ môn"
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  />
                 </Form.Group>
                 {editing.id && (
                   <Form.Check type="switch" id="role-active" label={t("common.active")} checked={editing.isActive}

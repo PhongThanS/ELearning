@@ -255,6 +255,17 @@
     "MEDIA_FILE_REQUIRED": "Vui lòng chọn file ảnh.",
     "MEDIA_TOO_LARGE": "Ảnh quá lớn (tối đa 2 MB).",
     "MEDIA_TYPE_NOT_ALLOWED": "Chỉ nhận ảnh PNG, JPEG, GIF hoặc WebP.",
-    "MEDIA_NOT_FOUND": "Có ảnh trong nội dung không tồn tại. Hãy tải ảnh lên lại."
+    "MEDIA_NOT_FOUND": "Có ảnh trong nội dung không tồn tại. Hãy tải ảnh lên lại.",
+    "CODE_INVALID": "Mã không đúng định dạng. Chỉ dùng chữ cái không dấu (A-Z), số (0-9) và các ký tự: dấu gạch ngang (-), gạch dưới (_) hoặc chấm (.). Không chứa khoảng trắng hay dấu tiếng Việt.",
+    "CODE_REQUIRED": "Vui lòng nhập mã.",
+    "NAME_REQUIRED": "Vui lòng nhập tên.",
+    "USERNAME_INVALID": "Tên đăng nhập không đúng định dạng. Dùng từ 3–50 ký tự: chữ không dấu (a-z), số (0-9), dấu chấm (.), gạch dưới (_) hoặc gạch ngang (-). Không dùng khoảng trắng.",
+    "USERNAME_REQUIRED": "Vui lòng nhập tên đăng nhập.",
+    "EMAIL_INVALID": "Địa chỉ email không đúng định dạng.",
+    "EMAIL_REQUIRED": "Vui lòng nhập email.",
+    "FULLNAME_REQUIRED": "Vui lòng nhập họ tên.",
+    "OPTION_CODE_INVALID": "Mã lựa chọn phải là chữ cái từ A đến J.",
+    "ROLE_CODE_INVALID": "Mã vai trò gồm 2–50 ký tự: chữ không dấu, số, gạch dưới; bắt đầu bằng chữ cái.",
+    "CATEGORY_HAS_QUESTIONS": "Chuyên đề đang có câu hỏi trực thuộc."
   }
 }

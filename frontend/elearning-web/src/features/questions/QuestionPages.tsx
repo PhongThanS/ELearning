@@ -122,11 +122,25 @@ export function CategoriesPage() {
               <>
                 <Form.Group className="mb-3" controlId="cat-code">
                   <Form.Label>{t("common.code")} *</Form.Label>
-                  <Form.Control value={editing.code} disabled={!!editing.id} required onChange={(e) => setEditing({ ...editing, code: e.target.value })} />
+                  <Form.Control
+                    value={editing.code}
+                    disabled={!!editing.id}
+                    required
+                    placeholder="VD: TOAN-12, HOA-HOC-10"
+                    onChange={(e) => setEditing({ ...editing, code: e.target.value })}
+                  />
+                  <Form.Text className="text-muted small">
+                    1–100 ký tự: chữ không dấu A-Z, số 0-9 và các ký tự (# + . _ -). Không dùng dấu cách hay dấu tiếng Việt.
+                  </Form.Text>
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="cat-name">
                   <Form.Label>{t("common.name")} *</Form.Label>
-                  <Form.Control value={editing.name} required onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+                  <Form.Control
+                    value={editing.name}
+                    required
+                    placeholder="VD: Đại số & Giải tích 12"
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  />
                 </Form.Group>
               </>
             )}
@@ -497,7 +511,16 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   <Col md={4}>
                     <Form.Group controlId="q-code">
                       <Form.Label>{t("common.code")}</Form.Label>
-                      <Form.Control value={form.code ?? ""} disabled={!!id} placeholder="Tự sinh nếu để trống" isInvalid={!!err("code")} onChange={(e) => set({ code: e.target.value })} />
+                      <Form.Control
+                        value={form.code ?? ""}
+                        disabled={!!id}
+                        placeholder="Tự sinh nếu để trống (VD: Q000001)"
+                        isInvalid={!!err("code")}
+                        onChange={(e) => set({ code: e.target.value })}
+                      />
+                      <Form.Text className="text-muted small">
+                        Để trống hệ thống sẽ tự sinh mã. Nếu tự đặt: 1–100 ký tự (chữ không dấu A-Z, số 0-9, ., _, -).
+                      </Form.Text>
                       <Form.Control.Feedback type="invalid">{err("code")}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>

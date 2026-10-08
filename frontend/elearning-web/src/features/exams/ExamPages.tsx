@@ -87,14 +87,31 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
       <Col md={4}>
         <Form.Group controlId="exam-code">
           <Form.Label>{t("common.code")} *</Form.Label>
-          <Form.Control value={form.code} disabled={!codeEditable} isInvalid={!!errors.code} onChange={(e) => set({ code: e.target.value })} />
+          <Form.Control
+            value={form.code}
+            disabled={!codeEditable}
+            isInvalid={!!errors.code}
+            placeholder="VD: TOAN-12-HK1, DE-THI-01"
+            onChange={(e) => set({ code: e.target.value })}
+          />
+          <Form.Text className="text-muted small">
+            2–100 ký tự: chữ không dấu A-Z, số 0-9, gạch ngang (-), gạch dưới (_) hoặc chấm (.). Không dùng dấu cách.
+          </Form.Text>
           <Form.Control.Feedback type="invalid">{errors.code}</Form.Control.Feedback>
         </Form.Group>
       </Col>
       <Col md={8}>
         <Form.Group controlId="exam-name">
           <Form.Label>{t("common.name")} *</Form.Label>
-          <Form.Control value={form.name} isInvalid={!!errors.name} onChange={(e) => set({ name: e.target.value })} />
+          <Form.Control
+            value={form.name}
+            isInvalid={!!errors.name}
+            placeholder="VD: Kiểm tra giữa kỳ môn Toán 12"
+            onChange={(e) => set({ name: e.target.value })}
+          />
+          <Form.Text className="text-muted small">
+            Tên bài thi hiển thị công khai (tối đa 200 ký tự).
+          </Form.Text>
           <Form.Control.Feedback type="invalid">{errors.name}</Form.Control.Feedback>
         </Form.Group>
       </Col>

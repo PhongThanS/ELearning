@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from "axios";
 import type { ApiEnvelope, ApiErrorItem, AuthResponse } from "../types/api";
+import { errorMessage } from "../i18n";
 
 /**
  * Một instance Axios duy nhất (docs/03-kien-truc.md mục 7):
@@ -49,7 +50,7 @@ export class ApiError extends Error {
     const result: Record<string, string> = {};
     for (const e of this.errors) {
       if (e.field && !result[e.field]) {
-        result[e.field] = e.message;
+        result[e.field] = e.code ? errorMessage(e.code, e.message) : e.message;
       }
     }
     return result;
