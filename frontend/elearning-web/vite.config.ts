@@ -15,6 +15,12 @@ export default defineConfig({
       "/health": { target: apiTarget, changeOrigin: false },
     },
   },
+  css: {
+    preprocessorOptions: {
+      // Bootstrap 5.3 còn dùng @import và hàm màu cũ của Sass; ẩn cảnh báo deprecation của chính Bootstrap
+      scss: { quietDeps: true, silenceDeprecations: ["import", "global-builtin", "color-functions", "mixed-decls"] },
+    },
+  },
   build: {
     // Chunk chính chủ yếu là thư viện dùng chung (React, Bootstrap, TanStack, i18next); các trang đã tách theo route.
     chunkSizeWarningLimit: 800,

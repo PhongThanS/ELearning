@@ -72,7 +72,7 @@ Lỗi nghiệp vụ (422):
 | `TOKEN_INVALID` | 401 | Access / refresh token không hợp lệ hoặc hết hạn |
 | `REGISTRATION_DISABLED` | 403 | Đang tắt chức năng tự đăng ký |
 | `FORBIDDEN` | 403 | Thiếu permission |
-| `NOT_FOUND` | 404 | Chung. Có thêm biến thể `EXAM_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `QUESTION_NOT_FOUND` |
+| `NOT_FOUND` | 404 | Chung. Có thêm biến thể `EXAM_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `QUESTION_NOT_FOUND`, `CLASSROOM_NOT_FOUND` |
 | `CONCURRENCY_CONFLICT` | 409 | Dữ liệu đã bị người khác sửa |
 | `DUPLICATE_CODE` | 409 | Trùng `Code` |
 | `ATTEMPT_NOT_IN_PROGRESS` | 409 | Lượt thi đã nộp hoặc đã hủy |
@@ -153,6 +153,13 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | GET | `/api/groups/{id}/members` | `Group.View` |
 | POST | `/api/groups/{id}/members` `{ userIds }` | `Group.Manage` |
 | DELETE | `/api/groups/{id}/members/{userId}` | `Group.Manage` |
+| GET/POST | `/api/classes` (lọc `keyword`, `schoolYear`, `isActive`; sort `code`, `name`, `schoolYear`, `createdAt`) | `Class.View` / `Class.Manage` |
+| GET/PUT | `/api/classes/{id}` (PUT kèm `rowVersion`; mã lớp không đổi) | `Class.View` / `Class.Manage` |
+| PATCH | `/api/classes/{id}/status` `{ isActive }` | `Class.Manage` |
+| DELETE | `/api/classes/{id}` → 204; còn gán cho đề → 409 `CLASSROOM_IN_USE` | `Class.Manage` |
+| GET | `/api/classes/{id}/students` | `Class.View` |
+| POST | `/api/classes/{id}/students` `{ userIds }` (chỉ role `STUDENT`, tối đa 500) | `Class.Manage` |
+| DELETE | `/api/classes/{id}/students/{userId}` | `Class.Manage` |
 | GET | `/api/roles`, `/api/permissions` | `Role.View` |
 | POST/PUT | `/api/roles`, `/api/roles/{id}` | `Role.Manage` (không sửa được role `IsSystem`) |
 | PUT | `/api/roles/{id}/permissions` `{ permissionIds }` | `Role.Manage` |
@@ -218,7 +225,7 @@ Ví dụ tạo câu hỏi:
 | POST | `/api/exams/{id}/versions/{versionId}/validate` (kiểm tra thử, không publish) | `Exam.Update` |
 | POST | `/api/exams/{id}/versions/{versionId}/publish` | `Exam.Publish` |
 | GET | `/api/exams/{id}/assignments` | `Exam.View` |
-| PUT | `/api/exams/{id}/assignments` `{ groupIds, userIds }` | `Exam.Assign` |
+| PUT | `/api/exams/{id}/assignments` `{ groupIds, userIds, classroomIds }` (thay toàn bộ danh sách) | `Exam.Assign` |
 | POST | `/api/exams/{id}/versions/{versionId}/pool-rules` `{ categoryId?, difficulty?, tag?, questionType?, drawCount, scorePerQuestion }` → `VersionDetail` (có `poolRules[]`). Lỗi: `POOL_TOO_LARGE` | `Exam.Update` |
 | POST | `/api/exams/{id}/versions/{versionId}/pool-rules/{ruleId}/refresh` (snapshot lại câu ứng viên) | `Exam.Update` |
 | DELETE | `/api/exams/{id}/versions/{versionId}/pool-rules/{ruleId}` | `Exam.Update` |
@@ -251,7 +258,8 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 ### 6.7 Học viên
 | Method | Route | Quyền |
 |---|---|---|
-| GET | `/api/student/exams` | Student |
+| GET | `/api/student/classes` (lớp đang hoạt động của tôi, D-28) | Student |
+| GET | `/api/student/exams` (`classroomId` tùy chọn: chỉ đề gán cho lớp đó, học viên phải thuộc lớp) | Student |
 | GET | `/api/student/exams/{examId}` | Student |
 | POST | `/api/student/exams/{examId}/start` | Student |
 | GET | `/api/student/attempts/{attemptId}` | Student (chủ sở hữu) |

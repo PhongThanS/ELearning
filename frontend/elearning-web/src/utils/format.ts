@@ -86,3 +86,17 @@ export function markdownExcerpt(markdown: string): string {
 export function optionLabel(index: number): string {
   return String.fromCharCode(65 + index);
 }
+
+/** Ngày không có giờ ("yyyy-MM-dd", ví dụ ngày học của lớp) → "dd/MM/yyyy". Không đổi múi giờ. */
+export function formatDateOnly(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+  const [y, m, d] = value.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/** Khoảng ngày học của lớp. */
+export function formatDateRange(start: string | null | undefined, end: string | null | undefined): string {
+  return start || end ? `${formatDateOnly(start)} – ${formatDateOnly(end)}` : "—";
+}

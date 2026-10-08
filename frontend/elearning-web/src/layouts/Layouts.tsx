@@ -423,10 +423,11 @@ const adminNav: {
   { to: "/admin/exams", label: "nav.exams", icon: "📝", permission: Permissions.ExamView },
   { to: "/admin/questions", label: "nav.questions", icon: "❓", permission: Permissions.QuestionView },
   { to: "/admin/categories", label: "nav.categories", icon: "📁", permission: Permissions.CategoryView, isCategoriesDropdown: true },
+  { to: "/admin/classes", label: "nav.classes", icon: "🏫", permission: Permissions.ClassView },
   { to: "/admin/users", label: "nav.users", icon: "👤", permission: Permissions.UserView },
   { to: "/admin/roles", label: "nav.roles", icon: "🛡️", permission: Permissions.RoleView },
   { to: "/admin/audit-logs", label: "nav.auditLogs", icon: "📜", permission: Permissions.AuditView },
-  { to: "/admin/groups", label: "nav.groups", icon: "🏫", permission: Permissions.GroupView, isGroupsDropdown: true },
+  { to: "/admin/groups", label: "nav.groups", icon: "👥", permission: Permissions.GroupView, isGroupsDropdown: true },
 ];
 
 export function AdminLayout() {
@@ -557,6 +558,9 @@ export function StudentLayout() {
             <Nav className="me-auto">
               <Nav.Link as={NavLink} to="/student/exams" className="d-flex align-items-center gap-1.5">
                 <span>📝</span> {t("nav.studentExams")}
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/student/classes" className="d-flex align-items-center gap-1.5">
+                <span>🏫</span> {t("nav.myClasses")}
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/history" className="d-flex align-items-center gap-1.5">
                 <span>📊</span> {t("nav.history")}

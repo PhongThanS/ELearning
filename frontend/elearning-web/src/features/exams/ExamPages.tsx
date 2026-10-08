@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Card, Col, Form, ListGroup, Modal, Row, Table, Ta
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { examsApi, groupsApi, questionsApi, usersApi, type ExamDetailsBody } from "../../services/api";
+import { examsApi, classesApi, groupsApi, questionsApi, usersApi, type ExamDetailsBody } from "../../services/api";
 import { toApiError } from "../../services/apiClient";
 import { ConfirmDialog, ErrorAlert, Loading } from "../../components/common/Feedback";
 import { examStatusVariant } from "../../constants/ui";
@@ -899,6 +899,12 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
   const assignments = useQuery({ queryKey: ["assignments", exam.id], queryFn: () => examsApi.assignments(exam.id) });
   const [groupSearch, setGroupSearch] = useState("");
   const [userSearch, setUserSearch] = useState("");
+  const [classSearch, setClassSearch] = useState("");
+  const classes = useQuery({
+    queryKey: ["classes", "search", classSearch],
+    queryFn: () => classesApi.list({ keyword: classSearch, pageSize: 10, isActive: true }),
+    enabled: canAssign && classSearch.length >= 1,
+  });
   const groups = useQuery({
     queryKey: ["groups", "search", groupSearch],
     queryFn: () => groupsApi.list({ keyword: groupSearch, pageSize: 10, isActive: true }),
@@ -910,7 +916,8 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
     enabled: canAssign && userSearch.length >= 2,
   });
   const set = useMutation({
-    mutationFn: (next: { groupIds: string[]; userIds: string[] }) => examsApi.setAssignments(exam.id, next.groupIds, next.userIds),
+    mutationFn: (next: { groupIds?: string[]; userIds?: string[]; classroomIds?: string[] }) =>
+      examsApi.setAssignments(exam.id, { groupIds: next.groupIds ?? groupIds, userIds: next.userIds ?? userIds, classroomIds: next.classroomIds ?? classroomIds }),
     onSuccess: (data) => {
       queryClient.setQueryData(["assignments", exam.id], data);
       void queryClient.invalidateQueries({ queryKey: ["exam", exam.id] });
@@ -921,6 +928,7 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
   const current = assignments.data;
   const groupIds = current?.groups.map((g) => g.id) ?? [];
   const userIds = current?.users.map((u) => u.id) ?? [];
+  const classroomIds = current?.classrooms.map((c) => c.id) ?? [];
 
   return (
     <Card>
@@ -934,12 +942,22 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
             {current && (
               <>
                 <div className="mb-2">
+                  {current.classrooms.map((c) => (
+                    <Badge key={c.id} bg="success" className="me-1 mb-1">
+                      <i className="bi bi-easel2-fill me-1" aria-hidden="true" />
+                      Lớp {c.code} ({c.studentCount})
+                      {canAssign && (
+                        <button type="button" className="btn-close btn-close-white ms-1" style={{ fontSize: "0.5rem" }} aria-label={`Bỏ lớp ${c.code}`}
+                          onClick={() => set.mutate({ classroomIds: classroomIds.filter((x) => x !== c.id) })} />
+                      )}
+                    </Badge>
+                  ))}
                   {current.groups.map((g) => (
                     <Badge key={g.id} bg="primary" className="me-1 mb-1">
                       Nhóm {g.code} ({g.memberCount})
                       {canAssign && (
                         <button type="button" className="btn-close btn-close-white ms-1" style={{ fontSize: "0.5rem" }} aria-label={`Bỏ nhóm ${g.code}`}
-                          onClick={() => set.mutate({ groupIds: groupIds.filter((x) => x !== g.id), userIds })} />
+                          onClick={() => set.mutate({ groupIds: groupIds.filter((x) => x !== g.id) })} />
                       )}
                     </Badge>
                   ))}
@@ -948,26 +966,34 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
                       {u.userName}
                       {canAssign && (
                         <button type="button" className="btn-close ms-1" style={{ fontSize: "0.5rem" }} aria-label={`Bỏ ${u.userName}`}
-                          onClick={() => set.mutate({ groupIds, userIds: userIds.filter((x) => x !== u.id) })} />
+                          onClick={() => set.mutate({ userIds: userIds.filter((x) => x !== u.id) })} />
                       )}
                     </Badge>
                   ))}
-                  {current.groups.length + current.users.length === 0 && <span className="small text-danger">Chưa gán cho ai — không ai thấy đề này.</span>}
+                  {current.classrooms.length + current.groups.length + current.users.length === 0 && <span className="small text-danger">Chưa gán cho ai — không ai thấy đề này.</span>}
                 </div>
                 {canAssign && (
                   <Row className="g-2">
-                    <Col md={6}>
+                    <Col md={4}>
+                      <Form.Control size="sm" aria-label="Tìm lớp" placeholder="Thêm lớp…" value={classSearch} onChange={(e) => setClassSearch(e.target.value)} />
+                      {classes.data?.items.filter((c) => !classroomIds.includes(c.id)).map((c) => (
+                        <Button key={c.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ classroomIds: [...classroomIds, c.id] })}>
+                          + {c.code} — {c.name}
+                        </Button>
+                      ))}
+                    </Col>
+                    <Col md={4}>
                       <Form.Control size="sm" aria-label="Tìm nhóm" placeholder="Thêm nhóm…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} />
                       {groups.data?.items.filter((g) => !groupIds.includes(g.id)).map((g) => (
-                        <Button key={g.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ groupIds: [...groupIds, g.id], userIds })}>
+                        <Button key={g.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ groupIds: [...groupIds, g.id] })}>
                           + {g.code} — {g.name}
                         </Button>
                       ))}
                     </Col>
-                    <Col md={6}>
+                    <Col md={4}>
                       <Form.Control size="sm" aria-label="Tìm học viên" placeholder="Thêm học viên…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
                       {users.data?.items.filter((u) => !userIds.includes(u.id)).map((u) => (
-                        <Button key={u.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ groupIds, userIds: [...userIds, u.id] })}>
+                        <Button key={u.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ userIds: [...userIds, u.id] })}>
                           + {u.userName} — {u.fullName}
                         </Button>
                       ))}

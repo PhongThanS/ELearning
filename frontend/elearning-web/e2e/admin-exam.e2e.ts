@@ -185,7 +185,7 @@ async function createQuestion(page: Page, spec: QuestionSpec): Promise<void> {
     await expect(page.locator("#q-try").locator("..").getByText("Đúng", { exact: true })).toBeVisible();
   }
 
-  await page.getByRole("button", { name: "Lưu", exact: true }).click();
+  await page.getByRole("button", { name: "Tạo mới", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/questions\/[^/]+\/edit$/);
   await expect(page.getByRole("heading", { name: new RegExp(`Sửa câu hỏi ${spec.code}`) })).toBeVisible();
 }

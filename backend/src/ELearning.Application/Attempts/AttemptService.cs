@@ -66,6 +66,13 @@ internal sealed class AttemptService(
     public async Task<PagedResult<StudentExamListItemDto>> ListExamsAsync(Guid userId, StudentExamListQuery query, CancellationToken ct)
     {
         var exams = AccessibleExams(userId);
+        if (query.ClassroomId is { } classroomId)
+        {
+            // Lọc theo lớp chỉ khi học viên thuộc lớp đó (không để lộ đề gán cho lớp khác)
+            var member = await db.ClassroomStudents.AnyAsync(s => s.UserId == userId && s.ClassroomId == classroomId, ct);
+            exams = member ? exams.Where(e => e.Assignments.Any(a => a.ClassroomId == classroomId)) : exams.Where(_ => false);
+        }
+
         var total = await exams.CountAsync(ct);
         var page = await exams
             .OrderBy(e => e.StartAt == null ? 1 : 0).ThenByDescending(e => e.StartAt).ThenBy(e => e.Name)
@@ -437,16 +444,22 @@ internal sealed class AttemptService(
 
     // ----- Helpers -----
 
-    /// <summary>Đề học viên được thấy: đã publish / đã đóng, và PUBLIC hoặc được gán (trực tiếp / qua nhóm đang hoạt động) (D-10).</summary>
+    /// <summary>
+    /// Đề học viên được thấy: đã publish / đã đóng, và PUBLIC hoặc được gán (trực tiếp / qua nhóm đang hoạt động (D-10) /
+    /// qua lớp học đang hoạt động mà học viên thuộc về (D-28)).
+    /// </summary>
     private IQueryable<Exam> AccessibleExams(Guid userId)
     {
         var groupIds = db.UserGroupMembers
             .Where(m => m.UserId == userId && db.UserGroups.Any(g => g.Id == m.GroupId && g.IsActive))
             .Select(m => (Guid?)m.GroupId);
+        var classroomIds = db.ClassroomStudents
+            .Where(s => s.UserId == userId && db.Classrooms.Any(c => c.Id == s.ClassroomId && c.IsActive))
+            .Select(s => (Guid?)s.ClassroomId);
         return db.Exams.AsNoTracking().Where(e =>
             e.Status != ExamStatus.Draft
             && (e.AccessMode == AccessMode.Public
-                || e.Assignments.Any(a => a.UserId == userId || groupIds.Contains(a.GroupId))));
+                || e.Assignments.Any(a => a.UserId == userId || groupIds.Contains(a.GroupId) || classroomIds.Contains(a.ClassroomId))));
     }
 
     private sealed record UserExamState(

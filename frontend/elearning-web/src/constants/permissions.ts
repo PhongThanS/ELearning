@@ -7,6 +7,8 @@ export const Permissions = {
   UserAnonymize: "User.Anonymize",
   GroupView: "Group.View",
   GroupManage: "Group.Manage",
+  ClassView: "Class.View",
+  ClassManage: "Class.Manage",
   RoleView: "Role.View",
   RoleManage: "Role.Manage",
   RoleAssign: "Role.Assign",

@@ -17,6 +17,7 @@ function page<M>(loader: () => Promise<M>, name: keyof M): ReactNode {
 }
 
 const identity = () => import("../features/admin/IdentityPages");
+const classes = () => import("../features/admin/ClassPages");
 const questions = () => import("../features/questions/QuestionPages");
 const exams = () => import("../features/exams/ExamPages");
 const builder = () => import("../features/exams/VersionBuilderPage");
@@ -60,6 +61,8 @@ export const routes: RouteObject[] = [
               { path: "exams/:examId", element: page(student, "StudentExamDetailPage") },
               { path: "results/:attemptId", element: page(student, "ResultPage") },
               { path: "history", element: page(student, "HistoryPage") },
+              { path: "classes", element: page(student, "MyClassesPage") },
+              { path: "classes/:classId", element: page(student, "MyClassDetailPage") },
             ],
           },
           { element: <PlayerLayout />, children: [{ path: "attempts/:attemptId", element: page(player, "ExamPlayerPage") }] },
@@ -75,6 +78,8 @@ export const routes: RouteObject[] = [
           { path: "users/:id", element: guard(Permissions.UserView, page(identity, "UserDetailPage")) },
           { path: "groups", element: guard(Permissions.GroupView, page(identity, "GroupsPage")) },
           { path: "groups/:id", element: guard(Permissions.GroupView, page(identity, "GroupDetailPage")) },
+          { path: "classes", element: guard(Permissions.ClassView, page(classes, "ClassesPage")) },
+          { path: "classes/:id", element: guard(Permissions.ClassView, page(classes, "ClassDetailPage")) },
           { path: "roles", element: guard(Permissions.RoleView, page(identity, "RolesPage")) },
           { path: "categories", element: guard(Permissions.CategoryView, page(questions, "CategoriesPage")) },
           { path: "questions", element: guard(Permissions.QuestionView, page(questions, "QuestionsPage")) },

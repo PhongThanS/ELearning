@@ -64,6 +64,7 @@ Nhờ đó, vô hiệu hóa tài khoản hoặc đổi quyền có hiệu lực 
 ```text
 User.View  User.Create  User.Update  User.ResetPassword  User.Anonymize
 Group.View  Group.Manage
+Class.View  Class.Manage
 Role.View  Role.Manage  Role.Assign
 Category.View  Category.Manage
 Question.View  Question.Create  Question.Update
@@ -137,7 +138,7 @@ Audit được ghi **trong cùng transaction** với thao tác. `OldValue` / `Ne
 |---|---|
 | Xác thực | `USER_LOGIN`, `USER_LOGIN_FAILED`, `USER_LOCKED_OUT`, `USER_LOGOUT`, `USER_REGISTER`, `PASSWORD_CHANGED`, `PASSWORD_RESET_BY_ADMIN`, `REFRESH_TOKEN_REUSE` |
 | Người dùng | `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_ROLES_CHANGED`, `USER_ANONYMIZED` |
-| Nhóm / vai trò | `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_MEMBERS_CHANGED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_PERMISSIONS_CHANGED` |
+| Nhóm / vai trò | `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_MEMBERS_CHANGED`, `CLASSROOM_CREATED`, `CLASSROOM_UPDATED`, `CLASSROOM_STUDENTS_CHANGED`, `CLASSROOM_DELETED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_PERMISSIONS_CHANGED` |
 | Ngân hàng câu hỏi | `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_STATUS_CHANGED`, `QUESTION_CREATED`, `QUESTION_UPDATED`, `QUESTION_STATUS_CHANGED` |
 | Đề thi | `EXAM_CREATED`, `EXAM_UPDATED`, `EXAM_DELETED`, `EXAM_VERSION_CREATED`, `EXAM_PUBLISHED`, `EXAM_CLOSED`, `EXAM_REOPENED`, `EXAM_ASSIGNMENTS_CHANGED` |
 | Đáp án | `ANSWER_KEY_CORRECTED`, `QUESTION_VOIDED`, `EXAM_REGRADED` |

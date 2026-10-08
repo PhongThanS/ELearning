@@ -17,6 +17,12 @@
   --sclass-red: #d92638;
   --sclass-red-light: #fda4af;
   --sclass-bg: #f5f7fc;
+
+  --brand-gradient: linear-gradient(135deg, #07153b 0%, #0c2363 45%, #143b87 100%);
+  --sidebar-bg: linear-gradient(180deg, #07153b 0%, #0c2363 100%);
+  --table-head-bg: #eaf2ff;
+  --table-head-color: #0c2b75;
+  --table-frame: #d6e4f8;
 }
 
 body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, .navbar, .nav, .card, .table, .dropdown-menu, .btn, .badge {
@@ -562,3 +568,48 @@ body {
   box-shadow: 0 4px 12px rgba(12, 43, 117, 0.25);
   transform: translateY(-1px);
 }
+
+/* Ảnh trong nội dung câu hỏi (D-27) */
+.md-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5rem 0;
+  border-radius: 0.5rem;
+}
+
+.md-inline .md-image {
+  display: inline-block;
+  max-height: 10rem;
+  margin: 0.25rem 0;
+  vertical-align: middle;
+}
+
+/* Khung bảng danh sách (DataTable): thẻ trắng bo tròn, viền xanh nhạt */
+.table-card {
+  background: #fff;
+  border: 1px solid var(--table-frame);
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px rgba(15, 31, 61, 0.05), 0 6px 18px rgba(15, 31, 61, 0.05);
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.table-card .table {
+  margin-bottom: 0;
+}
+
+.table-card .table > thead > tr > th:first-child,
+.table-card .table > tbody > tr > td:first-child {
+  padding-left: 1rem;
+}
+
+.table-card .table > thead > tr > th:last-child,
+.table-card .table > tbody > tr > td:last-child {
+  padding-right: 1rem;
+}
+
+.table-card .table > tbody > tr > td:first-child a {
+  font-weight: 600;
+}
+

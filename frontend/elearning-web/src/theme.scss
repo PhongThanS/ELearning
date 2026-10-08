@@ -1,0 +1,95 @@
+// Theme ELearning (docs/06-frontend.md mục 5): Bootstrap 5 biên dịch từ Sass với bảng màu riêng.
+// Hướng thiết kế: thân thiện, dịu mắt — màu chính xanh dương, mỗi khu chức năng một màu nhấn,
+// nền sáng dịu, thẻ bo tròn không viền + bóng mờ (tham khảo Soft UI / Tabler, bảng điều khiển học tập).
+// Mọi cặp màu chữ / nền giữ tương phản tối thiểu WCAG AA cho chữ thường.
+
+// ---------- Bảng màu ----------
+$blue: #2563eb;
+$indigo: #4f46e5;
+$violet: #8b5cf6;
+$pink: #ec4899;
+$sky: #0ea5e9;
+$teal: #14b8a6;
+$green: #16a34a;
+$amber: #f59e0b;
+$orange: #f97316;
+$red: #e11d48;
+$slate: #64748b;
+
+$primary: $blue;
+$secondary: $slate;
+$success: $green;
+$info: $sky;
+$warning: $amber;
+$danger: $red;
+$light: #f1f6fd;
+$dark: #0f1f3d;
+
+$body-bg: #f3f7fc;
+$body-color: #1f2937;
+$secondary-color: #5b6475;
+$link-decoration: none;
+$link-hover-decoration: underline;
+
+// ---------- Chữ ----------
+$font-family-sans-serif: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+$headings-font-weight: 600;
+$font-size-base: 0.95rem;
+
+// ---------- Hình khối ----------
+$border-radius: 0.6rem;
+$border-radius-sm: 0.45rem;
+$border-radius-lg: 0.9rem;
+$border-radius-xl: 1.2rem;
+$border-color: #dfe7f3;
+
+$card-border-width: 0;
+$card-border-radius: 1rem;
+$card-cap-bg: transparent;
+$card-box-shadow: 0 1px 2px rgba(15, 31, 61, 0.06), 0 6px 18px rgba(15, 31, 61, 0.06);
+
+$btn-font-weight: 500;
+$btn-padding-x: 1rem;
+$input-border-color: #d3dceb;
+$input-focus-border-color: lighten($blue, 20%);
+$input-focus-box-shadow: 0 0 0 0.2rem rgba($blue, 0.2);
+
+$badge-font-weight: 600;
+$badge-padding-y: 0.4em;
+$badge-padding-x: 0.7em;
+$badge-border-radius: 2rem;
+
+$nav-pills-border-radius: 0.6rem;
+$modal-content-border-radius: 1rem;
+$table-cell-padding-y-sm: 0.55rem;
+$table-cell-padding-x-sm: 0.75rem;
+$table-striped-bg: #f7faff;
+$table-hover-bg: #e8f1ff;
+$table-border-color: #e4ecf7;
+
+@import "bootstrap/scss/bootstrap";
+
+// Màu nhấn dùng chung cho thẻ thống kê, thẻ đề thi, biểu tượng (class .accent-<tên>)
+$accents: (
+  "blue": $blue,
+  "indigo": $indigo,
+  "violet": $violet,
+  "pink": $pink,
+  "sky": $sky,
+  "teal": $teal,
+  "green": $green,
+  "amber": $amber,
+  "orange": $orange,
+);
+
+@each $name, $color in $accents {
+  .accent-#{$name} {
+    --accent: #{$color};
+    --accent-soft: #{rgba($color, 0.12)};
+    --accent-strong: #{darken($color, 12%)};
+  }
+}
+
+.card {
+  box-shadow: $card-box-shadow;
+}

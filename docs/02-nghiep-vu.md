@@ -51,7 +51,7 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 ### 1.4 Ảnh trong câu hỏi (sau MVP, đã làm, D-27)
 
 - Dùng được ở **đề bài, nội dung lựa chọn và giải thích** (đề bài phải là Markdown; chèn ảnh vào đề PLAIN thì trình soạn tự bật Markdown).
-- Admin bấm "Chèn ảnh" → tải lên PNG / JPEG / GIF / WebP tối đa 2 MB → nội dung được chèn `![](media:<id>)`. Sửa phần mô tả trong ngoặc vuông để có văn bản thay thế cho trình đọc màn hình.
+- Admin bấm "Chèn ảnh" → chọn PNG / JPEG / GIF / WebP tối đa 2 MB (kiểm tra ngay trên trình duyệt) → ảnh **chỉ hiển thị xem trước trên máy**, nội dung được chèn mã tạm `![tên file](media:pending-…)`. **Ảnh chỉ được tải lên server khi bấm Tạo mới / Lưu:** chỉ ảnh còn được dùng trong đề, lựa chọn hoặc giải thích mới được tải lên (lưu thành file trong thư mục ảnh `Media:RootPath`, theo SHA-256), mã tạm được thay bằng `media:<id>` thật rồi mới lưu câu hỏi. Ảnh đã bỏ hoặc đã xóa khỏi nội dung không bao giờ lên server. Sửa phần mô tả trong ngoặc vuông để có văn bản thay thế cho trình đọc màn hình.
 - **Ảnh bất biến:** không sửa, không xóa (D-16). Thay ảnh = tải ảnh mới và sửa nội dung. Nhờ vậy version đã publish (snapshot giữ chuỗi `media:<id>`) luôn hiển thị đúng ảnh lúc publish (D-01). Cùng một file tải lên nhiều lần chỉ lưu một bản.
 - Lưu hoặc import câu hỏi có `media:<id>` không tồn tại → lỗi `MEDIA_NOT_FOUND`.
 - **Ảnh không làm lộ đáp án:** học viên chỉ nhận URL của ảnh nằm trong các trường được trả về. Khi đang thi chỉ có ảnh của đề và lựa chọn; ảnh của giải thích chỉ có khi `ReviewPolicy` cho xem lại.
@@ -246,8 +246,17 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 
 - `Exam.AccessMode`:
   - `PUBLIC`: mọi user đang hoạt động có role `STUDENT`.
-  - `ASSIGNED`: chỉ những user được gán trực tiếp, hoặc thuộc một nhóm được gán (bảng `ExamAssignments`).
+  - `ASSIGNED`: chỉ những user được gán trực tiếp, hoặc thuộc một nhóm / lớp học được gán (bảng `ExamAssignments`).
 - Nhóm người dùng (`UserGroups`, `UserGroupMembers`) do admin quản lý. Một user có thể thuộc nhiều nhóm.
+
+### 5.1 Lớp học (sau MVP, đã làm, D-28)
+
+- Lớp (`Classrooms`): mã lớp duy nhất (2–50 ký tự `A-Z a-z 0-9 . _ -`, không đổi sau khi tạo), tên, năm học, ngày bắt đầu / kết thúc (ngày kết thúc ≥ ngày bắt đầu), mô tả.
+- Học viên ↔ lớp là quan hệ **nhiều-nhiều** (`ClassroomStudents`): một học viên học nhiều lớp, một lớp có nhiều học viên. Chỉ user có role `STUDENT` mới được thêm vào lớp; tối đa 500 người mỗi lần thêm; thêm trùng thì bỏ qua.
+- Đề `ASSIGNED` có thể gán cho lớp. Học viên thấy đề khi là thành viên **hiện tại** của một lớp **đang hoạt động** được gán. Rút khỏi lớp hoặc tắt lớp thì mất quyền thấy / bắt đầu đề đó; lượt thi và kết quả đã có vẫn giữ nguyên (D-16).
+- **Xóa lớp** (xóa cứng lớp và các dòng `ClassroomStudents`, có audit `CLASSROOM_DELETED` lưu mã, tên và danh sách học viên): chỉ khi lớp không còn được gán cho đề thi nào; nếu còn → 409 `CLASSROOM_IN_USE`, admin bỏ gán lớp khỏi đề trước hoặc tắt lớp (`IsActive = 0`). Lớp không gắn với lượt thi / kết quả nên xóa không ảnh hưởng điểm hay snapshot (D-16 không áp dụng cho lớp).
+- Học viên chỉ thấy các lớp đang hoạt động trong "Lớp của tôi", và chỉ lọc được đề theo lớp mình thuộc về.
+- Quản lý lớp cần quyền `Class.View` / `Class.Manage`; gán đề cho lớp vẫn dùng `Exam.Assign`.
 - Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
 - Tự đăng ký được điều khiển bằng `Auth:AllowSelfRegistration`: mặc định `true` ở Development, `false` ở Production.
 

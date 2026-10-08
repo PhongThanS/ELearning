@@ -28,6 +28,8 @@ public static class ErrorCodes
     public const string NotFound = "NOT_FOUND";
     public const string ExamNotFound = "EXAM_NOT_FOUND";
     public const string AttemptNotFound = "ATTEMPT_NOT_FOUND";
+    public const string ClassroomNotFound = "CLASSROOM_NOT_FOUND";
+    public const string ClassroomInUse = "CLASSROOM_IN_USE";
     public const string QuestionNotFound = "QUESTION_NOT_FOUND";
     public const string MediaNotFound = "MEDIA_NOT_FOUND";
 

@@ -127,14 +127,24 @@ public sealed class Exam : Entity, IHasRowVersion
     }
 
     /// <summary>Thay toàn bộ danh sách gán; trả về true nếu có thay đổi.</summary>
-    public bool SetAssignments(IReadOnlyCollection<Guid> groupIds, IReadOnlyCollection<Guid> userIds, Guid by, DateTime now)
+    public bool SetAssignments(
+        IReadOnlyCollection<Guid> groupIds, IReadOnlyCollection<Guid> userIds, Guid by, DateTime now, IReadOnlyCollection<Guid>? classroomIds = null)
     {
         var targetGroups = groupIds.ToHashSet();
         var targetUsers = userIds.ToHashSet();
+        var targetClasses = (classroomIds ?? []).ToHashSet();
         var removed = _assignments.RemoveAll(a =>
-            (a.GroupId is { } g && !targetGroups.Contains(g)) || (a.UserId is { } u && !targetUsers.Contains(u)));
+            (a.GroupId is { } g && !targetGroups.Contains(g))
+            || (a.UserId is { } u && !targetUsers.Contains(u))
+            || (a.ClassroomId is { } c && !targetClasses.Contains(c)));
 
         var added = 0;
+        foreach (var classroomId in targetClasses.Where(c => _assignments.TrueForAll(a => a.ClassroomId != c)))
+        {
+            _assignments.Add(ExamAssignment.ForClassroom(Id, classroomId, by, now));
+            added++;
+        }
+
         foreach (var groupId in targetGroups.Where(g => _assignments.TrueForAll(a => a.GroupId != g)))
         {
             _assignments.Add(ExamAssignment.ForGroup(Id, groupId, by, now));
@@ -195,9 +205,15 @@ public sealed class ExamAssignment : Entity
 
     public Guid? UserId { get; private set; }
 
+    /// <summary>Gán cho lớp học (D-28): mọi học viên đang thuộc lớp (lớp đang hoạt động) thấy đề.</summary>
+    public Guid? ClassroomId { get; private set; }
+
     public Guid CreatedBy { get; private set; }
 
     public DateTime CreatedAt { get; private set; }
+
+    internal static ExamAssignment ForClassroom(Guid examId, Guid classroomId, Guid by, DateTime now) =>
+        new() { ExamId = examId, ClassroomId = classroomId, CreatedBy = by, CreatedAt = now };
 
     internal static ExamAssignment ForGroup(Guid examId, Guid groupId, Guid by, DateTime now) =>
         new() { ExamId = examId, GroupId = groupId, CreatedBy = by, CreatedAt = now };

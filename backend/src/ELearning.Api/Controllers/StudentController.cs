@@ -1,6 +1,7 @@
 using ELearning.Api.Common;
 using ELearning.Api.Security;
 using ELearning.Application.Attempts;
+using ELearning.Application.Classes;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Shared.Paging;
 using Microsoft.AspNetCore.Authorization;
@@ -15,9 +16,15 @@ namespace ELearning.Api.Controllers;
 /// </summary>
 [Route("api/student")]
 [Authorize(Policy = Policies.StudentOnly)]
-public sealed class StudentController(IAttemptService attempts, ICurrentUser currentUser) : ApiControllerBase
+public sealed class StudentController(IAttemptService attempts, IClassroomService classrooms, ICurrentUser currentUser) : ApiControllerBase
 {
     private Guid UserId => currentUser.RequiredUserId;
+
+    /// <summary>Các lớp đang hoạt động mà học viên thuộc về (D-28).</summary>
+    [HttpGet("classes")]
+    [ProducesResponseType<ApiResponse<IReadOnlyList<MyClassroomDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> MyClasses(CancellationToken ct) =>
+        Ok(ApiResponse.Ok(await classrooms.ListMineAsync(UserId, ct), TraceId));
 
     [HttpGet("exams")]
     [ProducesResponseType<ApiResponse<PagedResult<StudentExamListItemDto>>>(StatusCodes.Status200OK)]

@@ -46,8 +46,18 @@
     "insertInto": "Chèn ảnh vào {{target}}",
     "uploading": "Đang tải ảnh…",
     "inserted": "Đã chèn ảnh.",
+    "picked": "Đã chèn ảnh để xem trước. Ảnh chỉ được lưu lên máy chủ khi bấm Lưu.",
+    "invalidType": "Chỉ nhận ảnh PNG, JPEG, GIF hoặc WebP.",
+    "tooLarge": "Ảnh tối đa 2 MB.",
+    "pendingTitle": "Ảnh đã chọn ({{count}}) — chưa lưu lên máy chủ",
+    "pendingBadge": "Chờ lưu",
+    "unusedBadge": "Không dùng",
+    "discard": "Bỏ ảnh {{name}}",
+    "discardShort": "Bỏ",
+    "willUpload": "{{count}} ảnh sẽ được tải lên máy chủ khi lưu.",
+    "uploadingOnSave": "Đang tải {{count}} ảnh và lưu…",
     "unavailable": "(ảnh không hiển thị được)",
-    "hint": "PNG, JPEG, GIF hoặc WebP, tối đa 2 MB. Ảnh được chèn dạng ![mô tả](media:…); sửa phần mô tả để hỗ trợ trình đọc màn hình.",
+    "hint": "PNG, JPEG, GIF hoặc WebP, tối đa 2 MB. Ảnh hiện ngay trong phần xem trước và chỉ được lưu lên máy chủ khi bấm Lưu. Sửa phần mô tả trong ![mô tả](media:…) để hỗ trợ trình đọc màn hình.",
     "switchedToMarkdown": "Đã bật Markdown để hiển thị ảnh."
   },
   "nav": {
@@ -64,7 +74,9 @@
     "profile": "Tài khoản",
     "logout": "Đăng xuất",
     "admin": "Quản trị",
-    "student": "Học viên"
+    "student": "Học viên",
+    "classes": "Lớp học",
+    "myClasses": "Lớp của tôi"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -206,7 +218,17 @@
     "startConfirm": "Thời gian bắt đầu tính ngay khi bạn bấm bắt đầu. Tiếp tục?",
     "myAttempts": "Các lượt thi của bạn",
     "viewResult": "Xem kết quả",
-    "noExams": "Hiện chưa có đề thi nào dành cho bạn."
+    "noExams": "Hiện chưa có đề thi nào dành cho bạn.",
+    "greeting": "Xin chào 👋",
+    "readyCount_one": "Bạn có {{count}} đề có thể làm ngay.",
+    "readyCount_other": "Bạn có {{count}} đề có thể làm ngay.",
+    "readyCount_zero": "Hiện chưa có đề nào cần làm.",
+    "noClasses": "Bạn chưa thuộc lớp học nào.",
+    "schoolYear": "Năm học {{year}}",
+    "classStats": "{{students}} học viên · {{exams}} đề thi",
+    "classExams": "Xem đề thi của lớp",
+    "noClassExams": "Lớp chưa có đề thi nào dành cho bạn.",
+    "classNotFound": "Không tìm thấy lớp hoặc bạn không còn thuộc lớp này."
   },
   "result": {
     "title": "Kết quả bài thi",
@@ -267,5 +289,34 @@
     "OPTION_CODE_INVALID": "Mã lựa chọn phải là chữ cái từ A đến J.",
     "ROLE_CODE_INVALID": "Mã vai trò gồm 2–50 ký tự: chữ không dấu, số, gạch dưới; bắt đầu bằng chữ cái.",
     "CATEGORY_HAS_QUESTIONS": "Chuyên đề đang có câu hỏi trực thuộc."
+  },
+  "landing": {
+    "title": "Thi trực tuyến dễ dàng, công bằng",
+    "subtitle": "Làm bài mọi lúc, mọi nơi — hệ thống lo phần còn lại.",
+    "autosave": "Tự động lưu từng câu trả lời, mất mạng không mất bài",
+    "timer": "Đồng hồ chính xác theo máy chủ, tự nộp khi hết giờ",
+    "results": "Xem điểm và xem lại bài ngay khi được phép"
+  },
+  "classes": {
+    "create": "Tạo lớp học",
+    "edit": "Sửa lớp học",
+    "schoolYear": "Năm học",
+    "startDate": "Ngày bắt đầu",
+    "endDate": "Ngày kết thúc",
+    "period": "Thời gian học",
+    "students": "Học viên",
+    "exams": "Đề được gán",
+    "allStatuses": "Mọi trạng thái",
+    "joinedAt": "Ngày vào lớp",
+    "removeStudent": "Rút khỏi lớp",
+    "addStudent": "Thêm vào lớp",
+    "addStudentLabel": "Thêm học viên vào lớp",
+    "addStudentPlaceholder": "Nhập tên đăng nhập hoặc họ tên (ít nhất 2 ký tự)…",
+    "alreadyMember": "Đã trong lớp",
+    "studentList": "Danh sách học viên",
+    "inactiveHint": "Lớp đang tắt: học viên không thấy các đề được gán cho lớp này.",
+    "deleted": "Đã xóa lớp học.",
+    "deleteTitle": "Xóa lớp {{code}}?",
+    "deleteBody": "Lớp và danh sách {{count}} học viên của lớp sẽ bị xóa vĩnh viễn (tài khoản học viên, bài làm và điểm vẫn giữ nguyên). Lớp đang được gán cho đề thi thì phải bỏ gán trước."
   }
 }

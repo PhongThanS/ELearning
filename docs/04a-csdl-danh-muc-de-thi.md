@@ -86,6 +86,32 @@ CREATE TABLE UserGroupMembers (
 );
 CREATE INDEX IX_UserGroupMembers_User ON UserGroupMembers(UserId);
 
+-- Lớp học (D-28): học viên ↔ lớp nhiều-nhiều. Xóa được khi không còn dòng ExamAssignments nào trỏ tới (code xóa ClassroomStudents trước).
+CREATE TABLE Classrooms (
+    Id          UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_Classrooms PRIMARY KEY,
+    Code        NVARCHAR(50)   NOT NULL CONSTRAINT UQ_Classrooms_Code UNIQUE,
+    Name        NVARCHAR(200)  NOT NULL,
+    SchoolYear  NVARCHAR(20)   NULL,             -- ví dụ "2026-2027"
+    StartDate   DATE           NULL,
+    EndDate     DATE           NULL,
+    Description NVARCHAR(1000) NULL,
+    IsActive    BIT            NOT NULL,
+    CreatedBy   UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_Classrooms_CreatedBy REFERENCES Users(Id),
+    CreatedAt   DATETIME2(3)   NOT NULL,
+    UpdatedBy   UNIQUEIDENTIFIER NULL CONSTRAINT FK_Classrooms_UpdatedBy REFERENCES Users(Id),
+    UpdatedAt   DATETIME2(3)   NULL,
+    RowVersion  ROWVERSION     NOT NULL,
+    CONSTRAINT CK_Classrooms_Dates CHECK (StartDate IS NULL OR EndDate IS NULL OR EndDate >= StartDate)
+);
+
+CREATE TABLE ClassroomStudents (
+    ClassroomId UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_ClassroomStudents_Classroom REFERENCES Classrooms(Id),
+    UserId      UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_ClassroomStudents_User REFERENCES Users(Id),
+    JoinedAt    DATETIME2(3)     NOT NULL,
+    CONSTRAINT PK_ClassroomStudents PRIMARY KEY (ClassroomId, UserId)
+);
+CREATE INDEX IX_ClassroomStudents_User ON ClassroomStudents(UserId);
+
 CREATE TABLE RefreshTokens (
     Id                UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_RefreshTokens PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
     UserId            UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_RefreshTokens_User REFERENCES Users(Id),
@@ -337,12 +363,18 @@ CREATE TABLE ExamAssignments (                     -- D-10
     UserId    UNIQUEIDENTIFIER NULL CONSTRAINT FK_ExamAssignments_User  REFERENCES Users(Id),
     CreatedBy UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_ExamAssignments_CreatedBy REFERENCES Users(Id),
     CreatedAt DATETIME2(3)     NOT NULL CONSTRAINT DF_ExamAssignments_CreatedAt DEFAULT SYSUTCDATETIME(),
-    CONSTRAINT CK_ExamAssignments_Target CHECK ((GroupId IS NULL) <> (UserId IS NULL))
+    ClassroomId UNIQUEIDENTIFIER NULL CONSTRAINT FK_ExamAssignments_Classroom REFERENCES Classrooms(Id),   -- D-28
+    -- đúng một trong GroupId / UserId / ClassroomId khác NULL
+    CONSTRAINT CK_ExamAssignments_Target CHECK (
+        (CASE WHEN GroupId IS NULL THEN 0 ELSE 1 END) + (CASE WHEN UserId IS NULL THEN 0 ELSE 1 END)
+        + (CASE WHEN ClassroomId IS NULL THEN 0 ELSE 1 END) = 1)
 );
 CREATE UNIQUE INDEX UX_ExamAssignments_Group ON ExamAssignments(ExamId, GroupId) WHERE GroupId IS NOT NULL;
 CREATE UNIQUE INDEX UX_ExamAssignments_User  ON ExamAssignments(ExamId, UserId)  WHERE UserId  IS NOT NULL;
 CREATE INDEX IX_ExamAssignments_GroupId ON ExamAssignments(GroupId) WHERE GroupId IS NOT NULL;
 CREATE INDEX IX_ExamAssignments_UserId  ON ExamAssignments(UserId)  WHERE UserId  IS NOT NULL;
+CREATE UNIQUE INDEX UX_ExamAssignments_Classroom ON ExamAssignments(ExamId, ClassroomId) WHERE ClassroomId IS NOT NULL;
+CREATE INDEX IX_ExamAssignments_ClassroomId ON ExamAssignments(ClassroomId) WHERE ClassroomId IS NOT NULL;
 
 CREATE TABLE ExamUserOverrides (                   -- cấp thêm lượt cho từng học viên
     ExamId        UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_ExamUserOverrides_Exam REFERENCES Exams(Id),
