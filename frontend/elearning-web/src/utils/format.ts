@@ -63,14 +63,20 @@ export function formatScore(score: number | null | undefined, max: number | null
 
 /** Rút gọn Markdown thành một dòng văn bản thuần cho cột "Nội dung" trong bảng. */
 export function markdownExcerpt(markdown: string): string {
-  return markdown
+  const cleaned = markdown
     .replace(/```[\w-]*/g, " ")
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/!\[[^\]]*\]\([^)]*(\)|$)/g, " ")
+    .replace(/media:[0-9a-fA-F-]{36}/gi, " ")
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
     .replace(/^\s{0,3}(#{1,6}|>|[-*+]|\d+\.)\s+/gm, "")
     .replace(/(\*\*|__|~~|`)/g, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  if (!cleaned && /media:[0-9a-fA-F-]{36}|!\[/i.test(markdown)) {
+    return "[Hình ảnh]";
+  }
+  return cleaned;
 }
 
 /**

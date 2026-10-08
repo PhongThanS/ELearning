@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, InputGroup, Modal, Row, Tab, Tabs } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -373,6 +373,22 @@ function optionsForType(type: QuestionType, current: EditorState["options"]): Ed
   return options;
 }
 
+function extractMediaIds(text: string): string[] {
+  const ids: string[] = [];
+  const regex = /!\[.*?\]\(media:([0-9a-fA-F-]+)\)/gi;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match[1] && !ids.includes(match[1].toLowerCase())) {
+      ids.push(match[1].toLowerCase());
+    }
+  }
+  return ids;
+}
+
+function stripMediaMarkdown(text: string): string {
+  return text.replace(/!\[.*?\]\(media:[0-9a-fA-F-]+\)/gi, "").trim();
+}
+
 function toEditorState(q: QuestionDetail): EditorState {
   return {
     categoryId: q.categoryId,
@@ -380,7 +396,7 @@ function toEditorState(q: QuestionDetail): EditorState {
     tags: q.tags,
     partialScoring: q.partialScoring,
     code: q.code,
-    content: q.content,
+    content: stripMediaMarkdown(q.content),
     contentFormat: q.contentFormat,
     questionType: q.questionType,
     answerDataType: q.answerDataType,
@@ -430,6 +446,22 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const explanationRef = useRef<HTMLTextAreaElement>(null);
 
+  const [attachedImages, setAttachedImages] = useState<{ id: string; url: string }[]>(() => {
+    if (!existing) return [];
+    const ids = extractMediaIds(existing.content);
+    return ids.map((imgId) => ({
+      id: imgId,
+      url: existing.media?.[imgId] ?? existing.media?.[imgId.toLowerCase()] ?? "",
+    }));
+  });
+
+  const fullContentWithImages = useMemo(() => {
+    const text = form.content.trim();
+    if (attachedImages.length === 0) return text;
+    const imgMd = attachedImages.map((img) => `![](media:${img.id})`).join("\n\n");
+    return text ? `${text}\n\n${imgMd}` : imgMd;
+  }, [form.content, attachedImages]);
+
   const save = useMutation({
     mutationFn: (body: QuestionInput) => (id ? questionsApi.update(id, body) : questionsApi.create(body)),
     onSuccess: (saved) => {
@@ -455,6 +487,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
     setErrors({});
     const body: QuestionInput = {
       ...form,
+      content: fullContentWithImages,
       code: form.code?.trim() || null,
       tags: parseTags(tagText),
       explanation: form.explanation?.trim() || null,
@@ -469,24 +502,29 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
 
   const err = (field: string) => errors[field];
 
+  /** Chèn ảnh minh họa cho câu hỏi (hiển thị trực quan dưới dạng ảnh, không chèn mã ID tự sinh vào nội dung) */
+  const handleInsertQuestionImage = (upload: MediaUpload) => {
+    const idLower = upload.id.toLowerCase();
+    setMedia((m) => ({ ...m, [idLower]: upload.url }));
+    setAttachedImages((prev) => [...prev, { id: idLower, url: upload.url }]);
+    if (form.contentFormat === "PLAIN") {
+      set({ contentFormat: "MARKDOWN" });
+    }
+  };
+
+  const handleRemoveQuestionImage = (index: number) => {
+    setAttachedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
   /** Upload xong mới chèn nên dùng state mới nhất (người dùng có thể đã gõ tiếp trong lúc tải). */
   const addImage = (upload: MediaUpload, apply: (f: EditorState, markdown: string) => Partial<EditorState>) => {
     setMedia((m) => ({ ...m, [upload.id.toLowerCase()]: upload.url }));
     setForm((f) => ({ ...f, ...apply(f, upload.markdown) }));
   };
-  const insertIntoContent = (upload: MediaUpload) => {
-    if (form.contentFormat === "PLAIN") {
-      toast.info(t("media.switchedToMarkdown"));
-    }
-    const position = contentRef.current?.selectionStart;
-    addImage(upload, (f, md) => ({ content: insertAt(f.content, md, position), contentFormat: "MARKDOWN" }));
-  };
   const insertIntoExplanation = (upload: MediaUpload) => {
     const position = explanationRef.current?.selectionStart;
     addImage(upload, (f, md) => ({ explanation: insertAt(f.explanation ?? "", md, position) }));
   };
-  const insertIntoOption = (index: number, upload: MediaUpload) =>
-    addImage(upload, (f, md) => ({ options: f.options.map((o, i) => (i === index ? { ...o, content: insertAt(o.content, md, null) } : o)) }));
   const hasChoices = form.questionType !== "FILL_IN" && form.questionType !== "ESSAY";
 
   return (
@@ -568,14 +606,45 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                         checked={form.contentFormat === "MARKDOWN"}
                         onChange={(e) => set({ contentFormat: (e.target.checked ? "MARKDOWN" : "PLAIN") as ContentFormat })}
                       />
-                      {canUpload && <ImageInsertButton target="đề bài" onInserted={insertIntoContent} />}
+                      {canUpload && <ImageInsertButton target="đề bài" onInserted={handleInsertQuestionImage} />}
                     </div>
                     {canUpload && <Form.Text>{t("media.hint")}</Form.Text>}
+
+                    {/* Danh sách ảnh đính kèm hiển thị trực quan, không hiển thị mã ID tự sinh */}
+                    {attachedImages.length > 0 && (
+                      <div className="mt-3 p-2 bg-light border rounded">
+                        <div className="small fw-semibold text-secondary mb-2">
+                          Ảnh minh họa đã đính kèm ({attachedImages.length}):
+                        </div>
+                        <div className="d-flex flex-wrap gap-2">
+                          {attachedImages.map((img, idx) => (
+                            <div key={img.id} className="position-relative border rounded p-1 bg-white shadow-sm">
+                              <img
+                                src={img.url || (media[img.id] ?? "")}
+                                alt={`Ảnh minh họa ${idx + 1}`}
+                                style={{ maxHeight: 140, maxWidth: 240, objectFit: "contain", display: "block" }}
+                                className="rounded"
+                              />
+                              <Button
+                                size="sm"
+                                variant="danger"
+                                className="position-absolute top-0 end-0 m-1 py-0 px-2 fw-bold"
+                                style={{ lineHeight: "1.2", fontSize: "14px" }}
+                                title="Xóa ảnh này"
+                                onClick={() => handleRemoveQuestionImage(idx)}
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </Tab>
                   <Tab eventKey="preview" title={t("common.preview")}>
                     <MediaUrls value={media}>
                       <div className="border rounded p-3">
-                        <MarkdownView content={form.content || "_(trống)_"} format={form.contentFormat} />
+                        <MarkdownView content={fullContentWithImages || "_(trống)_"} format={form.contentFormat} />
                         {hasChoices && (
                           <ul className="list-unstyled mb-0 mt-2">
                             {form.options.map((o, i) => (
@@ -611,7 +680,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   <FillInEditor form={form} set={set} errors={errors} tryValue={tryValue} setTryValue={setTryValue} />
                 ) : (
                   <>
-                    <OptionsEditor form={form} set={set} errors={errors} onImage={canUpload ? insertIntoOption : undefined} />
+                    <OptionsEditor form={form} set={set} errors={errors} />
                     {form.questionType === "MULTIPLE_CHOICE" && (
                       <Form.Check className="mt-2" type="switch" id="q-partial" checked={form.partialScoring}
                         onChange={(e) => set({ partialScoring: e.target.checked })}
@@ -686,13 +755,10 @@ function OptionsEditor({
   form,
   set,
   errors,
-  onImage,
 }: {
   form: EditorState;
   set: (p: Partial<EditorState>) => void;
   errors: Record<string, string>;
-  /** Chèn ảnh vào cuối nội dung lựa chọn (D-27); không có quyền tải ảnh thì không hiện nút. */
-  onImage?: (index: number, upload: MediaUpload) => void;
 }) {
   const single = form.questionType !== "MULTIPLE_CHOICE";
   const trueFalse = form.questionType === "TRUE_FALSE";
@@ -737,7 +803,6 @@ function OptionsEditor({
           />
           {!trueFalse && (
             <>
-              {onImage && <ImageInsertButton size="sm" target={`lựa chọn ${option.optionCode}`} onInserted={(upload) => onImage(index, upload)} />}
               <Button variant="outline-secondary" aria-label="Lên" onClick={() => move(index, -1)}>↑</Button>
               <Button variant="outline-secondary" aria-label="Xuống" onClick={() => move(index, 1)}>↓</Button>
               <Button
