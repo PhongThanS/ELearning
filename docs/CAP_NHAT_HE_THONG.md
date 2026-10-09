@@ -93,3 +93,21 @@ Tài liệu này tổng hợp toàn bộ các tính năng, cải tiến giao di�
 | 15 | `backend/src/ELearning.Infrastructure/Persistence/Seed/DatabaseSeeder.cs` | Khôi phục seed nhóm `DEMO`, học sinh và đề thi demo `CS-BASIC` phục vụ môi trường Development & ApiTests |
 | 16 | `backend/tests/ELearning.TestSupport/SqlServerTestDatabase.cs` | Nâng cấp test harness: khởi tạo PostgreSQL container với database `postgres`, tạo và drop database tạm thời cho test suites |
 
+---
+
+## 6. Tính năng Kho Video bài giảng (Gắn link YouTube)
+
+Chi tiết tài liệu kỹ thuật riêng: [`tinh-nang-kho-video-bai-giang.md`](./tinh-nang-kho-video-bai-giang.md)
+
+### Nghiệp vụ & Thiết kế:
+- **Cơ chế lưu trữ:** Không lưu file video nặng (MP4, MKV...) trên server. Chỉ lưu địa chỉ URL (YouTube), tự động bóc tách `Video ID` (11 ký tự) bằng Regex và tự động sinh link Thumbnail chuẩn `https://img.youtube.com/vi/{id}/hqdefault.jpg`.
+- **Cơ sở dữ liệu:** Bảng `VideoLessons` (EF Migration `20261009094351_AddVideoLessons`), liên kết với Chuyên đề (`CategoryId`) và Lớp học (`ClassroomId`), các ràng buộc ngoại không cascade delete.
+- **Backend & Quyền hạn:**
+  - Quyền mới: `Video.View`, `Video.Manage`.
+  - API Quản trị viên: `GET/POST/PUT/DELETE /api/videos`, `PATCH /api/videos/{id}/status`.
+  - API Học sinh: `GET /api/student/videos`, `GET /api/student/videos/{id}`.
+- **Giao diện Frontend:**
+  - Quản trị viên (`/admin/videos`): Quản lý video dạng lưới thẻ trực quan, xem trước YouTube trực tiếp khi nhập link, bật/tắt hiển thị, sửa, xóa, nhúng trình chiếu YouTube (`youtube-nocookie.com`).
+  - Học sinh (`/student/videos`): Xem danh sách video bài giảng, lọc theo chuyên đề hoặc lớp học, popup phát video không quảng cáo.
+  - Thêm mục điều hướng `🎥 Kho Video bài giảng` trên Sidebar Admin và `🎥 Video bài giảng` trên Navbar Học sinh.
+
