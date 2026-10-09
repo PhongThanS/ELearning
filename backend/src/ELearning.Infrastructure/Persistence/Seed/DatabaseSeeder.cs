@@ -136,7 +136,17 @@ public sealed class DatabaseSeeder(
             students.Add(user);
         }
 
+        var group = await db.UserGroups.Include(g => g.Members).SingleOrDefaultAsync(g => g.Code == DemoGroupCode, ct);
+        if (group is null)
+        {
+            group = new UserGroup(DemoGroupCode, "Nhóm demo", "Nhóm học viên mẫu cho môi trường phát triển", adminId, Now);
+            db.UserGroups.Add(group);
+        }
+
+        group.AddMembers(students.Select(s => s.Id), Now);
         await db.SaveChangesAsync(ct);
+
+        await SeedDemoQuestionsAsync(adminId, ct);
     }
 
     private async Task SeedDemoQuestionsAsync(Guid adminId, CancellationToken ct)

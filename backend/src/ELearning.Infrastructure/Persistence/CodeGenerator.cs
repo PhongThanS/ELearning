@@ -38,7 +38,7 @@ internal sealed class CodeGenerator(ELearningDbContext db) : ICodeGenerator
         try
         {
             await using var command = connection.CreateCommand();
-            command.CommandText = $"SELECT NEXT VALUE FOR [{sequence}]";
+            command.CommandText = $"SELECT nextval('\"{sequence}\"')";
             command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
             return Convert.ToInt64(await command.ExecuteScalarAsync(ct), CultureInfo.InvariantCulture);
         }

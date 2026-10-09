@@ -18,22 +18,38 @@ public sealed class SqlServerTestDatabase : IAsyncLifetime
     public const string ServerConnectionVariable = "ELEARNING_TEST_POSTGRES";
 
     private PostgreSqlContainer? _container;
+    private string? _serverConnection;
+    private string? _databaseName;
 
     public string ConnectionString { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
-        var serverConnection = Environment.GetEnvironmentVariable(ServerConnectionVariable);
-        if (string.IsNullOrWhiteSpace(serverConnection))
+        _serverConnection = Environment.GetEnvironmentVariable(ServerConnectionVariable);
+        if (string.IsNullOrWhiteSpace(_serverConnection))
         {
-            _container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+            _container = new PostgreSqlBuilder("postgres:17-alpine")
+                .WithDatabase("postgres")
+                .WithUsername("postgres")
+                .WithPassword("postgres")
+                .Build();
             await _container.StartAsync();
-            serverConnection = _container.GetConnectionString();
+            _serverConnection = _container.GetConnectionString();
         }
 
-        var builder = new NpgsqlConnectionStringBuilder(serverConnection)
+        _databaseName = $"elearning_test_{Guid.NewGuid():N}";
+
+        await using (var adminConn = new NpgsqlConnection(_serverConnection))
         {
-            Database = $"elearning_test_{Guid.NewGuid():N}",
+            await adminConn.OpenAsync();
+            await using var cmd = adminConn.CreateCommand();
+            cmd.CommandText = $"CREATE DATABASE \"{_databaseName}\";";
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        var builder = new NpgsqlConnectionStringBuilder(_serverConnection)
+        {
+            Database = _databaseName,
         };
         ConnectionString = builder.ConnectionString;
 
@@ -43,12 +59,24 @@ public sealed class SqlServerTestDatabase : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await using (var context = CreateContext())
+        NpgsqlConnection.ClearAllPools();
+
+        if (!string.IsNullOrWhiteSpace(_serverConnection) && !string.IsNullOrWhiteSpace(_databaseName))
         {
-            await context.Database.EnsureDeletedAsync();
+            try
+            {
+                await using var adminConn = new NpgsqlConnection(_serverConnection);
+                await adminConn.OpenAsync();
+                await using var cmd = adminConn.CreateCommand();
+                cmd.CommandText = $"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE);";
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch
+            {
+                // Bỏ qua lỗi xóa db khi kết thúc test
+            }
         }
 
-        NpgsqlConnection.ClearAllPools();
         if (_container is not null)
         {
             await _container.DisposeAsync();

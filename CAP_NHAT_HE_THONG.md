@@ -89,3 +89,7 @@ Tài liệu này tổng hợp toàn bộ các tính năng, cải tiến giao di�
 | 11 | `backend/tests/ELearning.UnitTests/Identity/IdentityDomainTests.cs` | Sửa unit test `Like.Contains` khớp cú pháp PostgreSQL LIKE escape |
 | 12 | `docker-compose.yml` | Chuyển đổi từ SQL Server sang `postgres:17-alpine`, cập nhật chuỗi kết nối và migration |
 | 13 | `.env.example` | Cập nhật biến môi trường PostgreSQL |
+| 14 | `backend/src/ELearning.Infrastructure/Persistence/CodeGenerator.cs` | Chuyển câu lệnh lấy sequence sang PostgreSQL: `SELECT nextval('"{sequence}"')` thay vì SQL Server syntax |
+| 15 | `backend/src/ELearning.Infrastructure/Persistence/Seed/DatabaseSeeder.cs` | Khôi phục seed nhóm `DEMO`, học sinh và đề thi demo `CS-BASIC` phục vụ môi trường Development & ApiTests |
+| 16 | `backend/tests/ELearning.TestSupport/SqlServerTestDatabase.cs` | Nâng cấp test harness: khởi tạo PostgreSQL container với database `postgres`, tạo và drop database tạm thời cho test suites |
+
