@@ -66,6 +66,12 @@ internal sealed class AttemptService(
     public async Task<PagedResult<StudentExamListItemDto>> ListExamsAsync(Guid userId, StudentExamListQuery query, CancellationToken ct)
     {
         var exams = AccessibleExams(userId);
+        if (!string.IsNullOrWhiteSpace(query.Keyword))
+        {
+            var kw = Like.Contains(query.Keyword);
+            exams = exams.Where(e => EF.Functions.ILike(e.Code, kw) || EF.Functions.ILike(e.Name, kw));
+        }
+
         if (query.ClassroomId is { } classroomId)
         {
             // Lọc theo lớp chỉ khi học viên thuộc lớp đó (không để lộ đề gán cho lớp khác)

@@ -6,9 +6,9 @@ using ELearning.Shared;
 using ELearning.Shared.Results;
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql;
 
 namespace ELearning.Api.Common;
 
@@ -29,7 +29,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
         var (status, response) = exception switch
         {
             DomainException domain => Map(ErrorMapping.TypeForDomainCode(domain.Code), [new Error(ErrorType.BusinessRule, domain.Code, domain.Message)], traceId),
-            DbUpdateException { InnerException: SqlException { Number: 2601 or 2627 } } => Map(
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } } => Map(
                 ErrorType.Conflict,
                 [Error.Conflict(ErrorCodes.DuplicateCode, "Dữ liệu bị trùng với bản ghi đã có.")],
                 traceId),

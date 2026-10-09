@@ -117,8 +117,8 @@ export function SearchBox({ value, onSearch, placeholder }: { value: string; onS
     >
       <InputGroup size="sm">
         <Form.Control
-          aria-label={t("common.keyword")}
-          placeholder={placeholder ?? t("common.keyword")}
+          aria-label={placeholder ?? t("common.searchCodeOrName")}
+          placeholder={placeholder ?? t("common.searchCodeOrName")}
           value={text}
           onChange={(e) => setText(e.target.value)}
         />

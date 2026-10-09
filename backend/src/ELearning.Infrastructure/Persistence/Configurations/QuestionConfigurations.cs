@@ -52,11 +52,11 @@ internal sealed class QuestionConfiguration : IEntityTypeConfiguration<Question>
             t.HasEnumCheck<AnswerDataType>("CK_Questions_AnswerDataType", "AnswerDataType");
             t.HasCheckConstraint(
                 "CK_Questions_FillIn",
-                "([QuestionType] = 'FILL_IN' AND [AnswerDataType] IS NOT NULL) OR ([QuestionType] <> 'FILL_IN' AND [AnswerDataType] IS NULL)");
+                "(\"QuestionType\" = 'FILL_IN' AND \"AnswerDataType\" IS NOT NULL) OR (\"QuestionType\" <> 'FILL_IN' AND \"AnswerDataType\" IS NULL)");
             t.HasCheckConstraint(
                 "CK_Questions_Number",
-                "[AnswerDataType] IS NULL OR [AnswerDataType] <> 'NUMBER' OR ([CorrectAnswerNumber] IS NOT NULL AND [NumericTolerance] IS NOT NULL AND [NumericTolerance] >= 0)");
-            t.HasCheckConstraint("CK_Questions_Score", "[DefaultScore] > 0");
+                "\"AnswerDataType\" IS NULL OR \"AnswerDataType\" <> 'NUMBER' OR (\"CorrectAnswerNumber\" IS NOT NULL AND \"NumericTolerance\" IS NOT NULL AND \"NumericTolerance\" >= 0)");
+            t.HasCheckConstraint("CK_Questions_Score", "\"DefaultScore\" > 0");
         });
     }
 }

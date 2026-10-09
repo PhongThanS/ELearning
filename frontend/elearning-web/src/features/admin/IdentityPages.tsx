@@ -50,7 +50,7 @@ export function UsersPage() {
       />
       <Row className="g-2 mb-3">
         <Col md={5}>
-          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
+          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã đăng nhập, họ tên, email..." />
         </Col>
         <Col md={3}>
           <Form.Select size="sm" aria-label="Vai trò" value={String(list.state.roleCode ?? "")} onChange={(e) => list.setFilter({ roleCode: e.target.value })}>
@@ -133,11 +133,6 @@ function CreateUserModal({ show, onHide, onCreated }: { show: boolean; onHide: (
                 onChange={(e) => setForm({ ...form, [name]: e.target.value })}
                 required
               />
-              {name === "userName" && (
-                <Form.Text className="text-muted small">
-                  Tên đăng nhập gồm 3–50 ký tự: chữ không dấu (a-z), số (0-9), dấu chấm (.), gạch dưới (_) hoặc gạch ngang (-). Không dùng khoảng trắng.
-                </Form.Text>
-              )}
               <Form.Control.Feedback type="invalid">{errors[name]}</Form.Control.Feedback>
             </Form.Group>
           ))}
@@ -406,7 +401,7 @@ export function GroupsPage() {
         actions={hasPermission(Permissions.GroupManage) && <Button onClick={() => setForm({ code: "", name: "", description: "" })}>{t("common.create")}</Button>}
       />
       <div className="mb-3" style={{ maxWidth: 400 }}>
-        <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
+        <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc tên nhóm..." />
       </div>
       <DataTable data={query.data} columns={columns} rowKey={(g) => g.id} isLoading={query.isLoading} error={query.error} sort={list.state} onSort={list.toggleSort} onPage={list.setPage} />
       
@@ -433,9 +428,6 @@ export function GroupsPage() {
                     placeholder="VD: 12A1-2026, LOP-TOAN-01"
                     onChange={(e) => setForm({ ...form, code: e.target.value })}
                   />
-                  <Form.Text className="text-muted small">
-                    Mã nhóm gồm 2–100 ký tự: chữ không dấu (A-Z), số (0-9), gạch ngang (-), gạch dưới (_) hoặc chấm (.). Không dùng dấu cách.
-                  </Form.Text>
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="group-name">
                   <Form.Label>{t("common.name")} *</Form.Label>
@@ -639,6 +631,12 @@ export function GroupDetailPage() {
           </Card.Body>
         </Card>
       )}
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 className="h6 mb-0">Danh sách thành viên</h2>
+        <div style={{ maxWidth: 320 }}>
+          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm thành viên theo mã, họ tên..." />
+        </div>
+      </div>
       <DataTable data={members.data} columns={columns} rowKey={(m) => m.userId} isLoading={members.isLoading} error={members.error} onPage={list.setPage} />
     </>
   );
@@ -754,9 +752,6 @@ export function RolesPage() {
                     placeholder="VD: TEACHER, EXAM_REVIEWER"
                     onChange={(e) => setEditing({ ...editing, code: e.target.value })}
                   />
-                  <Form.Text className="text-muted small">
-                    Mã vai trò gồm 2–50 ký tự: chữ không dấu, số, gạch dưới; bắt đầu bằng chữ cái.
-                  </Form.Text>
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="role-name">
                   <Form.Label>{t("common.name")} *</Form.Label>

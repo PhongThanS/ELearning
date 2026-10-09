@@ -84,24 +84,22 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
         // UTC cho mọi DateTime (docs/10-bay-ky-thuat.md mục 1)
         configurationBuilder.Properties<DateTime>()
             .HaveConversion<UtcDateTimeConverter>()
-            .HaveColumnType("datetime2(3)");
+            .HaveColumnType("timestamp with time zone");
         configurationBuilder.Properties<DateTime?>()
             .HaveConversion<NullableUtcDateTimeConverter>()
-            .HaveColumnType("datetime2(3)");
+            .HaveColumnType("timestamp with time zone");
 
         // Điểm mặc định DECIMAL(10,2); số đáp án / phần trăm được ghi đè trong từng configuration
         configurationBuilder.Properties<decimal>().HavePrecision(10, 2);
 
         // Enum → UPPER_SNAKE_CASE (docs/10-bay-ky-thuat.md mục 2).
-        // Collation nhị phân: CHECK constraint và filtered index so khớp đúng chữ hoa,
-        // nếu không 'Published' vẫn lọt qua CHECK trên collation mặc định CI.
         foreach (var enumType in DomainEnums)
         {
             var converter = typeof(SnakeCaseEnumConverter<>).MakeGenericType(enumType);
             configurationBuilder.Properties(enumType)
-                .HaveConversion(converter).HaveMaxLength(40).AreUnicode(false).UseCollation(EnumCollation);
+                .HaveConversion(converter).HaveMaxLength(40).AreUnicode(false);
             configurationBuilder.Properties(typeof(Nullable<>).MakeGenericType(enumType))
-                .HaveConversion(converter).HaveMaxLength(40).AreUnicode(false).UseCollation(EnumCollation);
+                .HaveConversion(converter).HaveMaxLength(40).AreUnicode(false);
         }
     }
 
@@ -118,6 +116,29 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
             if (foreignKey.DeleteBehavior != DeleteBehavior.ClientCascade)
             {
                 foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+            }
+        }
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        UpdateRowVersions();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        UpdateRowVersions();
+        return base.SaveChanges();
+    }
+
+    private void UpdateRowVersions()
+    {
+        foreach (var entry in ChangeTracker.Entries<ELearning.Domain.Common.IHasRowVersion>())
+        {
+            if (entry.State is EntityState.Added or EntityState.Modified)
+            {
+                entry.Property(nameof(ELearning.Domain.Common.IHasRowVersion.RowVersion)).CurrentValue = Guid.NewGuid().ToByteArray();
             }
         }
     }

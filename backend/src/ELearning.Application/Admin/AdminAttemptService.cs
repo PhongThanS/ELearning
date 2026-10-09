@@ -63,7 +63,7 @@ internal sealed class AdminAttemptService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            rows = rows.Where(x => EF.Functions.Like(x.u.UserName, kw) || EF.Functions.Like(x.u.FullName, kw));
+            rows = rows.Where(x => EF.Functions.ILike(x.u.UserName, kw) || EF.Functions.ILike(x.u.FullName, kw));
         }
 
         rows = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch

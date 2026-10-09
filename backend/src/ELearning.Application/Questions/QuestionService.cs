@@ -82,7 +82,7 @@ internal sealed class QuestionService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            questions = questions.Where(q => EF.Functions.Like(q.Code, kw) || EF.Functions.Like(q.Content, kw));
+            questions = questions.Where(q => EF.Functions.ILike(q.Code, kw) || EF.Functions.ILike(q.Content, kw));
         }
 
         questions = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch

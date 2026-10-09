@@ -95,7 +95,7 @@ function ResultsTab({ examId }: { examId: string }) {
     <>
       <Row className="g-2 mb-3 align-items-center">
         <Col md={4}>
-          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
+          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã, tên học viên..." />
         </Col>
         <Col md="auto">
           <Form.Check type="switch" id="official-only" label="Chỉ điểm chính thức" checked={list.state.official === true} onChange={(e) => list.setFilter({ official: e.target.checked })} />
@@ -131,7 +131,7 @@ function AttemptsTab({ examId }: { examId: string }) {
     <>
       <Row className="g-2 mb-3">
         <Col md={4}>
-          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
+          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã, tên học viên..." />
         </Col>
         <Col md={3}>
           <Form.Select size="sm" aria-label={t("common.status")} value={String(list.state.status ?? "")} onChange={(e) => list.setFilter({ status: e.target.value })}>
@@ -368,11 +368,16 @@ export function AttemptAdminPage() {
               </span>
             </div>
             <MarkdownView content={q.content} media={a.media} />
-            <div className="small">
+            <div className="small mt-1 d-flex align-items-center flex-wrap gap-2">
               <span className="text-secondary">Trả lời:</span>{" "}
-              {q.type === "FILL_IN" ? q.answerText ?? "(bỏ trống)" : q.selectedOptions.join(", ") || "(bỏ trống)"} ·{" "}
-              <span className="text-secondary">Đáp án:</span>{" "}
-              {q.type === "FILL_IN" ? (q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")) : q.correctOptions.join(", ")}
+              <span className={q.isCorrect ? "badge bg-success-subtle text-success border border-success fw-bold" : q.isCorrect === false ? "badge bg-danger-subtle text-danger border border-danger fw-bold" : "badge bg-light text-dark border"}>
+                {q.isCorrect ? "✓ V " : q.isCorrect === false ? "✗ X " : ""}
+                {q.type === "FILL_IN" ? q.answerText ?? "(bỏ trống)" : q.selectedOptions.join(", ") || "(bỏ trống)"}
+              </span>
+              <span className="text-secondary">· Đáp án:</span>{" "}
+              <span className="badge bg-success-subtle text-success border border-success fw-bold">
+                ✓ V {q.type === "FILL_IN" ? (q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")) : q.correctOptions.join(", ")}
+              </span>
               <span className="text-secondary"> · lưu {q.saveCount} lần</span>
             </div>
           </Card.Body>

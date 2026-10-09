@@ -2,12 +2,12 @@ using ELearning.Domain.Audit;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Identity;
 using ELearning.TestSupport;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace ELearning.IntegrationTests.Persistence;
 
-/// <summary>Kiểm tra schema thật trên SQL Server: migration, UTC, enum, ràng buộc (docs/08-kiem-thu.md mục 4).</summary>
+/// <summary>Kiểm tra schema thật trên PostgreSQL: migration, UTC, enum, ràng buộc (docs/08-kiem-thu.md mục 4).</summary>
 [Collection(DatabaseCollection.Name)]
 public class SchemaTests(SqlServerTestDatabase database)
 {
@@ -26,7 +26,11 @@ public class SchemaTests(SqlServerTestDatabase database)
         await using var context = database.CreateContext();
 
         var cascading = await context.Database
-            .SqlQueryRaw<int>("SELECT COUNT(*) AS Value FROM sys.foreign_keys WHERE delete_referential_action <> 0")
+            .SqlQueryRaw<int>("""
+                SELECT COUNT(*)::int AS "Value"
+                FROM information_schema.referential_constraints
+                WHERE delete_rule NOT IN ('NO ACTION', 'RESTRICT')
+                """)
             .SingleAsync();
 
         cascading.Should().Be(0);
@@ -62,8 +66,8 @@ public class SchemaTests(SqlServerTestDatabase database)
         await using (var context = database.CreateContext())
         {
             await context.Database.ExecuteSqlInterpolatedAsync($"""
-                INSERT INTO Exams (Id, Code, Name, Status, MaxAttempts, AccessMode, RetakeScoringPolicy, CreatedBy, CreatedAt)
-                VALUES ({examId}, {"EX-" + examId.ToString("N")}, N'Đề thử', 'PUBLISHED', 1, 'ASSIGNED', 'HIGHEST', {user.Id}, SYSUTCDATETIME())
+                INSERT INTO "Exams" ("Id", "Code", "Name", "Status", "MaxAttempts", "AccessMode", "RetakeScoringPolicy", "CreatedBy", "CreatedAt", "RowVersion")
+                VALUES ({examId}, {"EX-" + examId.ToString("N")}, 'Đề thử', 'PUBLISHED', 1, 'ASSIGNED', 'HIGHEST', {user.Id}, CURRENT_TIMESTAMP, {Guid.NewGuid().ToByteArray()})
                 """);
         }
 
@@ -83,11 +87,11 @@ public class SchemaTests(SqlServerTestDatabase database)
         await using var context = database.CreateContext();
 
         var act = () => context.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO Exams (Id, Code, Name, Status, MaxAttempts, AccessMode, RetakeScoringPolicy, CreatedBy, CreatedAt)
-            VALUES ({Guid.NewGuid()}, {"EX-" + Guid.NewGuid().ToString("N")}, N'Sai', 'Published', 1, 'ASSIGNED', 'HIGHEST', {user.Id}, SYSUTCDATETIME())
+            INSERT INTO "Exams" ("Id", "Code", "Name", "Status", "MaxAttempts", "AccessMode", "RetakeScoringPolicy", "CreatedBy", "CreatedAt", "RowVersion")
+            VALUES ({Guid.NewGuid()}, {"EX-" + Guid.NewGuid().ToString("N")}, 'Sai', 'Published', 1, 'ASSIGNED', 'HIGHEST', {user.Id}, CURRENT_TIMESTAMP, {Guid.NewGuid().ToByteArray()})
             """);
 
-        (await act.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(547); // CHECK violation
+        (await act.Should().ThrowAsync<PostgresException>()).Which.SqlState.Should().Be(PostgresErrorCodes.CheckViolation);
     }
 
     [Fact]
@@ -97,20 +101,20 @@ public class SchemaTests(SqlServerTestDatabase database)
         var examId = Guid.NewGuid();
         await using var context = database.CreateContext();
         await context.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO Exams (Id, Code, Name, Status, MaxAttempts, AccessMode, RetakeScoringPolicy, CreatedBy, CreatedAt)
-            VALUES ({examId}, {"EX-" + examId.ToString("N")}, N'Đề', 'PUBLISHED', 1, 'PUBLIC', 'HIGHEST', {user.Id}, SYSUTCDATETIME());
-            INSERT INTO ExamVersions (Id, ExamId, VersionNumber, Status, DurationMinutes, ScoreVisibility, ReviewPolicy,
-                                      ShuffleQuestions, ShuffleOptions, CreatedBy, CreatedAt)
-            VALUES (NEWID(), {examId}, 1, 'PUBLISHED', 60, 'IMMEDIATE', 'NEVER', 0, 0, {user.Id}, SYSUTCDATETIME());
+            INSERT INTO "Exams" ("Id", "Code", "Name", "Status", "MaxAttempts", "AccessMode", "RetakeScoringPolicy", "CreatedBy", "CreatedAt", "RowVersion")
+            VALUES ({examId}, {"EX-" + examId.ToString("N")}, 'Đề', 'PUBLISHED', 1, 'PUBLIC', 'HIGHEST', {user.Id}, CURRENT_TIMESTAMP, {Guid.NewGuid().ToByteArray()});
+            INSERT INTO "ExamVersions" ("Id", "ExamId", "VersionNumber", "Status", "DurationMinutes", "ScoreVisibility", "ReviewPolicy",
+                                      "ShuffleQuestions", "ShuffleOptions", "CreatedBy", "CreatedAt", "RowVersion")
+            VALUES (gen_random_uuid(), {examId}, 1, 'PUBLISHED', 60, 'IMMEDIATE', 'NEVER', FALSE, FALSE, {user.Id}, CURRENT_TIMESTAMP, {Guid.NewGuid().ToByteArray()});
             """);
 
         var secondPublished = () => context.Database.ExecuteSqlInterpolatedAsync($"""
-            INSERT INTO ExamVersions (Id, ExamId, VersionNumber, Status, DurationMinutes, ScoreVisibility, ReviewPolicy,
-                                      ShuffleQuestions, ShuffleOptions, CreatedBy, CreatedAt)
-            VALUES (NEWID(), {examId}, 2, 'PUBLISHED', 60, 'IMMEDIATE', 'NEVER', 0, 0, {user.Id}, SYSUTCDATETIME())
+            INSERT INTO "ExamVersions" ("Id", "ExamId", "VersionNumber", "Status", "DurationMinutes", "ScoreVisibility", "ReviewPolicy",
+                                      "ShuffleQuestions", "ShuffleOptions", "CreatedBy", "CreatedAt", "RowVersion")
+            VALUES (gen_random_uuid(), {examId}, 2, 'PUBLISHED', 60, 'IMMEDIATE', 'NEVER', FALSE, FALSE, {user.Id}, CURRENT_TIMESTAMP, {Guid.NewGuid().ToByteArray()})
             """);
 
-        (await secondPublished.Should().ThrowAsync<SqlException>()).Which.Number.Should().Be(2601); // unique index
+        (await secondPublished.Should().ThrowAsync<PostgresException>()).Which.SqlState.Should().Be(PostgresErrorCodes.UniqueViolation);
     }
 
     [Fact]

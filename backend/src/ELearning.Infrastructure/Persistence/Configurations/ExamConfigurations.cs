@@ -34,8 +34,8 @@ internal sealed class ExamConfiguration : IEntityTypeConfiguration<Exam>
             t.HasEnumCheck<AccessMode>("CK_Exams_AccessMode", "AccessMode");
             t.HasEnumCheck<RetakeScoringPolicy>("CK_Exams_RetakeScoring", "RetakeScoringPolicy");
             t.HasCheckConstraint(
-                "CK_Exams_MaxAttempts", $"[MaxAttempts] BETWEEN {Exam.MinAttempts} AND {Exam.MaxAttemptsLimit}");
-            t.HasCheckConstraint("CK_Exams_Window", "[StartAt] IS NULL OR [EndAt] IS NULL OR [StartAt] < [EndAt]");
+                "CK_Exams_MaxAttempts", $"\"MaxAttempts\" BETWEEN {Exam.MinAttempts} AND {Exam.MaxAttemptsLimit}");
+            t.HasCheckConstraint("CK_Exams_Window", "\"StartAt\" IS NULL OR \"EndAt\" IS NULL OR \"StartAt\" < \"EndAt\"");
         });
     }
 }
@@ -52,8 +52,8 @@ internal sealed class ExamVersionConfiguration : IEntityTypeConfiguration<ExamVe
 
         // D-04: tối đa 1 version PUBLISHED và 1 version DRAFT cho mỗi đề.
         // Hai index cùng cột ExamId nên phải dùng overload có tên, nếu không EF gộp làm một.
-        builder.HasIndex(v => v.ExamId, "UX_ExamVersions_OnePublished").IsUnique().HasFilter("[Status] = 'PUBLISHED'");
-        builder.HasIndex(v => v.ExamId, "UX_ExamVersions_OneDraft").IsUnique().HasFilter("[Status] = 'DRAFT'");
+        builder.HasIndex(v => v.ExamId, "UX_ExamVersions_OnePublished").IsUnique().HasFilter("\"Status\" = 'PUBLISHED'");
+        builder.HasIndex(v => v.ExamId, "UX_ExamVersions_OneDraft").IsUnique().HasFilter("\"Status\" = 'DRAFT'");
 
         builder.HasUserReference(v => v.PublishedBy, "FK_ExamVersions_PublishedBy");
         builder.HasUserReference(v => v.CreatedBy, "FK_ExamVersions_CreatedBy");
@@ -68,8 +68,8 @@ internal sealed class ExamVersionConfiguration : IEntityTypeConfiguration<ExamVe
             t.HasEnumCheck<ExamVersionStatus>("CK_ExamVersions_Status", "Status");
             t.HasEnumCheck<ScoreVisibility>("CK_ExamVersions_ScoreVisibility", "ScoreVisibility");
             t.HasEnumCheck<ReviewPolicy>("CK_ExamVersions_ReviewPolicy", "ReviewPolicy");
-            t.HasCheckConstraint("CK_ExamVersions_Duration", "[DurationMinutes] BETWEEN 1 AND 600");
-            t.HasCheckConstraint("CK_ExamVersions_Pass", "[PassPercentage] BETWEEN 0 AND 100");
+            t.HasCheckConstraint("CK_ExamVersions_Duration", "\"DurationMinutes\" BETWEEN 1 AND 600");
+            t.HasCheckConstraint("CK_ExamVersions_Pass", "\"PassPercentage\" BETWEEN 0 AND 100");
         });
     }
 }
@@ -80,21 +80,21 @@ internal sealed class ExamQuestionConfiguration : IEntityTypeConfiguration<ExamQ
     {
         builder.ConfigureEntity("ExamQuestions");
         builder.Property(q => q.Content).IsRequired();
-        builder.Property(q => q.SourceRowVersion).HasColumnType("binary(8)");
+        builder.Property(q => q.SourceRowVersion).HasColumnType("bytea");
         builder.Property(q => q.CorrectAnswerNumber).HasColumnType(ConfigurationExtensions.SqlDecimalAnswer);
         builder.Property(q => q.NumericTolerance).HasColumnType(ConfigurationExtensions.SqlDecimalAnswer);
 
         builder.HasIndex(q => new { q.ExamVersionId, q.QuestionOrder }).IsUnique()
             .HasDatabaseName("UQ_ExamQuestions_Order");
         builder.HasIndex(q => new { q.ExamVersionId, q.SourceQuestionId }).IsUnique()
-            .HasFilter("[SourceQuestionId] IS NOT NULL")
+            .HasFilter("\"SourceQuestionId\" IS NOT NULL")
             .HasDatabaseName("UX_ExamQuestions_Source");
 
         builder.HasOne<Question>().WithMany().HasForeignKey(q => q.SourceQuestionId)
             .HasConstraintName("FK_ExamQuestions_SourceQuestion");
         builder.HasOne<ExamPoolRule>().WithMany().HasForeignKey(q => q.PoolRuleId)
             .HasConstraintName("FK_ExamQuestions_PoolRule");
-        builder.HasIndex(q => q.PoolRuleId).HasFilter("[PoolRuleId] IS NOT NULL").HasDatabaseName("IX_ExamQuestions_PoolRule");
+        builder.HasIndex(q => q.PoolRuleId).HasFilter("\"PoolRuleId\" IS NOT NULL").HasDatabaseName("IX_ExamQuestions_PoolRule");
         builder.HasUserReference(q => q.VoidedBy, "FK_ExamQuestions_VoidedBy");
 
         builder.HasMany(q => q.Options).WithOne().HasForeignKey(o => o.ExamQuestionId)
@@ -107,7 +107,7 @@ internal sealed class ExamQuestionConfiguration : IEntityTypeConfiguration<ExamQ
             t.HasEnumCheck<ContentFormat>("CK_ExamQuestions_ContentFormat", "ContentFormat");
             t.HasEnumCheck<QuestionType>("CK_ExamQuestions_Type", "QuestionType");
             t.HasEnumCheck<AnswerDataType>("CK_ExamQuestions_AnswerDataType", "AnswerDataType");
-            t.HasCheckConstraint("CK_ExamQuestions_Score", "[Score] > 0");
+            t.HasCheckConstraint("CK_ExamQuestions_Score", "\"Score\" > 0");
         });
     }
 }
@@ -128,8 +128,8 @@ internal sealed class ExamPoolRuleConfiguration : IEntityTypeConfiguration<ExamP
         {
             t.HasEnumCheck<QuestionDifficulty>("CK_ExamPoolRules_Difficulty", "Difficulty");
             t.HasEnumCheck<QuestionType>("CK_ExamPoolRules_Type", "QuestionType");
-            t.HasCheckConstraint("CK_ExamPoolRules_DrawCount", "[DrawCount] BETWEEN 1 AND 500");
-            t.HasCheckConstraint("CK_ExamPoolRules_Score", "[ScorePerQuestion] > 0");
+            t.HasCheckConstraint("CK_ExamPoolRules_DrawCount", "\"DrawCount\" BETWEEN 1 AND 500");
+            t.HasCheckConstraint("CK_ExamPoolRules_Score", "\"ScorePerQuestion\" > 0");
         });
     }
 }
@@ -167,20 +167,20 @@ internal sealed class ExamAssignmentConfiguration : IEntityTypeConfiguration<Exa
         builder.HasOne<Classroom>().WithMany().HasForeignKey(a => a.ClassroomId).HasConstraintName("FK_ExamAssignments_Classroom");
         builder.HasUserReference(a => a.CreatedBy, "FK_ExamAssignments_CreatedBy");
 
-        builder.HasIndex(a => new { a.ExamId, a.GroupId }).IsUnique().HasFilter("[GroupId] IS NOT NULL")
+        builder.HasIndex(a => new { a.ExamId, a.GroupId }).IsUnique().HasFilter("\"GroupId\" IS NOT NULL")
             .HasDatabaseName("UX_ExamAssignments_Group");
-        builder.HasIndex(a => new { a.ExamId, a.UserId }).IsUnique().HasFilter("[UserId] IS NOT NULL")
+        builder.HasIndex(a => new { a.ExamId, a.UserId }).IsUnique().HasFilter("\"UserId\" IS NOT NULL")
             .HasDatabaseName("UX_ExamAssignments_User");
-        builder.HasIndex(a => a.GroupId).HasFilter("[GroupId] IS NOT NULL").HasDatabaseName("IX_ExamAssignments_GroupId");
-        builder.HasIndex(a => a.UserId).HasFilter("[UserId] IS NOT NULL").HasDatabaseName("IX_ExamAssignments_UserId");
-        builder.HasIndex(a => new { a.ExamId, a.ClassroomId }).IsUnique().HasFilter("[ClassroomId] IS NOT NULL")
+        builder.HasIndex(a => a.GroupId).HasFilter("\"GroupId\" IS NOT NULL").HasDatabaseName("IX_ExamAssignments_GroupId");
+        builder.HasIndex(a => a.UserId).HasFilter("\"UserId\" IS NOT NULL").HasDatabaseName("IX_ExamAssignments_UserId");
+        builder.HasIndex(a => new { a.ExamId, a.ClassroomId }).IsUnique().HasFilter("\"ClassroomId\" IS NOT NULL")
             .HasDatabaseName("UX_ExamAssignments_Classroom");
-        builder.HasIndex(a => a.ClassroomId).HasFilter("[ClassroomId] IS NOT NULL").HasDatabaseName("IX_ExamAssignments_ClassroomId");
+        builder.HasIndex(a => a.ClassroomId).HasFilter("\"ClassroomId\" IS NOT NULL").HasDatabaseName("IX_ExamAssignments_ClassroomId");
 
         // Mỗi dòng gán đúng một đích: nhóm, người hoặc lớp (D-28)
         builder.ToTable(t => t.HasCheckConstraint(
             "CK_ExamAssignments_Target",
-            "(CASE WHEN [GroupId] IS NULL THEN 0 ELSE 1 END + CASE WHEN [UserId] IS NULL THEN 0 ELSE 1 END + CASE WHEN [ClassroomId] IS NULL THEN 0 ELSE 1 END) = 1"));
+            "(CASE WHEN \"GroupId\" IS NULL THEN 0 ELSE 1 END + CASE WHEN \"UserId\" IS NULL THEN 0 ELSE 1 END + CASE WHEN \"ClassroomId\" IS NULL THEN 0 ELSE 1 END) = 1"));
     }
 }
 
@@ -189,7 +189,7 @@ internal sealed class ExamUserOverrideConfiguration : IEntityTypeConfiguration<E
     public void Configure(EntityTypeBuilder<ExamUserOverride> builder)
     {
         builder.ToTable("ExamUserOverrides", t => t.HasCheckConstraint(
-            "CK_ExamUserOverrides_Extra", $"[ExtraAttempts] BETWEEN 0 AND {Exam.MaxAttemptsLimit}"));
+            "CK_ExamUserOverrides_Extra", $"\"ExtraAttempts\" BETWEEN 0 AND {Exam.MaxAttemptsLimit}"));
         builder.HasKey(o => new { o.ExamId, o.UserId }).HasName("PK_ExamUserOverrides");
         builder.Property(o => o.Note).HasMaxLength(500);
         builder.HasOne<Exam>().WithMany().HasForeignKey(o => o.ExamId).HasConstraintName("FK_ExamUserOverrides_Exam");

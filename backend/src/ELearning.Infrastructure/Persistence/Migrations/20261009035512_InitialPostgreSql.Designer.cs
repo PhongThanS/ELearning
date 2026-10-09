@@ -3,17 +3,17 @@ using System;
 using ELearning.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace ELearning.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ELearningDbContext))]
-    [Migration("20260929015715_QuestionPoolAndTags")]
-    partial class QuestionPoolAndTags
+    [Migration("20261009035512_InitialPostgreSql")]
+    partial class InitialPostgreSql
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -21,9 +21,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "10.0.12")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+                .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.HasSequence("QuestionCodeSequence");
 
@@ -31,43 +31,56 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<decimal?>("AnswerNumber")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(30,10)");
 
                     b.Property<string>("AnswerText")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("AnsweredAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("AttemptQuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<long>("ClientSeq")
                         .HasColumnType("bigint");
 
                     b.Property<DateTime?>("GradedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("IsAnswered")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool?>("IsCorrect")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsMarkedForReview")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ManualComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTime?>("ManualGradedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ManualGradedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("ManualScore")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<int>("SaveCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal?>("Score")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.HasKey("Id")
                         .HasName("PK_AttemptAnswers");
@@ -76,18 +89,20 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("UQ_AttemptAnswers_Question");
 
+                    b.HasIndex("ManualGradedBy");
+
                     b.ToTable("AttemptAnswers", (string)null);
                 });
 
             modelBuilder.Entity("ELearning.Domain.Attempts.AttemptAnswerOption", b =>
                 {
                     b.Property<Guid>("AttemptAnswerId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("OptionCode")
                         .HasMaxLength(10)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(10)");
+                        .HasColumnType("character varying(10)");
 
                     b.HasKey("AttemptAnswerId", "OptionCode")
                         .HasName("PK_AttemptAnswerOptions");
@@ -101,32 +116,31 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<Guid>("AttemptId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("ClientTime")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Detail")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("EventType")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(45)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(45)");
+                        .HasColumnType("character varying(45)");
 
                     b.Property<DateTime>("ServerTime")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id")
                         .HasName("PK_AttemptEvents");
@@ -136,7 +150,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("AttemptEvents", null, t =>
                         {
-                            t.HasCheckConstraint("CK_AttemptEvents_Type", "[EventType] IN ('VISIBILITY_HIDDEN','VISIBILITY_VISIBLE','WINDOW_BLUR','WINDOW_FOCUS','FULLSCREEN_EXIT','OFFLINE','ONLINE','MULTI_TAB_DETECTED','PAGE_RELOAD','PASTE')");
+                            t.HasCheckConstraint("CK_AttemptEvents_Type", "\"EventType\" IN ('VISIBILITY_HIDDEN','VISIBILITY_VISIBLE','WINDOW_BLUR','WINDOW_FOCUS','FULLSCREEN_EXIT','OFFLINE','ONLINE','MULTI_TAB_DETECTED','PAGE_RELOAD','PASTE')");
                         });
                 });
 
@@ -144,21 +158,21 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("AttemptId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("ExamQuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("OptionOrder")
                         .HasMaxLength(200)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<int>("QuestionOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("Id")
                         .HasName("PK_AttemptQuestions");
@@ -180,80 +194,77 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("AttemptNumber")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("CancelReason")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime?>("CancelledAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("CancelledBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("ExamId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("ExamVersionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("ExpiredAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("QuestionCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
+                        .HasColumnType("bytea");
 
                     b.Property<DateTime>("StartedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("StartedIp")
                         .HasMaxLength(45)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(45)");
+                        .HasColumnType("character varying(45)");
 
                     b.Property<string>("StartedUserAgent")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("SubmitReason")
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<DateTime?>("SubmittedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SubmittedIp")
                         .HasMaxLength(45)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(45)");
+                        .HasColumnType("character varying(45)");
 
                     b.Property<int>("TimeExtensionMinutes")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamAttempts");
@@ -262,12 +273,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExpiredAt")
                         .HasDatabaseName("IX_ExamAttempts_InProgress_Expired")
-                        .HasFilter("[Status] = 'IN_PROGRESS'");
+                        .HasFilter("\"Status\" = 'IN_PROGRESS'");
 
                     b.HasIndex("ExamId", "Status")
                         .HasDatabaseName("IX_ExamAttempts_Exam");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("ExamId", "Status"), new[] { "UserId", "SubmittedAt" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("ExamId", "Status"), new[] { "UserId", "SubmittedAt" });
 
                     b.HasIndex("ExamVersionId", "Status")
                         .HasDatabaseName("IX_ExamAttempts_Version");
@@ -275,7 +286,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "ExamId")
                         .IsUnique()
                         .HasDatabaseName("UX_ExamAttempts_OneInProgress")
-                        .HasFilter("[Status] = 'IN_PROGRESS'");
+                        .HasFilter("\"Status\" = 'IN_PROGRESS'");
 
                     b.HasIndex("UserId", "ExamId", "AttemptNumber")
                         .IsUnique()
@@ -283,13 +294,13 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ExamAttempts", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamAttempts_Status", "[Status] IN ('IN_PROGRESS','SUBMITTED','AUTO_SUBMITTED','CANCELLED')");
+                            t.HasCheckConstraint("CK_ExamAttempts_Status", "\"Status\" IN ('IN_PROGRESS','SUBMITTED','AUTO_SUBMITTED','CANCELLED')");
 
-                            t.HasCheckConstraint("CK_ExamAttempts_SubmitReason", "[SubmitReason] IN ('STUDENT','TIME_EXPIRED','FORCED_BY_ADMIN')");
+                            t.HasCheckConstraint("CK_ExamAttempts_SubmitReason", "\"SubmitReason\" IN ('STUDENT','TIME_EXPIRED','FORCED_BY_ADMIN')");
 
-                            t.HasCheckConstraint("CK_ExamAttempts_Submitted", "([Status] IN ('SUBMITTED','AUTO_SUBMITTED') AND [SubmittedAt] IS NOT NULL AND [SubmitReason] IS NOT NULL) OR ([Status] IN ('IN_PROGRESS','CANCELLED'))");
+                            t.HasCheckConstraint("CK_ExamAttempts_Submitted", "(\"Status\" IN ('SUBMITTED','AUTO_SUBMITTED') AND \"SubmittedAt\" IS NOT NULL AND \"SubmitReason\" IS NOT NULL) OR (\"Status\" IN ('IN_PROGRESS','CANCELLED'))");
 
-                            t.HasCheckConstraint("CK_ExamAttempts_Time", "[ExpiredAt] > [StartedAt]");
+                            t.HasCheckConstraint("CK_ExamAttempts_Time", "\"ExpiredAt\" > \"StartedAt\"");
                         });
                 });
 
@@ -299,51 +310,51 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(100)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("EntityId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("EntityName")
                         .HasMaxLength(100)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(45)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(45)");
+                        .HasColumnType("character varying(45)");
 
                     b.Property<string>("NewValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("OldValue")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("TraceId")
                         .HasMaxLength(64)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(64)");
+                        .HasColumnType("character varying(64)");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<Guid?>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_AuditLogs");
@@ -362,43 +373,130 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.ToTable("AuditLogs", (string)null);
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Classes.Classroom", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("SchoolYear")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id")
+                        .HasName("PK_Classrooms");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_Classrooms_Code");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("Classrooms", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Classrooms_Dates", "\"EndDate\" IS NULL OR \"StartDate\" IS NULL OR \"EndDate\" >= \"StartDate\"");
+                        });
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Classes.ClassroomStudent", b =>
+                {
+                    b.Property<Guid>("ClassroomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("ClassroomId", "UserId")
+                        .HasName("PK_ClassroomStudents");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_ClassroomStudents_User");
+
+                    b.ToTable("ClassroomStudents", (string)null);
+                });
+
             modelBuilder.Entity("ELearning.Domain.Exams.AnswerKeyCorrection", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("AffectedAttemptCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CorrectedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CorrectedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("CorrectionType")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<Guid>("ExamQuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("NewKeyJson")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("OldKeyJson")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("character varying(1000)");
 
                     b.HasKey("Id")
                         .HasName("PK_AnswerKeyCorrections");
@@ -410,7 +508,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("AnswerKeyCorrections", null, t =>
                         {
-                            t.HasCheckConstraint("CK_AnswerKeyCorrections_Type", "[CorrectionType] IN ('ANSWER_KEY','VOID')");
+                            t.HasCheckConstraint("CK_AnswerKeyCorrections_Type", "\"CorrectionType\" IN ('ANSWER_KEY','VOID')");
                         });
                 });
 
@@ -418,75 +516,71 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AccessMode")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<DateTime?>("ClosedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("EndAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Instructions")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<int>("MaxAttempts")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(300)
-                        .HasColumnType("nvarchar(300)");
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("RetakeScoringPolicy")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
+                        .HasColumnType("bytea");
 
                     b.Property<DateTime?>("StartAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_Exams");
@@ -500,21 +594,21 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status")
                         .HasDatabaseName("IX_Exams_Status");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("Status"), new[] { "StartAt", "EndAt", "AccessMode" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("Status"), new[] { "StartAt", "EndAt", "AccessMode" });
 
                     b.HasIndex("UpdatedBy");
 
                     b.ToTable("Exams", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Exams_AccessMode", "[AccessMode] IN ('PUBLIC','ASSIGNED')");
+                            t.HasCheckConstraint("CK_Exams_AccessMode", "\"AccessMode\" IN ('PUBLIC','ASSIGNED')");
 
-                            t.HasCheckConstraint("CK_Exams_MaxAttempts", "[MaxAttempts] BETWEEN 1 AND 50");
+                            t.HasCheckConstraint("CK_Exams_MaxAttempts", "\"MaxAttempts\" BETWEEN 1 AND 50");
 
-                            t.HasCheckConstraint("CK_Exams_RetakeScoring", "[RetakeScoringPolicy] IN ('HIGHEST','LATEST')");
+                            t.HasCheckConstraint("CK_Exams_RetakeScoring", "\"RetakeScoringPolicy\" IN ('HIGHEST','LATEST')");
 
-                            t.HasCheckConstraint("CK_Exams_Status", "[Status] IN ('DRAFT','PUBLISHED','CLOSED')");
+                            t.HasCheckConstraint("CK_Exams_Status", "\"Status\" IN ('DRAFT','PUBLISHED','CLOSED')");
 
-                            t.HasCheckConstraint("CK_Exams_Window", "[StartAt] IS NULL OR [EndAt] IS NULL OR [StartAt] < [EndAt]");
+                            t.HasCheckConstraint("CK_Exams_Window", "\"StartAt\" IS NULL OR \"EndAt\" IS NULL OR \"StartAt\" < \"EndAt\"");
                         });
                 });
 
@@ -522,88 +616,98 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ClassroomId")
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("ExamId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("GroupId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamAssignments");
+
+                    b.HasIndex("ClassroomId")
+                        .HasDatabaseName("IX_ExamAssignments_ClassroomId")
+                        .HasFilter("\"ClassroomId\" IS NOT NULL");
 
                     b.HasIndex("CreatedBy");
 
                     b.HasIndex("GroupId")
                         .HasDatabaseName("IX_ExamAssignments_GroupId")
-                        .HasFilter("[GroupId] IS NOT NULL");
+                        .HasFilter("\"GroupId\" IS NOT NULL");
 
                     b.HasIndex("UserId")
                         .HasDatabaseName("IX_ExamAssignments_UserId")
-                        .HasFilter("[UserId] IS NOT NULL");
+                        .HasFilter("\"UserId\" IS NOT NULL");
+
+                    b.HasIndex("ExamId", "ClassroomId")
+                        .IsUnique()
+                        .HasDatabaseName("UX_ExamAssignments_Classroom")
+                        .HasFilter("\"ClassroomId\" IS NOT NULL");
 
                     b.HasIndex("ExamId", "GroupId")
                         .IsUnique()
                         .HasDatabaseName("UX_ExamAssignments_Group")
-                        .HasFilter("[GroupId] IS NOT NULL");
+                        .HasFilter("\"GroupId\" IS NOT NULL");
 
                     b.HasIndex("ExamId", "UserId")
                         .IsUnique()
                         .HasDatabaseName("UX_ExamAssignments_User")
-                        .HasFilter("[UserId] IS NOT NULL");
+                        .HasFilter("\"UserId\" IS NOT NULL");
 
                     b.ToTable("ExamAssignments", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamAssignments_Target", "([GroupId] IS NULL AND [UserId] IS NOT NULL) OR ([GroupId] IS NOT NULL AND [UserId] IS NULL)");
+                            t.HasCheckConstraint("CK_ExamAssignments_Target", "(CASE WHEN \"GroupId\" IS NULL THEN 0 ELSE 1 END + CASE WHEN \"UserId\" IS NULL THEN 0 ELSE 1 END + CASE WHEN \"ClassroomId\" IS NULL THEN 0 ELSE 1 END) = 1");
                         });
                 });
 
             modelBuilder.Entity("ELearning.Domain.Exams.ExamPoolRule", b =>
                 {
                     b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Difficulty")
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<int>("DrawCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ExamVersionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("QuestionType")
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<int>("RuleOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("ScorePerQuestion")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<string>("Tag")
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("character varying(50)");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamPoolRules");
@@ -616,13 +720,13 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ExamPoolRules", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamPoolRules_Difficulty", "[Difficulty] IN ('EASY','MEDIUM','HARD')");
+                            t.HasCheckConstraint("CK_ExamPoolRules_Difficulty", "\"Difficulty\" IN ('EASY','MEDIUM','HARD')");
 
-                            t.HasCheckConstraint("CK_ExamPoolRules_DrawCount", "[DrawCount] BETWEEN 1 AND 500");
+                            t.HasCheckConstraint("CK_ExamPoolRules_DrawCount", "\"DrawCount\" BETWEEN 1 AND 500");
 
-                            t.HasCheckConstraint("CK_ExamPoolRules_Score", "[ScorePerQuestion] > 0");
+                            t.HasCheckConstraint("CK_ExamPoolRules_Score", "\"ScorePerQuestion\" > 0");
 
-                            t.HasCheckConstraint("CK_ExamPoolRules_Type", "[QuestionType] IN ('SINGLE_CHOICE','MULTIPLE_CHOICE','TRUE_FALSE','FILL_IN')");
+                            t.HasCheckConstraint("CK_ExamPoolRules_Type", "\"QuestionType\" IN ('SINGLE_CHOICE','MULTIPLE_CHOICE','TRUE_FALSE','FILL_IN','ESSAY')");
                         });
                 });
 
@@ -630,86 +734,86 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AnswerDataType")
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<bool>("CaseSensitive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ContentFormat")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<DateTime>("CopiedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal?>("CorrectAnswerNumber")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(30,10)");
 
                     b.Property<Guid>("ExamVersionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Explanation")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IgnoreAccent")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsVoided")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("NumericTolerance")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(30,10)");
 
+                    b.Property<bool>("PartialScoring")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("PoolRuleId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("QuestionOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("QuestionType")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<decimal>("Score")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<Guid?>("SourceQuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<byte[]>("SourceRowVersion")
-                        .HasColumnType("binary(8)");
+                        .HasColumnType("bytea");
 
                     b.Property<DateTime?>("VoidedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("VoidedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamQuestions");
 
                     b.HasIndex("PoolRuleId")
                         .HasDatabaseName("IX_ExamQuestions_PoolRule")
-                        .HasFilter("[PoolRuleId] IS NOT NULL");
+                        .HasFilter("\"PoolRuleId\" IS NOT NULL");
 
                     b.HasIndex("SourceQuestionId");
 
@@ -722,17 +826,17 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExamVersionId", "SourceQuestionId")
                         .IsUnique()
                         .HasDatabaseName("UX_ExamQuestions_Source")
-                        .HasFilter("[SourceQuestionId] IS NOT NULL");
+                        .HasFilter("\"SourceQuestionId\" IS NOT NULL");
 
                     b.ToTable("ExamQuestions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamQuestions_AnswerDataType", "[AnswerDataType] IN ('TEXT','NUMBER')");
+                            t.HasCheckConstraint("CK_ExamQuestions_AnswerDataType", "\"AnswerDataType\" IN ('TEXT','NUMBER')");
 
-                            t.HasCheckConstraint("CK_ExamQuestions_ContentFormat", "[ContentFormat] IN ('PLAIN','MARKDOWN')");
+                            t.HasCheckConstraint("CK_ExamQuestions_ContentFormat", "\"ContentFormat\" IN ('PLAIN','MARKDOWN')");
 
-                            t.HasCheckConstraint("CK_ExamQuestions_Score", "[Score] > 0");
+                            t.HasCheckConstraint("CK_ExamQuestions_Score", "\"Score\" > 0");
 
-                            t.HasCheckConstraint("CK_ExamQuestions_Type", "[QuestionType] IN ('SINGLE_CHOICE','MULTIPLE_CHOICE','TRUE_FALSE','FILL_IN')");
+                            t.HasCheckConstraint("CK_ExamQuestions_Type", "\"QuestionType\" IN ('SINGLE_CHOICE','MULTIPLE_CHOICE','TRUE_FALSE','FILL_IN','ESSAY')");
                         });
                 });
 
@@ -740,18 +844,18 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AnswerText")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ExamQuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamQuestionAcceptedAnswers");
@@ -767,27 +871,27 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ExamQuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsCorrect")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("OptionCode")
                         .IsRequired()
                         .HasMaxLength(10)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(10)");
+                        .HasColumnType("character varying(10)");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamQuestionOptions");
@@ -802,23 +906,23 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Exams.ExamUserOverride", b =>
                 {
                     b.Property<Guid>("ExamId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("ExtraAttempts")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("Note")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("ExamId", "UserId")
                         .HasName("PK_ExamUserOverrides");
@@ -829,7 +933,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ExamUserOverrides", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamUserOverrides_Extra", "[ExtraAttempts] BETWEEN 0 AND 50");
+                            t.HasCheckConstraint("CK_ExamUserOverrides_Extra", "\"ExtraAttempts\" BETWEEN 0 AND 50");
                         });
                 });
 
@@ -837,75 +941,71 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("ArchivedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("DurationMinutes")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ExamId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<decimal?>("MaxScore")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<decimal?>("PassPercentage")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<DateTime?>("PublishedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("PublishedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int?>("QuestionCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<string>("ReviewPolicy")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
+                        .HasColumnType("bytea");
 
                     b.Property<string>("ScoreVisibility")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<bool>("ShuffleOptions")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("ShuffleQuestions")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<int>("VersionNumber")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamVersions");
@@ -920,23 +1020,23 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.HasIndex(new[] { "ExamId" }, "UX_ExamVersions_OneDraft")
                         .IsUnique()
-                        .HasFilter("[Status] = 'DRAFT'");
+                        .HasFilter("\"Status\" = 'DRAFT'");
 
                     b.HasIndex(new[] { "ExamId" }, "UX_ExamVersions_OnePublished")
                         .IsUnique()
-                        .HasFilter("[Status] = 'PUBLISHED'");
+                        .HasFilter("\"Status\" = 'PUBLISHED'");
 
                     b.ToTable("ExamVersions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamVersions_Duration", "[DurationMinutes] BETWEEN 1 AND 600");
+                            t.HasCheckConstraint("CK_ExamVersions_Duration", "\"DurationMinutes\" BETWEEN 1 AND 600");
 
-                            t.HasCheckConstraint("CK_ExamVersions_Pass", "[PassPercentage] BETWEEN 0 AND 100");
+                            t.HasCheckConstraint("CK_ExamVersions_Pass", "\"PassPercentage\" BETWEEN 0 AND 100");
 
-                            t.HasCheckConstraint("CK_ExamVersions_ReviewPolicy", "[ReviewPolicy] IN ('NEVER','AFTER_SUBMIT','AFTER_EXAM_END','AFTER_LAST_ATTEMPT')");
+                            t.HasCheckConstraint("CK_ExamVersions_ReviewPolicy", "\"ReviewPolicy\" IN ('NEVER','AFTER_SUBMIT','AFTER_EXAM_END','AFTER_LAST_ATTEMPT')");
 
-                            t.HasCheckConstraint("CK_ExamVersions_ScoreVisibility", "[ScoreVisibility] IN ('IMMEDIATE','AFTER_EXAM_END','HIDDEN')");
+                            t.HasCheckConstraint("CK_ExamVersions_ScoreVisibility", "\"ScoreVisibility\" IN ('IMMEDIATE','AFTER_EXAM_END','HIDDEN')");
 
-                            t.HasCheckConstraint("CK_ExamVersions_Status", "[Status] IN ('DRAFT','PUBLISHED','ARCHIVED')");
+                            t.HasCheckConstraint("CK_ExamVersions_Status", "\"Status\" IN ('DRAFT','PUBLISHED','ARCHIVED')");
                         });
                 });
 
@@ -944,18 +1044,18 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.HasKey("Id")
                         .HasName("PK_Permissions");
@@ -971,46 +1071,45 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("CreatedByIp")
                         .HasMaxLength(45)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(45)");
+                        .HasColumnType("character varying(45)");
 
                     b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("FamilyId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("ReplacedByTokenId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("RevokedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("RevokedReason")
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("TokenHash")
                         .IsRequired()
                         .HasMaxLength(128)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(128)");
+                        .HasColumnType("character varying(128)");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_RefreshTokens");
@@ -1027,7 +1126,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("RefreshTokens", null, t =>
                         {
-                            t.HasCheckConstraint("CK_RefreshTokens_RevokedReason", "[RevokedReason] IN ('ROTATED','LOGOUT','REUSE_DETECTED','PASSWORD_CHANGED','USER_DISABLED','ADMIN')");
+                            t.HasCheckConstraint("CK_RefreshTokens_RevokedReason", "\"RevokedReason\" IN ('ROTATED','LOGOUT','REUSE_DETECTED','PASSWORD_CHANGED','USER_DISABLED','ADMIN')");
                         });
                 });
 
@@ -1035,24 +1134,24 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(50)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
+                        .HasColumnType("character varying(50)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsSystem")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("Id")
                         .HasName("PK_Roles");
@@ -1067,10 +1166,10 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Identity.RolePermission", b =>
                 {
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("PermissionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("RoleId", "PermissionId")
                         .HasName("PK_RolePermissions");
@@ -1084,72 +1183,71 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<DateTime?>("AnonymizedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                        .HasColumnType("character varying(255)");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastLoginAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("LockoutEnd")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("MustChangePassword")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("NormalizedEmail")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                        .HasColumnType("character varying(255)");
 
                     b.Property<string>("NormalizedUserName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
+                        .HasColumnType("character varying(500)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
+                        .HasColumnType("bytea");
 
                     b.Property<Guid>("SecurityStamp")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.HasKey("Id")
                         .HasName("PK_Users");
@@ -1169,37 +1267,36 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Description")
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
+                        .HasColumnType("bytea");
 
                     b.HasKey("Id")
                         .HasName("PK_UserGroups");
@@ -1216,13 +1313,13 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Identity.UserGroupMember", b =>
                 {
                     b.Property<Guid>("GroupId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("AddedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("GroupId", "UserId")
                         .HasName("PK_UserGroupMembers");
@@ -1236,10 +1333,10 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Identity.UserRole", b =>
                 {
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("UserId", "RoleId")
                         .HasName("PK_UserRoles");
@@ -1249,92 +1346,139 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.ToTable("UserRoles", (string)null);
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Media.MediaFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("character(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id")
+                        .HasName("PK_MediaFiles");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("Sha256")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_MediaFiles_Sha256");
+
+                    b.ToTable("MediaFiles", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MediaFiles_ContentType", "\"ContentType\" IN ('image/png','image/jpeg','image/gif','image/webp')");
+
+                            t.HasCheckConstraint("CK_MediaFiles_Size", "\"SizeBytes\" > 0");
+                        });
+                });
+
             modelBuilder.Entity("ELearning.Domain.Questions.Question", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AnswerDataType")
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<bool>("CaseSensitive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<Guid?>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<string>("ContentFormat")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<decimal?>("CorrectAnswerNumber")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(30,10)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("DefaultScore")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<string>("Difficulty")
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<string>("Explanation")
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("text");
 
                     b.Property<bool>("IgnoreAccent")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("NumericTolerance")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(30,10)");
 
+                    b.Property<bool>("PartialScoring")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("QuestionType")
                         .IsRequired()
                         .HasMaxLength(40)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(40)")
-                        .UseCollation("Latin1_General_100_BIN2");
+                        .HasColumnType("character varying(40)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
+                        .HasColumnType("bytea");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid?>("UpdatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_Questions");
@@ -1350,23 +1494,23 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.HasIndex("CategoryId", "QuestionType")
                         .HasDatabaseName("IX_Questions_Category_Type");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("CategoryId", "QuestionType"), new[] { "IsActive" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("CategoryId", "QuestionType"), new[] { "IsActive" });
 
                     b.ToTable("Questions", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Questions_AnswerDataType", "[AnswerDataType] IN ('TEXT','NUMBER')");
+                            t.HasCheckConstraint("CK_Questions_AnswerDataType", "\"AnswerDataType\" IN ('TEXT','NUMBER')");
 
-                            t.HasCheckConstraint("CK_Questions_ContentFormat", "[ContentFormat] IN ('PLAIN','MARKDOWN')");
+                            t.HasCheckConstraint("CK_Questions_ContentFormat", "\"ContentFormat\" IN ('PLAIN','MARKDOWN')");
 
-                            t.HasCheckConstraint("CK_Questions_Difficulty", "[Difficulty] IN ('EASY','MEDIUM','HARD')");
+                            t.HasCheckConstraint("CK_Questions_Difficulty", "\"Difficulty\" IN ('EASY','MEDIUM','HARD')");
 
-                            t.HasCheckConstraint("CK_Questions_FillIn", "([QuestionType] = 'FILL_IN' AND [AnswerDataType] IS NOT NULL) OR ([QuestionType] <> 'FILL_IN' AND [AnswerDataType] IS NULL)");
+                            t.HasCheckConstraint("CK_Questions_FillIn", "(\"QuestionType\" = 'FILL_IN' AND \"AnswerDataType\" IS NOT NULL) OR (\"QuestionType\" <> 'FILL_IN' AND \"AnswerDataType\" IS NULL)");
 
-                            t.HasCheckConstraint("CK_Questions_Number", "[AnswerDataType] IS NULL OR [AnswerDataType] <> 'NUMBER' OR ([CorrectAnswerNumber] IS NOT NULL AND [NumericTolerance] IS NOT NULL AND [NumericTolerance] >= 0)");
+                            t.HasCheckConstraint("CK_Questions_Number", "\"AnswerDataType\" IS NULL OR \"AnswerDataType\" <> 'NUMBER' OR (\"CorrectAnswerNumber\" IS NOT NULL AND \"NumericTolerance\" IS NOT NULL AND \"NumericTolerance\" >= 0)");
 
-                            t.HasCheckConstraint("CK_Questions_Score", "[DefaultScore] > 0");
+                            t.HasCheckConstraint("CK_Questions_Score", "\"DefaultScore\" > 0");
 
-                            t.HasCheckConstraint("CK_Questions_Type", "[QuestionType] IN ('SINGLE_CHOICE','MULTIPLE_CHOICE','TRUE_FALSE','FILL_IN')");
+                            t.HasCheckConstraint("CK_Questions_Type", "\"QuestionType\" IN ('SINGLE_CHOICE','MULTIPLE_CHOICE','TRUE_FALSE','FILL_IN','ESSAY')");
                         });
                 });
 
@@ -1374,18 +1518,18 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("AnswerText")
                         .IsRequired()
                         .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("QuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_QuestionAcceptedAnswers");
@@ -1401,36 +1545,35 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(100)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(100)");
+                        .HasColumnType("character varying(100)");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<Guid>("CreatedBy")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
+                        .HasColumnType("character varying(200)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
+                        .HasColumnType("bytea");
 
                     b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id")
                         .HasName("PK_QuestionCategories");
@@ -1448,27 +1591,27 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Content")
                         .IsRequired()
                         .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasColumnType("character varying(2000)");
 
                     b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool>("IsCorrect")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<string>("OptionCode")
                         .IsRequired()
                         .HasMaxLength(10)
                         .IsUnicode(false)
-                        .HasColumnType("varchar(10)");
+                        .HasColumnType("character varying(10)");
 
                     b.Property<Guid>("QuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_QuestionOptions");
@@ -1484,15 +1627,15 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("QuestionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Tag")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
+                        .HasColumnType("character varying(50)");
 
                     b.HasKey("Id")
                         .HasName("PK_QuestionTags");
@@ -1511,61 +1654,64 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("AnsweredCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("AttemptId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("CorrectCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<int>("DurationSeconds")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ExamId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<Guid>("ExamVersionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<DateTime>("GradedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("GradingRevision")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("MaxScore")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<bool?>("Passed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("PendingManualCount")
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("Percentage")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<DateTime?>("RegradedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("StartedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("SubmittedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("TotalQuestion")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<decimal>("TotalScore")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamResults");
@@ -1577,7 +1723,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExamId")
                         .HasDatabaseName("IX_ExamResults_Exam");
 
-                    SqlServerIndexBuilderExtensions.IncludeProperties(b.HasIndex("ExamId"), new[] { "UserId", "TotalScore", "Percentage", "Passed", "SubmittedAt" });
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("ExamId"), new[] { "UserId", "TotalScore", "Percentage", "Passed", "SubmittedAt" });
 
                     b.HasIndex("ExamVersionId");
 
@@ -1587,7 +1733,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ExamResults", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamResults_MaxScore", "[MaxScore] > 0");
+                            t.HasCheckConstraint("CK_ExamResults_MaxScore", "\"MaxScore\" > 0");
                         });
                 });
 
@@ -1597,33 +1743,33 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bigint");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
                     b.Property<Guid>("AnswerKeyCorrectionId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("CorrectCount")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<Guid>("ExamResultId")
-                        .HasColumnType("uniqueidentifier");
+                        .HasColumnType("uuid");
 
                     b.Property<int>("GradingRevision")
-                        .HasColumnType("int");
+                        .HasColumnType("integer");
 
                     b.Property<bool?>("Passed")
-                        .HasColumnType("bit");
+                        .HasColumnType("boolean");
 
                     b.Property<decimal>("Percentage")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(5,2)");
 
                     b.Property<DateTime>("RecordedAt")
-                        .HasColumnType("datetime2(3)");
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("TotalScore")
                         .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                        .HasColumnType("numeric(10,2)");
 
                     b.HasKey("Id")
                         .HasName("PK_ExamResultHistory");
@@ -1644,6 +1790,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_AttemptAnswers_Question");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ManualGradedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_AttemptAnswers_ManualGradedBy");
                 });
 
             modelBuilder.Entity("ELearning.Domain.Attempts.AttemptAnswerOption", b =>
@@ -1713,6 +1865,39 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasConstraintName("FK_ExamAttempts_User");
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Classes.Classroom", b =>
+                {
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_Classrooms_CreatedBy");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_Classrooms_UpdatedBy");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Classes.ClassroomStudent", b =>
+                {
+                    b.HasOne("ELearning.Domain.Classes.Classroom", null)
+                        .WithMany("Students")
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClassroomStudents_Classroom");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ClassroomStudents_User");
+                });
+
             modelBuilder.Entity("ELearning.Domain.Exams.AnswerKeyCorrection", b =>
                 {
                     b.HasOne("ELearning.Domain.Identity.User", null)
@@ -1748,6 +1933,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ELearning.Domain.Exams.ExamAssignment", b =>
                 {
+                    b.HasOne("ELearning.Domain.Classes.Classroom", null)
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ExamAssignments_Classroom");
+
                     b.HasOne("ELearning.Domain.Identity.User", null)
                         .WithMany()
                         .HasForeignKey("CreatedBy")
@@ -1961,6 +2152,16 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.Navigation("Role");
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Media.MediaFile", b =>
+                {
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_MediaFiles_CreatedBy");
+                });
+
             modelBuilder.Entity("ELearning.Domain.Questions.Question", b =>
                 {
                     b.HasOne("ELearning.Domain.Questions.QuestionCategory", null)
@@ -2085,6 +2286,11 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Attempts.ExamAttempt", b =>
                 {
                     b.Navigation("Questions");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Classes.Classroom", b =>
+                {
+                    b.Navigation("Students");
                 });
 
             modelBuilder.Entity("ELearning.Domain.Exams.Exam", b =>

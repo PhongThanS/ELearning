@@ -155,7 +155,7 @@ export function ClassesPage() {
       />
       <Row className="g-2 mb-3">
         <Col md={5}>
-          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
+          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc tên lớp..." />
         </Col>
         <Col md={3}>
           <Form.Select
@@ -351,7 +351,12 @@ export function ClassDetailPage() {
           </Card.Body>
         </Card>
       )}
-      <h2 className="h6 mb-2">{t("classes.studentList")}</h2>
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <h2 className="h6 mb-0">{t("classes.studentList")}</h2>
+        <div style={{ maxWidth: 320 }}>
+          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm học viên theo mã, họ tên..." />
+        </div>
+      </div>
       <DataTable data={students.data} columns={columns} rowKey={(s) => s.userId} isLoading={students.isLoading} error={students.error} onPage={list.setPage} />
       <ConfirmDialog
         show={confirmDelete}

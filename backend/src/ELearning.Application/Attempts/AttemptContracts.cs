@@ -175,6 +175,7 @@ public sealed record StudentHistoryItemDto(
 
 public sealed record StudentExamListQuery : PageRequest
 {
+    public string? Keyword { get; init; }
     /// <summary>Chỉ đề được gán cho lớp này (học viên phải thuộc lớp).</summary>
     public Guid? ClassroomId { get; init; }
 }

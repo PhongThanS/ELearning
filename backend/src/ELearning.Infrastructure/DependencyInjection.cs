@@ -34,10 +34,10 @@ public static class DependencyInjection
                     $"Thiếu ConnectionStrings:{ConnectionStringName}. Cấu hình bằng user-secrets hoặc biến môi trường.");
             }
 
-            options.UseSqlServer(connectionString, sql =>
+            options.UseNpgsql(connectionString, npgsql =>
             {
-                sql.EnableRetryOnFailure(maxRetryCount: 3);
-                sql.MigrationsHistoryTable("__EFMigrationsHistory");
+                npgsql.EnableRetryOnFailure(maxRetryCount: 3);
+                npgsql.MigrationsHistoryTable("__EFMigrationsHistory");
             });
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<ELearningDbContext>());

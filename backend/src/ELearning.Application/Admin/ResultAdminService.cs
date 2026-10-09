@@ -86,7 +86,7 @@ internal sealed class ResultAdminService(
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             var kw = Common.Like.Contains(keyword);
-            query = query.Where(x => EF.Functions.Like(x.u.UserName, kw) || EF.Functions.Like(x.u.FullName, kw));
+            query = query.Where(x => EF.Functions.ILike(x.u.UserName, kw) || EF.Functions.ILike(x.u.FullName, kw));
         }
 
         var raw = await query.Select(x => new

@@ -12,12 +12,12 @@ internal static class ConfigurationExtensions
     public const string SqlDecimalAnswer = "decimal(30,10)";
     public const string SqlPercentage = "decimal(5,2)";
 
-    /// <summary>CHECK constraint "[Column] IN ('A','B',...)" sinh từ enum (cho phép NULL nếu cột nullable).</summary>
+    /// <summary>CHECK constraint "\"Column\" IN ('A','B',...)" sinh từ enum (cho phép NULL nếu cột nullable).</summary>
     public static void HasEnumCheck<TEnum>(this TableBuilder table, string constraintName, string column)
         where TEnum : struct, Enum
     {
         var values = string.Join(",", EnumNaming.DbValues(typeof(TEnum)).Select(v => $"'{v}'"));
-        table.HasCheckConstraint(constraintName, $"[{column}] IN ({values})");
+        table.HasCheckConstraint(constraintName, $"\"{column}\" IN ({values})");
     }
 
     /// <summary>Cấu hình khóa GUID sinh phía client (sequential) + cột RowVersion nếu có.</summary>
@@ -29,7 +29,9 @@ internal static class ConfigurationExtensions
         builder.Property(e => e.Id).ValueGeneratedOnAdd();
         if (typeof(IHasRowVersion).IsAssignableFrom(typeof(T)))
         {
-            builder.Property(nameof(IHasRowVersion.RowVersion)).IsRowVersion();
+            builder.Property(nameof(IHasRowVersion.RowVersion))
+                .IsConcurrencyToken()
+                .IsRequired();
         }
     }
 

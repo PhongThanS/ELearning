@@ -28,11 +28,11 @@ internal sealed class ExamAttemptConfiguration : IEntityTypeConfiguration<ExamAt
             .HasDatabaseName("UQ_ExamAttempts_User_Exam_Number");
 
         // D-07: mỗi (UserId, ExamId) tối đa 1 lượt đang làm
-        builder.HasIndex(a => new { a.UserId, a.ExamId }).IsUnique().HasFilter("[Status] = 'IN_PROGRESS'")
+        builder.HasIndex(a => new { a.UserId, a.ExamId }).IsUnique().HasFilter("\"Status\" = 'IN_PROGRESS'")
             .HasDatabaseName("UX_ExamAttempts_OneInProgress");
 
         // D-05: job tự nộp
-        builder.HasIndex(a => a.ExpiredAt).HasFilter("[Status] = 'IN_PROGRESS'")
+        builder.HasIndex(a => a.ExpiredAt).HasFilter("\"Status\" = 'IN_PROGRESS'")
             .HasDatabaseName("IX_ExamAttempts_InProgress_Expired");
         builder.HasIndex(a => new { a.ExamId, a.Status })
             .IncludeProperties(a => new { a.UserId, a.SubmittedAt })
@@ -46,10 +46,10 @@ internal sealed class ExamAttemptConfiguration : IEntityTypeConfiguration<ExamAt
         {
             t.HasEnumCheck<AttemptStatus>("CK_ExamAttempts_Status", "Status");
             t.HasEnumCheck<SubmitReason>("CK_ExamAttempts_SubmitReason", "SubmitReason");
-            t.HasCheckConstraint("CK_ExamAttempts_Time", "[ExpiredAt] > [StartedAt]");
+            t.HasCheckConstraint("CK_ExamAttempts_Time", "\"ExpiredAt\" > \"StartedAt\"");
             t.HasCheckConstraint(
                 "CK_ExamAttempts_Submitted",
-                "([Status] IN ('SUBMITTED','AUTO_SUBMITTED') AND [SubmittedAt] IS NOT NULL AND [SubmitReason] IS NOT NULL) OR ([Status] IN ('IN_PROGRESS','CANCELLED'))");
+                "(\"Status\" IN ('SUBMITTED','AUTO_SUBMITTED') AND \"SubmittedAt\" IS NOT NULL AND \"SubmitReason\" IS NOT NULL) OR (\"Status\" IN ('IN_PROGRESS','CANCELLED'))");
         });
     }
 }
@@ -138,7 +138,7 @@ internal sealed class ExamResultConfiguration : IEntityTypeConfiguration<ExamRes
         builder.HasMany(r => r.History).WithOne().HasForeignKey(h => h.ExamResultId)
             .HasConstraintName("FK_ExamResultHistory_Result");
 
-        builder.ToTable(t => t.HasCheckConstraint("CK_ExamResults_MaxScore", "[MaxScore] > 0"));
+        builder.ToTable(t => t.HasCheckConstraint("CK_ExamResults_MaxScore", "\"MaxScore\" > 0"));
     }
 }
 

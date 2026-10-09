@@ -204,7 +204,7 @@ public sealed record CreateExamRequest : ExamDetailsInput
 
     public ScoreVisibility ScoreVisibility { get; init; } = ScoreVisibility.Immediate;
 
-    public ReviewPolicy ReviewPolicy { get; init; } = ReviewPolicy.Never;
+    public ReviewPolicy ReviewPolicy { get; init; } = ReviewPolicy.AfterSubmit;
 
     public bool ShuffleQuestions { get; init; }
 

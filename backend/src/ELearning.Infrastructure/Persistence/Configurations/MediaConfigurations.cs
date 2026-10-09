@@ -19,8 +19,8 @@ internal sealed class MediaFileConfiguration : IEntityTypeConfiguration<MediaFil
 
         builder.ToTable(t =>
         {
-            t.HasCheckConstraint("CK_MediaFiles_ContentType", $"[ContentType] IN ({string.Join(",", MediaFile.AllowedContentTypes.Select(c => $"'{c}'"))})");
-            t.HasCheckConstraint("CK_MediaFiles_Size", "[SizeBytes] > 0");
+            t.HasCheckConstraint("CK_MediaFiles_ContentType", $"\"ContentType\" IN ({string.Join(",", MediaFile.AllowedContentTypes.Select(c => $"'{c}'"))})");
+            t.HasCheckConstraint("CK_MediaFiles_Size", "\"SizeBytes\" > 0");
         });
     }
 }

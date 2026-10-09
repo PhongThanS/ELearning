@@ -20,7 +20,7 @@ internal sealed class ClassroomConfiguration : IEntityTypeConfiguration<Classroo
         builder.HasMany(c => c.Students).WithOne().HasForeignKey(s => s.ClassroomId)
             .HasConstraintName("FK_ClassroomStudents_Classroom");
 
-        builder.ToTable(t => t.HasCheckConstraint("CK_Classrooms_Dates", "[EndDate] IS NULL OR [StartDate] IS NULL OR [EndDate] >= [StartDate]"));
+        builder.ToTable(t => t.HasCheckConstraint("CK_Classrooms_Dates", "\"EndDate\" IS NULL OR \"StartDate\" IS NULL OR \"EndDate\" >= \"StartDate\""));
     }
 }
 

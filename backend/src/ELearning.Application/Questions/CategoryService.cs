@@ -78,7 +78,7 @@ internal sealed class CategoryService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            categories = categories.Where(c => EF.Functions.Like(c.Code, kw) || EF.Functions.Like(c.Name, kw));
+            categories = categories.Where(c => EF.Functions.ILike(c.Code, kw) || EF.Functions.ILike(c.Name, kw));
         }
 
         if (query.IsActive is { } isActive)

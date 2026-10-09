@@ -1,23 +1,23 @@
 using ELearning.Infrastructure.Persistence;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.MsSql;
+using Npgsql;
+using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace ELearning.TestSupport;
 
 /// <summary>
-/// Database SQL Server thật cho integration / API test (docs/08-kiem-thu.md mục 1).
-/// - Nếu có biến môi trường ELEARNING_TEST_SQL (connection string tới một SQL Server, không cần Database):
+/// Database PostgreSQL thật cho integration / API test (docs/08-kiem-thu.md mục 1).
+/// - Nếu có biến môi trường ELEARNING_TEST_POSTGRES (connection string tới PostgreSQL server):
 ///   tạo database tạm tên ngẫu nhiên trên server đó.
-/// - Nếu không: khởi động SQL Server bằng Testcontainers (cần Docker, ví dụ trên CI).
+/// - Nếu không: khởi động PostgreSQL bằng Testcontainers (cần Docker, ví dụ trên CI).
 /// Database được áp migration thật và bị xóa khi test kết thúc.
 /// </summary>
 public sealed class SqlServerTestDatabase : IAsyncLifetime
 {
-    public const string ServerConnectionVariable = "ELEARNING_TEST_SQL";
+    public const string ServerConnectionVariable = "ELEARNING_TEST_POSTGRES";
 
-    private MsSqlContainer? _container;
+    private PostgreSqlContainer? _container;
 
     public string ConnectionString { get; private set; } = null!;
 
@@ -26,15 +26,14 @@ public sealed class SqlServerTestDatabase : IAsyncLifetime
         var serverConnection = Environment.GetEnvironmentVariable(ServerConnectionVariable);
         if (string.IsNullOrWhiteSpace(serverConnection))
         {
-            _container = new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest").Build();
+            _container = new PostgreSqlBuilder("postgres:17-alpine").Build();
             await _container.StartAsync();
             serverConnection = _container.GetConnectionString();
         }
 
-        var builder = new SqlConnectionStringBuilder(serverConnection)
+        var builder = new NpgsqlConnectionStringBuilder(serverConnection)
         {
-            InitialCatalog = $"ELearningTest_{Guid.NewGuid():N}",
-            TrustServerCertificate = true,
+            Database = $"elearning_test_{Guid.NewGuid():N}",
         };
         ConnectionString = builder.ConnectionString;
 
@@ -49,7 +48,7 @@ public sealed class SqlServerTestDatabase : IAsyncLifetime
             await context.Database.EnsureDeletedAsync();
         }
 
-        SqlConnection.ClearAllPools();
+        NpgsqlConnection.ClearAllPools();
         if (_container is not null)
         {
             await _container.DisposeAsync();
@@ -57,5 +56,5 @@ public sealed class SqlServerTestDatabase : IAsyncLifetime
     }
 
     public ELearningDbContext CreateContext() =>
-        new(new DbContextOptionsBuilder<ELearningDbContext>().UseSqlServer(ConnectionString).Options);
+        new(new DbContextOptionsBuilder<ELearningDbContext>().UseNpgsql(ConnectionString).Options);
 }

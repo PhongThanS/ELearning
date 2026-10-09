@@ -39,7 +39,7 @@ export function ExamsPage() {
       <PageHeader title={t("nav.exams")} actions={hasPermission(Permissions.ExamCreate) && <Button onClick={() => setCreating(true)}>{t("common.create")}</Button>} />
       <Row className="g-2 mb-3">
         <Col md={5}>
-          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
+          <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc tên đề thi..." />
         </Col>
         <Col md={3}>
           <Form.Select size="sm" aria-label={t("common.status")} value={String(list.state.status ?? "")} onChange={(e) => list.setFilter({ status: e.target.value })}>
@@ -94,9 +94,6 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
             placeholder="VD: TOAN-12-HK1, DE-THI-01"
             onChange={(e) => set({ code: e.target.value })}
           />
-          <Form.Text className="text-muted small">
-            2–100 ký tự: chữ không dấu A-Z, số 0-9, gạch ngang (-), gạch dưới (_) hoặc chấm (.). Không dùng dấu cách.
-          </Form.Text>
           <Form.Control.Feedback type="invalid">{errors.code}</Form.Control.Feedback>
         </Form.Group>
       </Col>
@@ -109,9 +106,6 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
             placeholder="VD: Kiểm tra giữa kỳ môn Toán 12"
             onChange={(e) => set({ name: e.target.value })}
           />
-          <Form.Text className="text-muted small">
-            Tên bài thi hiển thị công khai (tối đa 200 ký tự).
-          </Form.Text>
           <Form.Control.Feedback type="invalid">{errors.name}</Form.Control.Feedback>
         </Form.Group>
       </Col>
@@ -260,7 +254,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
     retakeScoringPolicy: "HIGHEST",
   });
   const [settings, setSettings] = useState<VersionSettingsValue>({
-    durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "NEVER", shuffleQuestions: false, shuffleOptions: false,
+    durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "AFTER_SUBMIT", shuffleQuestions: false, shuffleOptions: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -554,6 +548,12 @@ export function ExamDetailPage() {
         title={`${exam.name} (${exam.code})`}
         actions={
           <>
+            {exam.draftVersionId && (
+              <Link className="btn btn-primary" to={`/admin/exams/${id}/versions/${exam.draftVersionId}`}>
+                <i className="bi bi-pencil-square me-1" aria-hidden="true" />
+                Soạn câu hỏi & Xuất bản
+              </Link>
+            )}
             {exam.status !== "DRAFT" && hasPermission(Permissions.ResultView) && (
               <Link className="btn btn-outline-primary" to={`/admin/exams/${id}/results`}>Kết quả & lượt thi</Link>
             )}
@@ -572,6 +572,20 @@ export function ExamDetailPage() {
       >
         <Badge bg={examStatusVariant[exam.status]}>{t(`enums.examStatus.${exam.status}`)}</Badge>
       </PageHeader>
+
+      {exam.status === "DRAFT" && (
+        <Alert variant="warning" className="d-flex justify-content-between align-items-center flex-wrap gap-2 py-2 mb-3">
+          <div>
+            <i className="bi bi-exclamation-triangle-fill me-2" aria-hidden="true" />
+            <strong>Đề thi đang ở trạng thái Nháp (DRAFT).</strong> Học viên chỉ có thể thấy và làm bài thi khi bạn bấm <strong>Xuất bản (Publish)</strong>.
+          </div>
+          {exam.draftVersionId && (
+            <Link className="btn btn-sm btn-primary" to={`/admin/exams/${id}/versions/${exam.draftVersionId}`}>
+              Vào xuất bản ngay →
+            </Link>
+          )}
+        </Alert>
+      )}
 
       <Row className="g-3">
         <Col xl={7}>
@@ -724,12 +738,18 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
             {exam.versions.map((v) => (
               <tr key={v.id}>
                 <td>
-                  <Link to={`/admin/exams/${exam.id}/versions/${v.id}`}>v{v.versionNumber}</Link>
+                  <Link to={`/admin/exams/${exam.id}/versions/${v.id}`} className="fw-semibold">
+                    v{v.versionNumber} {v.status === "DRAFT" && <span className="small text-primary">(Soạn / Xuất bản)</span>}
+                  </Link>
                 </td>
-                <td>{t(`enums.versionStatus.${v.status}`)}</td>
+                <td>
+                  <Badge bg={v.status === "PUBLISHED" ? "success" : "secondary"}>
+                    {t(`enums.versionStatus.${v.status}`)}
+                  </Badge>
+                </td>
                 <td>{v.questionCount}</td>
                 <td>{formatNumber(v.maxScore)}</td>
-                <td>{formatDateTime(v.publishedAt)}</td>
+                <td>{v.publishedAt ? formatDateTime(v.publishedAt) : <span className="text-secondary small">Chưa xuất bản</span>}</td>
                 {canDeleteDraft && (
                   <td className="text-end">
                     {v.status === "DRAFT" && (
@@ -839,7 +859,7 @@ function UserOverridesCard({ exam }: { exam: ExamDetail }) {
         {overrides.data && overrides.data.totalPages > 1 && <Pager data={overrides.data} onPage={setPage} />}
         {canManage && (
           <>
-            <Form.Control size="sm" aria-label="Tìm học viên để cấp thêm lượt" placeholder="Cấp thêm lượt cho học viên…"
+            <Form.Control size="sm" aria-label="Tìm học viên để cấp thêm lượt" placeholder="Cấp thêm lượt cho học viên (mã hoặc họ tên)…"
               value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
             {users.data?.items.map((u) => (
               <Button key={u.id} size="sm" variant="link" className="d-block px-0"
@@ -975,7 +995,7 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
                 {canAssign && (
                   <Row className="g-2">
                     <Col md={4}>
-                      <Form.Control size="sm" aria-label="Tìm lớp" placeholder="Thêm lớp…" value={classSearch} onChange={(e) => setClassSearch(e.target.value)} />
+                      <Form.Control size="sm" aria-label="Tìm lớp" placeholder="Thêm lớp (mã hoặc tên)…" value={classSearch} onChange={(e) => setClassSearch(e.target.value)} />
                       {classes.data?.items.filter((c) => !classroomIds.includes(c.id)).map((c) => (
                         <Button key={c.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ classroomIds: [...classroomIds, c.id] })}>
                           + {c.code} — {c.name}
@@ -983,7 +1003,7 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
                       ))}
                     </Col>
                     <Col md={4}>
-                      <Form.Control size="sm" aria-label="Tìm nhóm" placeholder="Thêm nhóm…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} />
+                      <Form.Control size="sm" aria-label="Tìm nhóm" placeholder="Thêm nhóm (mã hoặc tên)…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} />
                       {groups.data?.items.filter((g) => !groupIds.includes(g.id)).map((g) => (
                         <Button key={g.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ groupIds: [...groupIds, g.id] })}>
                           + {g.code} — {g.name}
@@ -991,7 +1011,7 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
                       ))}
                     </Col>
                     <Col md={4}>
-                      <Form.Control size="sm" aria-label="Tìm học viên" placeholder="Thêm học viên…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
+                      <Form.Control size="sm" aria-label="Tìm học viên" placeholder="Thêm học viên (mã hoặc họ tên)…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
                       {users.data?.items.filter((u) => !userIds.includes(u.id)).map((u) => (
                         <Button key={u.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ userIds: [...userIds, u.id] })}>
                           + {u.userName} — {u.fullName}

@@ -97,7 +97,7 @@ internal sealed class GroupService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            groups = groups.Where(g => EF.Functions.Like(g.Code, kw) || EF.Functions.Like(g.Name, kw));
+            groups = groups.Where(g => EF.Functions.ILike(g.Code, kw) || EF.Functions.ILike(g.Name, kw));
         }
 
         if (query.IsActive is { } isActive)
@@ -203,7 +203,7 @@ internal sealed class GroupService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            members = members.Where(x => EF.Functions.Like(x.u.UserName, kw) || EF.Functions.Like(x.u.FullName, kw));
+            members = members.Where(x => EF.Functions.ILike(x.u.UserName, kw) || EF.Functions.ILike(x.u.FullName, kw) || EF.Functions.ILike(x.u.Email, kw));
         }
 
         var total = await members.CountAsync(ct);

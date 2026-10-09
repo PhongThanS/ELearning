@@ -101,7 +101,7 @@ export function CategoriesPage() {
     <>
       <PageHeader title={t("nav.categories")} actions={canManage && <Button onClick={() => setEditing({ code: "", name: "" })}>{t("common.create")}</Button>} />
       <div className="mb-3" style={{ maxWidth: 400 }}>
-        <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} />
+        <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc tên danh mục..." />
       </div>
       <DataTable data={query.data} columns={columns} rowKey={(c) => c.id} isLoading={query.isLoading} error={query.error} sort={list.state} onSort={list.toggleSort} onPage={list.setPage} />
       
@@ -129,9 +129,6 @@ export function CategoriesPage() {
                     placeholder="VD: TOAN-12, HOA-HOC-10"
                     onChange={(e) => setEditing({ ...editing, code: e.target.value })}
                   />
-                  <Form.Text className="text-muted small">
-                    1–100 ký tự: chữ không dấu A-Z, số 0-9 và các ký tự (# + . _ -). Không dùng dấu cách hay dấu tiếng Việt.
-                  </Form.Text>
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="cat-name">
                   <Form.Label>{t("common.name")} *</Form.Label>
@@ -282,7 +279,7 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
   return (
     <Row className="g-2 mb-3">
       <Col md={3}>
-        <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Mã hoặc nội dung" />
+        <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc nội dung..." />
       </Col>
       <Col md={2}>
         <Form.Select size="sm" aria-label="Độ khó" value={String(list.state.difficulty ?? "")} onChange={(e) => list.setFilter({ difficulty: e.target.value })}>
@@ -556,9 +553,6 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                         isInvalid={!!err("code")}
                         onChange={(e) => set({ code: e.target.value })}
                       />
-                      <Form.Text className="text-muted small">
-                        Để trống hệ thống sẽ tự sinh mã. Nếu tự đặt: 1–100 ký tự (chữ không dấu A-Z, số 0-9, ., _, -).
-                      </Form.Text>
                       <Form.Control.Feedback type="invalid">{err("code")}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>

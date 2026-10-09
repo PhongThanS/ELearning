@@ -54,8 +54,8 @@ internal sealed class UserService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            users = users.Where(u => EF.Functions.Like(u.UserName, kw) || EF.Functions.Like(u.Email, kw)
-                || EF.Functions.Like(u.FullName, kw));
+            users = users.Where(u => EF.Functions.ILike(u.UserName, kw) || EF.Functions.ILike(u.Email, kw)
+                || EF.Functions.ILike(u.FullName, kw));
         }
 
         if (!string.IsNullOrWhiteSpace(query.RoleCode))

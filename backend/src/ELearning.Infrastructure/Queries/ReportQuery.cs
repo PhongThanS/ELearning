@@ -8,9 +8,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ELearning.Infrastructure.Queries;
 
 /// <summary>
-/// Báo cáo bằng Dapper (docs/03-kien-truc.md mục 3.4). Lưu ý:
-/// - So sánh cột enum (collation BIN2) với hằng chuỗi thì an toàn; nối chuỗi thì cần COLLATE (docs/10-bay-ky-thuat.md mục 19).
-/// - Dapper không dùng ValueConverter của EF: enum đọc dạng chuỗi rồi đổi bằng EnumNaming, DateTime phải gắn Kind = Utc.
+/// Báo cáo bằng Dapper (PostgreSQL).
 /// </summary>
 internal sealed class ReportQuery(ELearningDbContext db) : IReportQuery
 {
@@ -24,31 +22,32 @@ internal sealed class ReportQuery(ELearningDbContext db) : IReportQuery
         var counters = await connection.QuerySingleAsync<DashboardCounters>(new CommandDefinition(
             $"""
             SELECT
-                (SELECT COUNT(*) FROM Users WHERE AnonymizedAt IS NULL) AS TotalUsers,
-                (SELECT COUNT(DISTINCT ur.UserId) FROM UserRoles ur JOIN Roles r ON r.Id = ur.RoleId
-                    JOIN Users u ON u.Id = ur.UserId WHERE r.Code = 'STUDENT' AND u.IsActive = 1) AS TotalStudents,
-                (SELECT COUNT(*) FROM Exams) AS TotalExams,
-                (SELECT COUNT(*) FROM Exams WHERE Status = 'PUBLISHED'
-                    AND (StartAt IS NULL OR StartAt <= @now) AND (EndAt IS NULL OR EndAt > @now)) AS OpenExams,
-                (SELECT COUNT(*) FROM ExamAttempts WHERE StartedAt >= @start AND StartedAt < @end) AS AttemptsToday,
-                (SELECT COUNT(*) FROM ExamAttempts WHERE Status = 'IN_PROGRESS') AS InProgressAttempts,
-                (SELECT CAST(AVG(r.Percentage) AS decimal(5,2)) FROM ExamResults r
-                    JOIN ExamAttempts a ON a.Id = r.AttemptId
-                    WHERE r.SubmittedAt >= @since AND a.Status IN {FinishedStatuses}) AS AveragePercentage30Days,
-                (SELECT CAST(100.0 * SUM(CASE WHEN r.Passed = 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS decimal(5,2))
-                    FROM ExamResults r JOIN ExamAttempts a ON a.Id = r.AttemptId
-                    WHERE r.SubmittedAt >= @since AND r.Passed IS NOT NULL AND a.Status IN {FinishedStatuses}) AS PassRate30Days
+                (SELECT COUNT(*)::int FROM "Users" WHERE "AnonymizedAt" IS NULL) AS TotalUsers,
+                (SELECT COUNT(DISTINCT ur."UserId")::int FROM "UserRoles" ur JOIN "Roles" r ON r."Id" = ur."RoleId"
+                    JOIN "Users" u ON u."Id" = ur."UserId" WHERE r."Code" = 'STUDENT' AND u."IsActive" = TRUE) AS TotalStudents,
+                (SELECT COUNT(*)::int FROM "Exams") AS TotalExams,
+                (SELECT COUNT(*)::int FROM "Exams" WHERE "Status" = 'PUBLISHED'
+                    AND ("StartAt" IS NULL OR "StartAt" <= @now) AND ("EndAt" IS NULL OR "EndAt" > @now)) AS OpenExams,
+                (SELECT COUNT(*)::int FROM "ExamAttempts" WHERE "StartedAt" >= @start AND "StartedAt" < @end) AS AttemptsToday,
+                (SELECT COUNT(*)::int FROM "ExamAttempts" WHERE "Status" = 'IN_PROGRESS') AS InProgressAttempts,
+                (SELECT CAST(AVG(r."Percentage") AS decimal(5,2)) FROM "ExamResults" r
+                    JOIN "ExamAttempts" a ON a."Id" = r."AttemptId"
+                    WHERE r."SubmittedAt" >= @since AND a."Status" IN {FinishedStatuses}) AS AveragePercentage30Days,
+                (SELECT CAST(100.0 * SUM(CASE WHEN r."Passed" = TRUE THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0) AS decimal(5,2))
+                    FROM "ExamResults" r JOIN "ExamAttempts" a ON a."Id" = r."AttemptId"
+                    WHERE r."SubmittedAt" >= @since AND r."Passed" IS NOT NULL AND a."Status" IN {FinishedStatuses}) AS PassRate30Days
             """,
             parameters,
             cancellationToken: ct));
 
         var upcoming = (await connection.QueryAsync<UpcomingRow>(new CommandDefinition(
             """
-            SELECT TOP (10) e.Id AS ExamId, e.Code, e.Name, e.StartAt, e.EndAt,
-                (SELECT COUNT(*) FROM ExamAttempts a WHERE a.ExamId = e.Id AND a.Status = 'IN_PROGRESS') AS InProgressAttempts
-            FROM Exams e
-            WHERE e.Status = 'PUBLISHED' AND (e.EndAt IS NULL OR e.EndAt > @now)
-            ORDER BY CASE WHEN e.StartAt IS NULL THEN 1 ELSE 0 END, e.StartAt, e.Name
+            SELECT e."Id" AS ExamId, e."Code", e."Name", e."StartAt", e."EndAt",
+                (SELECT COUNT(*)::int FROM "ExamAttempts" a WHERE a."ExamId" = e."Id" AND a."Status" = 'IN_PROGRESS') AS InProgressAttempts
+            FROM "Exams" e
+            WHERE e."Status" = 'PUBLISHED' AND (e."EndAt" IS NULL OR e."EndAt" > @now)
+            ORDER BY CASE WHEN e."StartAt" IS NULL THEN 1 ELSE 0 END, e."StartAt", e."Name"
+            LIMIT 10
             """,
             parameters,
             cancellationToken: ct))).ToList();
@@ -70,37 +69,37 @@ internal sealed class ReportQuery(ELearningDbContext db) : IReportQuery
         var connection = db.Database.GetDbConnection();
         var rows = (await connection.QueryAsync<QuestionStatRow>(new CommandDefinition(
             $"""
-            SELECT eq.Id AS ExamQuestionId, eq.QuestionOrder AS [Order], LEFT(eq.Content, 200) AS ContentPreview,
-                eq.QuestionType, eq.Score AS MaxScore, eq.IsVoided,
-                COUNT(aa.Id) AS AttemptCount,
-                SUM(CASE WHEN aa.IsAnswered = 1 THEN 1 ELSE 0 END) AS AnsweredCount,
-                SUM(CASE WHEN aa.IsCorrect = 1 THEN 1 ELSE 0 END) AS CorrectCount,
-                SUM(CASE WHEN aa.IsAnswered = 1 AND aa.IsCorrect = 0 THEN 1 ELSE 0 END) AS WrongCount,
-                SUM(CASE WHEN aa.Id IS NOT NULL AND aa.IsAnswered = 0 THEN 1 ELSE 0 END) AS BlankCount,
-                CAST(AVG(aa.Score) AS decimal(10,2)) AS AverageScore
-            FROM ExamQuestions eq
-            LEFT JOIN AttemptQuestions aq ON aq.ExamQuestionId = eq.Id
-            LEFT JOIN ExamAttempts a ON a.Id = aq.AttemptId AND a.Status IN {FinishedStatuses}
-            LEFT JOIN AttemptAnswers aa ON aa.AttemptQuestionId = aq.Id AND a.Id IS NOT NULL
-            WHERE eq.ExamVersionId = @versionId
-            GROUP BY eq.Id, eq.QuestionOrder, LEFT(eq.Content, 200), eq.QuestionType, eq.Score, eq.IsVoided
-            ORDER BY eq.QuestionOrder
+            SELECT eq."Id" AS ExamQuestionId, eq."QuestionOrder" AS "Order", LEFT(eq."Content", 200) AS ContentPreview,
+                eq."QuestionType", eq."Score" AS MaxScore, eq."IsVoided",
+                COUNT(aa."Id")::int AS AttemptCount,
+                COALESCE(SUM(CASE WHEN aa."IsAnswered" = TRUE THEN 1 ELSE 0 END), 0)::int AS AnsweredCount,
+                COALESCE(SUM(CASE WHEN aa."IsCorrect" = TRUE THEN 1 ELSE 0 END), 0)::int AS CorrectCount,
+                COALESCE(SUM(CASE WHEN aa."IsAnswered" = TRUE AND aa."IsCorrect" = FALSE THEN 1 ELSE 0 END), 0)::int AS WrongCount,
+                COALESCE(SUM(CASE WHEN aa."Id" IS NOT NULL AND aa."IsAnswered" = FALSE THEN 1 ELSE 0 END), 0)::int AS BlankCount,
+                CAST(AVG(aa."Score") AS decimal(10,2)) AS AverageScore
+            FROM "ExamQuestions" eq
+            LEFT JOIN "AttemptQuestions" aq ON aq."ExamQuestionId" = eq."Id"
+            LEFT JOIN "ExamAttempts" a ON a."Id" = aq."AttemptId" AND a."Status" IN {FinishedStatuses}
+            LEFT JOIN "AttemptAnswers" aa ON aa."AttemptQuestionId" = aq."Id" AND a."Id" IS NOT NULL
+            WHERE eq."ExamVersionId" = @versionId
+            GROUP BY eq."Id", eq."QuestionOrder", LEFT(eq."Content", 200), eq."QuestionType", eq."Score", eq."IsVoided"
+            ORDER BY eq."QuestionOrder"
             """,
             new { versionId },
             cancellationToken: ct))).ToList();
 
         var options = (await connection.QueryAsync<OptionRow>(new CommandDefinition(
             $"""
-            SELECT o.ExamQuestionId, o.OptionCode, o.DisplayOrder,
-                (SELECT COUNT(*) FROM AttemptAnswerOptions aao
-                    JOIN AttemptAnswers aa ON aa.Id = aao.AttemptAnswerId
-                    JOIN AttemptQuestions aq ON aq.Id = aa.AttemptQuestionId
-                    JOIN ExamAttempts a ON a.Id = aq.AttemptId
-                    WHERE aq.ExamQuestionId = o.ExamQuestionId AND aao.OptionCode = o.OptionCode
-                        AND a.Status IN {FinishedStatuses}) AS SelectedCount
-            FROM ExamQuestionOptions o
-            JOIN ExamQuestions eq ON eq.Id = o.ExamQuestionId
-            WHERE eq.ExamVersionId = @versionId
+            SELECT o."ExamQuestionId", o."OptionCode", o."DisplayOrder",
+                (SELECT COUNT(*)::int FROM "AttemptAnswerOptions" aao
+                    JOIN "AttemptAnswers" aa ON aa."Id" = aao."AttemptAnswerId"
+                    JOIN "AttemptQuestions" aq ON aq."Id" = aa."AttemptQuestionId"
+                    JOIN "ExamAttempts" a ON a."Id" = aq."AttemptId"
+                    WHERE aq."ExamQuestionId" = o."ExamQuestionId" AND aao."OptionCode" = o."OptionCode"
+                        AND a."Status" IN {FinishedStatuses}) AS SelectedCount
+            FROM "ExamQuestionOptions" o
+            JOIN "ExamQuestions" eq ON eq."Id" = o."ExamQuestionId"
+            WHERE eq."ExamVersionId" = @versionId
             """,
             new { versionId },
             cancellationToken: ct))).ToLookup(o => o.ExamQuestionId);

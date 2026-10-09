@@ -9,7 +9,7 @@ import { describeError } from "../../utils/errors";
 import { availabilityVariant } from "../../constants/ui";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
-import { Pager } from "../../components/common/DataTable";
+import { Pager, SearchBox } from "../../components/common/DataTable";
 import { formatDateRange, formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
 import { useAuth } from "../auth/useAuth";
 import type { ExamAvailability, StudentExamDetail, StudentExamItem } from "../../types/api";
@@ -36,7 +36,11 @@ const AVAILABILITY_ICON: Record<ExamAvailability, string> = {
 export function StudentExamsPage() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
-  const query = useQuery({ queryKey: ["student-exams", page], queryFn: () => studentApi.exams({ page, pageSize: 20 }) });
+  const [keyword, setKeyword] = useState("");
+  const query = useQuery({
+    queryKey: ["student-exams", page, keyword],
+    queryFn: () => studentApi.exams({ page, pageSize: 20, keyword: keyword || undefined }),
+  });
   const { user } = useAuth();
   const items = query.data?.items ?? [];
   const ready = items.filter((e) => e.availability === "AVAILABLE" || e.availability === "IN_PROGRESS").length;
@@ -50,10 +54,22 @@ export function StudentExamsPage() {
           <p className="mb-0 opacity-75">{query.data ? t("student.readyCount", { count: ready }) : t("student.exams")}</p>
         </div>
       </section>
-      <h2 className="h5 mb-3">
-        <i className="bi bi-journal-text text-primary me-2" aria-hidden="true" />
-        {t("student.exams")}
-      </h2>
+      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <h2 className="h5 mb-0">
+          <i className="bi bi-journal-text text-primary me-2" aria-hidden="true" />
+          {t("student.exams")}
+        </h2>
+        <div style={{ maxWidth: 360, width: "100%" }}>
+          <SearchBox
+            value={keyword}
+            onSearch={(kw) => {
+              setKeyword(kw);
+              setPage(1);
+            }}
+            placeholder="Tìm theo mã hoặc tên đề thi..."
+          />
+        </div>
+      </div>
       {query.error && <ErrorAlert error={query.error} onRetry={() => void query.refetch()} />}
       {query.isLoading && <Loading />}
       {query.data && query.data.items.length === 0 && <Empty text={t("student.noExams")} />}
@@ -400,59 +416,220 @@ export function ResultPage() {
           {r.scoreVisible && !r.reviewAvailable && r.reviewAvailableAt && (
             <p className="small text-secondary mt-3 mb-0">{t("result.reviewUntil", { time: formatDateTime(r.reviewAvailableAt) })}</p>
           )}
+          {r.scoreVisible && !r.reviewAvailable && !r.reviewAvailableAt && (
+            <Alert variant="warning" className="mt-3 mb-0">
+              <i className="bi bi-info-circle me-2" />
+              Đề thi này chưa bật quyền xem lại câu hỏi và đáp án sau khi nộp. Giáo viên có thể bật trong phần cài đặt đề thi.
+            </Alert>
+          )}
         </Card.Body>
       </Card>
 
       {r.reviewAvailable && r.questions && (
         <MediaUrls value={r.media}>
-          <h2 className="h5">{t("result.review")}</h2>
+          <div className="d-flex align-items-center justify-content-between mb-3 mt-4">
+            <h2 className="h5 mb-0 d-flex align-items-center gap-2">
+              <i className="bi bi-card-checklist text-primary" />
+              <span>{t("result.review")} - Chi tiết câu hỏi và đáp án</span>
+            </h2>
+            <Badge bg="secondary" className="px-2 py-1">
+              {r.questions.length} câu hỏi
+            </Badge>
+          </div>
+
           {r.questions.map((q) => (
-            <Card key={q.id} className={`mb-3 border-${q.isVoided ? "secondary" : q.isCorrect ? "success" : "danger"}`}>
+            <Card
+              key={q.id}
+              className={`mb-3 shadow-sm border-2 border-${q.isVoided ? "secondary" : q.isCorrect ? "success" : "danger"}`}
+            >
               <Card.Body>
-                <div className="d-flex justify-content-between">
-                  <strong>Câu {q.order}</strong>
-                  <span className={q.isCorrect ? "text-success" : "text-danger"}>
-                    {formatNumber(q.score)}/{formatNumber(q.maxScore)} {q.isCorrect ? "✓" : "✗"}
-                  </span>
-                </div>
-                {q.isVoided && <Alert variant="secondary" className="py-1 small my-2">{t("result.voided")}</Alert>}
-                <MarkdownView content={q.content} format={q.contentFormat} />
-                {q.type === "ESSAY" ? (
-                  <>
-                    <div className="small fw-semibold mt-2">{t("result.yourAnswer")}</div>
-                    <div className="border rounded p-2 small" style={{ whiteSpace: "pre-wrap" }}>{q.answerText || t("result.noAnswer")}</div>
-                    {q.manualComment && (
-                      <div className="small mt-2"><strong>{t("result.graderComment")}:</strong> <span style={{ whiteSpace: "pre-wrap" }}>{q.manualComment}</span></div>
+                <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                  <div className="d-flex align-items-center gap-2">
+                    <strong className="fs-6">Câu {q.order}</strong>
+                    {q.isVoided ? (
+                      <Badge bg="secondary">{t("result.voided")}</Badge>
+                    ) : q.isCorrect ? (
+                      <Badge bg="success" className="px-2 py-1 d-inline-flex align-items-center gap-1">
+                        <i className="bi bi-check-circle-fill" /> Đúng (+{formatNumber(q.score)}/{formatNumber(q.maxScore)} đ)
+                      </Badge>
+                    ) : (
+                      <Badge bg="danger" className="px-2 py-1 d-inline-flex align-items-center gap-1">
+                        <i className="bi bi-x-circle-fill" /> Sai ({formatNumber(q.score)}/{formatNumber(q.maxScore)} đ)
+                      </Badge>
                     )}
-                  </>
+                  </div>
+                  <div className={`fw-bold fs-5 ${q.isCorrect ? "text-success" : "text-danger"}`}>
+                    {q.isCorrect ? "✓ V" : "✗ X"}
+                  </div>
+                </div>
+
+                {q.isVoided && <Alert variant="secondary" className="py-1 small my-2">{t("result.voided")}</Alert>}
+
+                <div className="mb-3 fs-6">
+                  <MarkdownView content={q.content} format={q.contentFormat} />
+                </div>
+
+                {q.type === "ESSAY" ? (
+                  <div className="mt-2">
+                    <div className="small fw-semibold mb-1">{t("result.yourAnswer")}:</div>
+                    <div className="border rounded p-2 small bg-light" style={{ whiteSpace: "pre-wrap" }}>
+                      {q.answerText || <em>{t("result.noAnswer")}</em>}
+                    </div>
+                    {q.manualComment && (
+                      <div className="small mt-2 p-2 rounded bg-info-subtle border border-info">
+                        <strong>{t("result.graderComment")}:</strong> <span style={{ whiteSpace: "pre-wrap" }}>{q.manualComment}</span>
+                      </div>
+                    )}
+                  </div>
                 ) : q.type === "FILL_IN" ? (
-                  <dl className="row small mb-0">
-                    <dt className="col-sm-3">{t("result.yourAnswer")}</dt>
-                    <dd className="col-sm-9">{q.answerText || t("result.noAnswer")}</dd>
-                    <dt className="col-sm-3">{t("result.correctAnswer")}</dt>
-                    <dd className="col-sm-9">
-                      {q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")}
-                    </dd>
-                  </dl>
+                  <div className="d-flex flex-column gap-2 mb-2">
+                    <div
+                      className={`p-2 px-3 rounded d-flex align-items-center justify-content-between ${
+                        q.isCorrect
+                          ? "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium"
+                          : "border border-2 border-danger bg-danger-subtle text-danger-emphasis fw-medium"
+                      }`}
+                    >
+                      <div className="d-flex align-items-center flex-grow-1 me-2">
+                        <span
+                          className={`badge ${q.isCorrect ? "bg-success" : "bg-danger"} text-white fw-bold d-inline-flex align-items-center justify-content-center me-2`}
+                          style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                        >
+                          {q.isCorrect ? "✓ V" : "✗ X"}
+                        </span>
+                        <div>
+                          <span className="text-secondary small d-block">{t("result.yourAnswer")}:</span>
+                          <span>{q.answerText || <em>{t("result.noAnswer")}</em>}</span>
+                        </div>
+                      </div>
+                      <Badge bg={q.isCorrect ? "success" : "danger"} className="py-1 px-2">
+                        {q.isCorrect ? "✓ Bạn trả lời đúng" : "✗ Bạn trả lời sai"}
+                      </Badge>
+                    </div>
+
+                    {!q.isCorrect && (
+                      <div className="p-2 px-3 rounded d-flex align-items-center justify-content-between border border-2 border-success bg-success-subtle text-success-emphasis fw-medium">
+                        <div className="d-flex align-items-center flex-grow-1 me-2">
+                          <span
+                            className="badge bg-success text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                          >
+                            ✓ V
+                          </span>
+                          <div>
+                            <span className="text-secondary small d-block">{t("result.correctAnswer")}:</span>
+                            <span className="text-success fw-bold">
+                              {q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")}
+                            </span>
+                          </div>
+                        </div>
+                        <Badge bg="success" className="py-1 px-2">
+                          ✓ Đáp án đúng
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <ul className="list-unstyled mb-0">
+                  <div className="d-flex flex-column gap-2 mb-2">
                     {q.options.map((o, index) => {
                       const selected = q.selectedOptions.includes(o.code);
                       const correct = q.correctOptions.includes(o.code);
+
+                      let containerClass = "border border-light-subtle bg-body-tertiary text-body-secondary";
+                      let iconBadge = null;
+                      let statusBadge = null;
+
+                      if (selected && correct) {
+                        // Tích đúng: đánh dấu V màu xanh
+                        containerClass = "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium";
+                        iconBadge = (
+                          <span
+                            className="badge bg-success text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                            title="Bạn chọn đúng"
+                          >
+                            ✓ V
+                          </span>
+                        );
+                        statusBadge = (
+                          <Badge bg="success" className="ms-auto py-1 px-2 d-inline-flex align-items-center gap-1">
+                            <i className="bi bi-check2-circle" /> Bạn chọn đúng
+                          </Badge>
+                        );
+                      } else if (selected && !correct) {
+                        // Tích sai: đánh dấu X hiển đỏ
+                        containerClass = "border border-2 border-danger bg-danger-subtle text-danger-emphasis fw-medium";
+                        iconBadge = (
+                          <span
+                            className="badge bg-danger text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                            title="Bạn chọn sai"
+                          >
+                            ✗ X
+                          </span>
+                        );
+                        statusBadge = (
+                          <Badge bg="danger" className="ms-auto py-1 px-2 d-inline-flex align-items-center gap-1">
+                            <i className="bi bi-x-circle" /> Bạn chọn sai
+                          </Badge>
+                        );
+                      } else if (!selected && correct) {
+                        // Tích V vào đáp án đúng
+                        containerClass = "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium";
+                        iconBadge = (
+                          <span
+                            className="badge bg-success text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                            title="Đáp án đúng"
+                          >
+                            ✓ V
+                          </span>
+                        );
+                        statusBadge = (
+                          <Badge bg="success" className="ms-auto py-1 px-2 d-inline-flex align-items-center gap-1">
+                            <i className="bi bi-check-lg" /> Đáp án đúng
+                          </Badge>
+                        );
+                      } else {
+                        // Phương án không chọn và không phải đáp án đúng
+                        iconBadge = (
+                          <span
+                            className="badge bg-white text-muted border me-2 d-inline-flex align-items-center justify-content-center"
+                            style={{ width: "36px", height: "32px", fontSize: "0.85rem" }}
+                          >
+                            {q.type === "TRUE_FALSE" ? "–" : optionLabel(index)}
+                          </span>
+                        );
+                      }
+
                       return (
-                        <li key={o.code} className={`px-2 py-1 rounded mb-1 ${correct ? "bg-success-subtle" : selected ? "bg-danger-subtle" : ""}`}>
-                          <strong>{q.type === "TRUE_FALSE" ? "" : `${optionLabel(index)}. `}</strong>
-                          <MarkdownView content={o.content} inline />
-                          {selected && <Badge bg="secondary" className="ms-2">{t("result.yourAnswer")}</Badge>}
-                          {correct && <Badge bg="success" className="ms-2">{t("result.correctAnswer")}</Badge>}
-                        </li>
+                        <div
+                          key={o.code}
+                          className={`p-2 px-3 rounded d-flex align-items-center justify-content-between ${containerClass}`}
+                        >
+                          <div className="d-flex align-items-center flex-grow-1 me-2">
+                            {iconBadge}
+                            {q.type !== "TRUE_FALSE" && (selected || correct) && (
+                              <strong className="me-2">{optionLabel(index)}.</strong>
+                            )}
+                            <div className="flex-grow-1">
+                              <MarkdownView content={o.content} inline />
+                            </div>
+                          </div>
+                          {statusBadge}
+                        </div>
                       );
                     })}
-                  </ul>
+                  </div>
                 )}
+
                 {q.explanation && (
-                  <div className="mt-2 small">
-                    <strong>{t("result.explanation")}:</strong> <MarkdownView content={q.explanation} />
+                  <div className="mt-2 p-2 px-3 rounded bg-info-subtle border border-info text-info-emphasis small">
+                    <strong>
+                      <i className="bi bi-lightbulb me-1" />
+                      {t("result.explanation")}:
+                    </strong>{" "}
+                    <MarkdownView content={q.explanation} />
                   </div>
                 )}
               </Card.Body>

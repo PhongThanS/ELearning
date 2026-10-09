@@ -72,7 +72,7 @@ internal sealed class ExamService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            exams = exams.Where(e => EF.Functions.Like(e.Code, kw) || EF.Functions.Like(e.Name, kw));
+            exams = exams.Where(e => EF.Functions.ILike(e.Code, kw) || EF.Functions.ILike(e.Name, kw));
         }
 
         exams = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch

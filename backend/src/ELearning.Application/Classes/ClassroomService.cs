@@ -138,7 +138,7 @@ internal sealed class ClassroomService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            classes = classes.Where(c => EF.Functions.Like(c.Code, kw) || EF.Functions.Like(c.Name, kw));
+            classes = classes.Where(c => EF.Functions.ILike(c.Code, kw) || EF.Functions.ILike(c.Name, kw));
         }
 
         if (!string.IsNullOrWhiteSpace(query.SchoolYear))
@@ -286,7 +286,7 @@ internal sealed class ClassroomService(
         if (!string.IsNullOrWhiteSpace(query.Keyword))
         {
             var kw = Like.Contains(query.Keyword);
-            students = students.Where(x => EF.Functions.Like(x.u.UserName, kw) || EF.Functions.Like(x.u.FullName, kw) || EF.Functions.Like(x.u.Email, kw));
+            students = students.Where(x => EF.Functions.ILike(x.u.UserName, kw) || EF.Functions.ILike(x.u.FullName, kw) || EF.Functions.ILike(x.u.Email, kw));
         }
 
         var total = await students.CountAsync(ct);
