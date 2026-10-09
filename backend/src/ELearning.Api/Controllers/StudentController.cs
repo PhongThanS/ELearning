@@ -3,6 +3,7 @@ using ELearning.Api.Security;
 using ELearning.Application.Attempts;
 using ELearning.Application.Classes;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Questions;
 using ELearning.Application.Videos;
 using ELearning.Shared.Paging;
 using Microsoft.AspNetCore.Authorization;
@@ -20,10 +21,17 @@ namespace ELearning.Api.Controllers;
 public sealed class StudentController(
     IAttemptService attempts,
     IClassroomService classrooms,
+    ICategoryService categories,
     IVideoService videos,
     ICurrentUser currentUser) : ApiControllerBase
 {
     private Guid UserId => currentUser.RequiredUserId;
+
+    /// <summary>Danh mục chuyên đề đang hoạt động (cho học sinh lọc video/đề thi).</summary>
+    [HttpGet("categories")]
+    [ProducesResponseType<ApiResponse<IReadOnlyList<CategoryDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> Categories(CancellationToken ct) =>
+        Ok(ApiResponse.Ok((await categories.ListAsync(new CategoryListQuery { IsActive = true, PageSize = 100 }, ct)).Items, TraceId));
 
     /// <summary>Các lớp đang hoạt động mà học viên thuộc về (D-28).</summary>
     [HttpGet("classes")]

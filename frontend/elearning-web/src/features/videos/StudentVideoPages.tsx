@@ -10,7 +10,7 @@ import {
   Spinner,
 } from "react-bootstrap";
 import { useQuery } from "@tanstack/react-query";
-import { videosApi, categoriesApi, studentApi } from "../../services/api";
+import { videosApi, studentApi } from "../../services/api";
 import type { VideoLesson } from "../../types/api";
 import { VideoPlayerModal } from "./AdminVideoPages";
 
@@ -21,14 +21,14 @@ export function StudentVideoPages() {
   const [selectedClassroom, setSelectedClassroom] = useState<string>("");
   const [playingVideo, setPlayingVideo] = useState<VideoLesson | null>(null);
 
-  // Danh mục chuyên đề
+  // Danh mục chuyên đề (từ mục chuyên đề)
   const { data: categoriesData } = useQuery({
-    queryKey: ["categories-all"],
-    queryFn: () => categoriesApi.list({ page: 1, pageSize: 100 }),
+    queryKey: ["student-categories"],
+    queryFn: () => studentApi.categories(),
     staleTime: 60_000,
   });
 
-  // Lớp học của tôi
+  // Lớp học của tôi (từ mục lớp học)
   const { data: myClassesData } = useQuery({
     queryKey: ["student-classes"],
     queryFn: () => studentApi.classes(),
@@ -48,7 +48,7 @@ export function StudentVideoPages() {
       }),
   });
 
-  const categories = categoriesData?.items ?? [];
+  const categories = categoriesData ?? [];
   const myClasses = myClassesData ?? [];
   const videos: VideoLesson[] = videosData?.items ?? [];
   const totalPages = videosData?.totalPages ?? 1;

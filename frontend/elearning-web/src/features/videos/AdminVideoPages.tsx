@@ -41,15 +41,15 @@ export function AdminVideoPages() {
   // Modal xóa
   const [deletingVideo, setDeletingVideo] = useState<VideoLesson | null>(null);
 
-  // Queries
+  // Queries - Dữ liệu lấy trực tiếp từ mục Chuyên đề và mục Lớp học
   const { data: categoriesData } = useQuery({
-    queryKey: ["categories-all"],
+    queryKey: ["categories", "for-videos"],
     queryFn: () => categoriesApi.list({ page: 1, pageSize: 100 }),
     staleTime: 60_000,
   });
 
   const { data: classroomsData } = useQuery({
-    queryKey: ["classrooms-all"],
+    queryKey: ["classes", "for-videos"],
     queryFn: () => classesApi.list({ page: 1, pageSize: 100 }),
     staleTime: 60_000,
   });
@@ -142,7 +142,7 @@ export function AdminVideoPages() {
                 <option value="">-- Tất cả chuyên đề --</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
-                    📁 {c.name}
+                    📁 {c.name} ({c.code})
                   </option>
                 ))}
               </Form.Select>
@@ -403,8 +403,8 @@ function VideoEditModal({
   onSuccess,
 }: {
   video: VideoLesson | null;
-  categories: { id: string; name: string }[];
-  classrooms: { id: string; name: string }[];
+  categories: { id: string; name: string; code?: string }[];
+  classrooms: { id: string; name: string; code?: string; schoolYear?: string | null }[];
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -541,13 +541,13 @@ function VideoEditModal({
             <Col md={6}>
               <Form.Group>
                 <Form.Label htmlFor={catId} className="fw-semibold">
-                  Chuyên đề liên quan
+                  Chuyên đề liên quan (từ mục Chuyên đề)
                 </Form.Label>
                 <Form.Select id={catId} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
                   <option value="">-- Không gắn chuyên đề --</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
-                      📁 {c.name}
+                      📁 {c.name} ({c.code})
                     </option>
                   ))}
                 </Form.Select>
@@ -556,13 +556,13 @@ function VideoEditModal({
             <Col md={6}>
               <Form.Group>
                 <Form.Label htmlFor={classId} className="fw-semibold">
-                  Lớp học được xem
+                  Lớp học được xem (từ mục Lớp học)
                 </Form.Label>
                 <Form.Select id={classId} value={classroomId} onChange={(e) => setClassroomId(e.target.value)}>
                   <option value="">-- Mọi học sinh đều xem được (Chung) --</option>
                   {classrooms.map((c) => (
                     <option key={c.id} value={c.id}>
-                      🏫 {c.name}
+                      🏫 {c.name} {c.code ? `[${c.code}]` : ""} {c.schoolYear ? `(${c.schoolYear})` : ""}
                     </option>
                   ))}
                 </Form.Select>

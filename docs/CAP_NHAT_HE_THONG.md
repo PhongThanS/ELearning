@@ -111,3 +111,14 @@ Chi tiết tài liệu kỹ thuật riêng: [`tinh-nang-kho-video-bai-giang.md`]
   - Học sinh (`/student/videos`): Xem danh sách video bài giảng, lọc theo chuyên đề hoặc lớp học, popup phát video không quảng cáo.
   - Thêm mục điều hướng `🎥 Kho Video bài giảng` trên Sidebar Admin và `🎥 Video bài giảng` trên Navbar Học sinh.
 
+---
+
+## 7. Đồng bộ dữ liệu Chuyên đề & Lớp học cho Video
+
+Chi tiết tài liệu riêng: [`dong-bo-du-lieu-chuyen-de-va-lop-hoc-cho-video.md`](./dong-bo-du-lieu-chuyen-de-va-lop-hoc-cho-video.md)
+
+- Toàn bộ danh mục Chuyên đề được lấy đồng bộ từ mục **Chuyên đề** (`QuestionCategories` - `/admin/categories`).
+- Toàn bộ danh sách Lớp học được lấy đồng bộ từ mục **Lớp học** (`Classrooms` - `/admin/classes`).
+- Bổ sung endpoint `GET /api/student/categories` cho học sinh lọc video theo chuyên đề thực tế.
+- Tự động làm mới dữ liệu dropdown thông qua tiền tố cache queryKey `["categories"]` và `["classes"]`.
+

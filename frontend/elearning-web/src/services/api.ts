@@ -217,6 +217,7 @@ export const examsApi = {
 export const studentApi = {
   exams: (q: Query) => http.get<Paged<StudentExamItem>>("/student/exams", q),
   classes: () => http.get<MyClassroom[]>("/student/classes"),
+  categories: () => http.get<Category[]>("/student/categories"),
   exam: (id: string) => http.get<StudentExamDetail>(`/student/exams/${id}`),
   start: (id: string) => http.post<Attempt>(`/student/exams/${id}/start`),
   attempt: (id: string) => http.get<Attempt>(`/student/attempts/${id}`),
