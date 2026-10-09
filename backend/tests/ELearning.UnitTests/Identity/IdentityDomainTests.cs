@@ -116,9 +116,9 @@ public class IdentityDomainTests
     }
 
     [Theory]
-    [InlineData("50%", "%50[%]%")]
-    [InlineData("a_b", "%a[_]b%")]
-    [InlineData("[x]", "%[[]x]%")]
+    [InlineData("50%", @"%50\%%")]
+    [InlineData("a_b", @"%a\_b%")]
+    [InlineData(@"a\b", @"%a\\b%")]
     [InlineData("  hà nội ", "%hà nội%")]
     public void Like_pattern_escapes_wildcards(string keyword, string expected) =>
         Like.Contains(keyword).Should().Be(expected);

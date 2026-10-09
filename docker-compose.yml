@@ -1,4 +1,4 @@
-# Toàn bộ hệ thống: SQL Server → migration → tài khoản app → seed → API → Nginx (SPA + proxy /api).
+# Toàn bộ hệ thống: PostgreSQL → migration → seed → API → Nginx (SPA + proxy /api).
 #   cp .env.example .env    # sửa mật khẩu / khóa
 #   docker compose up -d --build
 #   mở http://localhost:${HTTP_PORT:-8080}
@@ -7,8 +7,7 @@
 
 name: elearning
 
-x-sql-admin: &sql-admin "Server=sqlserver,1433;Database=${DB_NAME:-ELearningDb};User Id=sa;Password=${SQL_SA_PASSWORD:?SQL_SA_PASSWORD chưa đặt};TrustServerCertificate=True;Encrypt=True"
-x-sql-app: &sql-app "Server=sqlserver,1433;Database=${DB_NAME:-ELearningDb};User Id=${APP_DB_LOGIN:-elearning_app};Password=${APP_DB_PASSWORD:?APP_DB_PASSWORD chưa đặt};TrustServerCertificate=True;Encrypt=True"
+x-sql-app: &sql-app "Host=postgres;Port=5432;Database=${DB_NAME:-elearning_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD chưa đặt};Include Error Detail=true"
 
 x-api-env: &api-env
   ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
@@ -22,24 +21,23 @@ x-api-env: &api-env
   TZ: Asia/Ho_Chi_Minh
 
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+  postgres:
+    image: postgres:17-alpine
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: ${SQL_SA_PASSWORD}
-      # Express miễn phí nhưng giới hạn 10 GB / DB; production nên dùng Standard (có license)
-      MSSQL_PID: ${MSSQL_PID:-Express}
-      MSSQL_BACKUP_DIR: /var/opt/mssql/backup
+      POSTGRES_DB: ${DB_NAME:-elearning_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - sqldata:/var/opt/mssql
-      - ${BACKUP_DIR:-./backups}:/var/opt/mssql/backup
+      - pgdata:/var/lib/postgresql/data
+      - ${BACKUP_DIR:-./backups}:/backups
     networks: [backend]
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${DB_NAME:-elearning_db}"]
+      interval: 5s
       timeout: 5s
       retries: 20
-      start_period: 30s
+      start_period: 10s
     restart: unless-stopped
 
   # Áp migration bằng bundle, trước khi API chạy (không Migrate() lúc khởi động)
@@ -49,40 +47,13 @@ services:
       dockerfile: backend/Dockerfile
       target: migrator
     image: elearning-migrator:${IMAGE_TAG:-local}
-    command: ["--connection", *sql-admin]
+    command: ["--connection", *sql-app]
     environment:
-      ConnectionStrings__DefaultConnection: *sql-admin
+      ConnectionStrings__DefaultConnection: *sql-app
     networks: [backend]
     depends_on:
-      sqlserver:
+      postgres:
         condition: service_healthy
-    restart: "no"
-
-  # Tài khoản DB của ứng dụng: chỉ đọc / ghi dữ liệu, không DDL
-  db-init:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    entrypoint: ["/opt/mssql-tools18/bin/sqlcmd"]
-    command:
-      - -S
-      - sqlserver
-      - -U
-      - sa
-      - -P
-      - ${SQL_SA_PASSWORD}
-      - -C
-      - -b
-      - -i
-      - /scripts/init-app-login.sql
-      - -v
-      - DB_NAME=${DB_NAME:-ELearningDb}
-      - APP_LOGIN=${APP_DB_LOGIN:-elearning_app}
-      - APP_PASSWORD=${APP_DB_PASSWORD}
-    volumes:
-      - ./deploy/sql:/scripts:ro
-    networks: [backend]
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
     restart: "no"
 
   # Seed role, permission, admin khởi tạo (Production: admin phải đổi mật khẩu lần đầu; không có dữ liệu demo)
@@ -96,7 +67,7 @@ services:
     environment: *api-env
     networks: [backend]
     depends_on:
-      db-init:
+      migrate:
         condition: service_completed_successfully
     restart: "no"
 
@@ -153,7 +124,7 @@ services:
       ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
       ALERT_WEBHOOK_FIELD: ${ALERT_WEBHOOK_FIELD:-text}
       ALERT_ENV_NAME: ${ALERT_ENV_NAME:-}
-      DB_NAME: ${DB_NAME:-ELearningDb}
+      DB_NAME: ${DB_NAME:-elearning_db}
       BACKUP_FULL_MAX_AGE_HOURS: ${BACKUP_FULL_MAX_AGE_HOURS:-}
       BACKUP_LOG_MAX_AGE_MINUTES: ${BACKUP_LOG_MAX_AGE_MINUTES:-}
       MONITOR_INTERVAL_SECONDS: ${MONITOR_INTERVAL_SECONDS:-60}
@@ -172,4 +143,4 @@ networks:
         - subnet: 172.28.0.0/24
 
 volumes:
-  sqldata:
+  pgdata:
