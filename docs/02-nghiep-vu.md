@@ -102,7 +102,7 @@ Publish không cho phép `MaxScore = 0`, nên phép chia luôn hợp lệ.
 
 ### 2.3 Câu tự luận và chấm tay (sau MVP, đã làm)
 
-- `ESSAY`: không có lựa chọn / đáp án chấp nhận; phần **Giải thích** dùng làm đáp án mẫu / hướng dẫn chấm. Bài làm tối đa 20.000 ký tự (`AttemptAnswers.AnswerText` là `NVARCHAR(MAX)`).
+- `ESSAY`: không có lựa chọn / đáp án chấp nhận; phần **Giải thích** dùng làm đáp án mẫu / hướng dẫn chấm. Bài làm tối đa 20.000 ký tự (`AttemptAnswers.AnswerText` là `text`).
 - Khi nộp: câu tự luận bỏ trống → 0 điểm; có trả lời → **chờ chấm tay**, tạm tính 0 điểm. `ExamResults.PendingManualCount` = số câu chờ chấm; khác 0 thì `Passed = null`.
 - Người có quyền `Attempt.Grade` chấm từng bài: điểm từ 0 đến điểm tối đa của câu, bội số 0,25, kèm nhận xét (tối đa 2000 ký tự). Chấm trong transaction có khóa dòng lượt thi (D-21), sau đó **chấm lại cả lượt thi từ snapshot** và cập nhật `ExamResults`; ghi audit `ANSWER_MANUALLY_GRADED` (điểm cũ → mới). Chấm lại một câu đã chấm được phép (sửa điểm), cũng có audit.
 - Điểm chấm tay lưu ở `AttemptAnswers.ManualScore`, không bị mất khi chấm lại tự động (sửa đáp án câu khác, D-11). Câu tự luận **không sửa đáp án được**, chỉ **hủy câu** (mọi người được điểm tối đa).
@@ -284,6 +284,7 @@ IN_PROGRESS ──submit──────────────────�
 ### 6.3 Đếm lượt và lượt song song (D-07)
 
 - `MaxAttempts` nằm trong khoảng 1–50. MVP **không có** "không giới hạn".
+- **Hiện trạng đề nhiều version:** danh sách đề của học viên (`usedAttempts`, `inProgress`) đếm lượt **theo version đang PUBLISHED** (`ExamVersionId == version.Id`), nên khi publish version mới, lượt đã dùng ở version cũ không tính và học viên làm lại được. Điều này lệch D-07 ("tính mọi lượt trừ `CANCELLED`"); cần xác nhận quy tắc cho cả lúc `start` (xem `CAP_NHAT_HE_THONG.md` mục 8).
 - Số lượt đã dùng = số lượt có trạng thái **khác** `CANCELLED`. Vì vậy admin hủy một lượt tương đương với trả lại lượt đó cho học viên.
 - Admin cấp thêm lượt cho từng người qua bảng `ExamUserOverrides.ExtraAttempts`.
 - Mỗi `(UserId, ExamId)` có **tối đa 1 lượt `IN_PROGRESS`**, được enforce bằng filtered unique index.
@@ -326,12 +327,12 @@ Trước khi start, UI cảnh báo khi thời gian thực tế sẽ ít hơn `Du
   - Định dạng câu trả lời khớp loại câu hỏi.
 - **Thứ tự ghi (D-18):** mỗi lần ghi mang theo `clientSeq`, một số tăng dần do client sinh ra. Server chỉ áp dụng khi `clientSeq > AttemptAnswers.ClientSeq`; nếu không thì bỏ qua (`applied: false`). Điều này chống việc request cũ đến sau ghi đè request mới, và chống xung đột khi mở hai tab. `clientSeq` **chỉ dùng để sắp thứ tự**, không mang ý nghĩa thời gian.
 - Lưu `IsMarkedForReview` cùng câu trả lời.
-- Lưu đáp án và nộp bài **khóa dòng attempt** (`UPDLOCK`, D-21), nên hai thao tác này không chạy chen nhau.
+- Lưu đáp án và nộp bài **khóa dòng attempt** (`FOR UPDATE`, D-21), nên hai thao tác này không chạy chen nhau.
 
 ### 6.7 Nộp bài (idempotent)
 
 Trong một transaction:
-1. Khóa dòng attempt bằng `UPDLOCK, ROWLOCK`; kiểm tra quyền sở hữu.
+1. Khóa dòng attempt bằng `SELECT ... FOR UPDATE`; kiểm tra quyền sở hữu.
 2. Nếu trạng thái khác `IN_PROGRESS` → trả về kết quả đã có. Không chấm lại, không báo lỗi.
 3. Nếu `now > ExpiredAt + grace` → trạng thái `AUTO_SUBMITTED` / `TIME_EXPIRED`; ngược lại là `SUBMITTED` / `STUDENT`.
 4. Chấm từng câu, lưu `IsCorrect`, `Score`, `GradedAt` vào `AttemptAnswers`.
@@ -358,6 +359,8 @@ Trong một transaction:
 | `AFTER_SUBMIT` | Ngay sau khi nộp; chỉ cho phép khi `MaxAttempts = 1` |
 | `AFTER_EXAM_END` | Sau `EndAt` |
 | `AFTER_LAST_ATTEMPT` | Khi học viên đã dùng hết lượt, hoặc sau `EndAt` |
+
+**Đổi nhanh `ReviewPolicy` (hiện trạng, sau MVP):** trang chi tiết đề có khối "Quyền xem lại kết quả bài thi" với hai nút: mở xem chi tiết (`AFTER_SUBMIT`) và khóa lại (`NEVER`), gọi `PATCH /api/exams/{id}/review-policy` và áp cho mọi version. Khi `NEVER`, học viên vẫn thấy tổng quan (điểm, đúng / tổng, đạt / chưa đạt) nhưng `questions = null`, `reviewAvailable = false`. Tạo đề mới mặc định `ReviewPolicy = NEVER`. Lưu ý: thao tác này không đi qua kiểm tra chéo `MaxAttempts` (xem `05-api.md` mục 8).
 
 **Quy tắc:**
 - Xem lại bài luôn kèm điểm. Nếu `ReviewPolicy` cho phép nhưng `ScoreVisibility` chưa cho phép, thì phải chờ cả hai.

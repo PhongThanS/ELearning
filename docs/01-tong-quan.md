@@ -5,7 +5,7 @@
 ELearning là nền tảng thi trực tuyến, có định hướng mở rộng thành LMS. Tài liệu này là đặc tả chuẩn để một kỹ sư hoặc AI agent có thể:
 
 1. Tạo repository và solution.
-2. Tạo database SQL Server bằng EF Core migration.
+2. Tạo database PostgreSQL bằng EF Core migration.
 3. Triển khai backend .NET 10 và frontend React.
 4. Triển khai xác thực, phân quyền, ngân hàng câu hỏi, đề thi / version, lượt làm bài và autosave, tính giờ phía server, chấm điểm tự động, kết quả và lịch sử.
 5. Viết kiểm thử tự động, chạy local và triển khai.
@@ -25,7 +25,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 | Mục tiêu | MVP sẵn sàng production, mở rộng được |
 | Backend | .NET 10, ASP.NET Core Web API |
 | Frontend | React + TypeScript + Vite |
-| Database | SQL Server |
+| Database | PostgreSQL 17 (Npgsql) |
 | ORM | EF Core 10; Dapper cho báo cáo |
 | UI | Bootstrap 5 (qua `react-bootstrap`) |
 | Xác thực | JWT access token + refresh token (cookie HttpOnly) |
@@ -58,7 +58,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 2. **Version đã publish là bất biến.** Muốn thay đổi thì: `Version 1 (PUBLISHED) → tạo Version 2 (DRAFT) → sửa → publish`. Ngoại lệ duy nhất là quy trình chấm lại có kiểm soát (D-11).
 3. **Snapshot tại thời điểm publish.** Nội dung và đáp án được copy vào `ExamQuestions`. Lượt thi tham chiếu snapshot này, không bao giờ tham chiếu ngân hàng câu hỏi (D-01).
 4. **Backend chấm điểm.** `Câu trả lời → API → Grading Engine → Result`. Frontend không bao giờ tính điểm chính thức.
-5. **Modular monolith.** `React → ASP.NET Core → SQL Server`. Ranh giới module có thể tách sau này: Identity, Question/Exam, Attempt/Grading, Notification, Reporting.
+5. **Modular monolith.** `React → ASP.NET Core → PostgreSQL`. Ranh giới module có thể tách sau này: Identity, Question/Exam, Attempt/Grading, Notification, Reporting.
 
 ## 5. Phạm vi MVP
 

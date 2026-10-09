@@ -1,6 +1,6 @@
 # CLAUDE.md — ELearning
 
-Hệ thống thi trực tuyến: .NET 10 Web API + EF Core 10 + SQL Server, frontend React + TypeScript + Vite + Bootstrap 5.
+Hệ thống thi trực tuyến: .NET 10 Web API + EF Core 10 + PostgreSQL 17 (Npgsql), frontend React + TypeScript + Vite + Bootstrap 5.
 Trả lời người dùng bằng **tiếng Việt**. Code, database, API, enum dùng **tiếng Anh**.
 
 ## Tài liệu (nguồn chuẩn)
@@ -43,8 +43,9 @@ Quyết định đã chốt có mã `D-xx` (sổ quyết định ở `docs/00-mu
 - Không dùng generic repository, MediatR, AutoMapper, FluentAssertions ≥ 8 (dùng AwesomeAssertions).
 - Không thêm Redis / RabbitMQ / Hangfire / SignalR khi chưa có quyết định.
 - Thời gian lấy qua `TimeProvider` (cấm gọi `DateTime.UtcNow` trong code nghiệp vụ).
-- Transaction bọc trong `CreateExecutionStrategy().ExecuteAsync(...)`. Lưu đáp án và nộp bài khóa dòng attempt bằng `UPDLOCK, ROWLOCK`.
+- Transaction bọc trong `CreateExecutionStrategy().ExecuteAsync(...)`. Lưu đáp án và nộp bài khóa dòng attempt bằng `SELECT ... FOR UPDATE` (`IAttemptLock`, D-21).
 - Enum lưu và trả về dạng `UPPER_SNAKE_CASE`. Mọi FK dùng `DeleteBehavior.Restrict`.
+- PostgreSQL phân biệt hoa thường và tên bảng / cột là PascalCase: SQL tay (Dapper, `FromSql`) phải đặt tên trong dấu nháy kép (`"ExamAttempts"`). Tìm kiếm không phân biệt hoa thường dùng `EF.Functions.ILike` với pattern từ `Like.Contains` (escape `\`, `%`, `_`). `RowVersion` là `bytea` do `ELearningDbContext.SaveChanges` tự gán, không phải `rowversion` của SQL Server (D-30).
 - Response luôn là `ApiResponse`; mã lỗi lấy từ `ErrorCodes` (xem `docs/05-api.md`).
 - Nullable bật; build với `-warnaserror`; async có `CancellationToken`; không có `async void`.
 
@@ -58,7 +59,7 @@ Quyết định đã chốt có mã `D-xx` (sổ quyết định ở `docs/00-mu
 
 ## Kiểm thử
 
-- Integration / API test chạy trên SQL Server thật (Testcontainers). Không dùng EF InMemory hay SQLite.
+- Integration / API test chạy trên PostgreSQL thật (Testcontainers, image `postgres:17-alpine`). Không dùng EF InMemory hay SQLite.
 - Mỗi quy tắc chấm điểm và mỗi chuyển trạng thái đều có test. Mỗi bug được sửa kèm một test tái hiện.
 - Endpoint của học viên phải có test khẳng định JSON trả về không chứa trường đáp án.
 
@@ -75,10 +76,10 @@ dotnet ef database update -p src/ELearning.Infrastructure -s src/ELearning.Api
 dotnet run --project src/ELearning.Api --launch-profile http
 ```
 
-Test cần SQL Server thật. Máy dev này có SQL Server local nhưng **không có Docker**, nên phải đặt biến trước khi chạy:
+Test cần PostgreSQL thật. Không đặt biến thì test tự khởi động container bằng Testcontainers (cần Docker, CI dùng cách này). Máy không có Docker thì trỏ tới một PostgreSQL có sẵn; test tự tạo và xóa database tạm `elearning_test_<guid>` nên tài khoản cần quyền `CREATEDB`:
 
 ```bash
-export ELEARNING_TEST_SQL="Server=localhost;Trusted_Connection=True;TrustServerCertificate=True"
+export ELEARNING_TEST_POSTGRES="Host=localhost;Port=5432;Username=postgres;Password=postgres"
 dotnet test ELearning.sln
 ```
 

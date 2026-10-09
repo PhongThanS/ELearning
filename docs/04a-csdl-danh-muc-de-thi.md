@@ -4,16 +4,35 @@ Phần 2 (lượt thi, kết quả, audit, index, sơ đồ quan hệ) nằm ở
 
 ## 1. Quy ước chung
 
-- **Database:** `ELearningDb`, SQL Server 2019 trở lên. Collation mặc định `SQL_Latin1_General_CP1_CI_AS`; mọi so sánh nghiệp vụ quan trọng (username, email, đáp án) đều được **chuẩn hóa ở tầng ứng dụng**, không dựa vào collation.
-- **Thời gian:** mọi timestamp là **UTC**, kiểu `DATETIME2(3)`. Không dùng `DATETIME`.
-- **Khóa chính:** `UNIQUEIDENTIFIER`, sinh phía client bởi EF Core (sequential GUID cho SQL Server). `DEFAULT NEWSEQUENTIALID()` chỉ phục vụ script tay. Không tự sinh key bằng `Guid.NewGuid()` hay `Guid.CreateVersion7()` (xem `10-bay-ky-thuat.md`).
-- **Enum:** lưu dạng chuỗi `UPPER_SNAKE_CASE`, kiểu `VARCHAR(40) COLLATE Latin1_General_100_BIN2`, có `CHECK` constraint. Collation nhị phân là bắt buộc, vì với collation CI mặc định, CHECK sẽ chấp nhận cả `'Published'`.
+- **Database:** PostgreSQL 17 (Npgsql, D-29), database mặc định `elearning_db`. PostgreSQL so sánh chuỗi **phân biệt hoa thường**; mọi so sánh nghiệp vụ quan trọng (username, email, đáp án) vẫn được **chuẩn hóa ở tầng ứng dụng** (`Normalized*`), không dựa vào collation. Tìm kiếm không phân biệt hoa thường dùng `ILIKE`.
+- **Về các khối DDL trong tài liệu:** các `CREATE TABLE` bên dưới giữ ký pháp T-SQL của thiết kế gốc để mô tả cột, ràng buộc và index. Schema thật do EF Core sinh (migration `InitialPostgreSql`) và dùng kiểu PostgreSQL theo bảng ánh xạ ở mục 1.1; khi hai bên khác nhau thì migration là chuẩn.
+- **Thời gian:** mọi timestamp là **UTC**, kiểu `timestamp with time zone` (`DATETIME2(3)` trong DDL). Không dùng `timestamp without time zone`.
+- **Khóa chính:** `uuid` (`UNIQUEIDENTIFIER` trong DDL), sinh phía client bởi EF Core (GUID tuần tự). Không có `DEFAULT` ở DB. Không tự sinh key bằng `Guid.NewGuid()` (xem `10-bay-ky-thuat.md` mục 10).
+- **Enum:** lưu dạng chuỗi `UPPER_SNAKE_CASE`, kiểu `varchar(40)`, có `CHECK` constraint. PostgreSQL mặc định phân biệt hoa thường nên không cần collation riêng (bản SQL Server phải dùng `Latin1_General_100_BIN2`).
 - **Giá trị mặc định:** do ứng dụng gán khi tạo entity. Migration **không** tạo `DEFAULT` cho cột (các `DEFAULT` trong DDL dưới đây chỉ để minh họa khi viết script tay). Lý do: EF Core coi `false` / `0` là "chưa gán" với cột có DB default, dẫn tới ghi sai giá trị (xem `10-bay-ky-thuat.md` mục 17).
 - **Unique:** các ràng buộc `UQ_*` được hiện thực bằng unique index (EF Core), tương đương về mặt chức năng.
 - **Tiền / điểm:** `DECIMAL(10,2)`. Số đáp án: `DECIMAL(30,10)`. Phần trăm: `DECIMAL(5,2)`.
 - **Khóa ngoại:** mọi FK là `ON DELETE NO ACTION` (EF: `DeleteBehavior.Restrict`), vì hệ thống dùng xóa mềm và tránh lỗi *multiple cascade paths*. Ngoại lệ: bảng con thuần túy của draft (option / đáp án chấp nhận của `Questions` và `ExamQuestions` trong version DRAFT) được xóa bằng code trong cùng transaction, không dùng cascade.
-- **Optimistic concurrency:** các bảng cho phép sửa có cột `RowVersion ROWVERSION`. Ghi dữ liệu đã cũ → HTTP 409 `CONCURRENCY_CONFLICT`.
+- **Optimistic concurrency:** các bảng cho phép sửa có cột `RowVersion` kiểu `bytea` (D-30). Khác `ROWVERSION` của SQL Server, DB không tự tăng: `ELearningDbContext.SaveChanges` gán một GUID ngẫu nhiên (16 byte) mỗi lần entity `Added` / `Modified`. EF dùng nó làm concurrency token. Ghi dữ liệu đã cũ → HTTP 409 `CONCURRENCY_CONFLICT`. `SourceRowVersion` của `ExamQuestions` cũng là `bytea`.
 - **Cột kiểm vết:** `CreatedAt`, `CreatedBy`, `UpdatedAt`, `UpdatedBy` trên các bảng có thể sửa.
+
+### 1.1 Ánh xạ kiểu dữ liệu (DDL ↔ PostgreSQL thật)
+
+| Trong DDL (T-SQL) | PostgreSQL (migration) |
+|---|---|
+| `UNIQUEIDENTIFIER` | `uuid` |
+| `DATETIME2(3)` | `timestamp with time zone` |
+| `NVARCHAR(n)` / `VARCHAR(n)` | `character varying(n)` |
+| `NVARCHAR(MAX)` | `text` |
+| `BIT` | `boolean` (giá trị `TRUE` / `FALSE`) |
+| `INT` | `integer` |
+| `DECIMAL(p,s)` | `numeric(p,s)` |
+| `ROWVERSION` / `BINARY(8)` | `bytea` (do ứng dụng gán, D-30) |
+| `SYSUTCDATETIME()`, `NEWSEQUENTIALID()` (DEFAULT) | không có DEFAULT ở DB; ứng dụng gán giá trị |
+| Filtered index `WHERE [Col] ...` | Partial index `WHERE "Col" ...` (`HasFilter`) |
+| `SEQUENCE` + `NEXT VALUE FOR` | `SEQUENCE` + `nextval('"Tên"')` |
+| `WITH (UPDLOCK, ROWLOCK)` | `SELECT ... FOR UPDATE` |
+| Tên không nháy `ExamAttempts` | Tên PascalCase phải nằm trong nháy kép `"ExamAttempts"` |
 
 ## 2. Người dùng và phân quyền
 
@@ -404,13 +423,43 @@ CREATE INDEX IX_AnswerKeyCorrections_Question ON AnswerKeyCorrections(ExamQuesti
 - Khi version không còn ở `DRAFT`, tầng ứng dụng từ chối mọi thay đổi trên `ExamQuestions`, `ExamQuestionOptions` và `ExamQuestionAcceptedAnswers` của version đó (lỗi `VERSION_IMMUTABLE`). Ngoại lệ duy nhất là `IAnswerKeyService` (D-11).
 - Khuyến nghị thêm một `SaveChangesInterceptor` để chặn ở tầng hạ tầng, làm lớp bảo vệ thứ hai.
 
+### 4.1 Kho video bài giảng (`VideoLessons`, D-31)
+
+Bảng do migration `20261009094351_AddVideoLessons` tạo. Chi tiết nghiệp vụ: `tinh-nang-kho-video-bai-giang.md`.
+
+```sql
+CREATE TABLE VideoLessons (
+    Id              UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_VideoLessons PRIMARY KEY,
+    Title           NVARCHAR(250)  NOT NULL,
+    VideoUrl        NVARCHAR(1000) NOT NULL,        -- link YouTube người dùng nhập
+    YoutubeVideoId  VARCHAR(50)    NULL,            -- 11 ký tự, bóc bằng Regex từ VideoUrl
+    ThumbnailUrl    NVARCHAR(1000) NULL,            -- https://img.youtube.com/vi/{id}/hqdefault.jpg
+    Description     NVARCHAR(4000) NULL,
+    CategoryId      UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_Category  REFERENCES QuestionCategories(Id),
+    ClassroomId     UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_Classroom REFERENCES Classrooms(Id),
+    DurationMinutes INT            NULL,
+    DisplayOrder    INT            NOT NULL,
+    IsActive        BIT            NOT NULL,        -- bật / tắt hiển thị cho học viên (không xóa cứng, D-16)
+    CreatedBy       UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_VideoLessons_CreatedBy REFERENCES Users(Id),
+    CreatedAt       DATETIME2(3)   NOT NULL,
+    UpdatedBy       UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_UpdatedBy REFERENCES Users(Id),
+    UpdatedAt       DATETIME2(3)   NULL,
+    RowVersion      ROWVERSION     NOT NULL
+);
+CREATE INDEX IX_VideoLessons_CategoryId  ON VideoLessons(CategoryId);
+CREATE INDEX IX_VideoLessons_ClassroomId ON VideoLessons(ClassroomId);
+```
+
+- Không lưu file video, chỉ lưu URL. Mọi FK là `Restrict`.
+- Học viên chỉ thấy video `IsActive = TRUE`; lọc theo chuyên đề hoặc lớp học (`GET /api/student/videos`, `GET /api/student/categories`).
+
 ## 5. Quyết định / Giả định
 
 - **(D-27) `MediaFiles` không có FK từ nội dung câu hỏi** mà chỉ tham chiếu bằng chuỗi `media:<id>` trong Markdown. Kiểm tra tồn tại khi lưu / import câu hỏi; ảnh không bị xóa nên tham chiếu không bao giờ treo. Thư mục ảnh được sao lưu cùng database (`09-van-hanh.md` mục 6).
 
 - **(M3) Option / đáp án chấp nhận dùng `DeleteBehavior.ClientCascade`** (DB vẫn `NO ACTION`): khi sửa câu hỏi, EF xóa dòng con cũ và chèn dòng mới trong cùng `SaveChanges`. Áp dụng cho `QuestionOptions`, `QuestionAcceptedAnswers`, `ExamQuestionOptions`, `ExamQuestionAcceptedAnswers`.
 - **(M3) Mã câu hỏi tự sinh** `Q000001`… lấy từ `SEQUENCE QuestionCodeSequence`; nếu trùng mã do admin tự đặt thì bỏ qua và lấy số tiếp theo.
-- **(M1) Cột enum dùng `VARCHAR(40)` và collation `Latin1_General_100_BIN2`**, thay cho `VARCHAR(20/30)` như DDL ban đầu. Một độ dài chung cho mọi enum, và collation nhị phân để CHECK constraint / filtered index so khớp đúng chữ hoa. Integration test đã phát hiện lỗi khi thiếu collation này.
+- **(M1) Cột enum dùng `VARCHAR(40)`** (bản SQL Server còn kèm collation `Latin1_General_100_BIN2`, đã bỏ khi chuyển PostgreSQL), thay cho `VARCHAR(20/30)` như DDL ban đầu. Một độ dài chung cho mọi enum, và collation nhị phân để CHECK constraint / filtered index so khớp đúng chữ hoa. Integration test đã phát hiện lỗi khi thiếu collation này.
 - **(M1) Migration không tạo `DEFAULT`**; giá trị mặc định do entity gán.
 - **(M1) EF tự tạo thêm index cho các cột FK chưa được index nào bao phủ** (ví dụ `IX_ExamAttempts_CancelledBy`). Chấp nhận, vì chi phí nhỏ và giúp kiểm tra FK khi xóa.
 
@@ -421,3 +470,7 @@ CREATE INDEX IX_AnswerKeyCorrections_Question ON AnswerKeyCorrections(ExamQuesti
 - **Thêm `NormalizedUserName` / `NormalizedEmail`** để tính duy nhất không phụ thuộc collation.
 - **`CreatedByIp VARCHAR(45)`** thay cho `VARCHAR(50)` (đủ cho IPv6, dư không cần thiết).
 - **Spec gốc có `Exams.PassScore`, `DurationMinutes`, `IsShowResult`, `IsShowCorrectAnswer`.** Các cột này đã chuyển sang `ExamVersions` với tên mới (D-03, D-09).
+- **(D-29) Chuyển sang PostgreSQL:** migration cũ của SQL Server (8 file, từ `InitialSchema` tới `Classrooms`) được thay bằng một migration gốc `InitialPostgreSql`; sau đó thêm `AddVideoLessons`. DDL trong tài liệu giữ ký pháp T-SQL, kiểu thật xem mục 1.1. Dữ liệu SQL Server cũ không tự chuyển; file `elearning_db_backup.sql` ở gốc repo là bản dump PostgreSQL.
+- **(D-30) `RowVersion` là `bytea` do ứng dụng gán** (GUID ngẫu nhiên mỗi lần ghi). Hệ quả: các thao tác bỏ qua `SaveChanges` (`ExecuteUpdateAsync`, SQL tay) không làm đổi `RowVersion`, nên không được dùng chúng để sửa các bảng có cột này khi cần phát hiện xung đột.
+- **(D-31) `VideoLessons`:** chỉ lưu link, `CategoryId` / `ClassroomId` đều nullable; xem mục 4.1.
+- **Mã câu hỏi tự sinh (cập nhật D-29):** `SEQUENCE "QuestionCodeSequence"` lấy bằng `nextval`; vẫn bỏ qua mã trùng do admin tự đặt.

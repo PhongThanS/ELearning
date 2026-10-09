@@ -23,7 +23,7 @@ Bộ tài liệu này thay thế `ELearning_Design_Spec_VI.md` (v1.0). Nội dun
 | `07-bao-mat.md` | Xác thực, token, mật khẩu, phân quyền, rate limit, chống lộ đáp án, chống gian lận, dữ liệu cá nhân |
 | `08-kiem-thu.md` | Unit, integration, API, frontend, E2E, load test, các ca bắt buộc |
 | `09-van-hanh.md` | Cấu hình, môi trường, triển khai, migration, backup, giám sát, CI/CD |
-| `10-bay-ky-thuat.md` | Các lỗi kỹ thuật cụ thể (.NET / EF Core / SQL Server / JS) phải tránh, kèm cách làm đúng |
+| `10-bay-ky-thuat.md` | Các lỗi kỹ thuật cụ thể (.NET / EF Core / PostgreSQL / JS) phải tránh, kèm cách làm đúng |
 | `11-quy-trinh-phat-trien.md` | Quy tắc cho AI agent, mẫu giao việc, milestone, Definition of Done, checklist cuối |
 
 ## Góp ý nào được áp dụng vào file nào
@@ -47,7 +47,7 @@ Bộ tài liệu này thay thế `ELearning_Design_Spec_VI.md` (v1.0). Nội dun
 | 3.7 | Thao tác admin trên lượt thi | `02`, `05` |
 | 4 | Autosave sai thứ tự, `serverTime`, đánh dấu xem lại, batch save, máy dùng chung, khóa khi nộp | `02`, `05`, `06`, `10` (D-18, D-21) |
 | 5 | NFC/NFD, số thập phân kiểu Việt, nhiều đáp án chấp nhận | `02`, `04a`/`04b` (D-12) |
-| 6 | Index thừa/thiếu, FK, cascade, rowversion, CHECK, cột cho Users/RefreshTokens, AttemptEvents | `04a`/`04b` |
+| 6 | Index thừa/thiếu, FK, cascade, `RowVersion`, CHECK, cột cho Users/RefreshTokens, AttemptEvents | `04a`/`04b` |
 | 7 | Bẫy DateTime, enum, retry + transaction, TimeProvider, license, migration | `03`, `09`, `10` (D-19) |
 | 8 | API / route / permission / mã lỗi còn thiếu | `05`, `06`, `07` (D-13, D-14) |
 | 9 | Chỉ tiêu tải, load test, rate limit autosave, RPO/RTO, Markdown, Excel, dữ liệu cá nhân, CI/CD | `01`, `07`, `08`, `09` (D-17) |
@@ -79,7 +79,7 @@ Chi tiết và lý do nằm ở file được ghi trong ngoặc.
 | D-18 | Autosave dùng `clientSeq`, lưu cờ "đánh dấu xem lại", có batch save, backup trong `sessionStorage` (`06`) |
 | D-19 | Không dùng MediatR / AutoMapper; dùng AwesomeAssertions thay FluentAssertions v8 (`03`) |
 | D-20 | `ExamResults` là nguồn điểm duy nhất; `ExamAttempts` không lưu điểm (`04a`/`04b`) |
-| D-21 | Lưu đáp án và nộp bài đều khóa dòng attempt bằng `UPDLOCK` trong transaction (`04a`/`04b`, `10`) |
+| D-21 | Lưu đáp án và nộp bài đều khóa dòng attempt bằng `SELECT ... FOR UPDATE` (PostgreSQL; trước D-29 là `UPDLOCK` của SQL Server) trong transaction (`04a`/`04b`, `10`) |
 | D-22 | Nhóm người dùng và gán đề nằm trong MVP (`01`, `02`) |
 | D-23 | Application service dùng trực tiếp `IAppDbContext` (DbSet); repository riêng chỉ cho thao tác đặc biệt như khóa dòng. Application tham chiếu gói `Microsoft.EntityFrameworkCore` (`03`) |
 | D-24 | Dùng lại refresh token vừa xoay vòng trong 30 giây được coi là hai tab refresh song song, không thu hồi cả chuỗi (`07`) |
@@ -87,3 +87,6 @@ Chi tiết và lý do nằm ở file được ghi trong ngoặc.
 | D-26 | Giám sát không thêm hạ tầng: meter `ELearning` + log `Monitoring` mỗi phút; cảnh báo qua `/health/alerts` (chặn ở Nginx) và container `monitor` gửi webhook; OpenTelemetry / Grafana để sau (`09`) |
 | D-27 | Ảnh trong đề / lựa chọn / giải thích: file trên đĩa theo SHA-256 + bảng `MediaFiles` bất biến; nội dung lưu `media:<id>`; server ký URL ngắn hạn chỉ cho ảnh của các trường đang trả về (`02`, `04a`, `05`, `07`) |
 | D-28 | Lớp học `Classrooms`: học viên ↔ lớp nhiều-nhiều (`ClassroomStudents`); gán đề cho lớp qua `ExamAssignments.ClassroomId`; chỉ lớp đang hoạt động và thành viên hiện tại mới thấy đề; xóa được lớp (kèm danh sách học viên) khi lớp không còn được gán cho đề nào, nếu không thì bỏ gán trước hoặc tắt lớp (`02`, `04a`, `05`, `07`) |
+| D-29 | Chuyển cơ sở dữ liệu từ SQL Server sang **PostgreSQL 17** (Npgsql): kiểu cột, khóa dòng, LIKE, sequence, migration `InitialPostgreSql`, Docker, test harness (`03`, `04a`/`04b`, `08`, `09`, `10`, `CAP_NHAT_HE_THONG`) |
+| D-30 | `RowVersion` là `bytea` do ứng dụng gán (GUID ngẫu nhiên mỗi lần ghi, trong `ELearningDbContext.SaveChanges`) thay cho `rowversion` của SQL Server; vẫn là concurrency token của EF (`04a`, `10`) |
+| D-31 | Kho video bài giảng: chỉ lưu link YouTube (bảng `VideoLessons`), không lưu file video; liên kết chuyên đề và lớp học; quyền `Video.View` / `Video.Manage` (`tinh-nang-kho-video-bai-giang.md`) |

@@ -180,7 +180,7 @@ Admin đăng nhập → tạo danh mục → tạo đủ 4 loại câu hỏi (c�
 
 **Backend**
 - [ ] Solution build với `-warnaserror`; bật nullable.
-- [ ] Kết nối SQL Server; migration từ DB rỗng chạy được; không có model thay đổi mà thiếu migration.
+- [ ] Kết nối PostgreSQL; migration từ DB rỗng chạy được; không có model thay đổi mà thiếu migration.
 - [ ] Seed dev / prod tách riêng.
 - [ ] JWT, refresh cookie, permission policy, `FallbackPolicy` hoạt động.
 - [ ] OpenAPI (dev / staging), health check, exception middleware, Serilog đều hoạt động.

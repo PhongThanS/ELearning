@@ -1,6 +1,6 @@
 # 04b — Cơ sở dữ liệu (phần 2): lượt thi, kết quả, audit, index
 
-Quy ước chung xem `04a-csdl-danh-muc-de-thi.md` mục 1.
+Quy ước chung xem `04a-csdl-danh-muc-de-thi.md` mục 1. Các khối DDL dùng ký pháp T-SQL; kiểu PostgreSQL thật xem bảng ánh xạ ở `04a` mục 1.1 (`UNIQUEIDENTIFIER` → `uuid`, `DATETIME2(3)` → `timestamp with time zone`, `BIT` → `boolean`, `NVARCHAR(MAX)` → `text`, `ROWVERSION` → `bytea` do ứng dụng gán).
 
 ## 1. Lượt thi
 
@@ -211,7 +211,7 @@ CREATE INDEX IX_AuditLogs_Entity    ON AuditLogs(EntityName, EntityId);
 - `IX_AttemptQuestions_Attempt`
 - `IX_AttemptAnswers_Question`
 
-Cũng bỏ `IX_ExamAttempts_Status` (độ chọn lọc thấp), thay bằng filtered index. EF Core sẽ không tạo thêm index cho FK khi đã có index bắt đầu bằng cột đó.
+Cũng bỏ `IX_ExamAttempts_Status` (độ chọn lọc thấp), thay bằng partial index (`WHERE "Status" = 'IN_PROGRESS'`, PostgreSQL). EF Core sẽ không tạo thêm index cho FK khi đã có index bắt đầu bằng cột đó.
 
 ## 5. Sơ đồ quan hệ
 
@@ -255,3 +255,5 @@ ExamAttempts ──< AttemptQuestions ──> ExamQuestions   (tham chiếu snap
 - **`AttemptEvents` được thêm vào MVP** vì chi phí thấp và rất hữu ích khi xử lý khiếu nại.
 - **Chấm lại chỉ giữ lịch sử điểm tổng** (`ExamResultHistory`). Lịch sử điểm từng câu có thể dựng lại từ `AnswerKeyCorrections` khi cần.
 - **Không đặt FK trên `AuditLogs.UserId`** để log không bị chặn hoặc bị mất khi dữ liệu user thay đổi.
+- **(D-29) Khóa dòng lượt thi** dùng `SELECT 1 FROM "ExamAttempts" WHERE "Id" = @id FOR UPDATE` trong transaction (`IAttemptLock`). Lỗi trùng unique index (`UX_ExamAttempts_OneInProgress`, filter `"Status" = 'IN_PROGRESS'`) là `PostgresException` `SqlState 23505`.
+- **(D-29) Báo cáo (Dapper):** SQL viết cho PostgreSQL, tên có nháy kép, `COUNT(*)::int`, `LIMIT` thay `TOP`, bool là `TRUE` / `FALSE`.

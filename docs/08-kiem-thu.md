@@ -5,14 +5,14 @@
 | Tầng | Công cụ | Phạm vi |
 |---|---|---|
 | Unit (backend) | xUnit, AwesomeAssertions, NSubstitute, `FakeTimeProvider` | Domain, grader, chuẩn hóa, parse số, validator, chuyển trạng thái, chính sách hiển thị |
-| Integration | xUnit, Testcontainers (SQL Server thật), EF Core migration thật | Repository, transaction, khóa dòng, filtered unique index, job tự nộp, chấm lại |
+| Integration | xUnit, Testcontainers (PostgreSQL thật), EF Core migration thật | Repository, transaction, khóa dòng, filtered unique index, job tự nộp, chấm lại |
 | API | `WebApplicationFactory` + Testcontainers | Hợp đồng HTTP, status, mã lỗi, phân quyền, DTO không lộ đáp án |
 | Frontend | Vitest, React Testing Library, MSW | Form, route guard, editor câu hỏi, exam player, autosave, timer |
 | E2E | Playwright | Luồng đầy đủ của admin và học viên |
 | Load | k6 (`load-tests/`) | Chỉ tiêu phi chức năng ở `01-tong-quan.md` mục 6 |
 
 **Quy tắc:**
-- Test integration và API chạy trên **SQL Server thật** (Testcontainers), **không** dùng EF InMemory hay SQLite. Filtered index, `UPDLOCK`, `ROWVERSION` và collation chỉ hoạt động đúng trên SQL Server.
+- Test integration và API chạy trên **PostgreSQL thật** (Testcontainers, `postgres:17-alpine`), **không** dùng EF InMemory hay SQLite. Partial index, `SELECT ... FOR UPDATE`, `RowVersion` (`bytea`), CHECK constraint và `ILIKE` chỉ hoạt động đúng trên PostgreSQL.
 - Mọi test phụ thuộc thời gian đều dùng `FakeTimeProvider`. Cấm `DateTime.UtcNow` trong code nghiệp vụ.
 - Mỗi bug được sửa phải kèm một test tái hiện bug đó.
 
@@ -126,12 +126,13 @@
 
 ## 8. Quyết định / Giả định
 
-- **(M1) Nguồn SQL Server cho test** (`tests/ELearning.TestSupport/SqlServerTestDatabase.cs`):
-  - Nếu có biến môi trường `ELEARNING_TEST_SQL`: dùng server đó, tạo database tạm `ELearningTest_<guid>`, áp migration, xóa khi xong.
-  - Nếu không có: dùng Testcontainers (cần Docker, như trên CI).
-  - Lý do: máy dev hiện có SQL Server local nhưng không có Docker. Vẫn đúng yêu cầu "SQL Server thật".
+- **(M1, cập nhật D-29) Nguồn PostgreSQL cho test** (`tests/ELearning.TestSupport/SqlServerTestDatabase.cs`; tên lớp giữ lại từ thời SQL Server, nội dung đã chạy PostgreSQL):
+  - Nếu có biến môi trường `ELEARNING_TEST_POSTGRES` (connection string tới server, không cần `Database`): dùng server đó, tạo database tạm `elearning_test_<guid>` (kết nối vào database `postgres` để tạo / xóa; tài khoản cần `CREATEDB`), áp migration, xóa khi xong (`NpgsqlConnection.ClearAllPools()` trước khi `DROP DATABASE`).
+  - Nếu không có: dùng Testcontainers `postgres:17-alpine` (cần Docker, như trên CI).
+  - Biến cũ `ELEARNING_TEST_SQL` (SQL Server) không còn được đọc.
+  - Unit test `Like.Contains` kiểm tra cú pháp escape của PostgreSQL (`\%`, `\_`, `\\`), không còn `[%]`.
 
-- **Bắt buộc SQL Server thật cho integration test.** Spec gốc cho phép "database kiểm thử" chung chung; chốt Testcontainers vì các cơ chế quan trọng chỉ có trên SQL Server.
+- **Bắt buộc PostgreSQL thật cho integration test.** Spec gốc cho phép "database kiểm thử" chung chung; chốt Testcontainers vì các cơ chế quan trọng (partial index, khóa dòng, CHECK, ILIKE) chỉ có trên PostgreSQL.
 - **Thêm load test k6** (spec gốc không có) cùng các ca kiểm thử tương tranh (start / submit / lưu đáp án song song).
 - **(M9) Dữ liệu load test tạo qua API admin**, không ghi thẳng vào database: nhóm `LOADTEST` với học viên `lt.hv.0001…` (dùng lại giữa các lần chạy) và một đề mới mỗi lần chạy (1 lượt, gán cho nhóm). Nhờ vậy kịch bản cũng kiểm tra luôn API admin và không phụ thuộc schema.
 - **(M9) `expiry-sweep` dùng `EndAt`** để mọi lượt có cùng `ExpiredAt` (D-05), và đo `max(SubmittedAt) − EndAt` theo giờ server, gồm cả ân hạn 30 giây và chu kỳ quét 60 giây.

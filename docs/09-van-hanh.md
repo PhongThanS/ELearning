@@ -22,8 +22,9 @@
   - Server: biến môi trường (`Jwt__SigningKey`) hoặc secret store của nền tảng triển khai.
   - **Không commit bí mật vào Git.**
 - Options được bind vào class có validation (`ValidateDataAnnotations().ValidateOnStart()`). Thiếu `Jwt:SigningKey` hoặc khóa ngắn hơn 32 byte thì ứng dụng **không khởi động**.
-- Chuỗi kết nối dev (SQL Server trong Docker):
-  `Server=localhost,1433;Database=ELearningDb;User Id=sa;Password=<từ user-secrets>;TrustServerCertificate=True;Encrypt=True`
+- Chuỗi kết nối dev (PostgreSQL local hoặc trong Docker; đã có sẵn trong `appsettings.Development.json`):
+  `Host=localhost;Port=5432;Database=elearning_db;Username=postgres;Password=<từ user-secrets>;Include Error Detail=true`
+- Trong Docker Compose, chuỗi kết nối lấy từ `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_NAME` của `.env` (host là service `postgres`).
 
 ## 2. Thứ tự khởi động backend
 
@@ -48,16 +49,16 @@ Tạo builder
 ## 3. Chạy local
 
 **Cách khuyến nghị:**
-- SQL Server chạy trong Docker.
+- PostgreSQL chạy trong Docker (ví dụ `docker run -d --name my-postgres -e POSTGRES_PASSWORD=<mật khẩu> -e POSTGRES_DB=elearning_db -p 5432:5432 -v pgdata:/var/lib/postgresql/data postgres:17-alpine`).
 - API chạy từ Visual Studio hoặc `dotnet watch`.
 - Frontend chạy bằng `npm run dev` (Vite proxy `/api` → `https://localhost:7xxx`).
 
-`docker-compose.yml` có các service `sqlserver`, `api`, `web` (web chỉ dùng khi muốn chạy thử cả stack).
+`docker-compose.yml` có các service `postgres`, `migrate`, `seed`, `api`, `web` (web chỉ dùng khi muốn chạy thử cả stack).
 
 Seed dữ liệu cho Development (chạy khi `--seed` hoặc lần đầu ở Development):
 - Tài khoản `admin`, `student01`, `student02` với mật khẩu dev lấy từ user-secrets; tất cả có `MustChangePassword = false`.
 - Nhóm `DEMO`, gồm `student01` và `student02`.
-- Danh mục: `C#`, `SQL Server`, `ASP.NET`, `ReactJS`, `JavaScript`.
+- Danh mục: `C#`, `PostgreSQL`, `ASP.NET`, `ReactJS`, `JavaScript`.
 - Đề demo "C# Basic": 10 câu đủ 4 loại, có code block, 60 phút, `AccessMode = ASSIGNED` gán nhóm `DEMO`.
 
 **Dữ liệu demo** (máy dev / Docker local): `ADMIN_PASSWORD='...' node deploy/scripts/demo-data.mjs` tạo qua API 5 danh mục, 41 câu hỏi đủ 5 loại, 24 học viên `demo.hs01…demo.hs24` (mật khẩu chung: biến `DEMO_STUDENT_PASSWORD`, mặc định ghi trong script), 1 nhóm, 5 lớp học (có học viên thuộc nhiều lớp, một lớp đã tắt) và 7 đề ở các trạng thái: đang mở có lượt đã nộp / đang làm, nhiều lượt, có tự luận chờ chấm, PUBLIC, đã đóng, sắp diễn ra, bản nháp. Chạy lại được: thứ đã có thì dùng lại, đề đã có thì bỏ qua.
@@ -84,7 +85,7 @@ Nginx (TLS, gzip, CSP/HSTS headers, rate limit thô)
    ├── /          → file tĩnh React (index.html không cache; asset có hash cache 1 năm)
    └── /api, /health → ASP.NET Core (Kestrel, HTTP nội bộ)
                           ↓
-                      SQL Server
+                      PostgreSQL
 ```
 
 - Frontend và API **cùng domain** (D-15).
@@ -93,19 +94,19 @@ Nginx (TLS, gzip, CSP/HSTS headers, rate limit thô)
 - **Chỉ scale API ngang khi thực sự cần.** Khi chạy nhiều instance:
   - Cache permission / trạng thái user phải chuyển sang Redis, hoặc giảm TTL xuống 30 giây.
   - Rate limit chuyển sang Nginx hoặc dùng store dùng chung.
-  - `AttemptExpirationWorker` chạy ở mọi instance vẫn an toàn nhờ chuyển trạng thái nguyên tử. Có thể thêm `sp_getapplock` để giảm tranh chấp. Mỗi vòng quét lặp theo lô `Exam:ExpirationSweepBatchSize` tới khi hết lượt quá hạn.
+  - `AttemptExpirationWorker` chạy ở mọi instance vẫn an toàn nhờ chuyển trạng thái nguyên tử. Có thể thêm advisory lock (`pg_try_advisory_lock`) để giảm tranh chấp. Mỗi vòng quét lặp theo lô `Exam:ExpirationSweepBatchSize` tới khi hết lượt quá hạn.
   - Refresh token không phụ thuộc instance, vì trạng thái nằm trong DB.
 - **Khung giờ deploy:** không deploy khi có đề đang mở theo lịch. Admin xem được lịch đề trong dashboard.
 
 ### 5.1 Triển khai bằng Docker Compose (M10, đã làm)
 
 ```text
-docker-compose.yml          sqlserver → migrate → db-init → seed → api → web
+docker-compose.yml          postgres → migrate → seed → api → web (+ media-init, monitor)
 docker-compose.prod.yml     override: Nginx HTTPS (80 → 443, HSTS), gắn chứng chỉ
 backend/Dockerfile          target api (aspnet, user không phải root) và migrator (EF migration bundle)
 frontend/elearning-web/Dockerfile   build Vite → nginx (template envsubst)
 deploy/nginx/               cấu hình Nginx: header bảo mật, cache, proxy /api, trang lỗi tĩnh
-deploy/sql/init-app-login.sql       tài khoản app quyền tối thiểu + RECOVERY FULL
+deploy/sql/init-app-login.sql       (còn từ thời SQL Server, không còn được compose gọi; xem mục 5.1 ghi chú)
 deploy/scripts/             backup.sh, restore.sh, restore-test.sh, media-sync.sh, monitor.sh, notify.sh
 .env.example                mọi bí mật / tham số (sao chép thành .env, không commit)
 ```
@@ -118,24 +119,25 @@ docker compose up -d --build
 ```
 
 **Thứ tự khởi động** (mỗi bước chỉ chạy khi bước trước thành công):
-1. `sqlserver` healthy (sqlcmd `SELECT 1`).
-2. `migrate`: migration bundle bằng tài khoản quản trị (`sa`), tạo database nếu chưa có.
-3. `db-init`: tạo / cập nhật login `APP_DB_LOGIN` (`db_datareader`, `db_datawriter`, `EXECUTE`, `UPDATE` trên sequence mã câu hỏi), đặt `RECOVERY FULL`.
-4. `seed`: `--seed` bằng tài khoản app (role, permission, admin khởi tạo).
-5. `media-init`: đặt quyền thư mục ảnh `MEDIA_DIR` (gắn vào `/var/lib/elearning/media`) cho user của API (uid 1654), kể cả file chép lại khi khôi phục.
-6. `api` (Kestrel HTTP 8080, chỉ trong mạng nội bộ) và `web` (Nginx, cổng `HTTP_PORT`).
+1. `postgres` healthy (`pg_isready -U $POSTGRES_USER -d $DB_NAME`); database `DB_NAME` do image tạo sẵn từ `POSTGRES_DB`.
+2. `migrate`: migration bundle áp lên database (`--connection <chuỗi kết nối>`).
+3. `seed`: `--seed` (role, permission, admin khởi tạo).
+4. `media-init`: đặt quyền thư mục ảnh `MEDIA_DIR` (gắn vào `/var/lib/elearning/media`) cho user của API (uid 1654), kể cả file chép lại khi khôi phục.
+5. `api` (Kestrel HTTP 8080, chỉ trong mạng nội bộ) và `web` (Nginx, cổng `HTTP_PORT`).
 
 **Production có HTTPS:** đặt `fullchain.pem`, `privkey.pem` vào `deploy/certs/`, đặt `SERVER_NAME`, `PUBLIC_ORIGIN=https://<domain>`, rồi
 `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`. Nếu TLS kết thúc ở load balancer phía trước thì giữ cấu hình HTTP và bật module realip của Nginx.
 
-**Cập nhật phiên bản:** `docker compose build` → `docker compose up -d`. `migrate` / `db-init` / `seed` chạy lại (idempotent) trước khi `api` mới khởi động. Không deploy khi có đề đang mở (mục 5).
+**Cập nhật phiên bản:** `docker compose build` → `docker compose up -d`. `migrate` / `seed` chạy lại (idempotent) trước khi `api` mới khởi động. Không deploy khi có đề đang mở (mục 5).
 
 **Ghi chú:**
 - API tin `X-Forwarded-For` chỉ từ mạng compose `172.28.0.0/24` (`ReverseProxy:KnownNetworks`); Nginx **ghi đè** header này bằng IP thật của client, nên client không giả mạo được IP (rate limit theo IP phụ thuộc vào điều này).
 - Nginx: CSP `default-src 'self'` (chỉ `style-src` có `'unsafe-inline'` cho thuộc tính style của React), `X-Frame-Options DENY`, `nosniff`, HSTS chỉ qua HTTPS; `index.html` không cache, `/assets/*` cache 1 năm; `client_max_body_size 6m` cho import Excel; rate limit thô 200 request/giây/IP cho `/api`; trang 50x tĩnh.
 - **Docker Desktop (Windows / Mac) chuyển tiếp cổng qua proxy**, nên mọi client hiện ra cùng một IP gateway (`172.28.0.1`) → rate limit theo IP gom chung. Chỉ dùng để chạy thử; máy chủ Linux (Docker Engine) giữ nguyên IP thật của client.
 - Đã chạy thử trên máy dev: `docker compose up` → migrate / db-init / seed / api / web; bắt buộc đổi mật khẩu admin lần đầu; tài khoản app quyền tối thiểu sinh mã câu hỏi qua SEQUENCE; Excel (ClosedXML) chạy trên Linux; backup full + log → `restore-test.sh` khôi phục đủ dữ liệu trong 2 giây; cấu hình HTTPS (`nginx -t`, 301, HSTS) với chứng chỉ tự ký.
-- `MSSQL_PID=Express` mặc định (giới hạn 10 GB / database, không nén / mã hóa backup). Production nên dùng Standard có license.
+- **(D-29) Không còn bước `db-init` và tài khoản app quyền tối thiểu.** Compose hiện dùng chung `POSTGRES_USER` cho `migrate`, `seed` và `api`. Production nên tạo thêm role riêng cho API (chỉ `SELECT/INSERT/UPDATE/DELETE` trên bảng, `USAGE` trên sequence) và dùng role chủ sở hữu chỉ cho `migrate`; việc này chưa làm (xem "Quyết định / Giả định").
+- Dữ liệu PostgreSQL nằm ở volume `pgdata`; thư mục `BACKUP_DIR` được gắn vào container `postgres` tại `/backups`.
+- Docker Compose không đặt `DB_NAME` thì dùng mặc định `elearning_db`.
 
 ## 6. Backup và khôi phục
 
@@ -147,17 +149,25 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 | Differential | Mỗi 6 giờ | 7 ngày |
 | Transaction log | Mỗi 15 phút; **mỗi 5 phút** trong ngày có kỳ thi lớn | 7 ngày |
 
-- Recovery model: **FULL**.
+- Với PostgreSQL: bản full dùng `pg_dump -Fc`; muốn RPO 15 phút phải bật lưu trữ WAL (`archive_mode`, `archive_command`) và dùng khôi phục tại thời điểm (PITR) với `pg_basebackup`. Chưa cấu hình trong repo (xem bên dưới).
 - Lưu backup ở một vị trí khác với máy chủ DB (ổ riêng và bản sao offsite), có mã hóa.
 - **Thử khôi phục mỗi tháng** vào một server riêng, có ghi lại thời gian khôi phục thực tế. Backup chưa từng được khôi phục thử thì chưa được coi là chiến lược backup hợp lệ.
 - Sự cố DB giữa giờ thi: khôi phục xong thì admin dùng chức năng **gia hạn** cho các lượt thi bị ảnh hưởng. `ExpiredAt` không tự dừng khi hệ thống ngừng hoạt động.
 
-**Công cụ (M10, đã làm)** — chạy từ thư mục gốc, đọc `.env`:
+> **Lưu ý (D-29): các script backup / khôi phục bên dưới là bản viết cho SQL Server** (`BACKUP DATABASE`, `RESTORE VERIFYONLY`, `sqlcmd`, `DBCC CHECKDB`, thư mục `/var/opt/mssql/backup`) và **chưa được chuyển sang PostgreSQL**. Chạy chúng với stack PostgreSQL sẽ lỗi. Cho tới khi viết lại, backup thủ công bằng:
+> ```bash
+> docker compose exec -T postgres pg_dump -U "$POSTGRES_USER" -Fc "$DB_NAME" > backups/elearning_$(date -u +%Y%m%dT%H%M%SZ).dump
+> docker compose exec -T postgres pg_restore -U "$POSTGRES_USER" -d <db đích> --clean --if-exists < backups/<file>.dump
+> ```
+> Đồng thời `monitor.sh` kiểm tra tuổi file backup theo quy ước tên của script cũ nên cảnh báo thiếu backup có thể không chính xác.
+
+**Công cụ (M10, đã làm, bản SQL Server)** — chạy từ thư mục gốc, đọc `.env`:
 - `deploy/scripts/backup.sh full|diff|log`: backup `WITH CHECKSUM`, kiểm tra `RESTORE VERIFYONLY`, xóa bản quá hạn (full 30 ngày, diff / log 7 ngày). Lịch chạy bằng cron của máy chủ (ví dụ ở đầu script).
-- **Máy Windows chạy Docker Desktop** (không có cron): `powershell -ExecutionPolicy Bypass -File deployscriptswindowsegister-backup-tasks.ps1` đăng ký 3 task trong Task Scheduler (`ELearningBackup full|diff|log`, cùng lịch như trên). Task chạy `backup.sh` qua Git Bash, ẩn cửa sổ (`run-backup.vbs`), chạy bù khi lỡ lịch, ghi log vào `backupsackup.log`; chỉ chạy khi người dùng đã đăng nhập (Docker Desktop cũng vậy), nên bật "Start Docker Desktop when you sign in".
+- **Máy Windows chạy Docker Desktop** (không có cron): `powershell -ExecutionPolicy Bypass -File deployscriptswindows
+egister-backup-tasks.ps1` đăng ký 3 task trong Task Scheduler (`ELearningBackup full|diff|log`, cùng lịch như trên). Task chạy `backup.sh` qua Git Bash, ẩn cửa sổ (`run-backup.vbs`), chạy bù khi lỡ lịch, ghi log vào `backupsackup.log`; chỉ chạy khi người dùng đã đăng nhập (Docker Desktop cũng vậy), nên bật "Start Docker Desktop when you sign in".
 - `deploy/scripts/restore.sh --target <db> [--replace] full.bak [diff.bak] [log.trn ...]`: khôi phục một chuỗi backup.
 - `deploy/scripts/restore-test.sh`: lấy full mới nhất + diff mới nhất sau nó + mọi log sau đó, khôi phục vào `<DB>_RestoreTest`, so số dòng các bảng chính với bản gốc, chạy `DBCC CHECKDB`, in thời gian khôi phục, rồi xóa database thử. **Chạy mỗi tháng** và ghi kết quả vào sổ vận hành.
-- File backup nằm ở `BACKUP_DIR` trên máy chủ; cần đồng bộ ra nơi khác (offsite) và mã hóa ở đó (SQL Server Express không mã hóa backup).
+- File backup nằm ở `BACKUP_DIR` trên máy chủ; cần đồng bộ ra nơi khác (offsite) và mã hóa ở đó (file `pg_dump` không được mã hóa sẵn).
 - **Ảnh câu hỏi (D-27):** mỗi lần `backup.sh` chạy (full / diff / log), sau khi backup database xong, `media-sync.sh` chép ảnh mới từ `MEDIA_DIR` sang `BACKUP_DIR/media`. Ảnh bất biến, tên theo SHA-256 và không bị xóa, nên bản sao là tăng dần, không cần chính sách giữ lại, và luôn đủ cho mọi bản backup database (RPO của ảnh bằng RPO của log backup).
 - Khôi phục: `restore.sh ... --with-media` chép ảnh còn thiếu từ `BACKUP_DIR/media` về `MEDIA_DIR` (chỉ thêm, không ghi đè) rồi chạy `media-init`. `restore-test.sh` kiểm tra mọi dòng `MediaFiles` của bản khôi phục có file trong bản sao ảnh; thiếu thì thất bại.
 
@@ -167,7 +177,7 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 - Log có cấu trúc (JSON), có `traceId`, gom về một nơi (Seq, Elastic hoặc file + công cụ đọc).
 - Health check:
   - `/health/live`: tiến trình còn sống.
-  - `/health/ready`: kết nối được SQL Server trong 2 giây.
+  - `/health/ready`: kết nối được PostgreSQL trong 2 giây.
 - Chỉ số theo dõi: thời gian xử lý request (p50 / p95 theo endpoint), số lỗi 5xx, số lần xác thực thất bại, số lỗi chấm điểm, số lỗi DB, số lượt `IN_PROGRESS`, số lượt được tự nộp mỗi vòng worker, **độ trễ worker** (lượt thi quá hạn lâu nhất chưa được xử lý).
 - **Cảnh báo:**
   - Tỉ lệ 5xx > 1% trong 5 phút.
@@ -187,7 +197,7 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 | `elearning.http.server_errors` | Response 5xx (middleware ngoài cùng, không tính `/health/*`) |
 | `elearning.auth.login_failures` | Đăng nhập sai mật khẩu, tài khoản không tồn tại hoặc bị khóa |
 | `elearning.grading.failures` | `GradingService` ném lỗi |
-| `elearning.db.errors` | Exception SQL Server dẫn tới 500 (không tính trùng khóa / xung đột dữ liệu) |
+| `elearning.db.errors` | Exception cơ sở dữ liệu (`NpgsqlException` / `PostgresException`) dẫn tới 500 (không tính trùng khóa / xung đột dữ liệu) |
 | `elearning.attempts.auto_submitted`, `…auto_submit_failures`, `…sweep.duration` | Mỗi vòng `AttemptExpirationWorker` |
 | `elearning.attempts.in_progress`, `…overdue`, `…oldest_overdue` (giây) | Đo mỗi phút; `oldest_overdue` là **độ trễ worker** |
 
@@ -198,7 +208,7 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 
 | Check | Lỗi khi |
 |---|---|
-| `database` | Không kết nối được SQL Server (giống `/health/ready`) |
+| `database` | Không kết nối được PostgreSQL (giống `/health/ready`) |
 | `error-rate` | 5xx > `ErrorRatePercent` (1%) trong `ErrorRateWindowMinutes` (5 phút), khi có ít nhất `ErrorRateMinRequests` (50) request |
 | `attempt-backlog` | Lượt `IN_PROGRESS` quá hạn (đã hết ân hạn) lâu nhất đã quá `ExpiredAt` hơn `OverdueAttemptMinutes` (5 phút) |
 | `expiration-worker` | Job tự nộp chạy trên instance này nhưng không xong vòng quét nào trong 3 chu kỳ (`Exam:ExpirationSweepIntervalSeconds`) |
@@ -251,3 +261,6 @@ Trên nhánh `main`:
 - **(M10) D-26 — Giám sát không thêm hạ tầng:** chỉ số qua `System.Diagnostics.Metrics` + dòng log `Monitoring` mỗi phút; cảnh báo qua health check `/health/alerts` + container `monitor` gửi webhook. Chưa dùng Prometheus / OpenTelemetry / Grafana (sau MVP); khi thêm, meter `ELearning` dùng lại được nguyên vẹn.
 - **(M10) Tổng trong cửa sổ trượt là của từng instance.** Chạy nhiều instance API thì mỗi instance tự tính tỉ lệ 5xx; `attempt-backlog` đọc từ database nên đúng cho cả hệ thống.
 - **(M10) `error-rate` cần tối thiểu 50 request trong cửa sổ**, để lúc vắng (ví dụ 1 lỗi / 10 request) không báo nhầm. Các ngưỡng là giả định *(cần xác nhận)*, đổi ở section `Monitoring`.
+- **(D-29) Chuyển sang PostgreSQL:** compose dùng `postgres:17-alpine` (healthcheck `pg_isready`), bỏ các service `sqlserver` và `db-init`. Chuỗi kết nối: `Host=postgres;Port=5432;Database=${DB_NAME};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Include Error Detail=true`. Biến `.env`: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_NAME` (mặc định `elearning_db`); không còn `MSSQL_*`, `SA_PASSWORD`, `APP_DB_LOGIN`.
+- **(D-29) Việc còn tồn đọng** *(cần làm trước khi đưa production)*: (1) viết lại `deploy/scripts/backup.sh`, `restore.sh`, `restore-test.sh`, `monitor.sh` (kiểm tra backup), `deploy/scripts/windows/register-backup-tasks.ps1` theo `pg_dump` / `pg_restore` (+ WAL archiving nếu cần RPO 15 phút); (2) tạo role DB quyền tối thiểu cho API thay cho dùng chung `POSTGRES_USER`; (3) dọn `deploy/sql/init-app-login.sql`; (4) rà `frontend/elearning-web/e2e/` và `load-tests/lib/seed.js` còn nhắc SQL Server. Giữa chừng, dùng lệnh `pg_dump` / `pg_restore` ở mục 6.
+- **(D-29) Chuyển dữ liệu từ SQL Server cũ:** không có công cụ tự động. Tạo database PostgreSQL mới bằng migration bundle rồi nạp dữ liệu (ví dụ xuất CSV từng bảng và `COPY`), hoặc dùng `pgloader`; chạy `--seed` sau cùng nếu bảng role / permission còn trống.

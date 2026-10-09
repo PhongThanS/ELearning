@@ -111,7 +111,7 @@ Mã lỗi là hằng số trong `ELearning.Shared.ErrorCodes`. Frontend có file
 { "items": [], "page": 1, "pageSize": 20, "totalCount": 150, "totalPages": 8 }
 ```
 - Không endpoint nào được trả danh sách không giới hạn.
-- Tìm kiếm dùng tham số hóa (`LIKE @kw` với ký tự `%`, `_`, `[` đã được escape).
+- Tìm kiếm dùng tham số hóa (`ILIKE @kw` với ký tự `%`, `_`, `\` đã được escape bằng `\`).
 
 ## 6. Endpoint
 
@@ -216,6 +216,7 @@ Ví dụ tạo câu hỏi:
 | POST | `/api/exams/{id}/clone` (**clone thành một đề mới**, lấy version mới nhất) | `Exam.Create` |
 | POST | `/api/exams/{id}/close` `{ forceSubmitInProgress }` | `Exam.Close` |
 | POST | `/api/exams/{id}/reopen` | `Exam.Close` |
+| PATCH | `/api/exams/{id}/review-policy` `{ reviewPolicy }` (đổi nhanh `ReviewPolicy`, áp cho **mọi** version của đề; ghi audit `EXAM_UPDATED`; trả `ExamDetailDto`) | `Exam.Update` |
 | GET | `/api/exams/{id}/versions` | `Exam.View` |
 | POST | `/api/exams/{id}/versions` `{ copyFromVersionId? }` (tạo version DRAFT mới) | `Exam.Update` |
 | GET | `/api/exams/{id}/versions/{versionId}` | `Exam.View` |
@@ -260,6 +261,9 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 |---|---|---|
 | GET | `/api/student/classes` (lớp đang hoạt động của tôi, D-28) | Student |
 | GET | `/api/student/exams` (`classroomId` tùy chọn: chỉ đề gán cho lớp đó, học viên phải thuộc lớp) | Student |
+| GET | `/api/student/categories` (chuyên đề đang hoạt động, tối đa 100, để lọc video / đề) | Student |
+| GET | `/api/student/videos` (`categoryId`, `classroomId`, `keyword`, phân trang) | Student |
+| GET | `/api/student/videos/{id}` | Student |
 | GET | `/api/student/exams/{examId}` | Student |
 | POST | `/api/student/exams/{examId}/start` | Student |
 | GET | `/api/student/attempts/{attemptId}` | Student (chủ sở hữu) |
@@ -342,11 +346,23 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 
 **Thống kê câu hỏi** (MVP): số lượt trả lời, số đúng, số sai, số bỏ trống, tỉ lệ đúng, điểm trung bình, và phân bố lựa chọn đối với câu trắc nghiệm.
 
+### 6.8b Kho video bài giảng (D-31)
+| Method | Route | Quyền |
+|---|---|---|
+| GET | `/api/videos` (lọc `categoryId`, `classroomId`, `keyword`, `isActive`; phân trang) | `Video.View` |
+| GET | `/api/videos/{id}` | `Video.View` |
+| POST | `/api/videos` `{ title, videoUrl, description?, categoryId?, classroomId?, durationMinutes?, displayOrder }` (server bóc `youtubeVideoId` và sinh `thumbnailUrl`) | `Video.Manage` |
+| PUT | `/api/videos/{id}` | `Video.Manage` |
+| PATCH | `/api/videos/{id}/status` `{ isActive }` (bật / tắt hiển thị cho học viên) | `Video.Manage` |
+| DELETE | `/api/videos/{id}` | `Video.Manage` |
+
+- Lỗi: `VIDEO_NOT_FOUND` (404). Chi tiết nghiệp vụ và DTO: `tinh-nang-kho-video-bai-giang.md`; đồng bộ chuyên đề / lớp học: `dong-bo-du-lieu-chuyen-de-va-lop-hoc-cho-video.md`.
+
 ### 6.9 Hệ thống
 | Method | Route | Quyền |
 |---|---|---|
 | GET | `/health/live` | — (tiến trình còn sống) |
-| GET | `/health/ready` | — (kiểm tra SQL Server) |
+| GET | `/health/ready` | — (kiểm tra PostgreSQL) |
 | GET | `/health/alerts` | — (cảnh báo tối thiểu: `database`, `error-rate`, `attempt-backlog`, `expiration-worker`; 503 khi có lỗi; **Nginx chặn từ bên ngoài**, xem `09-van-hanh.md` mục 7.1) |
 | GET | `/openapi/v1.json`, `/swagger` | Chỉ ở Development / Staging |
 
@@ -365,6 +381,8 @@ Kiểm tra quyền luôn dựa trên **permission**. Bảng dưới chỉ thể 
 | Kết quả của chính mình | Không | Có (theo chính sách hiển thị) |
 | Tất cả kết quả, export, thao tác trên lượt thi | Có | Không |
 | Báo cáo, dashboard, audit log | Có | Không |
+| Quản lý kho video bài giảng (`Video.Manage`, `Video.View`) | Có | Không (học viên xem qua `/api/student/videos`) |
+| Xem video bài giảng, chuyên đề để lọc | Không | Có |
 
 ADMIN không thi thay học viên. Muốn thử đề thì dùng `preview`.
 
@@ -382,3 +400,5 @@ ADMIN không thi thay học viên. Muốn thử đề thì dùng `preview`.
 - **Câu điền số gửi dạng chuỗi (`answerText`)**, không gửi JSON number, để server kiểm soát định dạng và giữ chuỗi gốc (D-12).
 - **Quên mật khẩu qua email là tính năng sau MVP**; trong MVP, admin đặt lại mật khẩu cho user.
 - **Giới hạn 50 phần tử mỗi batch** (câu trả lời, sự kiện) là giả định *(cần xác nhận)*.
+- **(D-31) Video:** `/api/videos` dành cho admin (permission `Video.*`); học viên dùng `/api/student/videos`, không cần permission riêng ngoài vai trò Student. `ADMIN` luôn nhận mọi permission mới khi chạy `--seed`.
+- **`PATCH /api/exams/{id}/review-policy` (chưa có trong spec gốc):** đổi `ReviewPolicy` cho mọi version, kể cả version đã PUBLISHED. Việc này **lệch** D-03 (cấu hình version bất biến) và bỏ qua quy tắc chéo `AFTER_SUBMIT` chỉ khi `MaxAttempts = 1` (`02-nghiep-vu.md` mục 5). Ghi nhận như hiện trạng; cần quyết định chính thức (ghi D-xx mới hoặc bổ sung kiểm tra) — xem `CAP_NHAT_HE_THONG.md` mục 8.

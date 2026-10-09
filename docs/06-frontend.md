@@ -20,6 +20,7 @@ Học viên  (/student/*)
 /student/history
 /student/classes              lớp của tôi (D-28)
 /student/classes/:classId     đề thi được gán cho lớp
+/student/videos               video bài giảng (lọc theo chuyên đề / lớp học, popup phát YouTube nhúng) (D-31)
 /student/profile
 
 Quản trị  (/admin/*)
@@ -38,6 +39,7 @@ Quản trị  (/admin/*)
 /admin/exams/:id/results
 /admin/attempts/:attemptId                    chi tiết lượt thi, sự kiện, thao tác admin
 /admin/audit-logs
+/admin/videos                  kho video bài giảng: lưới thẻ, xem trước YouTube, bật / tắt, sửa, xóa (D-31)
 ```
 
 **Bảo vệ route:**

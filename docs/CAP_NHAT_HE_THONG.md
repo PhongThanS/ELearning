@@ -122,3 +122,53 @@ Chi tiết tài liệu riêng: [`dong-bo-du-lieu-chuyen-de-va-lop-hoc-cho-video.
 - Bổ sung endpoint `GET /api/student/categories` cho học sinh lọc video theo chuyên đề thực tế.
 - Tự động làm mới dữ liệu dropdown thông qua tiền tố cache queryKey `["categories"]` và `["classes"]`.
 
+---
+
+## 8. Chuyển cơ sở dữ liệu từ SQL Server sang PostgreSQL (D-29)
+
+Commit chính: `9dbd1e5`; đồng bộ Docker / test: `7931449`, `f8f8422`. Mã quyết định D-29, D-30, D-31 đã được ghi vào `docs/00-muc-luc.md`.
+
+### 8.1 Thay đổi mã nguồn
+
+| Khu vực | Nội dung |
+|---|---|
+| Gói | `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3 (Infrastructure, Application); test dùng `Testcontainers.PostgreSql` |
+| `DependencyInjection.cs` | `UseNpgsql`, `EnableRetryOnFailure(3)`, bảng lịch sử migration `__EFMigrationsHistory` |
+| `ELearningDbContext` | Kiểu `timestamp with time zone`; bỏ collation BIN2 của cột enum; `SaveChanges` tự gán `RowVersion` (`bytea`) cho entity `IHasRowVersion` (D-30) |
+| `ConfigurationExtensions`, `*Configurations` | `HasFilter` / `HasCheckConstraint` dùng tên cột trong nháy kép; `RowVersion` → `IsConcurrencyToken()`; `SourceRowVersion` → `bytea` |
+| `AttemptLock.cs` | `SELECT 1 FROM "ExamAttempts" WHERE "Id" = @id FOR UPDATE` thay `UPDLOCK, ROWLOCK` (D-21); bắt lỗi trùng bằng `PostgresException` `23505` |
+| `GlobalExceptionHandler.cs` | Lỗi trùng khóa nhận từ `PostgresException` `UniqueViolation` (thay `SqlException` 2601 / 2627) |
+| `CodeGenerator.cs` | `SELECT nextval('"seq"')` thay `NEXT VALUE FOR` |
+| `Common/Like.cs` + các service tìm kiếm | Escape `\`, `%`, `_`; dùng `EF.Functions.ILike` (không phân biệt hoa thường) |
+| `ReportQuery.cs` | Dapper SQL viết lại: nháy kép, `::int`, `LIMIT`, `TRUE` / `FALSE` |
+| Migration | Xóa 8 migration SQL Server; thêm `20261009035512_InitialPostgreSql` (sau đó `20261009094351_AddVideoLessons`) |
+| `DatabaseSeeder.cs` | Khôi phục seed nhóm `DEMO`, học viên và đề `CS-BASIC` (Development / ApiTests) |
+| Test | `SqlServerTestDatabase.cs` chạy PostgreSQL (biến `ELEARNING_TEST_POSTGRES`, database tạm `elearning_test_<guid>`); `SchemaTests`, `IdentityDomainTests` cập nhật |
+| Hạ tầng | `docker-compose.yml` (service `postgres`, bỏ `sqlserver` / `db-init`), `.env.example` (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_NAME`) |
+| Khác | `elearning_db_backup.sql` (dump PostgreSQL) được commit vào gốc repo |
+
+### 8.2 Tài liệu đã cập nhật theo thay đổi này
+
+| File | Nội dung bổ sung |
+|---|---|
+| `CLAUDE.md` | Stack PostgreSQL, quy tắc khóa dòng `FOR UPDATE`, nháy kép / `ILIKE` / `RowVersion`, lệnh chạy test với `ELEARNING_TEST_POSTGRES` |
+| `README.md` | Yêu cầu PostgreSQL, chuỗi kết nối dev, cách chạy test |
+| `docs/00-muc-luc.md` | D-21 cập nhật; thêm D-29, D-30, D-31 |
+| `docs/01`, `02`, `03` | Công nghệ, khóa dòng, health check, Testcontainers; hiện trạng `ReviewPolicy` và đề nhiều version |
+| `docs/04a`, `04b` | Quy ước PostgreSQL, bảng ánh xạ kiểu 1.1, bảng `VideoLessons`, RowVersion `bytea`, khóa dòng |
+| `docs/05-api.md` | `PATCH /api/exams/{id}/review-policy`, API video và học viên (`/student/videos`, `/student/categories`), ma trận quyền |
+| `docs/06`, `07` | Route `/admin/videos`, `/student/videos`; permission `Video.View`, `Video.Manage` |
+| `docs/08-kiem-thu.md` | Test chạy trên PostgreSQL, biến môi trường mới |
+| `docs/09-van-hanh.md` | Docker Compose PostgreSQL, chuỗi kết nối, backup bằng `pg_dump`, danh sách việc tồn đọng |
+| `docs/10-bay-ky-thuat.md` | Sửa các bẫy gắn với SQL Server; thêm mục 20 "Phát hiện khi chuyển sang PostgreSQL" |
+
+### 8.3 Việc còn tồn đọng / cần quyết định
+
+1. **Script vận hành vẫn là SQL Server:** `deploy/scripts/backup.sh`, `restore.sh`, `restore-test.sh`, `monitor.sh` (kiểm tra backup), `windows/register-backup-tasks.ps1`, `deploy/sql/init-app-login.sql`. Cần viết lại bằng `pg_dump` / `pg_restore` (+ WAL archiving).
+2. **Tài khoản DB quyền tối thiểu** (trước đây `APP_DB_LOGIN`) chưa có tương đương trong compose.
+3. **E2E và load test** (`frontend/elearning-web/e2e/`, `load-tests/lib/seed.js`) còn nhắc SQL Server.
+4. **`review-policy` áp cho mọi version, kể cả đã publish** và bỏ qua quy tắc `AFTER_SUBMIT` ⇒ `MaxAttempts = 1` (lệch D-03 / D-09).
+5. **Đếm lượt thi theo version** trong danh sách đề (lệch D-07); cần xác nhận quy tắc ở bước `start`.
+6. **`DELETE /api/videos/{id}` xóa cứng** (`db.VideoLessons.Remove`), trong khi D-16 cấm xóa cứng dữ liệu; và `GET /api/student/videos/{id}` dùng chung `GetAsync` nên không lọc `IsActive` (học viên có Id vẫn xem được video đã tắt). Cần quyết định.
+7. Lớp test còn tên `SqlServerTestDatabase` (đã chạy PostgreSQL) — nên đổi tên.
+

@@ -6,17 +6,17 @@
 | Mục đích | Lựa chọn |
 |---|---|
 | Runtime | .NET 10, ASP.NET Core Web API (Controllers) |
-| ORM | EF Core 10 (SQL Server provider); Dapper cho báo cáo / truy vấn đọc phức tạp |
+| ORM | EF Core 10 (`Npgsql.EntityFrameworkCore.PostgreSQL`); Dapper cho báo cáo / truy vấn đọc phức tạp |
 | Validation | FluentValidation |
 | Xác thực | JWT Bearer (`Microsoft.AspNetCore.Authentication.JwtBearer`) + refresh token |
 | Mật khẩu | `Microsoft.AspNetCore.Identity.PasswordHasher<T>` (chỉ dùng hasher, không dùng toàn bộ Identity) |
 | Logging | Serilog (structured, xuất JSON) |
 | OpenAPI | `Microsoft.AspNetCore.OpenApi` để sinh tài liệu; `Swashbuckle.AspNetCore.SwaggerUI` để hiển thị, trỏ tới `/openapi/v1.json` |
 | Rate limit | `Microsoft.AspNetCore.RateLimiting` (có sẵn) |
-| Health check | `Microsoft.Extensions.Diagnostics.HealthChecks` + `AspNetCore.HealthChecks.SqlServer` |
+| Health check | `Microsoft.Extensions.Diagnostics.HealthChecks` + `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` |
 | Đồng hồ | `System.TimeProvider` (có sẵn trong .NET) |
 | Excel | `ClosedXML` (export kết quả) |
-| Kiểm thử | xUnit, AwesomeAssertions, NSubstitute, Testcontainers (MsSql), `Microsoft.AspNetCore.Mvc.Testing`, `Microsoft.Extensions.TimeProvider.Testing` |
+| Kiểm thử | xUnit, AwesomeAssertions, NSubstitute, Testcontainers (PostgreSql), `Microsoft.AspNetCore.Mvc.Testing`, `Microsoft.Extensions.TimeProvider.Testing` |
 
 ### 1.2 Frontend
 | Mục đích | Lựa chọn |
@@ -190,7 +190,7 @@ public async Task<Result<StudentResultDto>> SubmitAsync(Guid attemptId, Guid use
     {
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        var attempt = await _attempts.GetForUpdateAsync(attemptId, ct);   // UPDLOCK, ROWLOCK
+        var attempt = await _attempts.GetForUpdateAsync(attemptId, ct);   // SELECT ... FOR UPDATE
         if (attempt is null || attempt.UserId != userId)
             return Result.NotFound<StudentResultDto>(ErrorCodes.AttemptNotFound);
 
@@ -259,3 +259,4 @@ MVP dùng `IMemoryCache` (chạy một instance). Khi scale nhiều instance ph�
 - **`react-bootstrap`** là component React của chính Bootstrap, không vi phạm quy tắc "không thêm UI framework thứ hai".
 - **Grader** trả về `record` thay cho class có `Feedback`. Phản hồi theo từng câu nằm ở `Explanation` của câu hỏi.
 - **Cache permission bằng `IMemoryCache`** chỉ đúng khi chạy một instance. Đây là giả định của MVP.
+- **(D-29) Chuyển sang PostgreSQL:** `Npgsql.EntityFrameworkCore.PostgreSQL` 10.0.3 thay `Microsoft.EntityFrameworkCore.SqlServer`; gói Npgsql cũng được Application tham chiếu để dùng `EF.Functions.ILike`. `IAttemptLock` (Infrastructure) khóa dòng bằng `FOR UPDATE` và nhận biết lỗi trùng unique qua `PostgresException`. Test harness dùng `Testcontainers.PostgreSql`. Không đổi các tầng, repository hay quy ước khác.
