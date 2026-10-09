@@ -46,6 +46,9 @@ public static class Permissions
 
     public const string AuditView = "Audit.View";
 
+    public const string VideoView = "Video.View";
+    public const string VideoManage = "Video.Manage";
+
     /// <summary>Mã → tên hiển thị tiếng Việt, dùng khi seed.</summary>
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -81,5 +84,7 @@ public static class Permissions
         [ResultExport] = "Export kết quả",
         [ReportView] = "Xem báo cáo",
         [AuditView] = "Xem audit log",
+        [VideoView] = "Xem video bài giảng",
+        [VideoManage] = "Quản lý video bài giảng",
     };
 }

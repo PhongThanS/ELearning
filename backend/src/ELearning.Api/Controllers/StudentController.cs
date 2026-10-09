@@ -3,6 +3,7 @@ using ELearning.Api.Security;
 using ELearning.Application.Attempts;
 using ELearning.Application.Classes;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Videos;
 using ELearning.Shared.Paging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,7 +17,11 @@ namespace ELearning.Api.Controllers;
 /// </summary>
 [Route("api/student")]
 [Authorize(Policy = Policies.StudentOnly)]
-public sealed class StudentController(IAttemptService attempts, IClassroomService classrooms, ICurrentUser currentUser) : ApiControllerBase
+public sealed class StudentController(
+    IAttemptService attempts,
+    IClassroomService classrooms,
+    IVideoService videos,
+    ICurrentUser currentUser) : ApiControllerBase
 {
     private Guid UserId => currentUser.RequiredUserId;
 
@@ -81,4 +86,14 @@ public sealed class StudentController(IAttemptService attempts, IClassroomServic
     [ProducesResponseType<ApiResponse<PagedResult<StudentHistoryItemDto>>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> History([FromQuery] StudentHistoryQuery query, CancellationToken ct) =>
         Ok(ApiResponse.Ok(await attempts.HistoryAsync(UserId, query, ct), TraceId));
+
+    [HttpGet("videos")]
+    [ProducesResponseType<ApiResponse<PagedResult<VideoLessonDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ListVideos([FromQuery] VideoListQuery query, CancellationToken ct) =>
+        Ok(ApiResponse.Ok(await videos.ListForStudentAsync(query, ct), TraceId));
+
+    [HttpGet("videos/{id:guid}")]
+    [ProducesResponseType<ApiResponse<VideoLessonDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> GetVideo(Guid id, CancellationToken ct) =>
+        ToResponse(await videos.GetAsync(id, ct));
 }

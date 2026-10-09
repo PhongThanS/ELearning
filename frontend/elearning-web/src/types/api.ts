@@ -839,3 +839,54 @@ export interface MediaUpload {
   /** Chuỗi chèn vào nội dung: ![](media:<id>) */
   markdown: string;
 }
+
+// ----- Video bài giảng -----
+
+export interface VideoLesson {
+  id: string;
+  title: string;
+  videoUrl: string;
+  youtubeVideoId?: string | null;
+  thumbnailUrl?: string | null;
+  description?: string | null;
+  categoryId?: string | null;
+  categoryName?: string | null;
+  classroomId?: string | null;
+  classroomName?: string | null;
+  durationMinutes?: number | null;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+  rowVersion: string;
+}
+
+export interface CreateVideoInput {
+  title: string;
+  videoUrl: string;
+  description?: string | null;
+  categoryId?: string | null;
+  classroomId?: string | null;
+  durationMinutes?: number | null;
+  displayOrder?: number;
+}
+
+export interface UpdateVideoInput {
+  title: string;
+  videoUrl: string;
+  description?: string | null;
+  categoryId?: string | null;
+  classroomId?: string | null;
+  durationMinutes?: number | null;
+  displayOrder: number;
+  isActive: boolean;
+  rowVersion: string;
+}
+
+export interface VideoListQuery extends PageQuery {
+  categoryId?: string;
+  classroomId?: string;
+  keyword?: string;
+  isActive?: boolean;
+}
+

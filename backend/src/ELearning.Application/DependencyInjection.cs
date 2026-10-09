@@ -11,6 +11,7 @@ using ELearning.Application.Monitoring;
 using ELearning.Application.Questions;
 using ELearning.Application.Roles;
 using ELearning.Application.Users;
+using ELearning.Application.Videos;
 using ELearning.Domain.Grading;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IQuestionImportService, QuestionImportService>();
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IExamVersionService, ExamVersionService>();
+        services.AddScoped<IVideoService, VideoService>();
 
         services.AddSingleton(GradingEngine.Default);
         services.AddScoped<IGradingService, GradingService>();

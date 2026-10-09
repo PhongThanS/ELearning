@@ -1,5 +1,9 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
+  VideoLesson,
+  CreateVideoInput,
+  UpdateVideoInput,
+  VideoListQuery,
   ManualGradeResult,
   MediaUpload,
   ManualGradingItem,
@@ -242,6 +246,26 @@ export const adminApi = {
   exportResults: (examId: string, official: boolean) =>
     downloadFile(`/admin/exams/${examId}/results/export`, { official }, "ket-qua.xlsx"),
 };
+
+export const videosApi = {
+  list: (query?: VideoListQuery) =>
+    http.get<Paged<VideoLesson>>("/videos", query),
+  get: (id: string) =>
+    http.get<VideoLesson>(`/videos/${id}`),
+  create: (data: CreateVideoInput) =>
+    http.post<VideoLesson>("/videos", data),
+  update: (id: string, data: UpdateVideoInput) =>
+    http.put<VideoLesson>(`/videos/${id}`, data),
+  delete: (id: string) =>
+    http.delete<void>(`/videos/${id}`),
+  setStatus: (id: string, isActive: boolean) =>
+    http.patch<VideoLesson>(`/videos/${id}/status`, { isActive }),
+  listForStudent: (query?: VideoListQuery) =>
+    http.get<Paged<VideoLesson>>("/student/videos", query),
+  getForStudent: (id: string) =>
+    http.get<VideoLesson>(`/student/videos/${id}`),
+};
+
 
 /** Tải file qua Axios (có Authorization) rồi lưu bằng blob; tên file lấy từ Content-Disposition. */
 async function downloadFile(url: string, params: object | undefined, fallbackName: string): Promise<void> {

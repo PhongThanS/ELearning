@@ -8,6 +8,7 @@ using ELearning.Domain.Identity;
 using ELearning.Domain.Media;
 using ELearning.Domain.Questions;
 using ELearning.Domain.Results;
+using ELearning.Domain.Videos;
 using ELearning.Infrastructure.Persistence.Converters;
 using Microsoft.EntityFrameworkCore;
 
@@ -78,6 +79,8 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
+
+    public DbSet<VideoLesson> VideoLessons => Set<VideoLesson>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

@@ -25,6 +25,8 @@ const results = () => import("../features/exams/ResultPages");
 const dashboard = () => import("../features/admin/DashboardPage");
 const student = () => import("../features/attempts/StudentPages");
 const player = () => import("../features/attempts/ExamPlayerPage");
+const videos = () => import("../features/videos/AdminVideoPages");
+const studentVideos = () => import("../features/videos/StudentVideoPages");
 
 const guard = (permission: string, element: ReactNode) => <RequirePermission permission={permission}>{element}</RequirePermission>;
 
@@ -63,6 +65,7 @@ export const routes: RouteObject[] = [
               { path: "history", element: page(student, "HistoryPage") },
               { path: "classes", element: page(student, "MyClassesPage") },
               { path: "classes/:classId", element: page(student, "MyClassDetailPage") },
+              { path: "videos", element: page(studentVideos, "StudentVideoPages") },
             ],
           },
           { element: <PlayerLayout />, children: [{ path: "attempts/:attemptId", element: page(player, "ExamPlayerPage") }] },
@@ -91,6 +94,7 @@ export const routes: RouteObject[] = [
           { path: "exams/:id/results", element: guard(Permissions.ResultView, page(results, "ExamResultsPage")) },
           { path: "attempts/:attemptId", element: guard(Permissions.AttemptView, page(results, "AttemptAdminPage")) },
           { path: "audit-logs", element: guard(Permissions.AuditView, page(results, "AuditLogsPage")) },
+          { path: "videos", element: guard(Permissions.VideoView, page(videos, "AdminVideoPages")) },
         ],
       },
     ],

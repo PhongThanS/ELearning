@@ -32,6 +32,8 @@ export const Permissions = {
   ResultExport: "Result.Export",
   ReportView: "Report.View",
   AuditView: "Audit.View",
+  VideoView: "Video.View",
+  VideoManage: "Video.Manage",
 } as const;
 
 export type PermissionCode = (typeof Permissions)[keyof typeof Permissions];

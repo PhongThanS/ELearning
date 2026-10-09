@@ -70,6 +70,8 @@ public interface IAppDbContext
 
     DbSet<MediaFile> MediaFiles { get; }
 
+    DbSet<ELearning.Domain.Videos.VideoLesson> VideoLessons { get; }
+
     DatabaseFacade Database { get; }
 
     ChangeTracker ChangeTracker { get; }

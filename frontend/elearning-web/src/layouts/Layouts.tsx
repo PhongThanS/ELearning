@@ -421,6 +421,7 @@ const adminNav: {
 }[] = [
   { to: "/admin/dashboard", label: "nav.dashboard", icon: "📊", permission: Permissions.ReportView },
   { to: "/admin/exams", label: "nav.exams", icon: "📝", permission: Permissions.ExamView },
+  { to: "/admin/videos", label: "nav.videos", icon: "🎥", permission: Permissions.VideoView },
   { to: "/admin/questions", label: "nav.questions", icon: "❓", permission: Permissions.QuestionView },
   { to: "/admin/categories", label: "nav.categories", icon: "📁", permission: Permissions.CategoryView, isCategoriesDropdown: true },
   { to: "/admin/classes", label: "nav.classes", icon: "🏫", permission: Permissions.ClassView },
@@ -561,6 +562,9 @@ export function StudentLayout() {
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/classes" className="d-flex align-items-center gap-1.5">
                 <span>🏫</span> {t("nav.myClasses")}
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/student/videos" className="d-flex align-items-center gap-1.5">
+                <span>🎥</span> {t("nav.videos", "Video bài giảng")}
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/history" className="d-flex align-items-center gap-1.5">
                 <span>📊</span> {t("nav.history")}
