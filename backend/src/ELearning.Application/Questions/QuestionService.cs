@@ -25,6 +25,8 @@ public interface IQuestionService
     Task<Result<QuestionDetailDto>> SetActiveAsync(Guid id, SetActiveRequest request, CancellationToken ct);
 
     Task<Result<QuestionDetailDto>> CloneAsync(Guid id, CancellationToken ct);
+
+    Task<Result> DeleteAsync(Guid id, bool force = false, CancellationToken ct = default);
 }
 
 /// <summary>Sinh mã tự động từ SEQUENCE trong DB (an toàn khi nhiều request đồng thời).</summary>
@@ -230,6 +232,54 @@ internal sealed class QuestionService(
         audit.Write(AuditActions.QuestionCreated, nameof(Question), clone.Id, newValue: new { clone.Code, ClonedFrom = source.Code });
         await db.SaveChangesAsync(ct);
         return await ToDetailAsync(clone, ct);
+    }
+
+    public async Task<Result> DeleteAsync(Guid id, bool force = false, CancellationToken ct = default)
+    {
+        var question = await db.Questions
+            .Include(q => q.Options)
+            .Include(q => q.AcceptedAnswers)
+            .Include(q => q.Tags)
+            .SingleOrDefaultAsync(q => q.Id == id, ct);
+
+        if (question is null)
+        {
+            return QuestionNotFound;
+        }
+
+        var usedInExamVersions = await db.ExamQuestions
+            .Where(eq => eq.SourceQuestionId == id)
+            .Select(eq => eq.ExamVersionId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        if (usedInExamVersions.Count > 0)
+        {
+            if (!force)
+            {
+                var examNames = await db.ExamVersions
+                    .Where(ev => usedInExamVersions.Contains(ev.Id))
+                    .Join(db.Exams, ev => ev.ExamId, e => e.Id, (ev, e) => e.Name)
+                    .Distinct()
+                    .Take(3)
+                    .ToListAsync(ct);
+
+                var namesText = string.Join(", ", examNames);
+                return Error.Conflict(
+                    "QUESTION_IN_USE",
+                    $"Câu hỏi '{question.Code}' đang được sử dụng trong đề thi ({namesText}). Vui lòng xác nhận để xóa câu hỏi này.");
+            }
+
+            // Gỡ liên kết SourceQuestionId ở ExamQuestions để snapshot đề thi không bị lỗi và không vi phạm ràng buộc FK
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE \"ExamQuestions\" SET \"SourceQuestionId\" = NULL WHERE \"SourceQuestionId\" = {id}",
+                ct);
+        }
+
+        db.Questions.Remove(question);
+        audit.Write(AuditActions.QuestionDeleted, nameof(Question), question.Id, new { question.Code, question.QuestionType, question.Content }, null);
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
     }
 
     /// <summary>Chuẩn hóa input: mã option mặc định A, B, C…; nhãn Đúng/Sai cho TRUE_FALSE.</summary>

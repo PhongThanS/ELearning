@@ -29,6 +29,8 @@ public interface IExamService
 
     Task<Result<ExamDetailDto>> ReopenAsync(Guid id, CancellationToken ct);
 
+    Task<Result<ExamDetailDto>> SetReviewPolicyAsync(Guid id, SetReviewPolicyRequest request, CancellationToken ct);
+
     Task<Result<AssignmentsDto>> GetAssignmentsAsync(Guid id, CancellationToken ct);
 
     Task<Result<AssignmentsDto>> SetAssignmentsAsync(Guid id, SetAssignmentsRequest request, CancellationToken ct);
@@ -309,6 +311,24 @@ internal sealed class ExamService(
         return await ToDetailAsync(exam, ct);
     }
 
+    public async Task<Result<ExamDetailDto>> SetReviewPolicyAsync(Guid id, SetReviewPolicyRequest request, CancellationToken ct)
+    {
+        var exam = await db.Exams.Include(e => e.Versions).SingleOrDefaultAsync(e => e.Id == id, ct);
+        if (exam is null)
+        {
+            return ExamNotFound;
+        }
+
+        foreach (var v in exam.Versions)
+        {
+            v.SetReviewPolicy(request.ReviewPolicy);
+        }
+
+        audit.Write(AuditActions.ExamUpdated, nameof(Exam), exam.Id, newValue: new { ReviewPolicy = request.ReviewPolicy.ToString() });
+        await db.SaveChangesAsync(ct);
+        return await ToDetailAsync(exam, ct);
+    }
+
     public async Task<Result<AssignmentsDto>> GetAssignmentsAsync(Guid id, CancellationToken ct)
     {
         var exam = await db.Exams.AsNoTracking().Include(e => e.Assignments).SingleOrDefaultAsync(e => e.Id == id, ct);
@@ -497,7 +517,8 @@ internal sealed class ExamService(
                 (v.Questions.Where(q => q.PoolRuleId == null).Sum(q => (decimal?)q.Score) ?? 0) + (v.PoolRules.Sum(r => (decimal?)(r.DrawCount * r.ScorePerQuestion)) ?? 0),
                 v.PublishedAt,
                 v.ArchivedAt,
-                v.CreatedAt))
+                v.CreatedAt,
+                v.ReviewPolicy))
             .ToListAsync(ct);
         var assignmentCount = await db.ExamAssignments.CountAsync(a => a.ExamId == exam.Id, ct);
         var hasAttempts = await db.ExamAttempts.AnyAsync(a => a.ExamId == exam.Id, ct);
@@ -522,6 +543,7 @@ internal sealed class ExamService(
             exam.CreatedAt,
             exam.UpdatedAt,
             exam.ClosedAt,
-            exam.RowVersion.ToBase64());
+            exam.RowVersion.ToBase64(),
+            versions.FirstOrDefault(v => v.Status == ExamVersionStatus.Published)?.ReviewPolicy);
     }
 }

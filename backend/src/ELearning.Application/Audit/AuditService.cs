@@ -88,6 +88,7 @@ public static class AuditActions
     public const string CategoryStatusChanged = "CATEGORY_STATUS_CHANGED";
     public const string QuestionCreated = "QUESTION_CREATED";
     public const string QuestionUpdated = "QUESTION_UPDATED";
+    public const string QuestionDeleted = "QUESTION_DELETED";
     public const string QuestionStatusChanged = "QUESTION_STATUS_CHANGED";
     public const string QuestionsImported = "QUESTIONS_IMPORTED";
     public const string MediaUploaded = "MEDIA_UPLOADED";

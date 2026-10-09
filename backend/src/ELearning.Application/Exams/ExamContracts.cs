@@ -35,7 +35,8 @@ public sealed record VersionSummaryDto(
     decimal MaxScore,
     DateTime? PublishedAt,
     DateTime? ArchivedAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    ReviewPolicy? ReviewPolicy = null);
 
 public sealed record ExamDetailDto(
     Guid Id,
@@ -57,7 +58,8 @@ public sealed record ExamDetailDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     DateTime? ClosedAt,
-    string RowVersion);
+    string RowVersion,
+    ReviewPolicy? PublishedReviewPolicy = null);
 
 public sealed record VersionOptionDto(string OptionCode, string Content, bool IsCorrect, int DisplayOrder);
 
@@ -204,12 +206,14 @@ public sealed record CreateExamRequest : ExamDetailsInput
 
     public ScoreVisibility ScoreVisibility { get; init; } = ScoreVisibility.Immediate;
 
-    public ReviewPolicy ReviewPolicy { get; init; } = ReviewPolicy.AfterSubmit;
+    public ReviewPolicy ReviewPolicy { get; init; } = ReviewPolicy.Never;
 
     public bool ShuffleQuestions { get; init; }
 
     public bool ShuffleOptions { get; init; }
 }
+
+public sealed record SetReviewPolicyRequest(ReviewPolicy ReviewPolicy);
 
 public sealed record UpdateExamRequest : ExamDetailsInput
 {

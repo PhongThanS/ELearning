@@ -417,9 +417,11 @@ export function ResultPage() {
             <p className="small text-secondary mt-3 mb-0">{t("result.reviewUntil", { time: formatDateTime(r.reviewAvailableAt) })}</p>
           )}
           {r.scoreVisible && !r.reviewAvailable && !r.reviewAvailableAt && (
-            <Alert variant="warning" className="mt-3 mb-0">
-              <i className="bi bi-info-circle me-2" />
-              Đề thi này chưa bật quyền xem lại câu hỏi và đáp án sau khi nộp. Giáo viên có thể bật trong phần cài đặt đề thi.
+            <Alert variant="warning" className="mt-3 mb-0 d-flex align-items-center gap-2">
+              <i className="bi bi-shield-lock-fill fs-5 text-warning-emphasis" />
+              <div>
+                <strong>Kết quả bài thi đã được ghi nhận.</strong> Chi tiết câu hỏi và đáp án sẽ hiển thị sau khi giáo viên / quản trị viên mở quyền xem lại.
+              </div>
             </Alert>
           )}
         </Card.Body>
@@ -458,8 +460,8 @@ export function ResultPage() {
                       </Badge>
                     )}
                   </div>
-                  <div className={`fw-bold fs-5 ${q.isCorrect ? "text-success" : "text-danger"}`}>
-                    {q.isCorrect ? "✓ V" : "✗ X"}
+                  <div className={`fs-4 ${q.isCorrect ? "text-success" : "text-danger"}`} title={q.isCorrect ? "Đúng" : "Sai"}>
+                    <i className={`bi ${q.isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`} />
                   </div>
                 </div>
 
@@ -492,18 +494,19 @@ export function ResultPage() {
                     >
                       <div className="d-flex align-items-center flex-grow-1 me-2">
                         <span
-                          className={`badge ${q.isCorrect ? "bg-success" : "bg-danger"} text-white fw-bold d-inline-flex align-items-center justify-content-center me-2`}
-                          style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                          className={`badge ${q.isCorrect ? "bg-success" : "bg-danger"} text-white d-inline-flex align-items-center justify-content-center me-2`}
+                          style={{ width: "36px", height: "32px" }}
                         >
-                          {q.isCorrect ? "✓ V" : "✗ X"}
+                          <i className={`bi ${q.isCorrect ? "bi-check-lg" : "bi-x-lg"} fs-5`} />
                         </span>
                         <div>
                           <span className="text-secondary small d-block">{t("result.yourAnswer")}:</span>
                           <span>{q.answerText || <em>{t("result.noAnswer")}</em>}</span>
                         </div>
                       </div>
-                      <Badge bg={q.isCorrect ? "success" : "danger"} className="py-1 px-2">
-                        {q.isCorrect ? "✓ Bạn trả lời đúng" : "✗ Bạn trả lời sai"}
+                      <Badge bg={q.isCorrect ? "success" : "danger"} className="py-1 px-2 d-inline-flex align-items-center gap-1">
+                        <i className={`bi ${q.isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`} />
+                        <span>{q.isCorrect ? "Bạn trả lời đúng" : "Bạn trả lời sai"}</span>
                       </Badge>
                     </div>
 
@@ -511,10 +514,10 @@ export function ResultPage() {
                       <div className="p-2 px-3 rounded d-flex align-items-center justify-content-between border border-2 border-success bg-success-subtle text-success-emphasis fw-medium">
                         <div className="d-flex align-items-center flex-grow-1 me-2">
                           <span
-                            className="badge bg-success text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
-                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                            className="badge bg-success text-white d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px" }}
                           >
-                            ✓ V
+                            <i className="bi bi-check-lg fs-5" />
                           </span>
                           <div>
                             <span className="text-secondary small d-block">{t("result.correctAnswer")}:</span>
@@ -523,8 +526,8 @@ export function ResultPage() {
                             </span>
                           </div>
                         </div>
-                        <Badge bg="success" className="py-1 px-2">
-                          ✓ Đáp án đúng
+                        <Badge bg="success" className="py-1 px-2 d-inline-flex align-items-center gap-1">
+                          <i className="bi bi-check-circle-fill" /> Đáp án đúng
                         </Badge>
                       </div>
                     )}
@@ -540,15 +543,15 @@ export function ResultPage() {
                       let statusBadge = null;
 
                       if (selected && correct) {
-                        // Tích đúng: đánh dấu V màu xanh
+                        // Tích đúng: icon check xanh
                         containerClass = "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium";
                         iconBadge = (
                           <span
-                            className="badge bg-success text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
-                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                            className="badge bg-success text-white d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px" }}
                             title="Bạn chọn đúng"
                           >
-                            ✓ V
+                            <i className="bi bi-check-lg fs-5" />
                           </span>
                         );
                         statusBadge = (
@@ -557,15 +560,15 @@ export function ResultPage() {
                           </Badge>
                         );
                       } else if (selected && !correct) {
-                        // Tích sai: đánh dấu X hiển đỏ
+                        // Tích sai: icon X đỏ
                         containerClass = "border border-2 border-danger bg-danger-subtle text-danger-emphasis fw-medium";
                         iconBadge = (
                           <span
-                            className="badge bg-danger text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
-                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                            className="badge bg-danger text-white d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px" }}
                             title="Bạn chọn sai"
                           >
-                            ✗ X
+                            <i className="bi bi-x-lg fs-5" />
                           </span>
                         );
                         statusBadge = (
@@ -574,15 +577,15 @@ export function ResultPage() {
                           </Badge>
                         );
                       } else if (!selected && correct) {
-                        // Tích V vào đáp án đúng
+                        // Đáp án đúng: icon check xanh
                         containerClass = "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium";
                         iconBadge = (
                           <span
-                            className="badge bg-success text-white fw-bold d-inline-flex align-items-center justify-content-center me-2"
-                            style={{ width: "36px", height: "32px", fontSize: "0.95rem" }}
+                            className="badge bg-success text-white d-inline-flex align-items-center justify-content-center me-2"
+                            style={{ width: "36px", height: "32px" }}
                             title="Đáp án đúng"
                           >
-                            ✓ V
+                            <i className="bi bi-check-lg fs-5" />
                           </span>
                         );
                         statusBadge = (

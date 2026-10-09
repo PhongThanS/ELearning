@@ -370,13 +370,14 @@ export function AttemptAdminPage() {
             <MarkdownView content={q.content} media={a.media} />
             <div className="small mt-1 d-flex align-items-center flex-wrap gap-2">
               <span className="text-secondary">Trả lời:</span>{" "}
-              <span className={q.isCorrect ? "badge bg-success-subtle text-success border border-success fw-bold" : q.isCorrect === false ? "badge bg-danger-subtle text-danger border border-danger fw-bold" : "badge bg-light text-dark border"}>
-                {q.isCorrect ? "✓ V " : q.isCorrect === false ? "✗ X " : ""}
+              <span className={q.isCorrect ? "badge bg-success-subtle text-success border border-success fw-bold d-inline-flex align-items-center" : q.isCorrect === false ? "badge bg-danger-subtle text-danger border border-danger fw-bold d-inline-flex align-items-center" : "badge bg-light text-dark border"}>
+                {q.isCorrect ? <i className="bi bi-check-lg me-1" /> : q.isCorrect === false ? <i className="bi bi-x-lg me-1" /> : null}
                 {q.type === "FILL_IN" ? q.answerText ?? "(bỏ trống)" : q.selectedOptions.join(", ") || "(bỏ trống)"}
               </span>
               <span className="text-secondary">· Đáp án:</span>{" "}
-              <span className="badge bg-success-subtle text-success border border-success fw-bold">
-                ✓ V {q.type === "FILL_IN" ? (q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")) : q.correctOptions.join(", ")}
+              <span className="badge bg-success-subtle text-success border border-success fw-bold d-inline-flex align-items-center">
+                <i className="bi bi-check-lg me-1" />
+                {q.type === "FILL_IN" ? (q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")) : q.correctOptions.join(", ")}
               </span>
               <span className="text-secondary"> · lưu {q.saveCount} lần</span>
             </div>

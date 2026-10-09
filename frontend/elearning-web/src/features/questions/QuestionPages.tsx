@@ -200,11 +200,22 @@ export function QuestionsPage() {
   const query = useQuery({ queryKey: ["questions", list.params], queryFn: () => questionsApi.list(list.params) });
   const categories = useActiveCategories();
   const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState<QuestionListItem | null>(null);
   const action = useMutation({
     mutationFn: async (run: () => Promise<{ id: string }>) => run(),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["questions"] });
       toast.success(t("common.saved"));
+    },
+    onError: (e) => toast.error(e),
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => questionsApi.remove(id, true),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["questions"] });
+      setDeleting(null);
+      toast.success("Đã xóa câu hỏi thành công.");
     },
     onError: (e) => toast.error(e),
   });
@@ -245,9 +256,14 @@ export function QuestionsPage() {
             </Button>
           )}
           {hasPermission(Permissions.QuestionUpdate) && (
-            <Button size="sm" variant="link" onClick={() => action.mutate(() => questionsApi.setStatus(q.id, !q.isActive))}>
-              {q.isActive ? t("common.deactivate") : t("common.activate")}
-            </Button>
+            <>
+              <Button size="sm" variant="link" onClick={() => action.mutate(() => questionsApi.setStatus(q.id, !q.isActive))}>
+                {q.isActive ? t("common.deactivate") : t("common.activate")}
+              </Button>
+              <Button size="sm" variant="link" className="text-danger" onClick={() => setDeleting(q)}>
+                {t("common.delete")}
+              </Button>
+            </>
           )}
         </>
       ),
@@ -270,6 +286,39 @@ export function QuestionsPage() {
       <QuestionImportDialog show={importing} onHide={() => setImporting(false)} />
       <QuestionFilters list={list} categories={categories.data?.items ?? []} />
       <DataTable data={query.data} columns={columns} rowKey={(q) => q.id} isLoading={query.isLoading} error={query.error} sort={list.state} onSort={list.toggleSort} onPage={list.setPage} />
+
+      <Modal show={!!deleting} onHide={() => setDeleting(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" className="h5">Xác nhận xóa câu hỏi</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {deleting && (
+            <div>
+              <p>
+                Bạn có chắc chắn muốn xóa câu hỏi <strong>{deleting.code}</strong> khỏi ngân hàng câu hỏi?
+              </p>
+              <div className="p-2 border rounded bg-light mb-3 small">
+                <em>{markdownExcerpt(deleting.contentPreview)}</em>
+              </div>
+              <p className="text-danger small mb-0">
+                ⚠️ Thao tác này sẽ xóa vĩnh viễn câu hỏi khỏi ngân hàng câu hỏi.
+              </p>
+            </div>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setDeleting(null)} disabled={remove.isPending}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => deleting && remove.mutate(deleting.id)}
+            disabled={remove.isPending}
+          >
+            {remove.isPending ? "Đang xóa..." : t("common.delete")}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 }
@@ -470,6 +519,17 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
       setForm((f) => ({ ...f, rowVersion: saved.rowVersion, code: saved.code }));
     },
     onError: (e) => setErrors(toApiError(e).fieldErrors()),
+  });
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const removeQuestion = useMutation({
+    mutationFn: () => questionsApi.remove(id!, true),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["questions"] });
+      toast.success("Đã xóa câu hỏi thành công.");
+      navigate("/admin/questions");
+    },
+    onError: (e) => toast.error(e),
   });
 
   const set = (patch: Partial<EditorState>) => setForm({ ...form, ...patch });
@@ -721,11 +781,48 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   <Form.Control.Feedback type="invalid">{err("defaultScore")}</Form.Control.Feedback>
                 </Form.Group>
                 <Button type="submit" className="w-100" disabled={save.isPending}>{t("common.save")}</Button>
+                {id && hasPermission(Permissions.QuestionUpdate) && (
+                  <Button
+                    type="button"
+                    variant="outline-danger"
+                    className="w-100 mt-2"
+                    disabled={removeQuestion.isPending}
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    {t("common.delete")} câu hỏi
+                  </Button>
+                )}
               </Card.Body>
             </Card>
           </Col>
         </Row>
       </Form>
+
+      <Modal show={confirmDelete} onHide={() => setConfirmDelete(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" className="h5">Xác nhận xóa câu hỏi</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p>
+            Bạn có chắc chắn muốn xóa câu hỏi <strong>{existing?.code}</strong> này khỏi ngân hàng câu hỏi?
+          </p>
+          <p className="text-danger small mb-0">
+            ⚠️ Thao tác này sẽ xóa vĩnh viễn câu hỏi và không thể hoàn tác.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setConfirmDelete(false)} disabled={removeQuestion.isPending}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => removeQuestion.mutate()}
+            disabled={removeQuestion.isPending}
+          >
+            {removeQuestion.isPending ? "Đang xóa..." : t("common.delete")}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       <Modal show={!!pendingType} onHide={() => setPendingType(null)} centered>
         <Modal.Body>Đổi loại câu hỏi sẽ thay đổi danh sách đáp án. Tiếp tục?</Modal.Body>

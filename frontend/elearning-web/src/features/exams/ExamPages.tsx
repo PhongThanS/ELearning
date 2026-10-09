@@ -254,7 +254,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
     retakeScoringPolicy: "HIGHEST",
   });
   const [settings, setSettings] = useState<VersionSettingsValue>({
-    durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "AFTER_SUBMIT", shuffleQuestions: false, shuffleOptions: false,
+    durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "NEVER", shuffleQuestions: false, shuffleOptions: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -593,6 +593,9 @@ export function ExamDetailPage() {
           <ExamInfoForm key={exam.rowVersion} exam={exam} onSaved={(saved) => onChanged(saved)} />
         </Col>
         <Col xl={5}>
+          {exam.status !== "DRAFT" && (
+            <ReviewPolicyCard exam={exam} onUpdated={(saved) => onChanged(saved)} />
+          )}
           <VersionsCard exam={exam} />
           <AssignmentsCard exam={exam} />
           <UserOverridesCard exam={exam} />
@@ -638,6 +641,74 @@ export function ExamDetailPage() {
         }
       />
     </>
+  );
+}
+
+function ReviewPolicyCard({ exam, onUpdated }: { exam: ExamDetail; onUpdated: (exam: ExamDetail) => void }) {
+  const toast = useToast();
+  const { hasPermission } = useAuth();
+  const currentPolicy = exam.publishedReviewPolicy ?? "NEVER";
+  const isOpen = currentPolicy === "AFTER_SUBMIT";
+
+  const toggle = useMutation({
+    mutationFn: (newPolicy: ReviewPolicy) => examsApi.setReviewPolicy(exam.id, newPolicy),
+    onSuccess: (updated) => {
+      onUpdated(updated);
+      toast.success(
+        updated.publishedReviewPolicy === "AFTER_SUBMIT"
+          ? "Đã mở quyền xem chi tiết câu hỏi & đáp án cho học sinh!"
+          : "Đã khóa quyền xem chi tiết câu hỏi & đáp án."
+      );
+    },
+    onError: (e) => toast.error(e),
+  });
+
+  return (
+    <Card className="mb-3 border-2 shadow-sm">
+      <Card.Body>
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h2 className="h6 mb-0 d-flex align-items-center gap-2">
+            <i className={`bi ${isOpen ? "bi-unlock-fill text-success" : "bi-lock-fill text-secondary"}`} />
+            <span>Quyền xem lại kết quả bài thi</span>
+          </h2>
+          <Badge bg={isOpen ? "success" : "secondary"} className="px-2 py-1">
+            {isOpen ? "Đang mở xem chi tiết" : "Đang khóa xem chi tiết"}
+          </Badge>
+        </div>
+        <p className="small text-secondary mb-3">
+          {isOpen
+            ? "Học sinh sau khi nộp bài được xem chi tiết từng câu hỏi, bài làm và đáp án đúng."
+            : "Học sinh sau khi nộp bài chỉ xem được điểm và kết quả tổng quan. Chi tiết câu hỏi và đáp án sẽ hiển thị khi bạn mở quyền."}
+        </p>
+        {hasPermission(Permissions.ExamUpdate) && (
+          <div className="d-flex gap-2">
+            {isOpen ? (
+              <Button
+                variant="outline-warning"
+                size="sm"
+                disabled={toggle.isPending}
+                onClick={() => toggle.mutate("NEVER")}
+                className="d-inline-flex align-items-center gap-1"
+              >
+                <i className="bi bi-lock-fill" />
+                Khóa xem lại chi tiết
+              </Button>
+            ) : (
+              <Button
+                variant="success"
+                size="sm"
+                disabled={toggle.isPending}
+                onClick={() => toggle.mutate("AFTER_SUBMIT")}
+                className="d-inline-flex align-items-center gap-1"
+              >
+                <i className="bi bi-unlock-fill" />
+                Mở cho học sinh xem chi tiết
+              </Button>
+            )}
+          </div>
+        )}
+      </Card.Body>
+    </Card>
   );
 }
 

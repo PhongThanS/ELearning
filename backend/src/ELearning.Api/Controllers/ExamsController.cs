@@ -60,6 +60,12 @@ public sealed class ExamsController(IExamService exams, IExamVersionService vers
     [ProducesResponseType<ApiResponse<ExamDetailDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> Reopen(Guid id, CancellationToken ct) => ToResponse(await exams.ReopenAsync(id, ct));
 
+    [HttpPatch("{id:guid}/review-policy")]
+    [HasPermission(Permissions.ExamUpdate)]
+    [ProducesResponseType<ApiResponse<ExamDetailDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> SetReviewPolicy(Guid id, SetReviewPolicyRequest request, CancellationToken ct) =>
+        ToResponse(await exams.SetReviewPolicyAsync(id, request, ct));
+
     [HttpGet("{id:guid}/assignments")]
     [HasPermission(Permissions.ExamView)]
     [ProducesResponseType<ApiResponse<AssignmentsDto>>(StatusCodes.Status200OK)]

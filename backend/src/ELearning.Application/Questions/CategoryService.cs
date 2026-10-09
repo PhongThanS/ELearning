@@ -199,7 +199,7 @@ internal sealed class CategoryService(
 
             // Gỡ liên kết SourceQuestionId ở ExamQuestions (nếu có) để snapshot bài thi không bị vỡ và không vi phạm ràng buộc FK
             await db.Database.ExecuteSqlInterpolatedAsync(
-                $"UPDATE ExamQuestions SET SourceQuestionId = NULL WHERE SourceQuestionId IN (SELECT Id FROM Questions WHERE CategoryId = {id})",
+                $"UPDATE \"ExamQuestions\" SET \"SourceQuestionId\" = NULL WHERE \"SourceQuestionId\" IN (SELECT \"Id\" FROM \"Questions\" WHERE \"CategoryId\" = {id})",
                 ct);
 
             db.Questions.RemoveRange(questions);
@@ -207,7 +207,7 @@ internal sealed class CategoryService(
 
         // Gỡ liên kết CategoryId ở các ExamPoolRules (nếu có)
         await db.Database.ExecuteSqlInterpolatedAsync(
-            $"UPDATE ExamPoolRules SET CategoryId = NULL WHERE CategoryId = {id}",
+            $"UPDATE \"ExamPoolRules\" SET \"CategoryId\" = NULL WHERE \"CategoryId\" = {id}",
             ct);
 
         db.QuestionCategories.Remove(category);

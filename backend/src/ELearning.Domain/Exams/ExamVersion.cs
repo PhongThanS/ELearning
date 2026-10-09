@@ -197,6 +197,12 @@ public sealed class ExamVersion : Entity, IHasRowVersion
         ApplySettings(settings);
     }
 
+    /// <summary>Cập nhật chính sách xem lại bài (có thể mở sau khi thi xong).</summary>
+    public void SetReviewPolicy(ReviewPolicy policy)
+    {
+        ReviewPolicy = policy;
+    }
+
     /// <summary>Snapshot câu hỏi ngân hàng vào bản nháp (D-02). Trả về null nếu câu đã có trong version.</summary>
     public ExamQuestion? AddQuestion(Question source, decimal? score, DateTime now)
     {

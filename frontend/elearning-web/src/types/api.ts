@@ -285,6 +285,7 @@ export interface VersionSummary {
   publishedAt: string | null;
   archivedAt: string | null;
   createdAt: string;
+  reviewPolicy?: ReviewPolicy | null;
 }
 
 export interface ExamDetail {
@@ -308,6 +309,7 @@ export interface ExamDetail {
   updatedAt: string | null;
   closedAt: string | null;
   rowVersion: string;
+  publishedReviewPolicy?: ReviewPolicy | null;
 }
 
 export interface VersionOption {

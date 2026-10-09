@@ -124,4 +124,13 @@ public sealed class QuestionsController(IQuestionService questions, IQuestionImp
     [ProducesResponseType<ApiResponse<QuestionDetailDto>>(StatusCodes.Status201Created)]
     public async Task<ActionResult> Clone(Guid id, CancellationToken ct) =>
         ToResponse(await questions.CloneAsync(id, ct), StatusCodes.Status201Created);
+
+    [HttpDelete("{id:guid}")]
+    [HasPermission(Permissions.QuestionUpdate)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> Delete(Guid id, [FromQuery] bool force = false, CancellationToken ct = default)
+    {
+        var result = await questions.DeleteAsync(id, force, ct);
+        return result.IsSuccess ? NoContent() : ToResponse(result);
+    }
 }

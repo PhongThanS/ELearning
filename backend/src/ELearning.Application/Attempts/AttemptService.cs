@@ -480,7 +480,7 @@ internal sealed class AttemptService(
             .ToDictionaryAsync(v => v.ExamId, ct);
         var attempts = await db.ExamAttempts.AsNoTracking()
             .Where(a => examIds.Contains(a.ExamId) && a.UserId == userId)
-            .Select(a => new { a.Id, a.ExamId, a.Status })
+            .Select(a => new { a.Id, a.ExamId, a.ExamVersionId, a.Status })
             .ToListAsync(ct);
         var extras = await db.ExamUserOverrides.AsNoTracking()
             .Where(o => examIds.Contains(o.ExamId) && o.UserId == userId)
@@ -501,9 +501,10 @@ internal sealed class AttemptService(
             }
 
             var mine = attempts.Where(a => a.ExamId == exam.Id).ToList();
-            var used = mine.Count(a => a.Status != AttemptStatus.Cancelled);
+            // Đếm số lượt đã làm trên phiên bản hiện tại đang được xuất bản (Publish)
+            var used = mine.Count(a => a.ExamVersionId == version.Id && a.Status != AttemptStatus.Cancelled);
             var allowed = exam.MaxAttempts + extras.GetValueOrDefault(exam.Id);
-            var inProgress = mine.FirstOrDefault(a => a.Status == AttemptStatus.InProgress)?.Id;
+            var inProgress = mine.FirstOrDefault(a => a.ExamVersionId == version.Id && a.Status == AttemptStatus.InProgress)?.Id;
 
             var availability = inProgress is not null ? ExamAvailability.InProgress
                 : exam.Status == ExamStatus.Closed ? ExamAvailability.Closed

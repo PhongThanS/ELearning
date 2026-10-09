@@ -35,6 +35,7 @@ import type {
   QuestionListItem,
   QuestionStat,
   RegradeSummary,
+  ReviewPolicy,
   Role,
   SaveAnswerItem,
   SaveAnswersResponse,
@@ -129,6 +130,7 @@ export const questionsApi = {
   update: (id: string, body: QuestionInput) => http.put<QuestionDetail>(`/questions/${id}`, body),
   setStatus: (id: string, isActive: boolean) => http.patch<QuestionDetail>(`/questions/${id}/status`, { isActive }),
   clone: (id: string) => http.post<QuestionDetail>(`/questions/${id}/clone`),
+  remove: (id: string, force = false) => http.delete<void>(`/questions/${id}${force ? "?force=true" : ""}`),
   importTemplate: () => downloadFile("/questions/import/template", undefined, "mau-import-cau-hoi.xlsx"),
   /** dryRun: chỉ kiểm tra. Tất cả hoặc không: có dòng lỗi thì không tạo câu nào. */
   import: (file: File, dryRun: boolean) => {
@@ -169,6 +171,7 @@ export const examsApi = {
   clone: (id: string, body: { code?: string; name?: string }) => http.post<ExamDetail>(`/exams/${id}/clone`, body),
   close: (id: string, forceSubmitInProgress: boolean) => http.post<ExamDetail>(`/exams/${id}/close`, { forceSubmitInProgress }),
   reopen: (id: string) => http.post<ExamDetail>(`/exams/${id}/reopen`),
+  setReviewPolicy: (id: string, reviewPolicy: ReviewPolicy) => http.patch<ExamDetail>(`/exams/${id}/review-policy`, { reviewPolicy }),
   assignments: (id: string) => http.get<Assignments>(`/exams/${id}/assignments`),
   setAssignments: (id: string, next: { groupIds: string[]; userIds: string[]; classroomIds: string[] }) =>
     http.put<Assignments>(`/exams/${id}/assignments`, next),
