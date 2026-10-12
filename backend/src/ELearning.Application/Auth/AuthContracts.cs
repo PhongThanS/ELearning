@@ -5,6 +5,8 @@ namespace ELearning.Application.Auth;
 
 public sealed record LoginRequest(string UserName, string Password);
 
+public sealed record ForgotPasswordRequest(string Email);
+
 public sealed record RegisterRequest(string UserName, string Email, string FullName, string Password, bool AcceptTerms);
 
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);

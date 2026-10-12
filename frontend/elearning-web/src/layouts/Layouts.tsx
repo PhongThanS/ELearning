@@ -161,7 +161,7 @@ function SidebarGroupsHoverItem({ label }: { label: string }) {
   // Gọi trực tiếp API backend /api/groups
   const { data: groupsData, isLoading } = useQuery({
     queryKey: ["sidebar-groups"],
-    queryFn: () => groupsApi.list({ page: 1, pageSize: 20 }),
+    queryFn: () => groupsApi.list({ page: 1, pageSize: 18 }),
     staleTime: 60_000,
   });
 
@@ -424,7 +424,6 @@ const adminNav: {
   { to: "/admin/videos", label: "nav.videos", icon: "🎥", permission: Permissions.VideoView },
   { to: "/admin/questions", label: "nav.questions", icon: "❓", permission: Permissions.QuestionView },
   { to: "/admin/categories", label: "nav.categories", icon: "📁", permission: Permissions.CategoryView, isCategoriesDropdown: true },
-  { to: "/admin/classes", label: "nav.classes", icon: "🏫", permission: Permissions.ClassView },
   { to: "/admin/users", label: "nav.users", icon: "👤", permission: Permissions.UserView },
   { to: "/admin/roles", label: "nav.roles", icon: "🛡️", permission: Permissions.RoleView },
   { to: "/admin/audit-logs", label: "nav.auditLogs", icon: "📜", permission: Permissions.AuditView },
@@ -439,7 +438,7 @@ export function AdminLayout() {
   // Lấy dữ liệu cho menu di động từ API backend
   const { data: groupsData } = useQuery({
     queryKey: ["sidebar-groups"],
-    queryFn: () => groupsApi.list({ page: 1, pageSize: 20 }),
+    queryFn: () => groupsApi.list({ page: 1, pageSize: 18 }),
     staleTime: 60_000,
   });
   const { data: categoriesData } = useQuery({

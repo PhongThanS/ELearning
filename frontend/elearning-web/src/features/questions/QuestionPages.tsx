@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, InputGroup, Modal, Row, Tab, Tabs } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -37,6 +37,39 @@ export function CategoriesPage() {
   const query = useQuery({ queryKey: ["categories", list.params], queryFn: () => categoriesApi.list(list.params) });
   const [editing, setEditing] = useState<{ id?: string; code: string; name: string; rowVersion?: string; isActive?: boolean } | null>(null);
   const [deleting, setDeleting] = useState<Category | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [query.data]);
+
+  const removeMany = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => categoriesApi.remove(id, true)));
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
+      toast.success(`Đã xóa thành công ${selectedIds.size} chuyên đề.`);
+      setSelectedIds(new Set());
+    },
+    onError: (e) => toast.error(e),
+  });
+
+  const handleBulkDelete = () => {
+    if (!query.data) return;
+    const selectedCategories = query.data.items.filter(c => selectedIds.has(c.id));
+    const totalQuestions = selectedCategories.reduce((sum, c) => sum + c.questionCount, 0);
+
+    let confirmMsg = `Bạn có chắc chắn muốn xóa ${selectedIds.size} chuyên đề đã chọn?`;
+    if (totalQuestions > 0) {
+      confirmMsg = `⚠️ Trong số các chuyên đề đã chọn, có chứa tổng cộng ${totalQuestions} câu hỏi. Việc xóa sẽ làm giải phóng các câu hỏi bên trong.\n\n` + confirmMsg;
+    }
+
+    if (window.confirm(confirmMsg)) {
+      removeMany.mutate(Array.from(selectedIds));
+    }
+  };
 
   const save = useMutation({
     mutationFn: () =>
@@ -71,7 +104,37 @@ export function CategoriesPage() {
     onError: (e) => toast.error(e),
   });
 
+  const isAllSelected = query.data?.items.length && query.data?.items.every((c) => selectedIds.has(c.id));
+
   const columns: Column<Category>[] = [
+    {
+      key: "select",
+      header: (
+        <Form.Check
+          type="checkbox"
+          checked={!!isAllSelected}
+          onChange={(e) => {
+            if (e.target.checked && query.data) {
+              setSelectedIds(new Set(query.data.items.map((c) => c.id)));
+            } else {
+              setSelectedIds(new Set());
+            }
+          }}
+        />
+      ),
+      render: (c) => (
+        <Form.Check
+          type="checkbox"
+          checked={selectedIds.has(c.id)}
+          onChange={(e) => {
+            const next = new Set(selectedIds);
+            if (e.target.checked) next.add(c.id);
+            else next.delete(c.id);
+            setSelectedIds(next);
+          }}
+        />
+      ),
+    },
     { key: "code", header: t("common.code"), sortKey: "code", render: (c) => <code>{c.code}</code> },
     { key: "name", header: t("common.name"), sortKey: "name", render: (c) => c.name },
     { key: "count", header: "Số câu hỏi", render: (c) => <Link to={`/admin/questions?categoryId=${c.id}`}>{c.questionCount}</Link> },
@@ -99,7 +162,21 @@ export function CategoriesPage() {
 
   return (
     <>
-      <PageHeader title={t("nav.categories")} actions={canManage && <Button onClick={() => setEditing({ code: "", name: "" })}>{t("common.create")}</Button>} />
+      <PageHeader
+        title={t("nav.categories")}
+        actions={
+          canManage && (
+            <div className="d-flex gap-2">
+              {selectedIds.size > 0 && (
+                <Button variant="danger" onClick={handleBulkDelete} disabled={removeMany.isPending}>
+                  {removeMany.isPending ? "Đang xóa..." : `Xóa đã chọn (${selectedIds.size})`}
+                </Button>
+              )}
+              <Button onClick={() => setEditing({ code: "", name: "" })}>{t("common.create")}</Button>
+            </div>
+          )
+        }
+      />
       <div className="mb-3" style={{ maxWidth: 400 }}>
         <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc tên danh mục..." />
       </div>
@@ -201,6 +278,24 @@ export function QuestionsPage() {
   const categories = useActiveCategories();
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState<QuestionListItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [query.data]);
+
+  const removeMany = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id) => questionsApi.remove(id, true)));
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["questions"] });
+      toast.success(`Đã xóa thành công ${selectedIds.size} câu hỏi.`);
+      setSelectedIds(new Set());
+    },
+    onError: (e) => toast.error(e),
+  });
+
   const action = useMutation({
     mutationFn: async (run: () => Promise<{ id: string }>) => run(),
     onSuccess: () => {
@@ -220,7 +315,37 @@ export function QuestionsPage() {
     onError: (e) => toast.error(e),
   });
 
+  const isAllSelected = query.data?.items.length && query.data?.items.every((q) => selectedIds.has(q.id));
+
   const columns: Column<QuestionListItem>[] = [
+    {
+      key: "select",
+      header: (
+        <Form.Check
+          type="checkbox"
+          checked={!!isAllSelected}
+          onChange={(e) => {
+            if (e.target.checked && query.data) {
+              setSelectedIds(new Set(query.data.items.map((q) => q.id)));
+            } else {
+              setSelectedIds(new Set());
+            }
+          }}
+        />
+      ),
+      render: (q) => (
+        <Form.Check
+          type="checkbox"
+          checked={selectedIds.has(q.id)}
+          onChange={(e) => {
+            const next = new Set(selectedIds);
+            if (e.target.checked) next.add(q.id);
+            else next.delete(q.id);
+            setSelectedIds(next);
+          }}
+        />
+      ),
+    },
     { key: "code", header: t("common.code"), sortKey: "code", render: (q) => <Link to={`/admin/questions/${q.id}/edit`}><code>{q.code}</code></Link> },
     { key: "content", header: "Nội dung", render: (q) => <span className="text-truncate d-inline-block" style={{ maxWidth: 420 }}>{markdownExcerpt(q.contentPreview)}</span> },
     { key: "type", header: "Loại", render: (q) => t(`enums.questionType.${q.questionType}`) + (q.answerDataType ? ` (${t(`enums.answerDataType.${q.answerDataType}`)})` : "") },
@@ -277,6 +402,15 @@ export function QuestionsPage() {
         actions={
           hasPermission(Permissions.QuestionCreate) && (
             <>
+              {selectedIds.size > 0 && (
+                <Button variant="danger" onClick={() => {
+                  if (window.confirm(`Bạn có chắc chắn muốn xóa ${selectedIds.size} câu hỏi đã chọn?`)) {
+                    removeMany.mutate(Array.from(selectedIds));
+                  }
+                }} disabled={removeMany.isPending}>
+                  {removeMany.isPending ? "Đang xóa..." : `Xóa đã chọn (${selectedIds.size})`}
+                </Button>
+              )}
               <Button variant="outline-primary" onClick={() => setImporting(true)}>Import Excel</Button>
               <Link to="/admin/questions/create" className="btn btn-primary">{t("common.create")}</Link>
             </>

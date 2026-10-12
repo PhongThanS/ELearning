@@ -11,7 +11,7 @@ export interface ListState {
 
 /** Trạng thái danh sách (trang, sắp xếp, lọc) cho các bảng phân trang phía server. */
 export function useListQuery(initial: Partial<ListState> = {}) {
-  const [state, setState] = useState<ListState>({ page: 1, pageSize: 20, ...initial });
+  const [state, setState] = useState<ListState>({ page: 1, pageSize: 18, ...initial });
 
   const setPage = useCallback((page: number) => setState((s) => ({ ...s, page })), []);
   const setFilter = useCallback(

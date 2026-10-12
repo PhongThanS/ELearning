@@ -39,7 +39,7 @@ export function StudentExamsPage() {
   const [keyword, setKeyword] = useState("");
   const query = useQuery({
     queryKey: ["student-exams", page, keyword],
-    queryFn: () => studentApi.exams({ page, pageSize: 20, keyword: keyword || undefined }),
+    queryFn: () => studentApi.exams({ page, pageSize: 18, keyword: keyword || undefined }),
   });
   const { user } = useAuth();
   const items = query.data?.items ?? [];
@@ -204,7 +204,7 @@ export function MyClassDetailPage() {
   const classes = useQuery({ queryKey: ["student-classes"], queryFn: studentApi.classes });
   const exams = useQuery({
     queryKey: ["student-exams", "class", classId, page],
-    queryFn: () => studentApi.exams({ page, pageSize: 20, classroomId: classId }),
+    queryFn: () => studentApi.exams({ page, pageSize: 18, classroomId: classId }),
   });
   const classroom = classes.data?.find((c) => c.id === classId);
 
@@ -647,7 +647,7 @@ export function ResultPage() {
 export function HistoryPage() {
   const { t } = useTranslation();
   const [page, setPage] = useState(1);
-  const query = useQuery({ queryKey: ["history", page], queryFn: () => studentApi.history({ page, pageSize: 20 }) });
+  const query = useQuery({ queryKey: ["history", page], queryFn: () => studentApi.history({ page, pageSize: 18 }) });
 
   return (
     <>
