@@ -1779,6 +1779,31 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.ToTable("ExamResultHistory", (string)null);
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Settings.SystemSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("SystemSettings", (string)null);
+                });
+
             modelBuilder.Entity("ELearning.Domain.Videos.VideoLesson", b =>
                 {
                     b.Property<Guid>("Id")

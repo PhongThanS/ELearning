@@ -17,10 +17,21 @@ import type { VideoLesson, CreateVideoInput, UpdateVideoInput } from "../../type
 function extractYoutubeId(url: string): string | null {
   if (!url) return null;
   const trimmed = url.trim();
-  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})/i);
+  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*[&?]v=|shorts\/|live\/))([\w-]{11})/i);
   if (match && match[1]) return match[1];
   if (trimmed.length === 11 && /^[\w-]{11}$/.test(trimmed)) return trimmed;
   return null;
+}
+
+function extractDrivePreview(url: string): string | null {
+  if (!url) return null;
+  const match = url.trim().match(/drive\.google\.com\/file\/d\/([\w-]+)/i);
+  return match && match[1] ? `https://drive.google.com/file/d/${match[1]}/preview` : null;
+}
+
+function isDirectVideo(url: string): boolean {
+  if (!url) return false;
+  return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url.trim());
 }
 
 export function AdminVideoPages() {
@@ -429,6 +440,8 @@ function VideoEditModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   const ytId = extractYoutubeId(videoUrl);
+  const driveUrl = extractDrivePreview(videoUrl);
+  const isDirect = isDirectVideo(videoUrl);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -520,19 +533,44 @@ function VideoEditModal({
             </Form.Text>
           </Form.Group>
 
-          {/* YouTube Preview */}
-          {ytId && (
+          {/* Video Preview */}
+          {(ytId || driveUrl || isDirect) && (
             <div className="mb-3 p-3 bg-light rounded border">
               <div className="small fw-semibold text-secondary mb-2 d-flex align-items-center gap-1">
-                <i className="bi bi-youtube text-danger fs-5"></i> Xem trước video YouTube đã nhận diện:
+                {ytId ? (
+                  <>
+                    <i className="bi bi-youtube text-danger fs-5"></i> Xem trước video YouTube đã nhận diện:
+                  </>
+                ) : driveUrl ? (
+                  <>
+                    <i className="bi bi-google text-primary fs-5"></i> Xem trước video Google Drive:
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-file-earmark-play-fill text-info fs-5"></i> Xem trước video tệp trực tiếp:
+                  </>
+                )}
               </div>
               <div className="ratio ratio-16x9 rounded overflow-hidden shadow-sm" style={{ maxHeight: 240 }}>
-                <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${ytId}`}
-                  title="YouTube Preview"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                ></iframe>
+                {ytId ? (
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${ytId}`}
+                    title="YouTube Preview"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                ) : driveUrl ? (
+                  <iframe
+                    src={driveUrl}
+                    title="Drive Preview"
+                    allow="autoplay"
+                    allowFullScreen
+                  ></iframe>
+                ) : (
+                  <video src={videoUrl} controls className="w-100 h-100 bg-black">
+                    Trình duyệt không hỗ trợ thẻ video.
+                  </video>
+                )}
               </div>
             </div>
           )}
@@ -631,6 +669,8 @@ function VideoEditModal({
 
 export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClose: () => void }) {
   const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
+  const driveUrl = extractDrivePreview(video.videoUrl);
+  const isDirect = isDirectVideo(video.videoUrl);
 
   return (
     <Modal show={true} onHide={onClose} size="xl" centered dialogClassName="modal-video-player">
@@ -648,6 +688,26 @@ export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClo
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             ></iframe>
+          </div>
+        ) : driveUrl ? (
+          <div className="ratio ratio-16x9">
+            <iframe
+              src={driveUrl}
+              title={video.title}
+              allow="autoplay; encrypted-media; fullscreen"
+              allowFullScreen
+            ></iframe>
+          </div>
+        ) : isDirect ? (
+          <div className="ratio ratio-16x9 bg-black">
+            <video
+              src={video.videoUrl}
+              controls
+              autoPlay
+              className="w-100 h-100"
+            >
+              Trình duyệt của bạn không hỗ trợ phát thẻ video trực tiếp.
+            </video>
           </div>
         ) : (
           <div className="p-4 text-center text-white">

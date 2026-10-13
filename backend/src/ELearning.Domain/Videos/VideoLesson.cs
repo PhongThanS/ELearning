@@ -16,7 +16,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
     public const int MaxDescriptionLength = 4000;
 
     private static readonly Regex YoutubeRegex = new(
-        @"(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|shorts\/))([\w-]{11})",
+        @"(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*[&?]v=|shorts\/|live\/))([\w-]{11})",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private VideoLesson()

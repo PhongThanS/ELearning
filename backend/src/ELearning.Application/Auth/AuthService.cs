@@ -44,7 +44,8 @@ internal sealed class AuthService(
     IOptions<JwtOptions> jwtOptions,
     IValidator<RegisterRequest> registerValidator,
     IValidator<LoginRequest> loginValidator,
-    IValidator<ChangePasswordRequest> changePasswordValidator) : IAuthService
+    IValidator<ChangePasswordRequest> changePasswordValidator,
+    IRegistrationSettingService registrationSetting) : IAuthService
 {
     private static readonly Error InvalidCredentials =
         Error.Unauthorized(ErrorCodes.InvalidCredentials, "Tên đăng nhập hoặc mật khẩu không đúng.");
@@ -62,7 +63,7 @@ internal sealed class AuthService(
 
     public async Task<Result<AuthUserDto>> RegisterAsync(RegisterRequest request, CancellationToken ct)
     {
-        if (!_auth.AllowSelfRegistration)
+        if (!await registrationSetting.IsSelfRegistrationAllowedAsync(ct))
         {
             return new Error(ErrorType.Forbidden, ErrorCodes.RegistrationDisabled, "Chức năng tự đăng ký đang tắt.");
         }
@@ -288,10 +289,10 @@ internal sealed class AuthService(
         }
 
         string newPassword = Random.Shared.Next(100000, 999999).ToString();
-        user.PasswordHash = passwordHasher.HashPassword(newPassword);
+        user.SetPassword(passwordHasher.Hash(user, newPassword), mustChangePassword: true, Now);
         
+        audit.Write("AUTH_FORGOT_PASSWORD", nameof(User), user.Id, userId: user.Id);
         await db.SaveChangesAsync(ct);
-        await audit.WriteAsync("AUTH_FORGOT_PASSWORD", nameof(User), user.Id, null, ct);
         
         return Result.Success(newPassword);
     }

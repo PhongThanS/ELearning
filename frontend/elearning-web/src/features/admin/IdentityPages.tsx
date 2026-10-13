@@ -48,6 +48,7 @@ export function UsersPage() {
         title={t("nav.users")}
         actions={hasPermission(Permissions.UserCreate) && <Button onClick={() => setCreating(true)}>{t("common.create")}</Button>}
       />
+      <RegistrationSettingCard />
       <Row className="g-2 mb-3">
         <Col md={5}>
           <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã đăng nhập, họ tên, email..." />
@@ -81,6 +82,95 @@ export function UsersPage() {
       <CreateUserModal show={creating} onHide={() => setCreating(false)} onCreated={setCreated} />
       <TemporaryPasswordModal result={created} onHide={() => setCreated(null)} />
     </>
+  );
+}
+
+function RegistrationSettingCard() {
+  const toast = useToast();
+  const { hasPermission } = useAuth();
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: ["registrationSetting"],
+    queryFn: () => usersApi.getRegistrationSetting(),
+  });
+
+  const toggle = useMutation({
+    mutationFn: (allow: boolean) => usersApi.setRegistrationSetting(allow),
+    onSuccess: (res) => {
+      void queryClient.invalidateQueries({ queryKey: ["registrationSetting"] });
+      if (res.allowSelfRegistration) {
+        toast.success("Đã MỞ cho phép học sinh tự do đăng ký tài khoản trên web!");
+      } else {
+        toast.success("Đã KHÓA tính năng tự do đăng ký. Chỉ Quản trị viên mới có quyền tạo tài khoản.");
+      }
+    },
+    onError: (e) => toast.error(e),
+  });
+
+  if (!hasPermission(Permissions.UserView)) {
+    return null;
+  }
+
+  const isAllowed = query.data?.allowSelfRegistration ?? false;
+
+  return (
+    <Card className="mb-3 border-2 shadow-sm">
+      <Card.Body>
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+          <div className="d-flex align-items-center gap-2">
+            <i className={`bi ${isAllowed ? "bi-person-check-fill text-success fs-5" : "bi-person-lock text-secondary fs-5"}`} />
+            <div>
+              <h2 className="h6 mb-0">Cấu hình Đăng ký tài khoản học sinh</h2>
+              <span className="small text-muted">Kiểm soát việc cho phép hoặc chặn học sinh tự do tạo tài khoản</span>
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <Badge bg={isAllowed ? "success" : "secondary"} className="px-2 py-1 fs-7">
+              <i className={`bi ${isAllowed ? "bi-unlock-fill" : "bi-lock-fill"} me-1`} />
+              {isAllowed ? "Đang MỞ tự đăng ký" : "Đang KHÓA tự đăng ký"}
+            </Badge>
+            {hasPermission(Permissions.UserUpdate) && (
+              <Button
+                variant={isAllowed ? "outline-danger" : "outline-success"}
+                size="sm"
+                disabled={toggle.isPending || query.isLoading}
+                onClick={() => toggle.mutate(!isAllowed)}
+              >
+                {toggle.isPending ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-1" />
+                    Đang xử lý...
+                  </>
+                ) : isAllowed ? (
+                  <>
+                    <i className="bi bi-lock-fill me-1" />
+                    Khóa tự đăng ký
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-unlock-fill me-1" />
+                    Mở tự đăng ký
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
+        <p className="small text-secondary mb-0">
+          {isAllowed ? (
+            <span>
+              <i className="bi bi-info-circle text-primary me-1" />
+              Học sinh có thể truy cập trang <strong>/register</strong> để tự đăng ký tài khoản và đăng nhập làm bài ngay.
+            </span>
+          ) : (
+            <span>
+              <i className="bi bi-shield-lock text-warning me-1" />
+              Chức năng tự đăng ký đang tắt để bảo mật kỳ thi. Thí sinh phải được Quản trị viên cấp tài khoản qua nút <strong>"+ Tạo mới"</strong> bên dưới.
+            </span>
+          )}
+        </p>
+      </Card.Body>
+    </Card>
   );
 }
 

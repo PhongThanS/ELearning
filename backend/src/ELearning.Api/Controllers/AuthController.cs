@@ -12,8 +12,18 @@ namespace ELearning.Api.Controllers;
 
 /// <summary>Xác thực (docs/05-api.md mục 6.1).</summary>
 [Route("api/auth")]
-public sealed class AuthController(IAuthService auth, ICurrentUser currentUser, RefreshTokenCookie cookie) : ApiControllerBase
+public sealed class AuthController(
+    IAuthService auth,
+    ICurrentUser currentUser,
+    RefreshTokenCookie cookie,
+    IRegistrationSettingService registrationSetting) : ApiControllerBase
 {
+    [HttpGet("registration-status")]
+    [AllowAnonymous]
+    [ProducesResponseType<ApiResponse<RegistrationStatusDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> GetRegistrationStatus(CancellationToken ct) =>
+        Ok(ApiResponse.Ok(new RegistrationStatusDto(await registrationSetting.IsSelfRegistrationAllowedAsync(ct)), TraceId));
+
     [HttpPost("register")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicies.AuthLogin)]

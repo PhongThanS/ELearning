@@ -53,6 +53,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<ITokenService, TokenService>();
         services.AddScoped<IUserAccessService, UserAccessService>();
+        services.AddScoped<IRegistrationSettingService, ELearning.Infrastructure.Services.RegistrationSettingService>();
 
         services.AddOptions<SeedOptions>().BindConfiguration(SeedOptions.SectionName);
         services.AddScoped<DatabaseSeeder>();

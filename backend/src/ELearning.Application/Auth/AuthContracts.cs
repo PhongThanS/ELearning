@@ -9,6 +9,10 @@ public sealed record ForgotPasswordRequest(string Email);
 
 public sealed record RegisterRequest(string UserName, string Email, string FullName, string Password, bool AcceptTerms);
 
+public sealed record RegistrationStatusDto(bool AllowSelfRegistration);
+
+public sealed record SetRegistrationSettingRequest(bool AllowSelfRegistration);
+
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
 public sealed record AuthUserDto(

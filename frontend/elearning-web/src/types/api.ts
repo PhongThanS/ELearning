@@ -47,6 +47,10 @@ export interface AuthResponse {
   user: AuthUser;
 }
 
+export interface RegistrationStatus {
+  allowSelfRegistration: boolean;
+}
+
 export interface RefItem {
   id: string;
   code: string;

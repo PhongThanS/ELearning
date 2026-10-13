@@ -20,6 +20,7 @@ import type {
   AuditLog,
   AuthResponse,
   AuthUser,
+  RegistrationStatus,
   Category,
   Classroom,
   ClassroomStudent,
@@ -56,6 +57,7 @@ import type {
 type Query = PageQuery & Record<string, string | number | boolean | undefined | null>;
 
 export const authApi = {
+  getRegistrationStatus: () => http.get<RegistrationStatus>("/auth/registration-status"),
   login: (userName: string, password: string) => http.post<AuthResponse>("/auth/login", { userName, password }),
   register: (body: { userName: string; email: string; fullName: string; password: string; acceptTerms: boolean }) =>
     http.post<AuthUser>("/auth/register", body),
@@ -67,6 +69,9 @@ export const authApi = {
 };
 
 export const usersApi = {
+  getRegistrationSetting: () => http.get<RegistrationStatus>("/users/registration-setting"),
+  setRegistrationSetting: (allowSelfRegistration: boolean) =>
+    http.patch<RegistrationStatus>("/users/registration-setting", { allowSelfRegistration }),
   list: (q: Query) => http.get<Paged<UserListItem>>("/users", q),
   get: (id: string) => http.get<UserDetail>(`/users/${id}`),
   create: (body: { userName: string; email: string; fullName: string; password?: string | null; roleIds?: string[]; groupIds?: string[] }) =>

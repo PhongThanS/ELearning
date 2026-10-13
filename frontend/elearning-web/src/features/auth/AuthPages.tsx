@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Button, Card, Form, Spinner } from "react-bootstrap";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Link, Navigate, useLocation, useNavigate } from "react-router";
@@ -88,6 +89,12 @@ export function RegisterPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
+  const statusQuery = useQuery({
+    queryKey: ["registrationStatus"],
+    queryFn: () => authApi.getRegistrationStatus(),
+  });
+  const isRegistrationClosed = statusQuery.data?.allowSelfRegistration === false;
+
   const { register, handleSubmit, formState, setError: setFieldError } = useForm<z.infer<typeof registerSchema>>({
     resolver: zodResolver(registerSchema),
     defaultValues: { acceptTerms: false },
@@ -125,6 +132,17 @@ export function RegisterPage() {
     <Card>
       <Card.Body>
         <h2 className="h5 mb-3">{t("auth.register")}</h2>
+        {isRegistrationClosed && (
+          <Alert variant="warning" className="d-flex align-items-start gap-2 mb-3">
+            <i className="bi bi-shield-lock-fill fs-5 mt-1" />
+            <div>
+              <strong>Chức năng tự đăng ký đang tạm khóa</strong>
+              <div className="small mt-1">
+                Quản trị viên hiện đang tắt tính năng tự do đăng ký tài khoản. Vui lòng liên hệ nhà trường hoặc giáo viên quản trị để được cấp tài khoản học viên.
+              </div>
+            </div>
+          </Alert>
+        )}
         {error && <Alert variant="danger">{error}</Alert>}
         <Form noValidate onSubmit={onSubmit}>
           {field("userName", t("auth.userNameOnly"), "text", "username")}
@@ -136,8 +154,9 @@ export function RegisterPage() {
             <Form.Check isInvalid={!!formState.errors.acceptTerms} label={t("auth.acceptTerms")} {...register("acceptTerms")} />
             {formState.errors.acceptTerms && <div className="invalid-feedback d-block">{formState.errors.acceptTerms.message}</div>}
           </Form.Group>
-          <Button type="submit" className="w-100" disabled={formState.isSubmitting}>
-            {t("auth.register")}
+          <Button type="submit" className="w-100" disabled={formState.isSubmitting || isRegistrationClosed}>
+            {formState.isSubmitting && <Spinner size="sm" animation="border" className="me-2" />}
+            {isRegistrationClosed ? "Đăng ký (Đang tạm khóa)" : t("auth.register")}
           </Button>
         </Form>
         <div className="mt-3 small text-center">

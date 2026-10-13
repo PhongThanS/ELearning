@@ -122,3 +122,18 @@ Chi tiết tài liệu riêng: [`dong-bo-du-lieu-chuyen-de-va-lop-hoc-cho-video.
 - Bổ sung endpoint `GET /api/student/categories` cho học sinh lọc video theo chuyên đề thực tế.
 - Tự động làm mới dữ liệu dropdown thông qua tiền tố cache queryKey `["categories"]` và `["classes"]`.
 
+---
+
+## 8. Quản trị viên Bật/Tắt tính năng Tự đăng ký học sinh (Registration Control)
+
+### Nghiệp vụ & Thiết kế:
+- **Mục đích:** Trước đây, cờ `AllowSelfRegistration` bị cố định trong cấu hình `appsettings.json`, muốn đổi phải sửa file và restart máy chủ. Tính năng mới cho phép Quản trị viên bật/tắt tự do đăng ký ngay trên giao diện Web với 1 click chuột.
+- **Cơ sở dữ liệu:** Bảng `SystemSettings` lưu khóa `"Auth.AllowSelfRegistration"`, có ghi log vết quản trị viên thực hiện (`AuditLogs`).
+- **Backend API:**
+  - `GET /api/auth/registration-status`: Endpoint công khai để màn hình Đăng ký/Đăng nhập kiểm tra trạng thái mở/khóa theo thời gian thực.
+  - `GET /api/users/registration-setting` & `PATCH /api/users/registration-setting`: Quyền `User.View` và `User.Update`, cho phép Admin tra cứu và thay đổi cấu hình.
+  - `IAuthService.RegisterAsync`: Kiểm tra động qua `IRegistrationSettingService`, nếu tính năng đang tắt thì từ chối ngay lập tức với mã lỗi `REGISTRATION_DISABLED`.
+- **Giao diện Frontend:**
+  - **Trang Quản lý Người dùng (`/admin/users`):** Bổ sung thẻ điều khiển **"Cấu hình Đăng ký tài khoản học sinh"** với badge trực quan (`Đang MỞ tự đăng ký` / `Đang KHÓA tự đăng ký`) và nút bấm chuyển trạng thái (`Khóa tự đăng ký` / `Mở tự đăng ký`).
+  - **Trang Đăng ký (`/register`):** Khi tính năng đang khóa, hiển thị khung cảnh báo màu vàng thông báo học sinh liên hệ giáo viên, đồng thời nút bấm chuyển sang trạng thái `Đăng ký (Đang tạm khóa)` để tránh gây nhầm lẫn.
+

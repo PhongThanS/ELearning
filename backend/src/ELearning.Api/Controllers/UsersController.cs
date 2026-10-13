@@ -1,5 +1,7 @@
 using ELearning.Api.Common;
 using ELearning.Api.Security;
+using ELearning.Application.Auth;
+using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Users;
 using ELearning.Domain.Identity;
 using ELearning.Shared.Paging;
@@ -9,8 +11,26 @@ namespace ELearning.Api.Controllers;
 
 /// <summary>Quản trị người dùng (docs/05-api.md mục 6.2).</summary>
 [Route("api/users")]
-public sealed class UsersController(IUserService users) : ApiControllerBase
+public sealed class UsersController(
+    IUserService users,
+    IRegistrationSettingService registrationSetting,
+    ICurrentUser currentUser) : ApiControllerBase
 {
+    [HttpGet("registration-setting")]
+    [HasPermission(Permissions.UserView)]
+    [ProducesResponseType<ApiResponse<RegistrationStatusDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> GetRegistrationSetting(CancellationToken ct) =>
+        Ok(ApiResponse.Ok(new RegistrationStatusDto(await registrationSetting.IsSelfRegistrationAllowedAsync(ct)), TraceId));
+
+    [HttpPatch("registration-setting")]
+    [HasPermission(Permissions.UserUpdate)]
+    [ProducesResponseType<ApiResponse<RegistrationStatusDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> SetRegistrationSetting([FromBody] SetRegistrationSettingRequest request, CancellationToken ct)
+    {
+        var result = await registrationSetting.SetSelfRegistrationAllowedAsync(request.AllowSelfRegistration, currentUser.UserId, ct);
+        return Ok(ApiResponse.Ok(new RegistrationStatusDto(result), TraceId));
+    }
+
     [HttpGet]
     [HasPermission(Permissions.UserView)]
     [ProducesResponseType<ApiResponse<PagedResult<UserListItemDto>>>(StatusCodes.Status200OK)]

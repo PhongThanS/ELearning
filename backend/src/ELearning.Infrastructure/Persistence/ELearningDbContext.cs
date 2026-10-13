@@ -82,6 +82,8 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
 
     public DbSet<VideoLesson> VideoLessons => Set<VideoLesson>();
 
+    public DbSet<ELearning.Domain.Settings.SystemSetting> SystemSettings => Set<ELearning.Domain.Settings.SystemSetting>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         // UTC cho mọi DateTime (docs/10-bay-ky-thuat.md mục 1)
