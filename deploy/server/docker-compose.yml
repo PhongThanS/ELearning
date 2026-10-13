@@ -1,0 +1,139 @@
+# Máy chủ chỉ chạy image dựng sẵn (không cần mã nguồn, không build): xem deploy/server/README.md.
+#   cp .env.example .env    # sửa mật khẩu / khóa
+#   docker compose pull && docker compose up -d
+# Image do GitHub Actions (.github/workflows/release.yml) build và đẩy lên ${IMAGE_REGISTRY}.
+# Giữ đồng bộ với docker-compose.yml ở gốc repo (bản build từ mã nguồn).
+
+name: elearning
+
+x-sql-app: &sql-app "Host=postgres;Port=5432;Database=${DB_NAME:-elearning_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD chưa đặt};Include Error Detail=true"
+
+x-api-env: &api-env
+  ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+  ConnectionStrings__DefaultConnection: *sql-app
+  Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY chưa đặt}
+  Seed__AdminPassword: ${ADMIN_INITIAL_PASSWORD:?ADMIN_INITIAL_PASSWORD chưa đặt}
+  App__PublicOrigin: ${PUBLIC_ORIGIN:-http://localhost:8080}
+  Auth__AllowSelfRegistration: ${ALLOW_SELF_REGISTRATION:-false}
+  # Chỉ tin X-Forwarded-For từ mạng nội bộ của compose (Nginx), xem mạng "backend" bên dưới
+  ReverseProxy__KnownNetworks__0: ${DOCKER_SUBNET:-172.28.0.0/24}
+  TZ: Asia/Ho_Chi_Minh
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-elearning_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ${BACKUP_DIR:-./backups}:/backups
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${DB_NAME:-elearning_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  # Áp migration bằng bundle, trước khi API chạy
+  migrate:
+    image: ${IMAGE_REGISTRY:-ghcr.io/phongthans}/elearning-migrator:${IMAGE_TAG:-latest}
+    command: ["--connection", *sql-app]
+    environment:
+      ConnectionStrings__DefaultConnection: *sql-app
+    networks: [backend]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # Seed role, permission, admin khởi tạo (admin phải đổi mật khẩu lần đầu; không có dữ liệu demo)
+  seed:
+    image: ${IMAGE_REGISTRY:-ghcr.io/phongthans}/elearning-api:${IMAGE_TAG:-latest}
+    command: ["--seed"]
+    environment: *api-env
+    networks: [backend]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # Thư mục ảnh câu hỏi thuộc user của API (uid 1654)
+  media-init:
+    image: ${IMAGE_REGISTRY:-ghcr.io/phongthans}/elearning-api:${IMAGE_TAG:-latest}
+    user: "0"
+    entrypoint: ["sh", "-c", "chown -R 1654:1654 /var/lib/elearning/media"]
+    volumes:
+      - ${MEDIA_DIR:-./media}:/var/lib/elearning/media
+    network_mode: none
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    image: ${IMAGE_REGISTRY:-ghcr.io/phongthans}/elearning-api:${IMAGE_TAG:-latest}
+    environment: *api-env
+    volumes:
+      - ${MEDIA_DIR:-./media}:/var/lib/elearning/media
+    networks: [backend]
+    depends_on:
+      media-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  web:
+    image: ${IMAGE_REGISTRY:-ghcr.io/phongthans}/elearning-web:${IMAGE_TAG:-latest}
+    environment:
+      API_UPSTREAM: api:8080
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    networks: [backend]
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Giám sát: mỗi phút gọi /health/ready, /health/alerts, trang chủ; webhook ALERT_WEBHOOK_URL khi đổi trạng thái
+  monitor:
+    image: ${IMAGE_REGISTRY:-ghcr.io/phongthans}/elearning-monitor:${IMAGE_TAG:-latest}
+    environment:
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ALERT_WEBHOOK_FIELD: ${ALERT_WEBHOOK_FIELD:-text}
+      ALERT_ENV_NAME: ${ALERT_ENV_NAME:-}
+      DB_NAME: ${DB_NAME:-elearning_db}
+      BACKUP_FULL_MAX_AGE_HOURS: ${BACKUP_FULL_MAX_AGE_HOURS:-}
+      BACKUP_LOG_MAX_AGE_MINUTES: ${BACKUP_LOG_MAX_AGE_MINUTES:-}
+      MONITOR_INTERVAL_SECONDS: ${MONITOR_INTERVAL_SECONDS:-60}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups:ro
+    networks: [backend]
+    depends_on:
+      - web
+    restart: unless-stopped
+
+  # Cloudflare Tunnel (tùy chọn): đưa web ra Internet qua HTTPS mà không mở cổng trên modem.
+  # Bật bằng COMPOSE_PROFILES=tunnel và CLOUDFLARE_TUNNEL_TOKEN trong .env; Public Hostname trỏ tới http://web:80.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    networks: [backend]
+    depends_on:
+      - web
+    restart: unless-stopped
+    profiles: [tunnel]
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: ${DOCKER_SUBNET:-172.28.0.0/24}
+
+volumes:
+  pgdata:

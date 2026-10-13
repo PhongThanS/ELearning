@@ -83,21 +83,14 @@ public sealed class AuthController(
     public async Task<ActionResult> ChangePassword(ChangePasswordRequest request, CancellationToken ct) =>
         SessionResponse(await auth.ChangePasswordAsync(currentUser.RequiredUserId, request, ct));
 
-    /// <summary>MVP: Mock email sending</summary>
+    /// <summary>MVP: không gửi email; luôn trả 200 để không lộ email có tồn tại hay không.</summary>
     [HttpPost("forgot-password")]
     [AllowAnonymous]
     [EnableRateLimiting(RateLimitPolicies.AuthLogin)]
     [ProducesResponseType<ApiResponse<object>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken ct)
-    {
-        var result = await auth.ForgotPasswordAsync(request, ct);
-        string message = "Nếu email hợp lệ, mật khẩu mới sẽ được gửi đến email của bạn.";
-        if (result.IsSuccess && !string.IsNullOrEmpty(result.Value))
-        {
-            message = $"Mật khẩu mới của bạn là: {result.Value} (Vui lòng dùng mật khẩu này để đăng nhập)";
-        }
-        return Ok(new ApiResponse<object>(true, null, message, [], TraceId));
-    }
+    public ActionResult ForgotPassword() =>
+        Ok(new ApiResponse<object>(
+            true, null, "Vui lòng liên hệ quản trị viên để được đặt lại mật khẩu.", [], TraceId));
 
     private ActionResult SessionResponse(Result<AuthSession> result)
     {

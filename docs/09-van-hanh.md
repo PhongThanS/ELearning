@@ -128,6 +128,8 @@ docker compose up -d --build
 **Production có HTTPS:** đặt `fullchain.pem`, `privkey.pem` vào `deploy/certs/`, đặt `SERVER_NAME`, `PUBLIC_ORIGIN=https://<domain>`, rồi
 `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build`. Nếu TLS kết thúc ở load balancer phía trước thì giữ cấu hình HTTP và bật module realip của Nginx.
 
+**Máy chủ chỉ kéo image (không cần mã nguồn):** GitHub Actions `release.yml` build `elearning-api`, `elearning-migrator`, `elearning-web`, `elearning-monitor` và đẩy lên `ghcr.io/phongthans/*` (tag `latest`, `sha-xxxxxxx`, `x.y.z` khi đẩy tag `v*`). Máy chủ chỉ cần thư mục `deploy/server/` (compose + `.env`) rồi `docker compose pull && docker compose up -d`; chi tiết `deploy/server/README.md`. Template HTTPS và script giám sát nằm sẵn trong image.
+
 **Cập nhật phiên bản:** `docker compose build` → `docker compose up -d`. `migrate` / `db-init` / `seed` chạy lại (idempotent) trước khi `api` mới khởi động. Không deploy khi có đề đang mở (mục 5).
 
 **Ghi chú:**

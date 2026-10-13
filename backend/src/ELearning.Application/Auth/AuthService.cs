@@ -26,8 +26,6 @@ public interface IAuthService
     Task<Result<AuthUserDto>> GetMeAsync(Guid userId, CancellationToken ct);
 
     Task<Result<AuthSession>> ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken ct);
-
-    Task<Result<string>> ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct);
 }
 
 /// <summary>Xác thực: docs/07-bao-mat.md mục 2–3, docs/05-api.md mục 6.1.</summary>
@@ -279,21 +277,4 @@ internal sealed class AuthService(
     }
 
     private static string? Truncate(string? value, int max) => value is not null && value.Length > max ? value[..max] : value;
-
-    public async Task<Result<string>> ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken ct)
-    {
-        var user = await db.Users.SingleOrDefaultAsync(u => u.Email == request.Email, ct);
-        if (user == null || !user.IsActive)
-        {
-            return Result.Success("");
-        }
-
-        string newPassword = Random.Shared.Next(100000, 999999).ToString();
-        user.SetPassword(passwordHasher.Hash(user, newPassword), mustChangePassword: true, Now);
-        
-        audit.Write("AUTH_FORGOT_PASSWORD", nameof(User), user.Id, userId: user.Id);
-        await db.SaveChangesAsync(ct);
-        
-        return Result.Success(newPassword);
-    }
 }

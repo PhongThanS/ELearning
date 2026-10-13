@@ -14,6 +14,8 @@ FROM nginx:1.29-alpine
 RUN rm /etc/nginx/conf.d/default.conf
 COPY deploy/nginx/snippets/ /etc/nginx/snippets/
 COPY deploy/nginx/conf.d/ /etc/nginx/templates/
+# Bản HTTPS: chọn bằng NGINX_ENVSUBST_TEMPLATE_DIR=/etc/nginx/templates-tls (deploy/server/docker-compose.https.yml)
+COPY deploy/nginx/tls/ /etc/nginx/templates-tls/
 COPY deploy/nginx/errors/ /usr/share/nginx/errors/
 COPY --from=build /app/dist /usr/share/nginx/html
 # Image nginx chính thức render /etc/nginx/templates/*.template bằng envsubst lúc khởi động
