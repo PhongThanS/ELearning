@@ -24,7 +24,10 @@ Tag: `latest` = bản mới nhất của `main`; `sha-xxxxxxx` = đúng một co
 
 ## 2. Quyền tải image
 
-Package trên ghcr.io mặc định **riêng tư**. Chọn một trong hai:
+Repo đang **công khai** nên image cũng công khai: `docker compose pull` chạy được ngay, không cần đăng nhập.
+Image không chứa bí mật (mật khẩu / khóa nằm trong `.env` trên máy chủ).
+
+Nếu sau này chuyển repo sang riêng tư thì package cũng riêng tư; khi đó chọn một trong hai:
 
 - **Đăng nhập trên máy chủ (giữ riêng tư):** GitHub → Settings → Developer settings → Personal access tokens →
   *Tokens (classic)* → tạo token chỉ có quyền `read:packages`. Trên máy chủ:
