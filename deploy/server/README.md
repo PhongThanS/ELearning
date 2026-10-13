@@ -86,7 +86,20 @@ Database tự cập nhật (`migrate`) trước khi API mới chạy. Không c�
 trong `.env`, rồi `docker compose pull && docker compose up -d`. Lưu ý: chỉ quay lại được khi bản mới chưa đổi
 cấu trúc database theo cách bản cũ không đọc được.
 
-## 6. Lưu ý
+## 6. Đưa ra Internet bằng Cloudflare Tunnel
+
+Không cần mở cổng trên modem, có HTTPS tự động. Cần một tên miền đã chuyển về Cloudflare.
+
+1. Cloudflare → Zero Trust → Networks → Tunnels → *Create a tunnel* → Cloudflared → đặt tên → copy **token**
+   (chuỗi sau `--token` trong lệnh mẫu).
+2. *Public Hostname*: subdomain `thi`, domain của bạn, Service **HTTP**, URL **`web:80`** → Save.
+3. Trong `.env`: bỏ `#` ở `COMPOSE_PROFILES=tunnel`, dán token vào `CLOUDFLARE_TUNNEL_TOKEN=`,
+   đặt `PUBLIC_ORIGIN=https://thi.<tên miền>`.
+4. `docker compose up -d` rồi `docker compose logs tunnel` phải có `Registered tunnel connection`.
+
+Không dùng `docker-compose.https.yml` cùng tunnel (HTTPS do Cloudflare lo).
+
+## 7. Lưu ý
 
 - Dữ liệu nằm trong volume Docker `elearning_pgdata` và thư mục `media/` (ảnh câu hỏi). Xóa volume là mất dữ liệu.
 - Backup: script trong `deploy/scripts/` hiện vẫn viết cho SQL Server, **chưa dùng được với PostgreSQL**;

@@ -116,6 +116,19 @@ services:
       - web
     restart: unless-stopped
 
+  # Cloudflare Tunnel (tùy chọn): đưa web ra Internet qua HTTPS mà không mở cổng trên modem.
+  # Bật bằng COMPOSE_PROFILES=tunnel và CLOUDFLARE_TUNNEL_TOKEN trong .env; Public Hostname trỏ tới http://web:80.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    networks: [backend]
+    depends_on:
+      - web
+    restart: unless-stopped
+    profiles: [tunnel]
+
 networks:
   backend:
     ipam:
