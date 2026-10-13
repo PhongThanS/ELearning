@@ -1,0 +1,15 @@
+# HTTPS do Nginx tự phục vụ (TLS + HSTS, HTTP chuyển hướng sang HTTPS).
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
+# Chuẩn bị: đặt fullchain.pem và privkey.pem vào ${CERT_DIR:-./certs}; đặt SERVER_NAME và
+# PUBLIC_ORIGIN=https://<domain> trong .env. Template HTTPS có sẵn trong image web.
+
+services:
+  web:
+    environment:
+      SERVER_NAME: ${SERVER_NAME:?SERVER_NAME chưa đặt}
+      NGINX_ENVSUBST_TEMPLATE_DIR: /etc/nginx/templates-tls
+    ports: !override
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ${CERT_DIR:-./certs}:/etc/nginx/certs:ro
