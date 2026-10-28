@@ -6,6 +6,7 @@ public sealed class Role : Entity
 {
     public const string AdminCode = "ADMIN";
     public const string StudentCode = "STUDENT";
+    public const string TeacherCode = "TEACHER";
 
     private readonly List<RolePermission> _permissions = [];
 

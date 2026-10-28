@@ -57,6 +57,7 @@ export function UsersPage() {
           <Form.Select size="sm" aria-label="Vai trò" value={String(list.state.roleCode ?? "")} onChange={(e) => list.setFilter({ roleCode: e.target.value })}>
             <option value="">Mọi vai trò</option>
             <option value="ADMIN">ADMIN</option>
+            <option value="TEACHER">TEACHER</option>
             <option value="STUDENT">STUDENT</option>
           </Form.Select>
         </Col>
@@ -394,6 +395,8 @@ export function UserDetailPage() {
         </Col>
       </Row>
 
+      <UserExamsSection userId={id} />
+
       <ConfirmDialog
         show={dialog === "status"}
         title={u.isActive ? "Vô hiệu hóa tài khoản" : "Kích hoạt tài khoản"}
@@ -429,6 +432,211 @@ export function UserDetailPage() {
       />
       <TemporaryPasswordModal result={tempPassword} onHide={() => setTempPassword(null)} />
     </>
+  );
+}
+
+function UserExamsSection({ userId }: { userId: string }) {
+  const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "history">("all");
+  const examsQuery = useQuery({
+    queryKey: ["user-exams", userId],
+    queryFn: () => usersApi.exams(userId, { pageSize: 100 }),
+  });
+  const historyQuery = useQuery({
+    queryKey: ["user-history", userId],
+    queryFn: () => usersApi.history(userId, { pageSize: 100 }),
+  });
+
+  const exams = examsQuery.data?.items ?? [];
+  const history = historyQuery.data?.items ?? [];
+
+  const completedExams = exams.filter((e) => e.usedAttempts > 0);
+  const notStartedExams = exams.filter((e) => e.usedAttempts === 0 && !e.inProgressAttemptId);
+
+  const totalAssigned = exams.length;
+  const completionPct = totalAssigned > 0 ? Math.round((completedExams.length / totalAssigned) * 100) : 0;
+
+  const filteredExams = exams.filter((e) => {
+    if (filter === "completed") return e.usedAttempts > 0;
+    if (filter === "notStarted") return e.usedAttempts === 0 && !e.inProgressAttemptId;
+    return true;
+  });
+
+  return (
+    <Card className="mt-3">
+      <Card.Header className="bg-light d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div className="d-flex align-items-center gap-2">
+          <i className="bi bi-journal-check text-primary fs-5" />
+          <span className="fw-bold">Bài tập & Đề thi của học sinh</span>
+        </div>
+        <div className="btn-group btn-group-sm" role="group">
+          <button
+            type="button"
+            className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-secondary"}`}
+            onClick={() => setFilter("all")}
+          >
+            Tất cả ({totalAssigned})
+          </button>
+          <button
+            type="button"
+            className={`btn ${filter === "completed" ? "btn-success" : "btn-outline-secondary"}`}
+            onClick={() => setFilter("completed")}
+          >
+            Đã làm ({completedExams.length})
+          </button>
+          <button
+            type="button"
+            className={`btn ${filter === "notStarted" ? "btn-danger" : "btn-outline-secondary"}`}
+            onClick={() => setFilter("notStarted")}
+          >
+            Chưa làm ({notStartedExams.length})
+          </button>
+          <button
+            type="button"
+            className={`btn ${filter === "history" ? "btn-info text-white" : "btn-outline-secondary"}`}
+            onClick={() => setFilter("history")}
+          >
+            Lịch sử làm bài ({history.length})
+          </button>
+        </div>
+      </Card.Header>
+      <Card.Body>
+        {examsQuery.isLoading && <Loading />}
+        {examsQuery.error && <ErrorAlert error={examsQuery.error} />}
+        {!examsQuery.isLoading && !examsQuery.error && (
+          <>
+            <Row className="g-2 mb-3 text-center">
+              <Col xs={6} md={3}>
+                <div className="p-2 border rounded bg-light">
+                  <div className="text-secondary small">Được giao</div>
+                  <div className="fs-5 fw-bold text-dark">{totalAssigned}</div>
+                </div>
+              </Col>
+              <Col xs={6} md={3}>
+                <div className="p-2 border rounded bg-light">
+                  <div className="text-success small fw-semibold">Đã làm</div>
+                  <div className="fs-5 fw-bold text-success">{completedExams.length}</div>
+                </div>
+              </Col>
+              <Col xs={6} md={3}>
+                <div className="p-2 border rounded bg-light">
+                  <div className="text-danger small fw-semibold">Chưa làm</div>
+                  <div className="fs-5 fw-bold text-danger">{notStartedExams.length}</div>
+                </div>
+              </Col>
+              <Col xs={6} md={3}>
+                <div className="p-2 border rounded bg-light">
+                  <div className="text-primary small fw-semibold">Tỷ lệ hoàn thành</div>
+                  <div className="fs-5 fw-bold text-primary">{completionPct}%</div>
+                </div>
+              </Col>
+            </Row>
+
+            {filter === "history" ? (
+              history.length === 0 ? (
+                <div className="text-muted text-center py-3">Học sinh chưa có lịch sử làm bài thi nào.</div>
+              ) : (
+                <div className="table-responsive border rounded">
+                  <Table hover size="sm" className="mb-0 align-middle">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Tên bài thi</th>
+                        <th className="text-center">Lượt thi</th>
+                        <th className="text-center">Điểm số</th>
+                        <th className="text-center">Trạng thái</th>
+                        <th className="text-end">Thời gian nộp</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {history.map((h) => (
+                        <tr key={h.attemptId}>
+                          <td>
+                            <div className="fw-semibold">{h.examName}</div>
+                            <div className="text-muted small font-monospace">{h.examCode}</div>
+                          </td>
+                          <td className="text-center">Lần {h.attemptNumber}</td>
+                          <td className="text-center">
+                            {h.totalScore !== null ? (
+                              <span className="fw-bold text-primary">
+                                {h.totalScore} {h.maxScore ? `/ ${h.maxScore}` : ""}
+                                {h.percentage !== null && <span className="small text-muted ms-1">({h.percentage}%)</span>}
+                              </span>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                          <td className="text-center">
+                            <Badge bg={h.passed === true ? "success" : h.passed === false ? "danger" : "secondary"}>
+                              {h.passed === true ? "Đạt" : h.passed === false ? "Chưa đạt" : h.status}
+                            </Badge>
+                          </td>
+                          <td className="text-end text-muted small">
+                            {h.submittedAt ? formatDateTime(h.submittedAt) : formatDateTime(h.startedAt)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                </div>
+              )
+            ) : filteredExams.length === 0 ? (
+              <div className="text-muted text-center py-3">Không có bài tập nào trong mục này.</div>
+            ) : (
+              <div className="table-responsive border rounded">
+                <Table hover size="sm" className="mb-0 align-middle">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Tên bài tập / Đề thi</th>
+                      <th className="text-center">Thời lượng</th>
+                      <th className="text-center">Số câu</th>
+                      <th className="text-center">Lượt làm</th>
+                      <th className="text-center">Trạng thái</th>
+                      <th className="text-center">Điểm số</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredExams.map((e) => {
+                      const isCompleted = e.usedAttempts > 0;
+                      const isInProgress = Boolean(e.inProgressAttemptId);
+                      return (
+                        <tr key={e.examId}>
+                          <td>
+                            <div className="fw-semibold">{e.name}</div>
+                            <div className="text-muted small font-monospace">{e.code}</div>
+                          </td>
+                          <td className="text-center small">{e.durationMinutes} phút</td>
+                          <td className="text-center small">{e.questionCount} câu</td>
+                          <td className="text-center small">
+                            <span className="badge bg-light text-dark border">
+                              {e.usedAttempts} / {e.maxAttempts === 0 ? "∞" : e.maxAttempts}
+                            </span>
+                          </td>
+                          <td className="text-center">
+                            {isCompleted ? (
+                              <Badge bg="success">Đã làm</Badge>
+                            ) : isInProgress ? (
+                              <Badge bg="warning" text="dark">Đang làm</Badge>
+                            ) : (
+                              <Badge bg="secondary">Chưa làm</Badge>
+                            )}
+                          </td>
+                          <td className="text-center">
+                            {e.officialScore !== null ? (
+                              <span className="fw-bold text-primary">{e.officialScore}</span>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </div>
+            )}
+          </>
+        )}
+      </Card.Body>
+    </Card>
   );
 }
 

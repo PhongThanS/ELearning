@@ -78,7 +78,8 @@ public sealed record AttemptQuestionDto(
     AnswerDataType? AnswerDataType,
     decimal Score,
     IReadOnlyList<PlayerOptionDto> Options,
-    AttemptAnswerStateDto Answer);
+    AttemptAnswerStateDto Answer,
+    int? ExpectedLength = null);
 
 public sealed record AttemptDto(
     Guid AttemptId,

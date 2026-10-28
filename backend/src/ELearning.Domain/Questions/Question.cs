@@ -183,9 +183,9 @@ public sealed class Question : Entity, IHasRowVersion
 
                 break;
             case QuestionType.TrueFalse:
-                if (codes.Count != 2 || !codes.Contains(TrueCode) || !codes.Contains(FalseCode) || correctCount != 1)
+                if (data.Options.Count is < 1 or > 6)
                 {
-                    errors.Add("Câu Đúng/Sai phải có đúng 2 lựa chọn TRUE, FALSE và 1 đáp án đúng.");
+                    errors.Add("Câu Đúng/Sai phải có từ 1 đến 6 mệnh đề phát biểu.");
                 }
 
                 break;

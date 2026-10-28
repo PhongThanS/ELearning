@@ -43,6 +43,10 @@ public interface IExamVersionService
 
     Task<Result<VersionDetailDto>> RemovePoolRuleAsync(Guid examId, Guid versionId, Guid poolRuleId, CancellationToken ct);
 
+    Task<Result<MatrixStatsDto>> GetMatrixStatsAsync(Guid examId, Guid versionId, MatrixStatsQuery query, CancellationToken ct);
+
+    Task<Result<VersionDetailDto>> MatrixDrawAsync(Guid examId, Guid versionId, MatrixDrawRequest request, CancellationToken ct);
+
     Task<Result<PublishValidationDto>> ValidateAsync(Guid examId, Guid versionId, CancellationToken ct);
 
     Task<Result<VersionDetailDto>> PublishAsync(Guid examId, Guid versionId, CancellationToken ct);
@@ -56,7 +60,8 @@ internal sealed class ExamVersionService(
     TimeProvider time,
     MediaLinks mediaLinks,
     IValidator<UpdateVersionRequest> updateValidator,
-    IValidator<AddVersionQuestionsRequest> addQuestionsValidator) : IExamVersionService
+    IValidator<AddVersionQuestionsRequest> addQuestionsValidator,
+    IValidator<MatrixDrawRequest> matrixDrawValidator) : IExamVersionService
 {
     private static readonly Error VersionNotFound = Error.NotFound(message: "Không tìm thấy phiên bản đề.");
 
@@ -379,6 +384,236 @@ internal sealed class ExamVersionService(
         return await ToDetailAsync(version, ct);
     }
 
+    public async Task<Result<MatrixStatsDto>> GetMatrixStatsAsync(
+        Guid examId, Guid versionId, MatrixStatsQuery query, CancellationToken ct)
+    {
+        var version = await LoadVersionAsync(examId, versionId, tracking: false, ct);
+        if (version is null)
+        {
+            return VersionNotFound;
+        }
+
+        var existingSourceIds = version.Questions
+            .Where(q => q.SourceQuestionId.HasValue)
+            .Select(q => q.SourceQuestionId!.Value)
+            .ToHashSet();
+
+        var baseQuery = db.Questions.AsNoTracking()
+            .Where(q => q.IsActive && !existingSourceIds.Contains(q.Id));
+
+        if (query.CategoryId.HasValue)
+        {
+            baseQuery = baseQuery.Where(q => q.CategoryId == query.CategoryId.Value);
+        }
+
+        if (query.QuestionType.HasValue)
+        {
+            baseQuery = baseQuery.Where(q => q.QuestionType == query.QuestionType.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(query.Tag))
+        {
+            var tag = Question.NormalizeTag(query.Tag);
+            baseQuery = baseQuery.Where(q => q.Tags.Any(t => t.Tag == tag));
+        }
+
+        var stats = await baseQuery
+            .GroupBy(q => q.Difficulty)
+            .Select(g => new { Difficulty = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var easy = stats.FirstOrDefault(s => s.Difficulty == QuestionDifficulty.Easy)?.Count ?? 0;
+        var medium = stats.FirstOrDefault(s => s.Difficulty == QuestionDifficulty.Medium)?.Count ?? 0;
+        var hard = stats.FirstOrDefault(s => s.Difficulty == QuestionDifficulty.Hard)?.Count ?? 0;
+        var unspecified = stats.FirstOrDefault(s => s.Difficulty == null)?.Count ?? 0;
+        var total = easy + medium + hard + unspecified;
+
+        return Result<MatrixStatsDto>.Success(new MatrixStatsDto(total, easy, medium, hard, unspecified));
+    }
+
+    public async Task<Result<VersionDetailDto>> MatrixDrawAsync(
+        Guid examId, Guid versionId, MatrixDrawRequest request, CancellationToken ct)
+    {
+        var errors = await matrixDrawValidator.ValidateToErrorsAsync(request, ct);
+        if (errors.Count > 0)
+        {
+            return Result<VersionDetailDto>.Failure(errors);
+        }
+
+        var version = await LoadVersionAsync(examId, versionId, tracking: true, ct);
+        if (version is null)
+        {
+            return VersionNotFound;
+        }
+
+        version.EnsureDraft();
+
+        var totalRequested = request.EasyCount + request.MediumCount + request.HardCount;
+        if (version.EffectiveQuestionCount + totalRequested > ExamVersion.MaxQuestions)
+        {
+            return Error.Validation(
+                "TOO_MANY_QUESTIONS",
+                $"Thêm {totalRequested} câu sẽ vượt quá giới hạn tối đa {ExamVersion.MaxQuestions} câu của đề thi (hiện có {version.EffectiveQuestionCount} câu).",
+                "totalCount");
+        }
+
+        if (request.Mode == MatrixDrawMode.Static)
+        {
+            var existingSourceIds = version.Questions
+                .Where(q => q.SourceQuestionId.HasValue)
+                .Select(q => q.SourceQuestionId!.Value)
+                .ToHashSet();
+
+            var baseQuery = db.Questions.AsNoTracking()
+                .Where(q => q.IsActive && !existingSourceIds.Contains(q.Id));
+
+            if (request.CategoryId.HasValue)
+            {
+                baseQuery = baseQuery.Where(q => q.CategoryId == request.CategoryId.Value);
+            }
+
+            if (request.QuestionType.HasValue)
+            {
+                baseQuery = baseQuery.Where(q => q.QuestionType == request.QuestionType.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Tag))
+            {
+                var tag = Question.NormalizeTag(request.Tag);
+                baseQuery = baseQuery.Where(q => q.Tags.Any(t => t.Tag == tag));
+            }
+
+            var easyCandidates = request.EasyCount > 0
+                ? await baseQuery.Where(q => q.Difficulty == QuestionDifficulty.Easy)
+                    .Include(q => q.Options).Include(q => q.AcceptedAnswers)
+                    .ToListAsync(ct)
+                : [];
+
+            var mediumCandidates = request.MediumCount > 0
+                ? await baseQuery.Where(q => q.Difficulty == QuestionDifficulty.Medium)
+                    .Include(q => q.Options).Include(q => q.AcceptedAnswers)
+                    .ToListAsync(ct)
+                : [];
+
+            var hardCandidates = request.HardCount > 0
+                ? await baseQuery.Where(q => q.Difficulty == QuestionDifficulty.Hard)
+                    .Include(q => q.Options).Include(q => q.AcceptedAnswers)
+                    .ToListAsync(ct)
+                : [];
+
+            if (easyCandidates.Count < request.EasyCount)
+            {
+                return Error.Validation(
+                    "INSUFFICIENT_EASY_QUESTIONS",
+                    $"Ngân hàng chỉ còn {easyCandidates.Count} câu Dễ khả dụng, không đủ {request.EasyCount} câu yêu cầu.",
+                    "easyCount");
+            }
+
+            if (mediumCandidates.Count < request.MediumCount)
+            {
+                return Error.Validation(
+                    "INSUFFICIENT_MEDIUM_QUESTIONS",
+                    $"Ngân hàng chỉ còn {mediumCandidates.Count} câu Trung bình khả dụng, không đủ {request.MediumCount} câu yêu cầu.",
+                    "mediumCount");
+            }
+
+            if (hardCandidates.Count < request.HardCount)
+            {
+                return Error.Validation(
+                    "INSUFFICIENT_HARD_QUESTIONS",
+                    $"Ngân hàng chỉ còn {hardCandidates.Count} câu Khó khả dụng, không đủ {request.HardCount} câu yêu cầu.",
+                    "hardCount");
+            }
+
+            var chosen = new List<Question>();
+            if (request.EasyCount > 0)
+            {
+                var arr = easyCandidates.ToArray();
+                Random.Shared.Shuffle(arr);
+                chosen.AddRange(arr.Take(request.EasyCount));
+            }
+            if (request.MediumCount > 0)
+            {
+                var arr = mediumCandidates.ToArray();
+                Random.Shared.Shuffle(arr);
+                chosen.AddRange(arr.Take(request.MediumCount));
+            }
+            if (request.HardCount > 0)
+            {
+                var arr = hardCandidates.ToArray();
+                Random.Shared.Shuffle(arr);
+                chosen.AddRange(arr.Take(request.HardCount));
+            }
+
+            foreach (var q in chosen)
+            {
+                version.AddQuestion(q, request.ScorePerQuestion, Now);
+            }
+
+            audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, newValue: new
+            {
+                MatrixDrawMode = "STATIC",
+                request.CategoryId,
+                request.EasyCount,
+                request.MediumCount,
+                request.HardCount,
+                request.ScorePerQuestion,
+                AddedCount = chosen.Count,
+                QuestionIds = chosen.Select(q => q.Id).ToList()
+            });
+
+            await db.SaveChangesAsync(ct);
+            return await ToDetailAsync(version, ct);
+        }
+        else // MatrixDrawMode.Pool
+        {
+            var diffItems = new (QuestionDifficulty Difficulty, int Count)[]
+            {
+                (QuestionDifficulty.Easy, request.EasyCount),
+                (QuestionDifficulty.Medium, request.MediumCount),
+                (QuestionDifficulty.Hard, request.HardCount)
+            }.Where(x => x.Count > 0).ToList();
+
+            var score = request.ScorePerQuestion ?? 1m;
+            var addedRuleIds = new List<Guid>();
+
+            foreach (var item in diffItems)
+            {
+                var criteria = new PoolRuleCriteria(request.CategoryId, item.Difficulty, request.Tag, request.QuestionType);
+                var candidates = await LoadPoolCandidatesAsync(version, criteria, excludeRuleId: null, ct);
+                if (candidates.IsFailure)
+                {
+                    return Result<VersionDetailDto>.Failure(candidates.Errors);
+                }
+
+                if (candidates.Value.Count < item.Count)
+                {
+                    return Error.Validation(
+                        "INSUFFICIENT_POOL_CANDIDATES",
+                        $"Số câu ứng viên ({candidates.Value.Count}) cho mức độ {item.Difficulty} không đủ số câu bốc {item.Count}.",
+                        "drawCount");
+                }
+
+                var rule = version.AddPoolRule(criteria, item.Count, score, candidates.Value, Now);
+                addedRuleIds.Add(rule.Id);
+            }
+
+            audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, newValue: new
+            {
+                MatrixDrawMode = "POOL",
+                request.CategoryId,
+                request.EasyCount,
+                request.MediumCount,
+                request.HardCount,
+                ScorePerQuestion = score,
+                PoolRuleIds = addedRuleIds
+            });
+
+            await db.SaveChangesAsync(ct);
+            return await ToDetailAsync(version, ct);
+        }
+    }
+
     /// <summary>
     /// Câu ứng viên: đang hoạt động, khớp mọi tiêu chí, chưa có trong version (trừ câu của chính quy tắc đang làm mới).
     /// Đếm trước để không nạp cả ngân hàng khi tiêu chí quá rộng.
@@ -525,6 +760,12 @@ internal sealed class ExamVersionService(
             options = [.. options.OrderBy(o => Array.IndexOf(codes, o.OptionCode))];
         }
 
+        int? expectedLength = q.QuestionType == QuestionType.FillIn
+            ? (q.CorrectAnswerNumber != null
+                ? q.CorrectAnswerNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',').Length
+                : q.AcceptedAnswers.FirstOrDefault()?.AnswerText?.Length)
+            : null;
+
         return new PlayerQuestionDto(
             id,
             order,
@@ -533,7 +774,8 @@ internal sealed class ExamVersionService(
             q.QuestionType,
             q.AnswerDataType,
             q.Score,
-            options.Select(o => new PlayerOptionDto(o.OptionCode, o.Content)).ToList());
+            options.Select(o => new PlayerOptionDto(o.OptionCode, o.Content)).ToList(),
+            expectedLength);
     }
 
     private Task<ExamVersion?> LoadVersionAsync(Guid examId, Guid versionId, bool tracking, CancellationToken ct)

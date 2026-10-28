@@ -395,6 +395,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly?>("EndDate")
                         .HasColumnType("date");
 
+                    b.Property<Guid?>("HomeroomTeacherId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -429,6 +432,8 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UQ_Classrooms_Code");
 
                     b.HasIndex("CreatedBy");
+
+                    b.HasIndex("HomeroomTeacherId");
 
                     b.HasIndex("UpdatedBy");
 
@@ -1972,6 +1977,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_Classrooms_CreatedBy");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("HomeroomTeacherId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_Classrooms_HomeroomTeacher");
 
                     b.HasOne("ELearning.Domain.Identity.User", null)
                         .WithMany()

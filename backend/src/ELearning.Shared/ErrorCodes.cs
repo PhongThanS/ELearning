@@ -32,6 +32,7 @@ public static class ErrorCodes
     public const string ClassroomInUse = "CLASSROOM_IN_USE";
     public const string QuestionNotFound = "QUESTION_NOT_FOUND";
     public const string MediaNotFound = "MEDIA_NOT_FOUND";
+    public const string UserNotFound = "USER_NOT_FOUND";
 
     // 409
     public const string ConcurrencyConflict = "CONCURRENCY_CONFLICT";

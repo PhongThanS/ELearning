@@ -560,7 +560,8 @@ internal sealed class AttemptService(
                     answer.SelectedOptions.Select(o => o.OptionCode).Order(StringComparer.Ordinal).ToList(),
                     answer.AnswerText,
                     answer.IsMarkedForReview,
-                    answer.ClientSeq));
+                    answer.ClientSeq),
+                player.ExpectedLength);
         }).ToList();
 
         return new AttemptDto(
@@ -599,19 +600,19 @@ internal sealed class AttemptService(
             return (null, text, null);
         }
 
-        if (text is not null)
+        if (text is not null && question.QuestionType != QuestionType.TrueFalse)
         {
             return (Error.Business(ErrorCodes.InvalidAnswerShape, "Câu trắc nghiệm không nhận câu trả lời dạng chữ.") with { Field = $"{field}.answerText" }, null, null);
         }
 
-        if (question.QuestionType is QuestionType.SingleChoice or QuestionType.TrueFalse && codes.Count > 1)
+        if (question.QuestionType is QuestionType.SingleChoice && codes.Count > 1)
         {
             return (Error.Business(ErrorCodes.InvalidAnswerShape, "Câu này chỉ được chọn một lựa chọn.") with { Field = $"{field}.selectedOptions" }, null, null);
         }
 
         var valid = question.Options.Select(o => o.OptionCode).ToHashSet(StringComparer.Ordinal);
         return codes.TrueForAll(valid.Contains)
-            ? (null, null, null)
+            ? (null, text, null)
             : (Error.Business(ErrorCodes.InvalidOption, "Lựa chọn không thuộc câu hỏi.") with { Field = $"{field}.selectedOptions" }, null, null);
     }
 

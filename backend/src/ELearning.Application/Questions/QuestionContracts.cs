@@ -147,7 +147,7 @@ internal class QuestionInputValidator<T> : AbstractValidator<T>
         When(q => q.QuestionType is QuestionType.SingleChoice or QuestionType.MultipleChoice, () =>
         {
             RuleFor(q => q.Options).NotNull().WithErrorCode("OPTIONS_REQUIRED").WithMessage("Vui lòng nhập các lựa chọn.")
-                .Must(o => o!.Count is >= Question.MinOptions and <= Question.MaxOptions)
+                .Must(o => o is not null && o.Count is >= Question.MinOptions and <= Question.MaxOptions)
                 .WithErrorCode("OPTIONS_COUNT_INVALID")
                 .WithMessage($"Câu trắc nghiệm phải có từ {Question.MinOptions} đến {Question.MaxOptions} lựa chọn.");
             RuleForEach(q => q.Options).ChildRules(option =>
@@ -170,12 +170,14 @@ internal class QuestionInputValidator<T> : AbstractValidator<T>
         });
 
         When(q => q.QuestionType == QuestionType.TrueFalse, () =>
-            RuleFor(q => q.Options).NotNull().WithErrorCode("OPTIONS_REQUIRED").WithMessage("Vui lòng chọn đáp án đúng.")
-                .Must(o => o!.Count == 2
-                    && o.Select(x => x.OptionCode?.Trim().ToUpperInvariant()).OrderBy(c => c).SequenceEqual([Question.FalseCode, Question.TrueCode])
-                    && o.Count(x => x.IsCorrect) == 1)
+        {
+            RuleFor(q => q.Options).NotNull().WithErrorCode("OPTIONS_REQUIRED").WithMessage("Vui lòng nhập các mệnh đề phát biểu.")
+                .Must(o => o is not null && o.Count is >= 1 and <= 6)
                 .WithErrorCode("TRUE_FALSE_INVALID")
-                .WithMessage("Câu Đúng/Sai phải có 2 lựa chọn TRUE, FALSE và đúng 1 đáp án đúng."));
+                .WithMessage("Câu Đúng/Sai phải có từ 1 đến 6 mệnh đề phát biểu.");
+            RuleFor(q => q.Options).Must(HaveUniqueCodes)
+                .WithErrorCode("OPTION_CODE_DUPLICATE").WithMessage("Mã mệnh đề bị trùng.");
+        });
 
         When(q => q.QuestionType == QuestionType.Essay, () =>
         {

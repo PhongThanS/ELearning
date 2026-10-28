@@ -21,7 +21,7 @@ public static partial class NumericAnswerParser
             return false;
         }
 
-        var text = input.Trim();
+        var text = input.Trim().Replace('−', '-').Replace(" ", "");
         if (!NumberRegex().IsMatch(text))
         {
             return false;

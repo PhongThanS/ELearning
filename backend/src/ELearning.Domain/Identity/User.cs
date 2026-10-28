@@ -100,6 +100,12 @@ public sealed class User : Entity, IHasRowVersion
         LastLoginAt = now;
     }
 
+    public void Unlock()
+    {
+        AccessFailedCount = 0;
+        LockoutEnd = null;
+    }
+
     public void UpdateProfile(string email, string fullName, DateTime now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(email);

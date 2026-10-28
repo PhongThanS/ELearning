@@ -64,6 +64,7 @@ public sealed class DatabaseSeeder(
 
         await EnsureRoleAsync(Role.AdminCode, "Quản trị viên", ct);
         await EnsureRoleAsync(Role.StudentCode, "Học viên", ct);
+        await EnsureRoleAsync(Role.TeacherCode, "Giáo viên", ct);
         await db.SaveChangesAsync(ct);
 
         // ADMIN luôn có mọi permission (kể cả permission mới thêm)
@@ -92,6 +93,11 @@ public sealed class DatabaseSeeder(
             .FirstOrDefaultAsync(ct);
         if (existingAdmin is not null)
         {
+            if (existingAdmin.IsLockedOut(Now))
+            {
+                existingAdmin.Unlock();
+                await db.SaveChangesAsync(ct);
+            }
             return existingAdmin;
         }
 
@@ -120,6 +126,25 @@ public sealed class DatabaseSeeder(
         }
 
         var studentRoleId = await db.Roles.Where(r => r.Code == Role.StudentCode).Select(r => r.Id).SingleAsync(ct);
+        var teacherRoleId = await db.Roles.Where(r => r.Code == Role.TeacherCode).Select(r => r.Id).SingleAsync(ct);
+
+        var teacherKey = User.NormalizeKey("teacher01");
+        var teacher = await db.Users.SingleOrDefaultAsync(u => u.NormalizedUserName == teacherKey, ct);
+        if (teacher is null)
+        {
+            teacher = new User("teacher01", "teacher01@elearning.local", "Thầy Nguyễn Văn Giáo", Now);
+            teacher.SetPassword(passwordHasher.Hash(teacher, "Teacher@123456"), mustChangePassword: false, Now);
+            teacher.SetRoles([teacherRoleId], Now);
+            db.Users.Add(teacher);
+            await db.SaveChangesAsync(ct);
+        }
+        else
+        {
+            teacher.Unlock();
+            teacher.SetPassword(passwordHasher.Hash(teacher, "Teacher@123456"), mustChangePassword: false, Now);
+            await db.SaveChangesAsync(ct);
+        }
+
         var students = new List<User>();
         foreach (var (userName, fullName) in new[] { ("student01", "Nguyễn Văn An"), ("student02", "Trần Thị Bình") })
         {
@@ -131,6 +156,11 @@ public sealed class DatabaseSeeder(
                 user.SetPassword(passwordHasher.Hash(user, _options.DevPassword), mustChangePassword: false, Now);
                 user.SetRoles([studentRoleId], Now);
                 db.Users.Add(user);
+            }
+            else if (user.IsLockedOut(Now))
+            {
+                user.Unlock();
+                user.SetPassword(passwordHasher.Hash(user, _options.DevPassword), mustChangePassword: false, Now);
             }
 
             students.Add(user);

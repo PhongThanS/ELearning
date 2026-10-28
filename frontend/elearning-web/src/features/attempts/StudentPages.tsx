@@ -471,64 +471,51 @@ export function ResultPage() {
                   <MarkdownView content={q.content} format={q.contentFormat} />
                 </div>
 
-                {q.type === "ESSAY" ? (
-                  <div className="mt-2">
-                    <div className="small fw-semibold mb-1">{t("result.yourAnswer")}:</div>
-                    <div className="border rounded p-2 small bg-light" style={{ whiteSpace: "pre-wrap" }}>
-                      {q.answerText || <em>{t("result.noAnswer")}</em>}
-                    </div>
-                    {q.manualComment && (
-                      <div className="small mt-2 p-2 rounded bg-info-subtle border border-info">
-                        <strong>{t("result.graderComment")}:</strong> <span style={{ whiteSpace: "pre-wrap" }}>{q.manualComment}</span>
-                      </div>
-                    )}
-                  </div>
+                {q.type === "TRUE_FALSE" ? (
+                  q.options.length === 1 ? (
+                    <SingleTrueFalseReview question={q} />
+                  ) : (
+                    <TrueFalseReviewTable question={q} />
+                  )
                 ) : q.type === "FILL_IN" ? (
-                  <div className="d-flex flex-column gap-2 mb-2">
-                    <div
-                      className={`p-2 px-3 rounded d-flex align-items-center justify-content-between ${
-                        q.isCorrect
-                          ? "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium"
-                          : "border border-2 border-danger bg-danger-subtle text-danger-emphasis fw-medium"
-                      }`}
-                    >
-                      <div className="d-flex align-items-center flex-grow-1 me-2">
-                        <span
-                          className={`badge ${q.isCorrect ? "bg-success" : "bg-danger"} text-white d-inline-flex align-items-center justify-content-center me-2`}
-                          style={{ width: "36px", height: "32px" }}
-                        >
-                          <i className={`bi ${q.isCorrect ? "bi-check-lg" : "bi-x-lg"} fs-5`} />
+                  <div className="d-flex flex-column gap-3 mb-2 p-3 border rounded bg-light">
+                    {/* Dãy ô vuông bài làm của học sinh */}
+                    <div>
+                      <div className="d-flex justify-content-between align-items-center mb-1">
+                        <span className="small fw-bold text-secondary">
+                          {t("result.yourAnswer")} (các ô vuông điền):
                         </span>
-                        <div>
-                          <span className="text-secondary small d-block">{t("result.yourAnswer")}:</span>
-                          <span>{q.answerText || <em>{t("result.noAnswer")}</em>}</span>
-                        </div>
+                        <Badge bg={q.isCorrect ? "success" : "danger"} className="py-1 px-2 d-inline-flex align-items-center gap-1">
+                          <i className={`bi ${q.isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`} />
+                          <span>{q.isCorrect ? "Bạn trả lời đúng" : "Bạn trả lời sai"}</span>
+                        </Badge>
                       </div>
-                      <Badge bg={q.isCorrect ? "success" : "danger"} className="py-1 px-2 d-inline-flex align-items-center gap-1">
-                        <i className={`bi ${q.isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`} />
-                        <span>{q.isCorrect ? "Bạn trả lời đúng" : "Bạn trả lời sai"}</span>
-                      </Badge>
+                      <div className="d-flex align-items-center gap-3">
+                        <SquareGridDisplay value={q.answerText || ""} isCorrect={q.isCorrect} variant="student" />
+                        {q.answerText && (
+                          <span className="text-muted small">({q.answerText})</span>
+                        )}
+                      </div>
                     </div>
 
+                    {/* Dãy ô vuông đáp án đúng nếu trả lời sai */}
                     {!q.isCorrect && (
-                      <div className="p-2 px-3 rounded d-flex align-items-center justify-content-between border border-2 border-success bg-success-subtle text-success-emphasis fw-medium">
-                        <div className="d-flex align-items-center flex-grow-1 me-2">
-                          <span
-                            className="badge bg-success text-white d-inline-flex align-items-center justify-content-center me-2"
-                            style={{ width: "36px", height: "32px" }}
-                          >
-                            <i className="bi bi-check-lg fs-5" />
-                          </span>
-                          <div>
-                            <span className="text-secondary small d-block">{t("result.correctAnswer")}:</span>
-                            <span className="text-success fw-bold">
-                              {q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")}
-                            </span>
-                          </div>
+                      <div className="pt-2 border-top">
+                        <div className="small fw-bold text-success mb-1">
+                          {t("result.correctAnswer")} (chuẩn các ô vuông):
                         </div>
-                        <Badge bg="success" className="py-1 px-2 d-inline-flex align-items-center gap-1">
-                          <i className="bi bi-check-circle-fill" /> Đáp án đúng
-                        </Badge>
+                        {(() => {
+                          const correctStr =
+                            q.answerDataType === "NUMBER"
+                              ? String(formatNumber(q.correctAnswerNumber)).replace(".", ",")
+                              : q.acceptedAnswers[0] || "";
+                          return (
+                            <div className="d-flex align-items-center gap-3">
+                              <SquareGridDisplay value={correctStr} variant="correct" />
+                              <span className="text-success fw-bold small">({correctStr})</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -600,7 +587,7 @@ export function ResultPage() {
                             className="badge bg-white text-muted border me-2 d-inline-flex align-items-center justify-content-center"
                             style={{ width: "36px", height: "32px", fontSize: "0.85rem" }}
                           >
-                            {q.type === "TRUE_FALSE" ? "–" : optionLabel(index)}
+                            {optionLabel(index)}
                           </span>
                         );
                       }
@@ -612,7 +599,7 @@ export function ResultPage() {
                         >
                           <div className="d-flex align-items-center flex-grow-1 me-2">
                             {iconBadge}
-                            {q.type !== "TRUE_FALSE" && (selected || correct) && (
+                            {(selected || correct) && (
                               <strong className="me-2">{optionLabel(index)}.</strong>
                             )}
                             <div className="flex-grow-1">
@@ -704,3 +691,234 @@ export function HistoryPage() {
     </>
   );
 }
+
+/**
+ * Bảng xem lại kết quả câu hỏi trắc nghiệm Đúng / Sai đa mệnh đề
+ */
+function TrueFalseReviewTable({
+  question,
+}: {
+  question: {
+    options: { code: string; content: string }[];
+    answerText: string | null;
+    selectedOptions: string[];
+    correctOptions: string[];
+  };
+}) {
+  let parsedUserChoices: Record<string, boolean> = {};
+  if (question.answerText && question.answerText.trim().startsWith("{")) {
+    try {
+      parsedUserChoices = JSON.parse(question.answerText);
+    } catch {
+      // ignore
+    }
+  } else if (question.selectedOptions && question.selectedOptions.length > 0) {
+    for (const opt of question.options) {
+      parsedUserChoices[opt.code] = question.selectedOptions.includes(opt.code);
+    }
+  }
+
+  return (
+    <div className="table-responsive rounded border mb-2 overflow-hidden shadow-sm">
+      <table className="table table-bordered mb-0 align-middle">
+        <thead style={{ backgroundColor: "#064e3b", color: "#ffffff" }}>
+          <tr>
+            <th style={{ backgroundColor: "#064e3b", color: "#ffffff", padding: "10px 14px" }}>
+              Phát biểu
+            </th>
+            <th style={{ backgroundColor: "#064e3b", color: "#ffffff", width: "120px", textAlign: "center", padding: "10px" }}>
+              Bạn chọn
+            </th>
+            <th style={{ backgroundColor: "#064e3b", color: "#ffffff", width: "120px", textAlign: "center", padding: "10px" }}>
+              Đáp án
+            </th>
+            <th style={{ backgroundColor: "#064e3b", color: "#ffffff", width: "110px", textAlign: "center", padding: "10px" }}>
+              Kết quả
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {question.options.map((opt) => {
+            const hasAnswered = parsedUserChoices[opt.code] !== undefined;
+            const studentSaysTrue = parsedUserChoices[opt.code] === true;
+            const isCorrectTrue = question.correctOptions.includes(opt.code);
+            const isItemCorrect = hasAnswered && studentSaysTrue === isCorrectTrue;
+
+            return (
+              <tr key={opt.code} className={isItemCorrect ? "table-success-subtle" : "table-danger-subtle"}>
+                <td className="py-2 px-3">
+                  <div className="d-flex align-items-baseline gap-2">
+                    <span
+                      className="badge rounded-circle text-white fw-bold d-inline-flex align-items-center justify-content-center flex-shrink-0"
+                      style={{
+                        backgroundColor: "#064e3b",
+                        width: "24px",
+                        height: "24px",
+                        fontSize: "0.82rem",
+                      }}
+                    >
+                      {opt.code}
+                    </span>
+                    <div className="flex-grow-1">
+                      <MarkdownView content={opt.content} inline />
+                    </div>
+                  </div>
+                </td>
+                <td className="text-center">
+                  {!hasAnswered ? (
+                    <span className="text-muted small fst-italic">Chưa chọn</span>
+                  ) : studentSaysTrue ? (
+                    <Badge bg="primary" className="px-2 py-1">Đúng</Badge>
+                  ) : (
+                    <Badge bg="secondary" className="px-2 py-1">Sai</Badge>
+                  )}
+                </td>
+                <td className="text-center">
+                  {isCorrectTrue ? (
+                    <Badge bg="success" className="px-2 py-1">Đúng</Badge>
+                  ) : (
+                    <Badge bg="danger" className="px-2 py-1">Sai</Badge>
+                  )}
+                </td>
+                <td className="text-center">
+                  {isItemCorrect ? (
+                    <span className="text-success fw-bold d-inline-flex align-items-center gap-1">
+                      <i className="bi bi-check-circle-fill" /> Đúng
+                    </span>
+                  ) : (
+                    <span className="text-danger fw-bold d-inline-flex align-items-center gap-1">
+                      <i className="bi bi-x-circle-fill" /> Sai
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Hiển thị các ô vuông điền đáp án ngắn cho câu hỏi điền số (đồng bộ giao diện làm bài và kết quả)
+ */
+function SquareGridDisplay({
+  value,
+  isCorrect,
+  variant,
+}: {
+  value: string;
+  isCorrect?: boolean;
+  variant: "student" | "correct";
+}) {
+  const chars = (value || "").split("");
+  if (chars.length === 0) {
+    chars.push("");
+  }
+
+  const isGreen = variant === "correct" || isCorrect;
+  const borderColor = isGreen ? "#059669" : "#dc2626";
+  const bgColor = isGreen ? "#ecfdf5" : "#fef2f2";
+  const textColor = isGreen ? "#065f46" : "#991b1b";
+
+  return (
+    <div className="d-flex gap-2">
+      {chars.map((c, i) => (
+        <div
+          key={i}
+          className="d-flex align-items-center justify-content-center fw-bold fs-4 rounded border shadow-sm"
+          style={{
+            width: "44px",
+            height: "48px",
+            backgroundColor: c ? bgColor : "#f8fafc",
+            borderColor: c ? borderColor : "#cbd5e1",
+            borderWidth: "2px",
+            color: textColor,
+          }}
+        >
+          {c || <span className="text-muted small opacity-25">_</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Xem lại câu hỏi Đúng / Sai đơn (1 mệnh đề)
+ */
+function SingleTrueFalseReview({
+  question,
+}: {
+  question: {
+    options: { code: string; content: string }[];
+    answerText: string | null;
+    selectedOptions: string[];
+    correctOptions: string[];
+    isCorrect: boolean;
+  };
+}) {
+  const opt = question.options[0]!;
+  let studentChoice: boolean | null = null;
+  if (question.answerText && question.answerText.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(question.answerText);
+      if (parsed[opt.code] === true) studentChoice = true;
+      else if (parsed[opt.code] === false) studentChoice = false;
+    } catch {
+      // ignore
+    }
+  } else if (question.selectedOptions.includes(opt.code)) {
+    studentChoice = true;
+  } else if (question.answerText?.trim().toLowerCase() === "false" || question.answerText?.trim().toLowerCase() === "sai") {
+    studentChoice = false;
+  } else if (question.answerText?.trim().toLowerCase() === "true" || question.answerText?.trim().toLowerCase() === "đúng") {
+    studentChoice = true;
+  }
+
+  const isCorrectTrue = question.correctOptions.includes(opt.code);
+
+  return (
+    <div className="p-3 rounded border mb-2 bg-light">
+      {opt.content && (
+        <div className="mb-2 pb-2 border-bottom">
+          <strong className="text-secondary small d-block mb-1">Mệnh đề:</strong>
+          <MarkdownView content={opt.content} inline />
+        </div>
+      )}
+      <div className="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div className="d-flex align-items-center gap-2">
+          <span className="text-secondary small">Bạn chọn:</span>
+          {studentChoice === null ? (
+            <Badge bg="secondary">Chưa chọn</Badge>
+          ) : studentChoice ? (
+            <Badge bg="primary" className="px-2 py-1 fs-6">Đúng</Badge>
+          ) : (
+            <Badge bg="secondary" className="px-2 py-1 fs-6">Sai</Badge>
+          )}
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <span className="text-secondary small">Đáp án đúng:</span>
+          {isCorrectTrue ? (
+            <Badge bg="success" className="px-2 py-1 fs-6">Đúng</Badge>
+          ) : (
+            <Badge bg="danger" className="px-2 py-1 fs-6">Sai</Badge>
+          )}
+        </div>
+        <div>
+          {question.isCorrect ? (
+            <Badge bg="success" className="py-2 px-3 d-inline-flex align-items-center gap-1">
+              <i className="bi bi-check-circle-fill" /> Bạn trả lời đúng
+            </Badge>
+          ) : (
+            <Badge bg="danger" className="py-2 px-3 d-inline-flex align-items-center gap-1">
+              <i className="bi bi-x-circle-fill" /> Bạn trả lời sai
+            </Badge>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+

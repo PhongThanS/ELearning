@@ -364,9 +364,8 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                       <option value="">Tất cả loại</option>
                       <option value="SINGLE_CHOICE">Trắc nghiệm 1 đáp án</option>
                       <option value="MULTIPLE_CHOICE">Nhiều đáp án</option>
-                      <option value="TRUE_FALSE">Đúng / Sai</option>
-                      <option value="FILL_IN">Điền khuyết</option>
-                      <option value="ESSAY">Tự luận</option>
+                      <option value="TRUE_FALSE">Đúng / Sai đa mệnh đề</option>
+                      <option value="FILL_IN">Điền khuyết (ô vuông)</option>
                     </Form.Select>
                   </Col>
                   <Col md={2}>

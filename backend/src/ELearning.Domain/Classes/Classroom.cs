@@ -42,6 +42,9 @@ public sealed class Classroom : Entity, IHasRowVersion
 
     public string? Description { get; private set; }
 
+    /// <summary>Giáo viên chủ nhiệm lớp (nullable nếu chưa phân công).</summary>
+    public Guid? HomeroomTeacherId { get; private set; }
+
     public bool IsActive { get; private set; }
 
     public Guid CreatedBy { get; private set; }
@@ -98,10 +101,17 @@ public sealed class Classroom : Entity, IHasRowVersion
         StartDate = details.StartDate;
         EndDate = details.EndDate;
         Description = string.IsNullOrWhiteSpace(details.Description) ? null : details.Description.Trim();
+        HomeroomTeacherId = details.HomeroomTeacherId;
     }
 }
 
-public sealed record ClassroomDetails(string Name, string? SchoolYear, DateOnly? StartDate, DateOnly? EndDate, string? Description);
+public sealed record ClassroomDetails(
+    string Name,
+    string? SchoolYear,
+    DateOnly? StartDate,
+    DateOnly? EndDate,
+    string? Description,
+    Guid? HomeroomTeacherId = null);
 
 /// <summary>Học viên thuộc lớp (bảng nối nhiều-nhiều Users ↔ Classrooms).</summary>
 public sealed class ClassroomStudent

@@ -9,7 +9,6 @@ import { useToast } from "../../components/common/toast";
 import { attemptStatusVariant as attemptVariant } from "../../constants/ui";
 import { DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
-import { ManualGradingTab } from "./ManualGradingTab";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatDuration, formatNumber, formatScore, markdownExcerpt } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
@@ -49,11 +48,6 @@ export function ExamResultsPage() {
         {hasPermission(Permissions.ReportView) && (
           <Tab eventKey="stats" title="Thống kê câu hỏi">
             <StatsTab examId={id} />
-          </Tab>
-        )}
-        {hasPermission(Permissions.AttemptGrade) && (
-          <Tab eventKey="manual" title="Chấm tự luận">
-            <ManualGradingTab examId={id} />
           </Tab>
         )}
         {hasPermission(Permissions.ExamView) && (

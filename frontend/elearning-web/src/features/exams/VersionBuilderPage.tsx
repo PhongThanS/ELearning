@@ -18,6 +18,7 @@ import { QuestionCard } from "../attempts/ExamPlayerPage";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { VersionSettingsFields } from "./ExamPages";
 import { PoolRulesCard } from "./PoolRulesCard";
+import { RandomMatrixModal } from "./RandomMatrixModal";
 import type { PublishValidation, VersionDetail, VersionQuestion } from "../../types/api";
 
 /** Dựng phiên bản đề (docs/06-frontend.md mục 3.3). Version đã publish chỉ đọc, trừ sửa đáp án / hủy câu (D-11). */
@@ -27,6 +28,7 @@ export function VersionBuilderPage() {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { hasPermission } = useAuth();
+  const [showMatrixModal, setShowMatrixModal] = useState(false);
   const exam = useQuery({ queryKey: ["exam", id], queryFn: () => examsApi.get(id) });
   const version = useQuery({ queryKey: ["version", versionId], queryFn: () => examsApi.version(id, versionId) });
 
@@ -67,10 +69,35 @@ export function VersionBuilderPage() {
       )}
       <Tabs defaultActiveKey="questions" className="mb-3" mountOnEnter>
         <Tab eventKey="questions" title={`Câu hỏi (${v.questionCount})`}>
+          {canEdit && (
+            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 px-3 bg-light border rounded shadow-sm">
+              <div className="d-flex align-items-center gap-2">
+                <span className="badge bg-primary fs-6 px-2 py-1">
+                  🎲 Tạo nhanh
+                </span>
+                <span className="small text-secondary">
+                  Tự động lấy số lượng câu hỏi theo chuyên đề và ma trận độ khó (Dễ, Trung bình, Khó)
+                </span>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                className="fw-semibold px-3 shadow-sm"
+                onClick={() => setShowMatrixModal(true)}
+              >
+                ⚡ Tạo câu hỏi theo ma trận độ khó
+              </Button>
+            </div>
+          )}
           <Row className="g-3">
             {canEdit && (
               <Col xl={5}>
-                <QuestionPicker existing={v.questions} onAdd={(ids, score) => change.mutate(() => examsApi.addQuestions(id, versionId, ids, score))} busy={change.isPending} />
+                <QuestionPicker
+                  existing={v.questions}
+                  onAdd={(ids, score) => change.mutate(() => examsApi.addQuestions(id, versionId, ids, score))}
+                  busy={change.isPending}
+                  onOpenMatrix={() => setShowMatrixModal(true)}
+                />
               </Col>
             )}
             <Col xl={canEdit ? 7 : 12}>
@@ -91,11 +118,30 @@ export function VersionBuilderPage() {
           </Tab>
         )}
       </Tabs>
+      {canEdit && (
+        <RandomMatrixModal
+          show={showMatrixModal}
+          onHide={() => setShowMatrixModal(false)}
+          examId={id}
+          version={v}
+          onSuccess={setVersion}
+        />
+      )}
     </>
   );
 }
 
-function QuestionPicker({ existing, onAdd, busy }: { existing: VersionQuestion[]; onAdd: (ids: string[], score: number | null) => void; busy: boolean }) {
+function QuestionPicker({
+  existing,
+  onAdd,
+  busy,
+  onOpenMatrix,
+}: {
+  existing: VersionQuestion[];
+  onAdd: (ids: string[], score: number | null) => void;
+  busy: boolean;
+  onOpenMatrix?: () => void;
+}) {
   const list = useListQuery({ isActive: "true", pageSize: 10 });
   const categories = useActiveCategories();
   const query = useQuery({ queryKey: ["questions", "picker", list.params], queryFn: () => questionsApi.list(list.params) });
@@ -120,9 +166,16 @@ function QuestionPicker({ existing, onAdd, busy }: { existing: VersionQuestion[]
         <Card.Body>
           <div className="d-flex justify-content-between align-items-center mb-2">
             <h2 className="h6 mb-0 fw-bold">Ngân hàng câu hỏi</h2>
-            <Button size="sm" variant="outline-primary" onClick={() => setShowModal(true)}>
-              🔍 Mở rộng
-            </Button>
+            <div className="d-flex gap-1">
+              {onOpenMatrix && (
+                <Button size="sm" variant="outline-success" onClick={onOpenMatrix} title="Tạo câu hỏi theo ma trận độ khó">
+                  🎲 Ma trận
+                </Button>
+              )}
+              <Button size="sm" variant="outline-primary" onClick={() => setShowModal(true)}>
+                🔍 Mở rộng
+              </Button>
+            </div>
           </div>
 
           {/* Bộ lọc tối ưu cho sidebar */}
@@ -159,8 +212,7 @@ function QuestionPicker({ existing, onAdd, busy }: { existing: VersionQuestion[]
                 <option value="SINGLE_CHOICE">1 đáp án</option>
                 <option value="MULTIPLE_CHOICE">Nhiều đáp án</option>
                 <option value="TRUE_FALSE">Đúng/Sai</option>
-                <option value="FILL_IN">Điền khuyết</option>
-                <option value="ESSAY">Tự luận</option>
+                <option value="FILL_IN">Điền khuyết (ô vuông)</option>
               </Form.Select>
             </div>
           </div>
@@ -275,8 +327,7 @@ function QuestionPicker({ existing, onAdd, busy }: { existing: VersionQuestion[]
                   <option value="SINGLE_CHOICE">1 đáp án</option>
                   <option value="MULTIPLE_CHOICE">Nhiều đáp án</option>
                   <option value="TRUE_FALSE">Đúng / Sai</option>
-                  <option value="FILL_IN">Điền khuyết</option>
-                  <option value="ESSAY">Tự luận</option>
+                  <option value="FILL_IN">Điền khuyết (ô vuông)</option>
                 </Form.Select>
               </Col>
               <Col md={2}>

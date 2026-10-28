@@ -1,5 +1,6 @@
 using ELearning.Api.Common;
 using ELearning.Api.Security;
+using ELearning.Application.Attempts;
 using ELearning.Application.Auth;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Users;
@@ -14,7 +15,8 @@ namespace ELearning.Api.Controllers;
 public sealed class UsersController(
     IUserService users,
     IRegistrationSettingService registrationSetting,
-    ICurrentUser currentUser) : ApiControllerBase
+    ICurrentUser currentUser,
+    IAttemptService attempts) : ApiControllerBase
 {
     [HttpGet("registration-setting")]
     [HasPermission(Permissions.UserView)]
@@ -77,4 +79,16 @@ public sealed class UsersController(
     [ProducesResponseType<ApiResponse<UserDetailDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> Anonymize(Guid id, ReasonRequest request, CancellationToken ct) =>
         ToResponse(await users.AnonymizeAsync(id, request, ct));
+
+    [HttpGet("{id:guid}/exams")]
+    [HasPermission(Permissions.UserView)]
+    [ProducesResponseType<ApiResponse<PagedResult<StudentExamListItemDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ListExams(Guid id, [FromQuery] StudentExamListQuery query, CancellationToken ct) =>
+        Ok(ApiResponse.Ok(await attempts.ListExamsAsync(id, query, ct), TraceId));
+
+    [HttpGet("{id:guid}/history")]
+    [HasPermission(Permissions.UserView)]
+    [ProducesResponseType<ApiResponse<PagedResult<StudentHistoryItemDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> History(Guid id, [FromQuery] StudentHistoryQuery query, CancellationToken ct) =>
+        Ok(ApiResponse.Ok(await attempts.HistoryAsync(id, query, ct), TraceId));
 }

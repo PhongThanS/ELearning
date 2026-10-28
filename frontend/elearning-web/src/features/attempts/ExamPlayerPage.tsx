@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, Modal, Offcanvas, Row, Spinner } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -15,16 +15,12 @@ import {
   initPlayerState,
   isAnswered,
   isUnsaved,
-  isValidNumberAnswer,
   loadBackup,
   playerReducer,
   type AnswerDraft,
   type PlayerState,
 } from "./playerState";
 import { useAttemptEvents, useAutosave, useCountdown, type SaveStatus } from "./playerHooks";
-
-/** Khớp giới hạn server (AttemptContracts.MaxAnswerTextLength). */
-const ESSAY_MAX_LENGTH = 20_000;
 
 /** Trang làm bài (docs/06-frontend.md mục 4). */
 export function ExamPlayerPage() {
@@ -313,7 +309,7 @@ export function QuestionCard({
   onPaste,
   readOnly = false,
 }: {
-  question: Pick<AttemptQuestion, "id" | "order" | "content" | "contentFormat" | "type" | "answerDataType" | "score" | "options">;
+  question: Pick<AttemptQuestion, "id" | "order" | "content" | "contentFormat" | "type" | "answerDataType" | "score" | "options" | "expectedLength">;
   total: number;
   draft: Pick<AnswerDraft, "selectedOptions" | "answerText" | "isMarkedForReview">;
   onSelect: (options: string[]) => void;
@@ -324,7 +320,6 @@ export function QuestionCard({
 }) {
   const { t } = useTranslation();
   const name = `q-${question.id}`;
-  const numberInvalid = question.answerDataType === "NUMBER" && !isValidNumberAnswer(draft.answerText);
 
   return (
     <Card>
@@ -346,40 +341,34 @@ export function QuestionCard({
         </div>
         <MarkdownView content={question.content} format={question.contentFormat} />
 
-        {question.type === "ESSAY" ? (
-          <Form.Group controlId={`${name}-essay`} className="mt-3">
-            <Form.Label className="visually-hidden">{t("player.essayPlaceholder")}</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={10}
-              value={draft.answerText ?? ""}
-              placeholder={t("player.essayPlaceholder")}
-              maxLength={ESSAY_MAX_LENGTH}
+        {question.type === "TRUE_FALSE" ? (
+          question.options.length === 1 ? (
+            <SingleTrueFalseAnswerBox
+              option={question.options[0]!}
+              selectedOptions={draft.selectedOptions}
+              answerText={draft.answerText}
               readOnly={readOnly}
-              onChange={(e) => onText(e.target.value)}
-              onPaste={onPaste}
+              onSelect={onSelect}
+              onText={onText}
             />
-            <Form.Text>{t("player.essayCount", { count: (draft.answerText ?? "").length, max: ESSAY_MAX_LENGTH })}</Form.Text>
-          </Form.Group>
+          ) : (
+            <TrueFalsePropositionTable
+              options={question.options}
+              selectedOptions={draft.selectedOptions}
+              answerText={draft.answerText}
+              readOnly={readOnly}
+              onSelect={onSelect}
+              onText={onText}
+            />
+          )
         ) : question.type === "FILL_IN" ? (
-          <Form.Group controlId={`${name}-text`} className="mt-3">
-            <Form.Label className="visually-hidden">{t("player.fillPlaceholder")}</Form.Label>
-            <Form.Control
-              value={draft.answerText ?? ""}
-              placeholder={t("player.fillPlaceholder")}
-              inputMode={question.answerDataType === "NUMBER" ? "decimal" : "text"}
-              maxLength={1000}
-              readOnly={readOnly}
-              isInvalid={numberInvalid}
-              aria-describedby={question.answerDataType === "NUMBER" ? `${name}-hint` : undefined}
-              onChange={(e) => onText(e.target.value)}
-              onPaste={onPaste}
-            />
-            {question.answerDataType === "NUMBER" && (
-              <Form.Text id={`${name}-hint`}>{t("player.numberHint")}</Form.Text>
-            )}
-            <Form.Control.Feedback type="invalid">{t("player.numberInvalid")}</Form.Control.Feedback>
-          </Form.Group>
+          <SquareGridAnswerBox
+            value={draft.answerText ?? ""}
+            expectedLength={question.expectedLength}
+            readOnly={readOnly}
+            onChange={onText}
+            onPaste={onPaste}
+          />
         ) : (
           <fieldset className="mt-3">
             <legend className="visually-hidden">{t("player.question", { order: question.order, total })}</legend>
@@ -406,7 +395,7 @@ export function QuestionCard({
                   }
                   label={
                     <span className="d-flex gap-2">
-                      {question.type !== "TRUE_FALSE" && <strong>{optionLabel(index)}.</strong>}
+                      <strong>{optionLabel(index)}.</strong>
                       <MarkdownView content={option.content} inline />
                     </span>
                   }
@@ -422,5 +411,463 @@ export function QuestionCard({
         )}
       </Card.Body>
     </Card>
+  );
+}
+
+/**
+ * Câu hỏi Đúng / Sai đơn (1 mệnh đề / khẳng định duy nhất)
+ */
+function SingleTrueFalseAnswerBox({
+  option,
+  selectedOptions,
+  answerText,
+  readOnly,
+  onSelect,
+  onText,
+}: {
+  option: { code: string; content: string };
+  selectedOptions: string[];
+  answerText: string | null;
+  readOnly?: boolean;
+  onSelect: (options: string[]) => void;
+  onText: (text: string) => void;
+}) {
+  let isTrue: boolean | null = null;
+  if (answerText && answerText.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(answerText);
+      if (parsed[option.code] === true) isTrue = true;
+      else if (parsed[option.code] === false) isTrue = false;
+    } catch {
+      // ignore
+    }
+  } else if (selectedOptions.includes(option.code)) {
+    isTrue = true;
+  } else if (answerText?.trim().toLowerCase() === "false" || answerText?.trim().toLowerCase() === "sai") {
+    isTrue = false;
+  } else if (answerText?.trim().toLowerCase() === "true" || answerText?.trim().toLowerCase() === "đúng") {
+    isTrue = true;
+  }
+
+  const handleChoose = (val: boolean) => {
+    if (readOnly) return;
+    onSelect(val ? [option.code] : []);
+    onText(JSON.stringify({ [option.code]: val }));
+  };
+
+  const handleClear = () => {
+    if (readOnly) return;
+    onSelect([]);
+    onText("");
+  };
+
+  return (
+    <div className="mt-3 p-3 border rounded bg-light">
+      {option.content && (
+        <div className="mb-3 p-3 bg-white border rounded shadow-sm">
+          <div className="small text-secondary fw-bold mb-1">Mệnh đề / Nhận định:</div>
+          <div className="fs-6">
+            <MarkdownView content={option.content} />
+          </div>
+        </div>
+      )}
+      <div className="small fw-semibold text-secondary mb-2">Chọn đáp án của bạn:</div>
+      <div className="d-flex gap-3">
+        <button
+          type="button"
+          disabled={readOnly}
+          onClick={() => handleChoose(true)}
+          className={`btn flex-fill py-3 fw-bold d-flex align-items-center justify-content-center gap-2 border-2 ${
+            isTrue === true
+              ? "btn-success text-white shadow"
+              : "btn-outline-success bg-white text-success"
+          }`}
+          style={{ fontSize: "1.1rem", borderRadius: "10px", transition: "all 0.2s" }}
+        >
+          <i className="bi bi-check-circle-fill fs-4" />
+          <span>ĐÚNG</span>
+        </button>
+
+        <button
+          type="button"
+          disabled={readOnly}
+          onClick={() => handleChoose(false)}
+          className={`btn flex-fill py-3 fw-bold d-flex align-items-center justify-content-center gap-2 border-2 ${
+            isTrue === false
+              ? "btn-danger text-white shadow"
+              : "btn-outline-danger bg-white text-danger"
+          }`}
+          style={{ fontSize: "1.1rem", borderRadius: "10px", transition: "all 0.2s" }}
+        >
+          <i className="bi bi-x-circle-fill fs-4" />
+          <span>SAI</span>
+        </button>
+      </div>
+
+      {!readOnly && isTrue !== null && (
+        <div className="text-end mt-2">
+          <Button variant="link" size="sm" className="text-secondary px-0 text-decoration-none" onClick={handleClear}>
+            <i className="bi bi-eraser me-1" />
+            Bỏ chọn
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Bảng hiển thị câu hỏi trắc nghiệm Đúng / Sai đa mệnh đề (a, b, c, d...)
+ * Thiết kế theo đúng định dạng mẫu của Bộ Giáo dục & Đào tạo.
+ */
+function TrueFalsePropositionTable({
+  options,
+  selectedOptions,
+  answerText,
+  readOnly,
+  onSelect,
+  onText,
+}: {
+  options: { code: string; content: string }[];
+  selectedOptions: string[];
+  answerText: string | null;
+  readOnly?: boolean;
+  onSelect: (options: string[]) => void;
+  onText: (text: string) => void;
+}) {
+  let parsedChoices: Record<string, boolean> = {};
+  if (answerText && answerText.trim().startsWith("{")) {
+    try {
+      parsedChoices = JSON.parse(answerText);
+    } catch {
+      // fallback
+    }
+  } else if (selectedOptions.length > 0) {
+    for (const opt of options) {
+      if (selectedOptions.includes(opt.code)) {
+        parsedChoices[opt.code] = true;
+      }
+    }
+  }
+
+  const handleToggle = (code: string, isTrue: boolean) => {
+    if (readOnly) return;
+    const nextChoices = { ...parsedChoices, [code]: isTrue };
+    const nextSelected = Object.keys(nextChoices).filter((k) => nextChoices[k] === true);
+    onSelect(nextSelected);
+    onText(JSON.stringify(nextChoices));
+  };
+
+  return (
+    <div className="table-responsive mt-3 border rounded overflow-hidden shadow-sm">
+      <table className="table table-hover mb-0 align-middle">
+        <thead>
+          <tr style={{ backgroundColor: "#064e3b", color: "#ffffff" }}>
+            <th className="py-2 px-3 fw-bold text-uppercase fs-6" style={{ width: "70%", letterSpacing: "0.5px" }}>
+              Phát biểu
+            </th>
+            <th className="py-2 text-center fw-bold text-uppercase fs-6" style={{ width: "15%", letterSpacing: "0.5px" }}>
+              Đúng
+            </th>
+            <th className="py-2 text-center fw-bold text-uppercase fs-6" style={{ width: "15%", letterSpacing: "0.5px" }}>
+              Sai
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {options.map((option, idx) => {
+            const val = parsedChoices[option.code];
+            const isTrueSelected = val === true;
+            const isFalseSelected = val === false;
+            const isEven = idx % 2 === 1;
+
+            return (
+              <tr key={option.code} style={{ backgroundColor: isEven ? "#f8fafc" : "#ffffff" }}>
+                <td className="py-3 px-3">
+                  <div className="d-flex align-items-baseline gap-2">
+                    <span
+                      className="badge rounded-1 fw-bold text-white px-2 py-1"
+                      style={{ backgroundColor: "#064e3b", minWidth: "26px", fontSize: "0.85rem" }}
+                    >
+                      {option.code}
+                    </span>
+                    <div className="flex-grow-1 fs-6">
+                      <MarkdownView content={option.content} inline />
+                    </div>
+                  </div>
+                </td>
+                <td className="text-center py-3">
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    className="btn p-0 rounded-circle border d-inline-flex align-items-center justify-content-center"
+                    style={{
+                      width: "36px",
+                      height: "36px",
+                      backgroundColor: isTrueSelected ? "#059669" : "#ffffff",
+                      borderColor: isTrueSelected ? "#059669" : "#cbd5e1",
+                      borderWidth: "2px",
+                      cursor: readOnly ? "default" : "pointer",
+                      transition: "all 0.15s ease-in-out",
+                    }}
+                    onClick={() => handleToggle(option.code, true)}
+                    title={`Chọn Đúng cho mệnh đề ${option.code}`}
+                    aria-label={`Chọn Đúng cho mệnh đề ${option.code}`}
+                  >
+                    {isTrueSelected ? (
+                      <i className="bi bi-check-lg text-white fs-5 fw-bold" />
+                    ) : (
+                      <span className="visually-hidden">Chưa chọn</span>
+                    )}
+                  </button>
+                </td>
+                <td className="text-center py-3">
+                  <button
+                    type="button"
+                    disabled={readOnly}
+                    className="btn p-0 rounded-circle border d-inline-flex align-items-center justify-content-center"
+                    style={{
+                      width: "36px",
+                      height: "36px",
+                      backgroundColor: isFalseSelected ? "#059669" : "#ffffff",
+                      borderColor: isFalseSelected ? "#059669" : "#cbd5e1",
+                      borderWidth: "2px",
+                      cursor: readOnly ? "default" : "pointer",
+                      transition: "all 0.15s ease-in-out",
+                    }}
+                    onClick={() => handleToggle(option.code, false)}
+                    title={`Chọn Sai cho mệnh đề ${option.code}`}
+                    aria-label={`Chọn Sai cho mệnh đề ${option.code}`}
+                  >
+                    {isFalseSelected ? (
+                      <i className="bi bi-check-lg text-white fs-5 fw-bold" />
+                    ) : (
+                      <span className="visually-hidden">Chưa chọn</span>
+                    )}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/**
+ * Ô vuông điền đáp án ngắn cho câu hỏi điền số / đáp án ngắn
+ * Mỗi ô chỉ nhận số 0-9, dấu - hoặc dấu ,
+ */
+function SquareGridAnswerBox({
+  value,
+  expectedLength,
+  readOnly,
+  onChange,
+  onPaste,
+}: {
+  value: string;
+  expectedLength?: number | null;
+  readOnly?: boolean;
+  onChange: (val: string) => void;
+  onPaste?: () => void;
+}) {
+  const targetSize = expectedLength && expectedLength > 0 ? expectedLength : 4;
+  const currentLength = (value || "").length;
+  const GRID_SIZE = Math.max(targetSize, currentLength, 1);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  const chars = (value || "").split("").slice(0, GRID_SIZE);
+  while (chars.length < GRID_SIZE) {
+    chars.push("");
+  }
+
+  const ALLOWED_CHARS = new Set([
+    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+    "-", ",", "."
+  ]);
+
+  const handleCharInput = (index: number, char: string) => {
+    if (readOnly) return;
+    const cleanChar = char === "." ? "," : char;
+    if (!ALLOWED_CHARS.has(cleanChar)) return;
+
+    const newChars = [...chars];
+    newChars[index] = cleanChar;
+    const result = newChars.join("").trimEnd();
+    onChange(result);
+
+    if (index < GRID_SIZE - 1) {
+      inputRefs.current[index + 1]?.focus();
+      setActiveIndex(index + 1);
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (readOnly) return;
+    if (e.key === "Backspace") {
+      e.preventDefault();
+      const newChars = [...chars];
+      if (newChars[index]) {
+        newChars[index] = "";
+        onChange(newChars.join("").trimEnd());
+      } else if (index > 0) {
+        newChars[index - 1] = "";
+        onChange(newChars.join("").trimEnd());
+        inputRefs.current[index - 1]?.focus();
+        setActiveIndex(index - 1);
+      }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      e.preventDefault();
+      inputRefs.current[index - 1]?.focus();
+      setActiveIndex(index - 1);
+    } else if (e.key === "ArrowRight" && index < GRID_SIZE - 1) {
+      e.preventDefault();
+      inputRefs.current[index + 1]?.focus();
+      setActiveIndex(index + 1);
+    } else if (e.key === "Delete") {
+      e.preventDefault();
+      const newChars = [...chars];
+      newChars[index] = "";
+      onChange(newChars.join("").trimEnd());
+    }
+  };
+
+  const handleVirtualKey = (key: string) => {
+    if (readOnly) return;
+    if (key === "BACKSPACE") {
+      const lastFilledIndex = chars.reduce((last, c, idx) => (c ? idx : last), -1);
+      if (lastFilledIndex >= 0) {
+        const newChars = [...chars];
+        newChars[lastFilledIndex] = "";
+        onChange(newChars.join("").trimEnd());
+        inputRefs.current[lastFilledIndex]?.focus();
+        setActiveIndex(lastFilledIndex);
+      }
+    } else if (key === "CLEAR") {
+      onChange("");
+      inputRefs.current[0]?.focus();
+      setActiveIndex(0);
+    } else {
+      const targetIndex = chars[activeIndex] === "" ? activeIndex : chars.findIndex((c) => c === "");
+      const idx = targetIndex === -1 ? activeIndex : targetIndex;
+      handleCharInput(idx, key);
+    }
+  };
+
+  return (
+    <div className="mt-3 p-3 border rounded bg-light">
+      <div className="small text-secondary fw-semibold mb-2 d-flex align-items-center gap-1">
+        <i className="bi bi-grid-3x3-gap-fill text-primary" />
+        <span>Điền đáp án vào các ô vuông bên dưới (chỉ nhận số 0-9, dấu âm - và dấu phẩy ,):</span>
+      </div>
+
+      <div className="d-flex justify-content-center gap-2 my-3">
+        {chars.map((char, index) => {
+          const isActive = index === activeIndex;
+          return (
+            <input
+              key={index}
+              ref={(el) => { inputRefs.current[index] = el; }}
+              type="text"
+              readOnly={readOnly}
+              className={`form-control text-center fw-bold fs-3 rounded-2 shadow-sm ${
+                isActive ? "border-primary border-2 bg-white" : "border-secondary-subtle bg-white"
+              }`}
+              style={{
+                width: "48px",
+                height: "58px",
+                caretColor: "transparent",
+                color: "#1e293b",
+                fontFamily: "monospace",
+              }}
+              value={char}
+              onFocus={() => setActiveIndex(index)}
+              onKeyDown={(e) => handleKeyDown(index, e)}
+              onChange={(e) => {
+                const val = e.target.value;
+                const lastChar = val.slice(-1);
+                if (lastChar) handleCharInput(index, lastChar);
+              }}
+              onPaste={onPaste}
+            />
+          );
+        })}
+      </div>
+
+      {!readOnly && (
+        <div className="mt-3 mx-auto" style={{ maxWidth: "340px" }}>
+          <div className="row g-1 mb-1">
+            {["1", "2", "3", "-"].map((k) => (
+              <div className="col-3" key={k}>
+                <button
+                  type="button"
+                  className={`btn w-100 fw-bold fs-5 py-2 ${k === "-" ? "btn-warning" : "btn-outline-dark bg-white"}`}
+                  onClick={() => handleVirtualKey(k)}
+                >
+                  {k}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="row g-1 mb-1">
+            {["4", "5", "6", ","].map((k) => (
+              <div className="col-3" key={k}>
+                <button
+                  type="button"
+                  className={`btn w-100 fw-bold fs-5 py-2 ${k === "," ? "btn-warning" : "btn-outline-dark bg-white"}`}
+                  onClick={() => handleVirtualKey(k)}
+                >
+                  {k}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="row g-1 mb-1">
+            {["7", "8", "9", "0"].map((k) => (
+              <div className="col-3" key={k}>
+                <button
+                  type="button"
+                  className="btn w-100 fw-bold fs-5 py-2 btn-outline-dark bg-white"
+                  onClick={() => handleVirtualKey(k)}
+                >
+                  {k}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="row g-1">
+            <div className="col-6">
+              <button
+                type="button"
+                className="btn w-100 btn-outline-danger py-2 fw-semibold"
+                onClick={() => handleVirtualKey("BACKSPACE")}
+                title="Xóa ký tự cuối"
+              >
+                <i className="bi bi-backspace me-1" />
+                Xóa lùi
+              </button>
+            </div>
+            <div className="col-6">
+              <button
+                type="button"
+                className="btn w-100 btn-outline-secondary py-2 fw-semibold"
+                onClick={() => handleVirtualKey("CLEAR")}
+                title="Xóa toàn bộ"
+              >
+                Xóa hết
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {value && (
+        <div className="text-center mt-2 small text-secondary">
+          Đáp án đang nhập: <strong className="text-dark font-monospace fs-6">{value}</strong>
+        </div>
+      )}
+    </div>
   );
 }

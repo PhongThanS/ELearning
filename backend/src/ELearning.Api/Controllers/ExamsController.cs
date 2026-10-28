@@ -141,6 +141,18 @@ public sealed class ExamsController(IExamService exams, IExamVersionService vers
     public async Task<ActionResult> RemovePoolRule(Guid id, Guid versionId, Guid poolRuleId, CancellationToken ct) =>
         ToResponse(await versions.RemovePoolRuleAsync(id, versionId, poolRuleId, ct));
 
+    [HttpGet("{id:guid}/versions/{versionId:guid}/matrix-stats")]
+    [HasPermission(Permissions.ExamView)]
+    [ProducesResponseType<ApiResponse<MatrixStatsDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> GetMatrixStats(Guid id, Guid versionId, [FromQuery] MatrixStatsQuery query, CancellationToken ct) =>
+        ToResponse(await versions.GetMatrixStatsAsync(id, versionId, query, ct));
+
+    [HttpPost("{id:guid}/versions/{versionId:guid}/matrix-draw")]
+    [HasPermission(Permissions.ExamUpdate)]
+    [ProducesResponseType<ApiResponse<VersionDetailDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> MatrixDraw(Guid id, Guid versionId, MatrixDrawRequest request, CancellationToken ct) =>
+        ToResponse(await versions.MatrixDrawAsync(id, versionId, request, ct));
+
     [HttpGet("{id:guid}/versions/{versionId:guid}/preview")]
     [HasPermission(Permissions.ExamView)]
     [ProducesResponseType<ApiResponse<ExamPreviewDto>>(StatusCodes.Status200OK)]

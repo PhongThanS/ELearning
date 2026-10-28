@@ -19,6 +19,8 @@ public sealed record ClassroomListQuery : PageRequest
     public string? SchoolYear { get; init; }
 
     public bool? IsActive { get; init; }
+
+    public Guid? TeacherId { get; init; }
 }
 
 public sealed record ClassroomDto(
@@ -33,7 +35,10 @@ public sealed record ClassroomDto(
     int StudentCount,
     int ExamCount,
     DateTime CreatedAt,
-    string RowVersion);
+    string RowVersion,
+    Guid? HomeroomTeacherId = null,
+    string? HomeroomTeacherName = null,
+    string? HomeroomTeacherEmail = null);
 
 public sealed record ClassroomStudentDto(Guid UserId, string UserName, string FullName, string Email, bool IsActive, DateTime JoinedAt);
 
@@ -43,10 +48,10 @@ public sealed record MyClassroomDto(
     int StudentCount, int ExamCount, DateTime JoinedAt);
 
 public sealed record CreateClassroomRequest(
-    string Code, string Name, string? SchoolYear, DateOnly? StartDate, DateOnly? EndDate, string? Description);
+    string Code, string Name, string? SchoolYear, DateOnly? StartDate, DateOnly? EndDate, string? Description, Guid? HomeroomTeacherId = null);
 
 public sealed record UpdateClassroomRequest(
-    string Name, string? SchoolYear, DateOnly? StartDate, DateOnly? EndDate, string? Description, bool IsActive, string RowVersion);
+    string Name, string? SchoolYear, DateOnly? StartDate, DateOnly? EndDate, string? Description, bool IsActive, string RowVersion, Guid? HomeroomTeacherId = null);
 
 public sealed record SetClassroomStatusRequest(bool IsActive);
 
@@ -56,6 +61,39 @@ public sealed record ClassroomStudentQuery : PageRequest
 {
     public string? Keyword { get; init; }
 }
+
+public sealed record StudentClassExamItemDto(
+    Guid ExamId,
+    string Code,
+    string Name,
+    DateTime? StartAt,
+    DateTime? EndAt,
+    int DurationMinutes,
+    int QuestionCount,
+    int MaxAttempts,
+    int UsedAttempts,
+    decimal? OfficialScore,
+    decimal? Percentage,
+    bool? Passed,
+    DateTime? LastSubmittedAt,
+    bool IsSubmitted,
+    bool IsInProgress,
+    Guid? InProgressAttemptId,
+    string StatusText);
+
+public sealed record StudentClassProgressDto(
+    Guid UserId,
+    string UserName,
+    string FullName,
+    string Email,
+    Guid ClassroomId,
+    string ClassroomCode,
+    string ClassroomName,
+    int TotalAssignedExams,
+    int CompletedExams,
+    int InProgressExams,
+    int NotStartedExams,
+    IReadOnlyList<StudentClassExamItemDto> Exams);
 
 public interface IClassroomService
 {
@@ -80,6 +118,9 @@ public interface IClassroomService
 
     /// <summary>Các lớp đang hoạt động mà học viên thuộc về.</summary>
     Task<IReadOnlyList<MyClassroomDto>> ListMineAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Tiến độ làm các bài tập (đề thi) của một học sinh trong lớp học.</summary>
+    Task<Result<StudentClassProgressDto>> GetStudentProgressAsync(Guid classroomId, Guid userId, CancellationToken ct);
 }
 
 internal static class ClassroomRules
@@ -152,6 +193,11 @@ internal sealed class ClassroomService(
             classes = classes.Where(c => c.IsActive == isActive);
         }
 
+        if (query.TeacherId is { } teacherId)
+        {
+            classes = classes.Where(c => c.HomeroomTeacherId == teacherId);
+        }
+
         classes = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch
         {
             ("name", false) => classes.OrderBy(c => c.Name),
@@ -189,10 +235,18 @@ internal sealed class ClassroomService(
             return Error.Conflict(ErrorCodes.DuplicateCode, "Mã lớp đã tồn tại.");
         }
 
-        var details = new ClassroomDetails(request.Name, request.SchoolYear, request.StartDate, request.EndDate, request.Description);
+        if (request.HomeroomTeacherId is { } teacherId)
+        {
+            if (!await db.Users.AnyAsync(u => u.Id == teacherId && u.IsActive, ct))
+            {
+                return Error.NotFound(ErrorCodes.UserNotFound, "Không tìm thấy giáo viên chủ nhiệm.");
+            }
+        }
+
+        var details = new ClassroomDetails(request.Name, request.SchoolYear, request.StartDate, request.EndDate, request.Description, request.HomeroomTeacherId);
         var classroom = new Classroom(code, details, currentUser.RequiredUserId, Now);
         db.Classrooms.Add(classroom);
-        audit.Write(AuditActions.ClassroomCreated, nameof(Classroom), classroom.Id, newValue: new { classroom.Code, classroom.Name, classroom.SchoolYear });
+        audit.Write(AuditActions.ClassroomCreated, nameof(Classroom), classroom.Id, newValue: new { classroom.Code, classroom.Name, classroom.SchoolYear, classroom.HomeroomTeacherId });
         await db.SaveChangesAsync(ct);
         return await GetAsync(classroom.Id, ct);
     }
@@ -216,8 +270,16 @@ internal sealed class ClassroomService(
             return RowVersionExtensions.MissingRowVersion();
         }
 
-        var old = new { classroom.Name, classroom.SchoolYear, classroom.StartDate, classroom.EndDate, classroom.IsActive };
-        var details = new ClassroomDetails(request.Name, request.SchoolYear, request.StartDate, request.EndDate, request.Description);
+        if (request.HomeroomTeacherId is { } teacherId)
+        {
+            if (!await db.Users.AnyAsync(u => u.Id == teacherId && u.IsActive, ct))
+            {
+                return Error.NotFound(ErrorCodes.UserNotFound, "Không tìm thấy giáo viên chủ nhiệm.");
+            }
+        }
+
+        var old = new { classroom.Name, classroom.SchoolYear, classroom.StartDate, classroom.EndDate, classroom.IsActive, classroom.HomeroomTeacherId };
+        var details = new ClassroomDetails(request.Name, request.SchoolYear, request.StartDate, request.EndDate, request.Description, request.HomeroomTeacherId);
         classroom.Update(details, currentUser.RequiredUserId, Now);
         if (classroom.IsActive != request.IsActive)
         {
@@ -225,7 +287,7 @@ internal sealed class ClassroomService(
         }
 
         audit.Write(AuditActions.ClassroomUpdated, nameof(Classroom), classroom.Id, old,
-            new { classroom.Name, classroom.SchoolYear, classroom.StartDate, classroom.EndDate, classroom.IsActive });
+            new { classroom.Name, classroom.SchoolYear, classroom.StartDate, classroom.EndDate, classroom.IsActive, classroom.HomeroomTeacherId });
         await db.SaveChangesAsync(ct);
         return await GetAsync(id, ct);
     }
@@ -364,6 +426,134 @@ internal sealed class ClassroomService(
                 x.s.JoinedAt))
             .ToListAsync(ct);
 
+    public async Task<Result<StudentClassProgressDto>> GetStudentProgressAsync(Guid classroomId, Guid userId, CancellationToken ct)
+    {
+        var classroom = await db.Classrooms.AsNoTracking().SingleOrDefaultAsync(c => c.Id == classroomId, ct);
+        if (classroom is null)
+        {
+            return ClassroomNotFound;
+        }
+
+        var isStudentInClass = await db.ClassroomStudents.AnyAsync(s => s.ClassroomId == classroomId && s.UserId == userId, ct);
+        if (!isStudentInClass)
+        {
+            return Error.NotFound(ErrorCodes.NotFound, "Học sinh không thuộc lớp học này.");
+        }
+
+        var user = await db.Users.AsNoTracking().SingleOrDefaultAsync(u => u.Id == userId, ct);
+        if (user is null)
+        {
+            return Error.NotFound(ErrorCodes.UserNotFound, "Không tìm thấy học sinh.");
+        }
+
+        // Các đề thi đã publish được gán cho lớp học này
+        var assignedExams = await db.Exams.AsNoTracking()
+            .Where(e => e.Status != ExamStatus.Draft && e.Assignments.Any(a => a.ClassroomId == classroomId))
+            .Include(e => e.Versions)
+            .OrderByDescending(e => e.StartAt)
+            .ThenBy(e => e.Name)
+            .ToListAsync(ct);
+
+        var examIds = assignedExams.Select(e => e.Id).ToList();
+
+        // Lấy tất cả lượt thi của học sinh cho các đề này
+        var attempts = await db.ExamAttempts.AsNoTracking()
+            .Where(a => a.UserId == userId && examIds.Contains(a.ExamId))
+            .OrderByDescending(a => a.StartedAt)
+            .ToListAsync(ct);
+
+        // Lấy tất cả kết quả nộp bài của học sinh cho các đề này
+        var results = await db.ExamResults.AsNoTracking()
+            .Where(r => r.UserId == userId && examIds.Contains(r.ExamId))
+            .OrderByDescending(r => r.SubmittedAt)
+            .ToListAsync(ct);
+
+        var examItems = new List<StudentClassExamItemDto>();
+
+        foreach (var exam in assignedExams)
+        {
+            var examAttempts = attempts.Where(a => a.ExamId == exam.Id).ToList();
+            var examResults = results.Where(r => r.ExamId == exam.Id).ToList();
+            var latestVersion = exam.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+            var durationMinutes = latestVersion?.DurationMinutes ?? 0;
+            var questionCount = latestVersion?.QuestionCount ?? 0;
+
+            var inProgress = examAttempts.FirstOrDefault(a => a.Status == AttemptStatus.InProgress);
+            var isSubmitted = examResults.Count > 0;
+            var isInProgress = inProgress != null;
+            var usedAttempts = examAttempts.Count(a => a.Status != AttemptStatus.Cancelled);
+            var lastSubmittedAt = examResults.FirstOrDefault()?.SubmittedAt;
+
+            decimal? officialScore = null;
+            decimal? percentage = null;
+            bool? passed = null;
+
+            if (isSubmitted)
+            {
+                var best = exam.RetakeScoringPolicy == RetakeScoringPolicy.Highest
+                    ? examResults.OrderByDescending(r => r.TotalScore).First()
+                    : examResults.First();
+
+                officialScore = best.TotalScore;
+                percentage = best.Percentage;
+                passed = best.Passed;
+            }
+
+            string statusText;
+            if (isSubmitted)
+            {
+                statusText = passed == true ? "Đã làm (Đạt)" : "Đã làm (Chưa đạt)";
+            }
+            else if (isInProgress)
+            {
+                statusText = "Đang làm dở";
+            }
+            else
+            {
+                statusText = "Chưa làm";
+            }
+
+            examItems.Add(new StudentClassExamItemDto(
+                exam.Id,
+                exam.Code,
+                exam.Name,
+                exam.StartAt,
+                exam.EndAt,
+                durationMinutes,
+                questionCount,
+                exam.MaxAttempts,
+                usedAttempts,
+                officialScore,
+                percentage,
+                passed,
+                lastSubmittedAt,
+                isSubmitted,
+                isInProgress,
+                inProgress?.Id,
+                statusText));
+        }
+
+        var completedCount = examItems.Count(e => e.IsSubmitted);
+        var inProgressCount = examItems.Count(e => !e.IsSubmitted && e.IsInProgress);
+        var notStartedCount = examItems.Count(e => !e.IsSubmitted && !e.IsInProgress);
+
+        var progressDto = new StudentClassProgressDto(
+            user.Id,
+            user.UserName,
+            user.FullName,
+            user.Email,
+            classroom.Id,
+            classroom.Code,
+            classroom.Name,
+            examItems.Count,
+            completedCount,
+            inProgressCount,
+            notStartedCount,
+            examItems);
+
+        return progressDto;
+    }
+
     private System.Linq.Expressions.Expression<Func<Classroom, ClassroomDto>> ToDto() =>
         c => new ClassroomDto(
             c.Id,
@@ -377,5 +567,8 @@ internal sealed class ClassroomService(
             c.Students.Count,
             db.Exams.Count(e => e.Assignments.Any(a => a.ClassroomId == c.Id)),
             c.CreatedAt,
-            Convert.ToBase64String(c.RowVersion));
+            Convert.ToBase64String(c.RowVersion),
+            c.HomeroomTeacherId,
+            c.HomeroomTeacherId != null ? db.Users.Where(u => u.Id == c.HomeroomTeacherId).Select(u => u.FullName).FirstOrDefault() : null,
+            c.HomeroomTeacherId != null ? db.Users.Where(u => u.Id == c.HomeroomTeacherId).Select(u => u.Email).FirstOrDefault() : null);
 }

@@ -1,5 +1,6 @@
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
+using ELearning.Domain.Questions;
 using ELearning.Shared.Paging;
 using FluentValidation;
 
@@ -106,6 +107,34 @@ public sealed record AddPoolRuleRequest(
     int DrawCount,
     decimal ScorePerQuestion);
 
+public enum MatrixDrawMode
+{
+    Static = 1,
+    Pool = 2
+}
+
+public sealed record MatrixStatsQuery(
+    Guid? CategoryId = null,
+    string? Tag = null,
+    QuestionType? QuestionType = null);
+
+public sealed record MatrixStatsDto(
+    int TotalCandidates,
+    int EasyCandidates,
+    int MediumCandidates,
+    int HardCandidates,
+    int UnspecifiedCandidates);
+
+public sealed record MatrixDrawRequest(
+    Guid? CategoryId,
+    string? Tag,
+    QuestionType? QuestionType,
+    int EasyCount,
+    int MediumCount,
+    int HardCount,
+    decimal? ScorePerQuestion,
+    MatrixDrawMode Mode);
+
 public sealed record VersionDetailDto(
     Guid Id,
     Guid ExamId,
@@ -140,7 +169,8 @@ public sealed record PlayerQuestionDto(
     QuestionType Type,
     AnswerDataType? AnswerDataType,
     decimal Score,
-    IReadOnlyList<PlayerOptionDto> Options);
+    IReadOnlyList<PlayerOptionDto> Options,
+    int? ExpectedLength = null);
 
 public sealed record ExamPreviewDto(
     Guid ExamId,
@@ -327,5 +357,41 @@ internal sealed class AddVersionQuestionsRequestValidator : AbstractValidator<Ad
             .WithErrorCode("TOO_MANY_QUESTIONS").WithMessage($"Tối đa {ExamVersion.MaxQuestions} câu mỗi lần.");
         RuleFor(r => r.Score).Must(s => s is null || (s is >= 0.25m and <= 100m && s * 4 % 1 == 0))
             .WithErrorCode("SCORE_INVALID").WithMessage("Điểm phải từ 0,25 đến 100 và là bội số của 0,25.");
+    }
+}
+
+public sealed class MatrixDrawRequestValidator : AbstractValidator<MatrixDrawRequest>
+{
+    public MatrixDrawRequestValidator()
+    {
+        RuleFor(r => r.Mode).IsInEnum()
+            .WithErrorCode("MODE_INVALID").WithMessage("Chế độ bốc không hợp lệ.");
+
+        RuleFor(r => r.EasyCount).GreaterThanOrEqualTo(0)
+            .WithErrorCode("EASY_COUNT_INVALID").WithMessage("Số câu Dễ không được âm.");
+        RuleFor(r => r.MediumCount).GreaterThanOrEqualTo(0)
+            .WithErrorCode("MEDIUM_COUNT_INVALID").WithMessage("Số câu Trung bình không được âm.");
+        RuleFor(r => r.HardCount).GreaterThanOrEqualTo(0)
+            .WithErrorCode("HARD_COUNT_INVALID").WithMessage("Số câu Khó không được âm.");
+
+        RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount > 0)
+            .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")
+            .WithName("totalCount");
+
+        RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount <= ExamVersion.MaxQuestions)
+            .WithErrorCode("TOTAL_COUNT_EXCEEDED").WithMessage($"Tổng số câu bốc tối đa {ExamVersion.MaxQuestions}.")
+            .WithName("totalCount");
+
+        RuleFor(r => r.ScorePerQuestion)
+            .Must(s => s is null || (s is >= 0.25m and <= 100m && s * 4 % 1 == 0))
+            .WithErrorCode("SCORE_INVALID").WithMessage("Điểm phải từ 0,25 đến 100 và là bội số của 0,25.");
+
+        RuleFor(r => r.ScorePerQuestion).NotNull()
+            .When(r => r.Mode == MatrixDrawMode.Pool)
+            .WithErrorCode("SCORE_REQUIRED_FOR_POOL").WithMessage("Quy tắc pool yêu cầu nhập điểm mỗi câu.");
+
+        RuleFor(r => r.Tag).MaximumLength(Question.MaxTagLength)
+            .When(r => !string.IsNullOrEmpty(r.Tag))
+            .WithErrorCode("TAG_TOO_LONG").WithMessage($"Tag tối đa {Question.MaxTagLength} ký tự.");
     }
 }

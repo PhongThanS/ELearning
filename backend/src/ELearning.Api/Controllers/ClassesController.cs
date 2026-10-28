@@ -66,4 +66,10 @@ public sealed class ClassesController(IClassroomService classrooms) : ApiControl
     [ProducesResponseType<ApiResponse<ClassroomDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> RemoveStudent(Guid id, Guid userId, CancellationToken ct) =>
         ToResponse(await classrooms.RemoveStudentAsync(id, userId, ct));
+
+    [HttpGet("{id:guid}/students/{userId:guid}/progress")]
+    [HasPermission(Permissions.ClassView)]
+    [ProducesResponseType<ApiResponse<StudentClassProgressDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> StudentProgress(Guid id, Guid userId, CancellationToken ct) =>
+        ToResponse(await classrooms.GetStudentProgressAsync(id, userId, ct));
 }

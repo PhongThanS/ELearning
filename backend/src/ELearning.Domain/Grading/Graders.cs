@@ -15,7 +15,8 @@ public sealed record GradingQuestion(
     decimal? NumericTolerance,
     bool CaseSensitive,
     bool IgnoreAccent,
-    bool PartialScoring = false)
+    bool PartialScoring = false,
+    IReadOnlyList<string>? AllOptionCodes = null)
 {
     public static GradingQuestion From(ExamQuestion q) => new(
         q.QuestionType,
@@ -28,7 +29,8 @@ public sealed record GradingQuestion(
         q.NumericTolerance,
         q.CaseSensitive,
         q.IgnoreAccent,
-        q.PartialScoring);
+        q.PartialScoring,
+        q.Options.OrderBy(o => o.DisplayOrder).Select(o => o.OptionCode).ToList());
 }
 
 /// <summary>Câu trả lời của học viên cho một câu.</summary>
@@ -67,13 +69,99 @@ public sealed class SingleChoiceGrader : IQuestionGrader
             : GradingResult.Wrong(question.Score);
 }
 
+/// <summary>
+/// Câu Đúng/Sai đa mệnh đề (a, b, c, d...):
+/// Mỗi mệnh đề thí sinh chọn Đúng hoặc Sai.
+/// Chia đều điểm: Mỗi ý đúng được (Điểm câu / Tổng số mệnh đề).
+/// Đúng hết toàn bộ các mệnh đề -> IsCorrect = true, ngược lại false.
+/// </summary>
 public sealed class TrueFalseGrader : IQuestionGrader
 {
-    private readonly SingleChoiceGrader _single = new();
-
     public QuestionType Type => QuestionType.TrueFalse;
 
-    public GradingResult Grade(GradingQuestion question, StudentAnswer answer) => _single.Grade(question, answer);
+    public GradingResult Grade(GradingQuestion question, StudentAnswer answer)
+    {
+        var allOptions = question.AllOptionCodes ?? [];
+        if (allOptions.Count == 0)
+        {
+            return GradingResult.Wrong(question.Score);
+        }
+
+        // Phân tích câu trả lời của thí sinh cho từng mệnh đề
+        var studentChoices = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        if (!string.IsNullOrWhiteSpace(answer.AnswerText) && answer.AnswerText.TrimStart().StartsWith('{'))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(answer.AnswerText);
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)
+                    {
+                        studentChoices[prop.Name] = prop.Value.GetBoolean();
+                    }
+                }
+            }
+            catch
+            {
+                // Bỏ qua lỗi parse JSON nếu có
+            }
+        }
+
+        // Nếu không có từ JSON thì đọc từ SelectedOptionCodes (các mã được đánh dấu là Đúng)
+        if (studentChoices.Count == 0 && answer.SelectedOptionCodes.Count > 0)
+        {
+            var selectedSet = answer.SelectedOptionCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (allOptions.Count == 1 && (selectedSet.Contains("FALSE") || selectedSet.Contains("SAI")))
+            {
+                studentChoices[allOptions[0]] = false;
+            }
+            else
+            {
+                foreach (var code in allOptions)
+                {
+                    studentChoices[code] = selectedSet.Contains(code);
+                }
+            }
+        }
+
+        // Hỗ trợ câu hỏi Đúng/Sai đơn (1 mệnh đề) khi học sinh gửi AnswerText là "true"/"false" hoặc "đúng"/"sai"
+        if (studentChoices.Count == 0 && allOptions.Count == 1 && !string.IsNullOrWhiteSpace(answer.AnswerText))
+        {
+            var text = answer.AnswerText.Trim().ToLowerInvariant();
+            if (text is "true" or "1" or "đúng" or "dung")
+            {
+                studentChoices[allOptions[0]] = true;
+            }
+            else if (text is "false" or "0" or "sai")
+            {
+                studentChoices[allOptions[0]] = false;
+            }
+        }
+
+        if (studentChoices.Count == 0)
+        {
+            return GradingResult.Wrong(question.Score);
+        }
+
+        var correctCount = 0;
+        foreach (var code in allOptions)
+        {
+            var expectedIsCorrect = question.CorrectOptionCodes.Contains(code);
+            if (studentChoices.TryGetValue(code, out var actualIsCorrect) && actualIsCorrect == expectedIsCorrect)
+            {
+                correctCount++;
+            }
+        }
+
+        var total = allOptions.Count;
+        var ratio = (decimal)correctCount / total;
+        var score = Math.Round(question.Score * ratio, 2, MidpointRounding.AwayFromZero);
+        var isAllCorrect = correctCount == total;
+
+        return new GradingResult(isAllCorrect, score, question.Score);
+    }
 }
 
 /// <summary>Đúng khi tập đã chọn bằng đúng tập đáp án (không phụ thuộc thứ tự, docs/02-nghiep-vu.md mục 2).</summary>

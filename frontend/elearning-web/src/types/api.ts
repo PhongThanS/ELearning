@@ -125,6 +125,9 @@ export interface Classroom {
   examCount: number;
   createdAt: string;
   rowVersion: string;
+  homeroomTeacherId?: string | null;
+  homeroomTeacherName?: string | null;
+  homeroomTeacherEmail?: string | null;
 }
 
 export interface ClassroomStudent {
@@ -147,6 +150,41 @@ export interface MyClassroom {
   studentCount: number;
   examCount: number;
   joinedAt: string;
+}
+
+export interface StudentClassExamItem {
+  examId: string;
+  code: string;
+  name: string;
+  startAt: string | null;
+  endAt: string | null;
+  durationMinutes: number;
+  questionCount: number;
+  maxAttempts: number;
+  usedAttempts: number;
+  officialScore: number | null;
+  percentage: number | null;
+  passed: boolean | null;
+  lastSubmittedAt: string | null;
+  isSubmitted: boolean;
+  isInProgress: boolean;
+  inProgressAttemptId: string | null;
+  statusText: string;
+}
+
+export interface StudentClassProgress {
+  userId: string;
+  userName: string;
+  fullName: string;
+  email: string;
+  classroomId: string;
+  classroomCode: string;
+  classroomName: string;
+  totalAssignedExams: number;
+  completedExams: number;
+  inProgressExams: number;
+  notStartedExams: number;
+  exams: StudentClassExamItem[];
 }
 
 export interface Role {
@@ -369,6 +407,33 @@ export interface PoolRuleInput {
   scorePerQuestion: number;
 }
 
+export type MatrixDrawMode = "STATIC" | "POOL";
+
+export interface MatrixStatsQuery {
+  categoryId?: string | null;
+  tag?: string | null;
+  questionType?: QuestionType | null;
+}
+
+export interface MatrixStats {
+  totalCandidates: number;
+  easyCandidates: number;
+  mediumCandidates: number;
+  hardCandidates: number;
+  unspecifiedCandidates: number;
+}
+
+export interface MatrixDrawInput {
+  categoryId: string | null;
+  tag: string | null;
+  questionType: QuestionType | null;
+  easyCount: number;
+  mediumCount: number;
+  hardCount: number;
+  scorePerQuestion: number | null;
+  mode: MatrixDrawMode;
+}
+
 export interface VersionDetail {
   id: string;
   examId: string;
@@ -416,6 +481,7 @@ export interface PlayerQuestion {
   answerDataType: AnswerDataType | null;
   score: number;
   options: PlayerOption[];
+  expectedLength?: number | null;
 }
 
 export interface ExamPreview {

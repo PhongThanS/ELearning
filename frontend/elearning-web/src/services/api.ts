@@ -8,6 +8,9 @@ import type {
   MediaUpload,
   ManualGradingItem,
   PoolRuleInput,
+  MatrixDrawInput,
+  MatrixStats,
+  MatrixStatsQuery,
   QuestionImportResult,
   AnswerKeyCorrection,
   UserOverride,
@@ -25,6 +28,7 @@ import type {
   Classroom,
   ClassroomStudent,
   MyClassroom,
+  StudentClassProgress,
   Dashboard,
   ExamDetail,
   ExamListItem,
@@ -81,6 +85,8 @@ export const usersApi = {
   setRoles: (id: string, roleIds: string[]) => http.put<UserDetail>(`/users/${id}/roles`, { roleIds }),
   resetPassword: (id: string) => http.post<UserWithPassword>(`/users/${id}/reset-password`),
   anonymize: (id: string, reason: string) => http.post<UserDetail>(`/users/${id}/anonymize`, { reason }),
+  exams: (id: string, q?: Query) => http.get<Paged<StudentExamItem>>(`/users/${id}/exams`, q),
+  history: (id: string, q?: Query) => http.get<Paged<StudentHistoryItem>>(`/users/${id}/history`, q),
 };
 
 export const groupsApi = {
@@ -101,6 +107,7 @@ export interface ClassroomInput {
   startDate: string | null;
   endDate: string | null;
   description: string | null;
+  homeroomTeacherId?: string | null;
 }
 
 export const classesApi = {
@@ -113,6 +120,8 @@ export const classesApi = {
   students: (id: string, q: Query) => http.get<Paged<ClassroomStudent>>(`/classes/${id}/students`, q),
   addStudents: (id: string, userIds: string[]) => http.post<Classroom>(`/classes/${id}/students`, { userIds }),
   removeStudent: (id: string, userId: string) => http.delete<Classroom>(`/classes/${id}/students/${userId}`),
+  studentProgress: (classroomId: string, userId: string) =>
+    http.get<StudentClassProgress>(`/classes/${classroomId}/students/${userId}/progress`),
 };
 
 export const rolesApi = {
@@ -200,6 +209,10 @@ export const examsApi = {
     http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/pool-rules/${ruleId}/refresh`),
   removePoolRule: (id: string, versionId: string, ruleId: string) =>
     http.delete<VersionDetail>(`/exams/${id}/versions/${versionId}/pool-rules/${ruleId}`),
+  getMatrixStats: (id: string, versionId: string, q: MatrixStatsQuery) =>
+    http.get<MatrixStats>(`/exams/${id}/versions/${versionId}/matrix-stats`, q),
+  matrixDraw: (id: string, versionId: string, body: MatrixDrawInput) =>
+    http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/matrix-draw`, body),
   preview: (id: string, versionId: string) => http.get<ExamPreview>(`/exams/${id}/versions/${versionId}/preview`),
   validate: (id: string, versionId: string) => http.post<PublishValidation>(`/exams/${id}/versions/${versionId}/validate`),
   publish: (id: string, versionId: string) => http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/publish`),

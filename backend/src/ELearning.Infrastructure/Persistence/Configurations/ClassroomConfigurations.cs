@@ -16,6 +16,7 @@ internal sealed class ClassroomConfiguration : IEntityTypeConfiguration<Classroo
         builder.HasIndex(c => c.Code).IsUnique().HasDatabaseName("UQ_Classrooms_Code");
         builder.HasUserReference(c => c.CreatedBy, "FK_Classrooms_CreatedBy");
         builder.HasUserReference(c => c.UpdatedBy, "FK_Classrooms_UpdatedBy");
+        builder.HasUserReference(c => c.HomeroomTeacherId, "FK_Classrooms_HomeroomTeacher");
 
         builder.HasMany(c => c.Students).WithOne().HasForeignKey(s => s.ClassroomId)
             .HasConstraintName("FK_ClassroomStudents_Classroom");

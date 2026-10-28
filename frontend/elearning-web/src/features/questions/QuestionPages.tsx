@@ -16,14 +16,14 @@ import { ImageInsertButton, insertAt } from "./ImageInsertButton";
 import { QuestionImportDialog } from "./QuestionImportDialog";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatNumber, markdownExcerpt } from "../../utils/format";
-import { matchesAny } from "../../utils/answerNormalizer";
 import { isValidNumberAnswer } from "../attempts/playerState";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
-import type { AnswerDataType, Category, ContentFormat, MediaUpload, MediaUrlMap, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
+import type { Category, ContentFormat, MediaUpload, MediaUrlMap, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
 
-const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
+const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN"];
 const CHOICE_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+const PROPOSITION_CODES = ["a", "b", "c", "d", "e", "f"];
 
 // ======================= Danh mục =======================
 
@@ -535,12 +535,17 @@ const emptyQuestion = (): EditorState => ({
 
 function optionsForType(type: QuestionType, current: EditorState["options"]): EditorState["options"] {
   if (type === "TRUE_FALSE") {
-    return [
-      { optionCode: "TRUE", content: "Đúng", isCorrect: true },
-      { optionCode: "FALSE", content: "Sai", isCorrect: false },
-    ];
+    const base = current.filter((o) => PROPOSITION_CODES.includes(o.optionCode.toLowerCase()));
+    return base.length >= 1
+      ? base
+      : [
+          { optionCode: "a", content: "", isCorrect: true },
+          { optionCode: "b", content: "", isCorrect: false },
+          { optionCode: "c", content: "", isCorrect: false },
+          { optionCode: "d", content: "", isCorrect: true },
+        ];
   }
-  if (type === "FILL_IN" || type === "ESSAY") {
+  if (type === "FILL_IN") {
     return [];
   }
   const base = current.filter((o) => CHOICE_CODES.includes(o.optionCode));
@@ -671,7 +676,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
     set({
       questionType: type,
       options: optionsForType(type, form.options),
-      answerDataType: type === "FILL_IN" ? (form.answerDataType ?? "TEXT") : null,
+      answerDataType: type === "FILL_IN" ? (form.answerDataType ?? "NUMBER") : null,
     });
 
   const submit = () => {
@@ -681,8 +686,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
       content: fullContentWithImages,
       code: form.code?.trim() || null,
       tags: parseTags(tagText),
-      explanation: form.explanation?.trim() || null,
-      options: form.questionType === "FILL_IN" || form.questionType === "ESSAY" ? [] : form.options,
+      options: form.questionType === "FILL_IN" ? [] : form.options,
       partialScoring: form.questionType === "MULTIPLE_CHOICE" && form.partialScoring,
       acceptedAnswers: form.questionType === "FILL_IN" && form.answerDataType === "TEXT" ? form.acceptedAnswers.filter((a) => a.trim()) : [],
       correctAnswerNumber: form.answerDataType === "NUMBER" ? form.correctAnswerNumber : null,
@@ -716,7 +720,6 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
     const position = explanationRef.current?.selectionStart;
     addImage(upload, (f, md) => ({ explanation: insertAt(f.explanation ?? "", md, position) }));
   };
-  const hasChoices = form.questionType !== "FILL_IN" && form.questionType !== "ESSAY";
 
   return (
     <>
@@ -831,23 +834,8 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   </Tab>
                   <Tab eventKey="preview" title={t("common.preview")}>
                     <MediaUrls value={media}>
-                      <div className="border rounded p-3">
-                        <MarkdownView content={fullContentWithImages || "_(trống)_"} format={form.contentFormat} />
-                        {hasChoices && (
-                          <ul className="list-unstyled mb-0 mt-2">
-                            {form.options.map((o, i) => (
-                              <li key={i}>
-                                <strong>{form.questionType === "TRUE_FALSE" ? "" : `${o.optionCode}. `}</strong>
-                                <MarkdownView content={o.content || "_(trống)_"} inline />
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {form.explanation && (
-                          <div className="small mt-2 pt-2 border-top">
-                            <strong>Giải thích:</strong> <MarkdownView content={form.explanation} />
-                          </div>
-                        )}
+                      <div className="border rounded p-3 bg-white">
+                        <MarkdownView content={fullContentWithImages || "_(Chưa có nội dung)_"} format={form.contentFormat} />
                       </div>
                     </MediaUrls>
                   </Tab>
@@ -859,12 +847,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
               <Card.Body>
                 <h2 className="h6">Đáp án</h2>
                 {err("options") && <Alert variant="danger" className="py-2">{err("options")}</Alert>}
-                {form.questionType === "ESSAY" ? (
-                  <Alert variant="info" className="small mb-0">
-                    Câu tự luận không chấm tự động: học viên viết bài, người có quyền <em>Chấm tay</em> chấm điểm từng bài
-                    (tab “Chấm tự luận” ở trang kết quả đề). Ghi đáp án mẫu / hướng dẫn chấm vào phần Giải thích.
-                  </Alert>
-                ) : form.questionType === "FILL_IN" ? (
+                {form.questionType === "FILL_IN" ? (
                   <FillInEditor form={form} set={set} errors={errors} tryValue={tryValue} setTryValue={setTryValue} />
                 ) : (
                   <>
@@ -987,6 +970,94 @@ function OptionsEditor({
 }) {
   const single = form.questionType !== "MULTIPLE_CHOICE";
   const trueFalse = form.questionType === "TRUE_FALSE";
+  if (trueFalse) {
+    const updateProposition = (index: number, patch: Partial<EditorState["options"][number]>) => {
+      set({
+        options: form.options.map((o, i) => (i === index ? { ...o, ...patch } : o)),
+      });
+    };
+    const addProposition = () => {
+      if (form.options.length >= PROPOSITION_CODES.length) return;
+      const nextCode = PROPOSITION_CODES[form.options.length]!;
+      set({
+        options: [...form.options, { optionCode: nextCode, content: "", isCorrect: true }],
+      });
+    };
+    const removeProposition = (index: number) => {
+      const next = form.options.filter((_, i) => i !== index);
+      const relabeled = next.map((o, i) => ({ ...o, optionCode: PROPOSITION_CODES[i]! }));
+      set({ options: relabeled });
+    };
+
+    return (
+      <fieldset>
+        <legend className="form-label fs-6 fw-bold mb-2">
+          {form.options.length === 1
+            ? "Nhận định câu hỏi Đúng / Sai (chọn Đúng hoặc Sai):"
+            : "Các mệnh đề phát biểu (chọn Đúng hoặc Sai cho từng mệnh đề):"}
+        </legend>
+        {form.options.map((option, index) => (
+          <InputGroup className="mb-2" key={option.optionCode}>
+            <InputGroup.Text className="bg-light fw-bold" style={{ minWidth: 48, justifyContent: "center" }}>
+              {form.options.length === 1 ? "Ý kiến:" : `${option.optionCode})`}
+            </InputGroup.Text>
+            <Form.Control
+              placeholder={
+                form.options.length === 1
+                  ? "Nhập nhận định / khẳng định cần xác định Đúng hoặc Sai..."
+                  : `Nội dung mệnh đề ${option.optionCode}...`
+              }
+              value={option.content}
+              isInvalid={!!errors[`options[${index}].content`]}
+              onChange={(e) => updateProposition(index, { content: e.target.value })}
+            />
+            <div className="btn-group" role="group" aria-label={`Đáp án cho ${option.optionCode}`}>
+              <Button
+                size="sm"
+                variant={option.isCorrect ? "success" : "outline-secondary"}
+                onClick={() => updateProposition(index, { isCorrect: true })}
+                title="Đánh dấu mệnh đề này là Đúng"
+              >
+                <i className="bi bi-check2 me-1" />
+                Đúng
+              </Button>
+              <Button
+                size="sm"
+                variant={!option.isCorrect ? "danger" : "outline-secondary"}
+                onClick={() => updateProposition(index, { isCorrect: false })}
+                title="Đánh dấu mệnh đề này là Sai"
+              >
+                <i className="bi bi-x me-1" />
+                Sai
+              </Button>
+            </div>
+            {form.options.length > 1 && (
+              <Button
+                variant="outline-danger"
+                aria-label={`Xóa mệnh đề ${option.optionCode}`}
+                onClick={() => removeProposition(index)}
+                title="Xóa dòng này"
+              >
+                ✕
+              </Button>
+            )}
+            <Form.Control.Feedback type="invalid">{errors[`options[${index}].content`]}</Form.Control.Feedback>
+          </InputGroup>
+        ))}
+        {form.options.length < 6 && (
+          <Button size="sm" variant="outline-primary" className="mt-1" onClick={addProposition}>
+            + Thêm mệnh đề ({PROPOSITION_CODES[form.options.length]})
+          </Button>
+        )}
+        <Form.Text className="d-block mt-2 text-muted">
+          {form.options.length === 1
+            ? "Dạng Đúng/Sai đơn: Học sinh sẽ làm bài bằng cách chọn 1 trong 2 nút [Đúng] hoặc [Sai]."
+            : "Dạng Đúng/Sai đa mệnh đề: Học sinh sẽ chọn Đúng hoặc Sai cho từng mệnh đề độc lập (a, b, c, d...). Điểm chia đều theo số ý đúng."}
+        </Form.Text>
+      </fieldset>
+    );
+  }
+
   const update = (index: number, patch: Partial<EditorState["options"][number]>) =>
     set({
       options: form.options.map((o, i) =>
@@ -1017,33 +1088,28 @@ function OptionsEditor({
               checked={option.isCorrect}
               onChange={(e) => update(index, { isCorrect: single ? true : e.target.checked })}
             />
-            <strong className="ms-2">{trueFalse ? "" : option.optionCode}</strong>
+            <strong className="ms-2">{option.optionCode}</strong>
           </InputGroup.Text>
           <Form.Control
             aria-label={`Nội dung lựa chọn ${option.optionCode}`}
             value={option.content}
-            readOnly={trueFalse}
             isInvalid={!!errors[`options[${index}].content`]}
             onChange={(e) => update(index, { content: e.target.value })}
           />
-          {!trueFalse && (
-            <>
-              <Button variant="outline-secondary" aria-label="Lên" onClick={() => move(index, -1)}>↑</Button>
-              <Button variant="outline-secondary" aria-label="Xuống" onClick={() => move(index, 1)}>↓</Button>
-              <Button
-                variant="outline-danger"
-                aria-label={`Xóa lựa chọn ${option.optionCode}`}
-                disabled={form.options.length <= 2}
-                onClick={() => set({ options: relabel(form.options.filter((_, i) => i !== index)) })}
-              >
-                ✕
-              </Button>
-            </>
-          )}
+          <Button variant="outline-secondary" aria-label="Lên" onClick={() => move(index, -1)}>↑</Button>
+          <Button variant="outline-secondary" aria-label="Xuống" onClick={() => move(index, 1)}>↓</Button>
+          <Button
+            variant="outline-danger"
+            aria-label={`Xóa lựa chọn ${option.optionCode}`}
+            disabled={form.options.length <= 2}
+            onClick={() => set({ options: relabel(form.options.filter((_, i) => i !== index)) })}
+          >
+            ✕
+          </Button>
           <Form.Control.Feedback type="invalid">{errors[`options[${index}].content`]}</Form.Control.Feedback>
         </InputGroup>
       ))}
-      {!trueFalse && form.options.length < 10 && (
+      {form.options.length < 10 && (
         <Button size="sm" variant="outline-primary" onClick={() => set({ options: relabel([...form.options, { optionCode: "", content: "", isCorrect: false }]) })}>
           + Thêm lựa chọn
         </Button>
@@ -1066,73 +1132,156 @@ function FillInEditor({
   tryValue: string;
   setTryValue: (v: string) => void;
 }) {
-  const { t } = useTranslation();
-  const accepted = form.acceptedAnswers.filter((a) => a.trim());
+  // Luôn đảm bảo kiểu đáp án là NUMBER
+  useEffect(() => {
+    if (form.answerDataType !== "NUMBER") {
+      set({ answerDataType: "NUMBER" });
+    }
+  }, [form.answerDataType, set]);
+
+  const initialVal =
+    form.correctAnswerNumber != null
+      ? String(form.correctAnswerNumber).replace(".", ",")
+      : form.acceptedAnswers[0] || "";
+
+  const [inputVal, setInputVal] = useState(initialVal);
+
+  useEffect(() => {
+    const current =
+      form.correctAnswerNumber != null
+        ? String(form.correctAnswerNumber).replace(".", ",")
+        : form.acceptedAnswers[0] || "";
+    if (current && current !== inputVal && !inputVal.endsWith(",") && inputVal !== "-") {
+      setInputVal(current);
+    }
+  }, [form.correctAnswerNumber, form.acceptedAnswers]);
+
+  const handleInputChange = (raw: string) => {
+    // Chỉ cho phép các ký tự: 0-9, dấu -, dấu ,, dấu .
+    const allowedRegex = /^[0-9\-.,]*$/;
+    if (!allowedRegex.test(raw)) {
+      return;
+    }
+    setInputVal(raw);
+
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      set({ correctAnswerNumber: null, acceptedAnswers: [] });
+      return;
+    }
+
+    const normalized = trimmed.replace("−", "-").replace(",", ".");
+    const num = Number(normalized);
+    if (!isNaN(num) && normalized !== "-" && !normalized.endsWith(".")) {
+      set({
+        correctAnswerNumber: num,
+        acceptedAnswers: [trimmed, normalized],
+      });
+    } else {
+      // Đang gõ dở như '-' hoặc '3,' -> lưu text để không mất dữ liệu
+      set({
+        acceptedAnswers: [trimmed],
+      });
+    }
+  };
+
+  const previewChars = inputVal.split("");
+
   return (
     <>
-      <Form.Group className="mb-3" controlId="q-datatype">
-        <Form.Label>Kiểu đáp án</Form.Label>
-        <Form.Select value={form.answerDataType ?? "TEXT"} onChange={(e) => set({ answerDataType: e.target.value as AnswerDataType })}>
-          <option value="TEXT">{t("enums.answerDataType.TEXT")}</option>
-          <option value="NUMBER">{t("enums.answerDataType.NUMBER")}</option>
-        </Form.Select>
-      </Form.Group>
-      {form.answerDataType === "NUMBER" ? (
-        <Row className="g-2">
-          <Col md={6}>
-            <Form.Group controlId="q-number">
-              <Form.Label>Đáp án số *</Form.Label>
-              <Form.Control type="number" step="any" value={form.correctAnswerNumber ?? ""} isInvalid={!!errors.correctAnswerNumber} onChange={(e) => set({ correctAnswerNumber: e.target.value === "" ? null : Number(e.target.value) })} />
-              <Form.Control.Feedback type="invalid">{errors.correctAnswerNumber}</Form.Control.Feedback>
-            </Form.Group>
-          </Col>
-          <Col md={6}>
-            <Form.Group controlId="q-tolerance">
-              <Form.Label>Sai số cho phép (±)</Form.Label>
-              <Form.Control type="number" min={0} step="any" value={form.numericTolerance ?? 0} isInvalid={!!errors.numericTolerance} onChange={(e) => set({ numericTolerance: Number(e.target.value) })} />
-              <Form.Control.Feedback type="invalid">{errors.numericTolerance}</Form.Control.Feedback>
-            </Form.Group>
-          </Col>
-        </Row>
-      ) : (
-        <>
-          <fieldset>
-            <legend className="form-label fs-6">Đáp án chấp nhận (1–20)</legend>
-            {form.acceptedAnswers.map((answer, index) => (
-              <InputGroup className="mb-2" key={index}>
-                <Form.Control
-                  aria-label={`Đáp án chấp nhận ${index + 1}`}
-                  value={answer}
-                  isInvalid={!!errors[`acceptedAnswers[${index}]`]}
-                  onChange={(e) => set({ acceptedAnswers: form.acceptedAnswers.map((a, i) => (i === index ? e.target.value : a)) })}
-                />
-                <Button variant="outline-danger" aria-label="Xóa" disabled={form.acceptedAnswers.length <= 1} onClick={() => set({ acceptedAnswers: form.acceptedAnswers.filter((_, i) => i !== index) })}>
-                  ✕
-                </Button>
-              </InputGroup>
-            ))}
-            {errors.acceptedAnswers && <div className="text-danger small">{errors.acceptedAnswers}</div>}
-            {form.acceptedAnswers.length < 20 && (
-              <Button size="sm" variant="outline-primary" onClick={() => set({ acceptedAnswers: [...form.acceptedAnswers, ""] })}>+ Thêm đáp án</Button>
-            )}
-          </fieldset>
-          <Form.Check className="mt-3" type="switch" id="q-case" label="Phân biệt chữ hoa / chữ thường" checked={form.caseSensitive} onChange={(e) => set({ caseSensitive: e.target.checked })} />
-          <Form.Check type="switch" id="q-accent" label="Bỏ qua dấu tiếng Việt (ví dụ “ha noi” = “Hà Nội”)" checked={form.ignoreAccent} onChange={(e) => set({ ignoreAccent: e.target.checked })} />
-        </>
-      )}
+      <Row className="g-2">
+        <Col md={7}>
+          <Form.Group controlId="q-number">
+            <Form.Label className="fw-semibold">
+              Đáp án số / ký hiệu (chỉ số 0-9, dấu - và dấu ,) *
+            </Form.Label>
+            <Form.Control
+              placeholder="Ví dụ: -3,14 hoặc 25 hoặc -0,5"
+              value={inputVal}
+              isInvalid={!!errors.correctAnswerNumber}
+              onChange={(e) => handleInputChange(e.target.value)}
+            />
+            <Form.Control.Feedback type="invalid">{errors.correctAnswerNumber}</Form.Control.Feedback>
+            <Form.Text className="text-muted">
+              Số ô vuông của học sinh sẽ tự động bằng đúng số ký tự của đáp án (ví dụ: <code>-3,14</code> là 5 ô, <code>25</code> là 2 ô).
+            </Form.Text>
+          </Form.Group>
+        </Col>
+        <Col md={5}>
+          <Form.Group controlId="q-tolerance">
+            <Form.Label>Sai số cho phép (±)</Form.Label>
+            <Form.Control
+              type="number"
+              min={0}
+              step="any"
+              value={form.numericTolerance ?? 0}
+              isInvalid={!!errors.numericTolerance}
+              onChange={(e) => set({ numericTolerance: Number(e.target.value) })}
+            />
+            <Form.Control.Feedback type="invalid">{errors.numericTolerance}</Form.Control.Feedback>
+            <Form.Text className="text-muted">Mặc định là 0 (chính xác tuyệt đối).</Form.Text>
+          </Form.Group>
+        </Col>
+      </Row>
+
+      {/* Dãy ô vuông xem trước: Số ô bằng đúng số ký tự của câu trả lời */}
+      <div className="mt-3 p-3 border rounded bg-light">
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <div className="small fw-bold text-secondary d-flex align-items-center gap-1">
+            <i className="bi bi-grid-3x3-gap-fill text-primary" />
+            <span>Xem trước ô vuông học sinh sẽ điền:</span>
+          </div>
+          <Badge bg="info" text="dark">
+            {previewChars.length} ô vuông
+          </Badge>
+        </div>
+
+        <div className="d-flex flex-wrap gap-2">
+          {previewChars.length === 0 ? (
+            <div
+              className="d-flex align-items-center justify-content-center fw-bold fs-4 rounded border text-muted opacity-50"
+              style={{
+                width: "48px",
+                height: "52px",
+                backgroundColor: "#ffffff",
+                borderColor: "#cbd5e1",
+                borderWidth: "2px",
+              }}
+            >
+              _
+            </div>
+          ) : (
+            previewChars.map((c, i) => (
+              <div
+                key={i}
+                className="d-flex align-items-center justify-content-center fw-bold fs-4 rounded border shadow-sm"
+                style={{
+                  width: "48px",
+                  height: "52px",
+                  backgroundColor: "#ecfdf5",
+                  borderColor: "#059669",
+                  borderWidth: "2px",
+                  color: "#065f46",
+                }}
+              >
+                {c}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       <Form.Group className="mt-3" controlId="q-try">
         <Form.Label>Thử đáp án</Form.Label>
         <InputGroup>
           <Form.Control value={tryValue} onChange={(e) => setTryValue(e.target.value)} placeholder="Nhập câu trả lời để thử" />
           {tryValue && (
             <InputGroup.Text>
-              {form.answerDataType === "NUMBER"
-                ? !isValidNumberAnswer(tryValue)
-                  ? <Badge bg="warning" text="dark">Sai định dạng</Badge>
-                  : <TryNumber value={tryValue} answer={form.correctAnswerNumber} tolerance={form.numericTolerance ?? 0} />
-                : matchesAny(tryValue, accepted, form.caseSensitive, form.ignoreAccent)
-                  ? <Badge bg="success">Đúng</Badge>
-                  : <Badge bg="danger">Sai</Badge>}
+              {!isValidNumberAnswer(tryValue) ? (
+                <Badge bg="warning" text="dark">Sai định dạng</Badge>
+              ) : (
+                <TryNumber value={tryValue} answer={form.correctAnswerNumber} tolerance={form.numericTolerance ?? 0} />
+              )}
             </InputGroup.Text>
           )}
         </InputGroup>

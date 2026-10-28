@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Button, Card, Col, Form, Modal, Row, Table } from "react-bootstrap";
+import { Alert, Badge, Button, Card, Col, Form, Modal, ProgressBar, Row, Table } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,9 +21,10 @@ interface ClassForm {
   startDate: string;
   endDate: string;
   description: string;
+  homeroomTeacherId: string;
 }
 
-const emptyForm: ClassForm = { code: "", name: "", schoolYear: "", startDate: "", endDate: "", description: "" };
+const emptyForm: ClassForm = { code: "", name: "", schoolYear: "", startDate: "", endDate: "", description: "", homeroomTeacherId: "" };
 
 function toInput(form: ClassForm): ClassroomInput {
   const orNull = (v: string) => (v.trim() === "" ? null : v.trim());
@@ -33,6 +34,7 @@ function toInput(form: ClassForm): ClassroomInput {
     startDate: orNull(form.startDate),
     endDate: orNull(form.endDate),
     description: orNull(form.description),
+    homeroomTeacherId: orNull(form.homeroomTeacherId),
   };
 }
 
@@ -54,6 +56,10 @@ function ClassFormModal({
 }) {
   const { t } = useTranslation();
   const [form, setForm] = useState<ClassForm>(initial ?? emptyForm);
+  const teachersQuery = useQuery({
+    queryKey: ["users", "teachers-list"],
+    queryFn: () => usersApi.list({ roleCode: "TEACHER", pageSize: 100, isActive: true }),
+  });
   const field = (name: keyof ClassForm) => ({
     value: form[name],
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [name]: e.target.value }),
@@ -104,6 +110,22 @@ function ClassFormModal({
               </Form.Group>
             </Col>
             <Col xs={12}>
+              <Form.Group controlId="class-teacher">
+                <Form.Label>Giáo viên chủ nhiệm</Form.Label>
+                <Form.Select
+                  value={form.homeroomTeacherId}
+                  onChange={(e) => setForm({ ...form, homeroomTeacherId: e.target.value })}
+                >
+                  <option value="">-- Chưa phân công --</option>
+                  {teachersQuery.data?.items.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.fullName} ({u.userName}){u.email ? ` - ${u.email}` : ""}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col xs={12}>
               <Form.Group controlId="class-description">
                 <Form.Label>{t("common.description")}</Form.Label>
                 <Form.Control as="textarea" rows={3} {...field("description")} maxLength={1000} />
@@ -140,6 +162,19 @@ export function ClassesPage() {
   const columns: Column<Classroom>[] = [
     { key: "code", header: t("common.code"), sortKey: "code", render: (c) => <Link to={`/admin/classes/${c.id}`}>{c.code}</Link> },
     { key: "name", header: t("common.name"), sortKey: "name", render: (c) => c.name },
+    {
+      key: "teacher",
+      header: "Giáo viên chủ nhiệm",
+      render: (c) =>
+        c.homeroomTeacherName ? (
+          <div>
+            <span className="fw-medium text-primary"><i className="bi bi-person-badge me-1" aria-hidden="true" />{c.homeroomTeacherName}</span>
+            {c.homeroomTeacherEmail && <div className="small text-secondary">{c.homeroomTeacherEmail}</div>}
+          </div>
+        ) : (
+          <span className="text-secondary small">Chưa phân công</span>
+        ),
+    },
     { key: "schoolYear", header: t("classes.schoolYear"), sortKey: "schoolYear", render: (c) => c.schoolYear ?? "—" },
     { key: "period", header: t("classes.period"), render: (c) => formatDateRange(c.startDate, c.endDate) },
     { key: "students", header: t("classes.students"), render: (c) => c.studentCount },
@@ -235,22 +270,76 @@ export function ClassDetailPage() {
     },
   });
 
+  const [inspectingStudent, setInspectingStudent] = useState<ClassroomStudent | null>(null);
+
   const columns: Column<ClassroomStudent>[] = [
-    { key: "userName", header: t("auth.userNameOnly"), render: (s) => <Link to={`/admin/users/${s.userId}`}>{s.userName}</Link> },
-    { key: "fullName", header: t("auth.fullName"), render: (s) => s.fullName },
+    {
+      key: "userName",
+      header: t("auth.userNameOnly"),
+      render: (s) => (
+        <div className="d-flex align-items-center gap-1">
+          <button
+            type="button"
+            className="btn btn-link p-0 text-start fw-semibold text-decoration-none text-primary"
+            onClick={() => setInspectingStudent(s)}
+            title="Bấm để xem bài tập đã làm & chưa làm"
+          >
+            {s.userName}
+          </button>
+          <Link
+            to={`/admin/users/${s.userId}`}
+            className="text-secondary small ms-1"
+            title="Xem chi tiết hồ sơ tài khoản"
+          >
+            <i className="bi bi-box-arrow-up-right" style={{ fontSize: "0.75rem" }} />
+          </Link>
+        </div>
+      ),
+    },
+    {
+      key: "fullName",
+      header: t("auth.fullName"),
+      render: (s) => (
+        <button
+          type="button"
+          className="btn btn-link p-0 text-start fw-semibold text-decoration-none text-primary"
+          onClick={() => setInspectingStudent(s)}
+          title="Bấm để xem danh sách bài tập đã làm & chưa làm"
+        >
+          <i className="bi bi-person-lines-fill me-1" />
+          {s.fullName}
+        </button>
+      ),
+    },
     { key: "email", header: t("auth.email"), render: (s) => s.email },
     { key: "status", header: t("common.status"), render: (s) => <ActiveBadge active={s.isActive} /> },
     { key: "joinedAt", header: t("classes.joinedAt"), render: (s) => formatDateTime(s.joinedAt) },
     {
       key: "actions",
       header: "",
-      render: (s) =>
-        canManage && (
-          <Button size="sm" variant="outline-danger" onClick={() => change.mutate(() => classesApi.removeStudent(id, s.userId))}>
-            <i className="bi bi-person-dash me-1" aria-hidden="true" />
-            {t("classes.removeStudent")}
+      render: (s) => (
+        <div className="d-flex justify-content-end gap-1">
+          <Button
+            size="sm"
+            variant="outline-primary"
+            onClick={() => setInspectingStudent(s)}
+            title="Xem bài tập đã làm và chưa làm"
+          >
+            <i className="bi bi-journal-check me-1" aria-hidden="true" />
+            Bài tập
           </Button>
-        ),
+          {canManage && (
+            <Button
+              size="sm"
+              variant="outline-danger"
+              onClick={() => change.mutate(() => classesApi.removeStudent(id, s.userId))}
+            >
+              <i className="bi bi-person-dash me-1" aria-hidden="true" />
+              {t("classes.removeStudent")}
+            </Button>
+          )}
+        </div>
+      ),
     },
   ];
 
@@ -312,6 +401,18 @@ export function ClassDetailPage() {
           </Col>
         ))}
       </Row>
+      {c.homeroomTeacherName && (
+        <Card className="mb-3 border-primary-subtle shadow-sm">
+          <Card.Body className="d-flex align-items-center gap-3 py-2">
+            <span className="fs-3 text-primary"><i className="bi bi-person-badge" /></span>
+            <div>
+              <div className="small text-secondary fw-semibold text-uppercase">Giáo viên chủ nhiệm</div>
+              <div className="fw-bold">{c.homeroomTeacherName}</div>
+              {c.homeroomTeacherEmail && <div className="small text-muted">{c.homeroomTeacherEmail}</div>}
+            </div>
+          </Card.Body>
+        </Card>
+      )}
       {c.description && <p className="text-secondary">{c.description}</p>}
       {!c.isActive && <Alert variant="warning" className="py-2 small">{t("classes.inactiveHint")}</Alert>}
       {canManage && (
@@ -377,6 +478,7 @@ export function ClassDetailPage() {
             startDate: c.startDate ?? "",
             endDate: c.endDate ?? "",
             description: c.description ?? "",
+            homeroomTeacherId: c.homeroomTeacherId ?? "",
           }}
           editing
           error={update.error}
@@ -385,6 +487,206 @@ export function ClassDetailPage() {
           onSubmit={(f) => update.mutate(f)}
         />
       )}
+      <StudentProgressModal
+        classroomId={id}
+        student={inspectingStudent}
+        onHide={() => setInspectingStudent(null)}
+      />
     </>
+  );
+}
+
+// ======================= Modal Xem Tiến độ bài tập của học sinh =======================
+
+function StudentProgressModal({
+  classroomId,
+  student,
+  onHide,
+}: {
+  classroomId: string;
+  student: ClassroomStudent | null;
+  onHide: () => void;
+}) {
+  const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "inProgress">("all");
+  const progressQuery = useQuery({
+    queryKey: ["class-student-progress", classroomId, student?.userId],
+    queryFn: () => classesApi.studentProgress(classroomId, student!.userId),
+    enabled: Boolean(student && classroomId),
+  });
+
+  const data = progressQuery.data;
+  const filteredExams = data?.exams.filter((item) => {
+    if (filter === "completed") return item.isSubmitted;
+    if (filter === "notStarted") return !item.isSubmitted && !item.isInProgress;
+    if (filter === "inProgress") return item.isInProgress;
+    return true;
+  }) ?? [];
+
+  const completionPct =
+    data && data.totalAssignedExams > 0
+      ? Math.round((data.completedExams / data.totalAssignedExams) * 100)
+      : 0;
+
+  return (
+    <Modal show={Boolean(student)} onHide={onHide} size="lg" centered>
+      <Modal.Header closeButton>
+        <Modal.Title className="h5 d-flex align-items-center gap-2">
+          <i className="bi bi-mortarboard text-primary" />
+          <span>Tiến độ bài tập: {student?.fullName}</span>
+          <span className="text-muted fs-6 fw-normal">({student?.userName})</span>
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {progressQuery.isLoading && <Loading />}
+        {progressQuery.error && <ErrorAlert error={progressQuery.error} />}
+        {data && (
+          <>
+            <div className="mb-3 p-3 bg-light rounded border">
+              <div className="d-flex justify-content-between align-items-center mb-1">
+                <span className="small fw-semibold text-secondary">Tỷ lệ hoàn thành bài tập</span>
+                <span className="fw-bold text-primary">{completionPct}%</span>
+              </div>
+              <ProgressBar
+                now={completionPct}
+                variant={completionPct === 100 ? "success" : completionPct > 50 ? "primary" : "warning"}
+                style={{ height: "8px" }}
+              />
+              <Row className="g-2 mt-2 text-center">
+                <Col xs={3}>
+                  <div className="p-2 border rounded bg-white">
+                    <div className="text-muted small">Tổng số đề</div>
+                    <div className="fs-5 fw-bold text-dark">{data.totalAssignedExams}</div>
+                  </div>
+                </Col>
+                <Col xs={3}>
+                  <div className="p-2 border rounded bg-white">
+                    <div className="text-success small fw-semibold">Đã làm</div>
+                    <div className="fs-5 fw-bold text-success">{data.completedExams}</div>
+                  </div>
+                </Col>
+                <Col xs={3}>
+                  <div className="p-2 border rounded bg-white">
+                    <div className="text-secondary small fw-semibold">Chưa làm</div>
+                    <div className="fs-5 fw-bold text-danger">{data.notStartedExams}</div>
+                  </div>
+                </Col>
+                <Col xs={3}>
+                  <div className="p-2 border rounded bg-white">
+                    <div className="text-warning small fw-semibold">Đang làm</div>
+                    <div className="fs-5 fw-bold text-warning">{data.inProgressExams}</div>
+                  </div>
+                </Col>
+              </Row>
+            </div>
+
+            <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <div className="btn-group btn-group-sm" role="group">
+                <button
+                  type="button"
+                  className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-secondary"}`}
+                  onClick={() => setFilter("all")}
+                >
+                  Tất cả ({data.totalAssignedExams})
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${filter === "completed" ? "btn-success" : "btn-outline-secondary"}`}
+                  onClick={() => setFilter("completed")}
+                >
+                  Đã làm ({data.completedExams})
+                </button>
+                <button
+                  type="button"
+                  className={`btn ${filter === "notStarted" ? "btn-danger" : "btn-outline-secondary"}`}
+                  onClick={() => setFilter("notStarted")}
+                >
+                  Chưa làm ({data.notStartedExams})
+                </button>
+                {data.inProgressExams > 0 && (
+                  <button
+                    type="button"
+                    className={`btn ${filter === "inProgress" ? "btn-warning" : "btn-outline-secondary"}`}
+                    onClick={() => setFilter("inProgress")}
+                  >
+                    Đang làm ({data.inProgressExams})
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filteredExams.length === 0 ? (
+              <Alert variant="info" className="py-2 small mb-0">
+                Không có bài tập nào trong mục này.
+              </Alert>
+            ) : (
+              <div className="table-responsive border rounded">
+                <Table hover size="sm" className="mb-0 align-middle">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Tên bài tập / Đề thi</th>
+                      <th className="text-center">Thời lượng</th>
+                      <th className="text-center">Lượt làm</th>
+                      <th className="text-center">Trạng thái</th>
+                      <th className="text-center">Điểm số</th>
+                      <th className="text-end">Thời gian nộp</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredExams.map((item) => (
+                      <tr key={item.examId}>
+                        <td>
+                          <div className="fw-semibold text-dark">{item.name}</div>
+                          <div className="text-muted small font-monospace">{item.code}</div>
+                        </td>
+                        <td className="text-center text-nowrap small">
+                          <div>{item.durationMinutes} phút</div>
+                          <div className="text-muted">{item.questionCount} câu</div>
+                        </td>
+                        <td className="text-center small">
+                          <span className="badge bg-light text-dark border">
+                            {item.usedAttempts} / {item.maxAttempts === 0 ? "∞" : item.maxAttempts}
+                          </span>
+                        </td>
+                        <td className="text-center text-nowrap">
+                          {item.isSubmitted ? (
+                            <Badge bg={item.passed === false ? "danger" : "success"}>
+                              {item.passed === true ? "Đã nộp (Đạt)" : item.passed === false ? "Đã nộp (Chưa đạt)" : "Đã nộp"}
+                            </Badge>
+                          ) : item.isInProgress ? (
+                            <Badge bg="warning" text="dark">Đang làm dở</Badge>
+                          ) : (
+                            <Badge bg="secondary">Chưa làm</Badge>
+                          )}
+                        </td>
+                        <td className="text-center text-nowrap">
+                          {item.isSubmitted && item.officialScore !== null ? (
+                            <div>
+                              <span className="fw-bold text-primary">{item.officialScore}</span>
+                              {item.percentage !== null && (
+                                <span className="small text-muted ms-1">({item.percentage}%)</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
+                        <td className="text-end text-nowrap small text-muted">
+                          {item.lastSubmittedAt ? formatDateTime(item.lastSubmittedAt) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </div>
+            )}
+          </>
+        )}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" size="sm" onClick={onHide}>
+          Đóng
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 }
