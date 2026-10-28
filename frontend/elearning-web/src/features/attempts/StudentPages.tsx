@@ -105,7 +105,9 @@ function ExamCard({ exam }: { exam: StudentExamItem }) {
         <ul className="list-unstyled small text-secondary mb-3 d-grid gap-1">
           <li>
             <i className="bi bi-stopwatch me-2" aria-hidden="true" />
-            {t("student.duration", { minutes: exam.durationMinutes })} · {t("student.questions", { count: exam.questionCount })}
+            {exam.durationMinutes === 0
+              ? "Không giới hạn thời gian (Đề luyện tập)"
+              : t("student.duration", { minutes: exam.durationMinutes })} · {t("student.questions", { count: exam.questionCount })}
           </li>
           {(exam.startAt || exam.endAt) && (
             <li>
@@ -250,7 +252,7 @@ export function StudentExamDetailPage() {
   const exam: StudentExamDetail = query.data;
   const canStart = exam.availability === "AVAILABLE" || exam.availability === "IN_PROGRESS";
   const minutesUntilEnd = exam.endAt ? Math.floor((new Date(exam.endAt).getTime() - openedAt) / 60000) : null;
-  const shortTime = minutesUntilEnd != null && minutesUntilEnd < exam.durationMinutes && exam.availability === "AVAILABLE";
+  const shortTime = exam.durationMinutes > 0 && minutesUntilEnd != null && minutesUntilEnd < exam.durationMinutes && exam.availability === "AVAILABLE";
 
   return (
     <>
@@ -263,7 +265,11 @@ export function StudentExamDetailPage() {
               {exam.description && <p>{exam.description}</p>}
               {exam.instructions && <MarkdownView content={exam.instructions} />}
               <ListGroup variant="flush" className="mt-2">
-                <ListGroup.Item>{t("student.duration", { minutes: exam.durationMinutes })}</ListGroup.Item>
+                <ListGroup.Item>
+                  {exam.durationMinutes === 0
+                    ? "Thời lượng: Không giới hạn (Đề luyện tập tự do)"
+                    : t("student.duration", { minutes: exam.durationMinutes })}
+                </ListGroup.Item>
                 <ListGroup.Item>{t("student.questions", { count: exam.questionCount })} · {formatNumber(exam.maxScore)} điểm</ListGroup.Item>
                 {exam.passPercentage != null && <ListGroup.Item>Điểm đạt: {formatNumber(exam.passPercentage)}%</ListGroup.Item>}
                 <ListGroup.Item>{t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}</ListGroup.Item>

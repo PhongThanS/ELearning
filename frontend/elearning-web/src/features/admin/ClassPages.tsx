@@ -13,6 +13,8 @@ import { formatDateRange, formatDateTime } from "../../utils/format";
 import { Permissions, StudentRole } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { Classroom, ClassroomStudent } from "../../types/api";
+import { ExamAttemptDetailModal } from "../exams/ExamAttemptDetailModal";
+import { ExamPreviewModal } from "../exams/ExamPreviewModal";
 
 interface ClassForm {
   code: string;
@@ -508,6 +510,10 @@ function StudentProgressModal({
   onHide: () => void;
 }) {
   const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "inProgress">("all");
+  const [viewAttemptId, setViewAttemptId] = useState<string | null>(null);
+  const [viewAttemptTitle, setViewAttemptTitle] = useState<string | undefined>(undefined);
+  const [previewExam, setPreviewExam] = useState<{ examId: string; versionId?: string | null; name?: string } | null>(null);
+
   const progressQuery = useQuery({
     queryKey: ["class-student-progress", classroomId, student?.userId],
     queryFn: () => classesApi.studentProgress(classroomId, student!.userId),
@@ -528,165 +534,247 @@ function StudentProgressModal({
       : 0;
 
   return (
-    <Modal show={Boolean(student)} onHide={onHide} size="lg" centered>
-      <Modal.Header closeButton>
-        <Modal.Title className="h5 d-flex align-items-center gap-2">
-          <i className="bi bi-mortarboard text-primary" />
-          <span>Tiến độ bài tập: {student?.fullName}</span>
-          <span className="text-muted fs-6 fw-normal">({student?.userName})</span>
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        {progressQuery.isLoading && <Loading />}
-        {progressQuery.error && <ErrorAlert error={progressQuery.error} />}
-        {data && (
-          <>
-            <div className="mb-3 p-3 bg-light rounded border">
-              <div className="d-flex justify-content-between align-items-center mb-1">
-                <span className="small fw-semibold text-secondary">Tỷ lệ hoàn thành bài tập</span>
-                <span className="fw-bold text-primary">{completionPct}%</span>
+    <>
+      <Modal show={Boolean(student)} onHide={onHide} size="xl" centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="h5 d-flex align-items-center gap-2">
+            <i className="bi bi-mortarboard text-primary" />
+            <span>Tiến độ bài tập: {student?.fullName}</span>
+            <span className="text-muted fs-6 fw-normal">({student?.userName})</span>
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {progressQuery.isLoading && <Loading />}
+          {progressQuery.error && <ErrorAlert error={progressQuery.error} />}
+          {data && (
+            <>
+              <div className="mb-3 p-3 bg-light rounded border">
+                <div className="d-flex justify-content-between align-items-center mb-1">
+                  <span className="small fw-semibold text-secondary">Tỷ lệ hoàn thành bài tập</span>
+                  <span className="fw-bold text-primary">{completionPct}%</span>
+                </div>
+                <ProgressBar
+                  now={completionPct}
+                  variant={completionPct === 100 ? "success" : completionPct > 50 ? "primary" : "warning"}
+                  style={{ height: "8px" }}
+                />
+                <Row className="g-2 mt-2 text-center">
+                  <Col xs={3}>
+                    <div className="p-2 border rounded bg-white">
+                      <div className="text-muted small">Tổng số đề</div>
+                      <div className="fs-5 fw-bold text-dark">{data.totalAssignedExams}</div>
+                    </div>
+                  </Col>
+                  <Col xs={3}>
+                    <div className="p-2 border rounded bg-white">
+                      <div className="text-success small fw-semibold">Đã làm</div>
+                      <div className="fs-5 fw-bold text-success">{data.completedExams}</div>
+                    </div>
+                  </Col>
+                  <Col xs={3}>
+                    <div className="p-2 border rounded bg-white">
+                      <div className="text-secondary small fw-semibold">Chưa làm</div>
+                      <div className="fs-5 fw-bold text-danger">{data.notStartedExams}</div>
+                    </div>
+                  </Col>
+                  <Col xs={3}>
+                    <div className="p-2 border rounded bg-white">
+                      <div className="text-warning small fw-semibold">Đang làm</div>
+                      <div className="fs-5 fw-bold text-warning">{data.inProgressExams}</div>
+                    </div>
+                  </Col>
+                </Row>
               </div>
-              <ProgressBar
-                now={completionPct}
-                variant={completionPct === 100 ? "success" : completionPct > 50 ? "primary" : "warning"}
-                style={{ height: "8px" }}
-              />
-              <Row className="g-2 mt-2 text-center">
-                <Col xs={3}>
-                  <div className="p-2 border rounded bg-white">
-                    <div className="text-muted small">Tổng số đề</div>
-                    <div className="fs-5 fw-bold text-dark">{data.totalAssignedExams}</div>
-                  </div>
-                </Col>
-                <Col xs={3}>
-                  <div className="p-2 border rounded bg-white">
-                    <div className="text-success small fw-semibold">Đã làm</div>
-                    <div className="fs-5 fw-bold text-success">{data.completedExams}</div>
-                  </div>
-                </Col>
-                <Col xs={3}>
-                  <div className="p-2 border rounded bg-white">
-                    <div className="text-secondary small fw-semibold">Chưa làm</div>
-                    <div className="fs-5 fw-bold text-danger">{data.notStartedExams}</div>
-                  </div>
-                </Col>
-                <Col xs={3}>
-                  <div className="p-2 border rounded bg-white">
-                    <div className="text-warning small fw-semibold">Đang làm</div>
-                    <div className="fs-5 fw-bold text-warning">{data.inProgressExams}</div>
-                  </div>
-                </Col>
-              </Row>
-            </div>
 
-            <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-              <div className="btn-group btn-group-sm" role="group">
-                <button
-                  type="button"
-                  className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-secondary"}`}
-                  onClick={() => setFilter("all")}
-                >
-                  Tất cả ({data.totalAssignedExams})
-                </button>
-                <button
-                  type="button"
-                  className={`btn ${filter === "completed" ? "btn-success" : "btn-outline-secondary"}`}
-                  onClick={() => setFilter("completed")}
-                >
-                  Đã làm ({data.completedExams})
-                </button>
-                <button
-                  type="button"
-                  className={`btn ${filter === "notStarted" ? "btn-danger" : "btn-outline-secondary"}`}
-                  onClick={() => setFilter("notStarted")}
-                >
-                  Chưa làm ({data.notStartedExams})
-                </button>
-                {data.inProgressExams > 0 && (
+              <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div className="btn-group btn-group-sm" role="group">
                   <button
                     type="button"
-                    className={`btn ${filter === "inProgress" ? "btn-warning" : "btn-outline-secondary"}`}
-                    onClick={() => setFilter("inProgress")}
+                    className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-secondary"}`}
+                    onClick={() => setFilter("all")}
                   >
-                    Đang làm ({data.inProgressExams})
+                    Tất cả ({data.totalAssignedExams})
                   </button>
-                )}
+                  <button
+                    type="button"
+                    className={`btn ${filter === "completed" ? "btn-success" : "btn-outline-secondary"}`}
+                    onClick={() => setFilter("completed")}
+                  >
+                    Đã làm ({data.completedExams})
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn ${filter === "notStarted" ? "btn-danger" : "btn-outline-secondary"}`}
+                    onClick={() => setFilter("notStarted")}
+                  >
+                    Chưa làm ({data.notStartedExams})
+                  </button>
+                  {data.inProgressExams > 0 && (
+                    <button
+                      type="button"
+                      className={`btn ${filter === "inProgress" ? "btn-warning" : "btn-outline-secondary"}`}
+                      onClick={() => setFilter("inProgress")}
+                    >
+                      Đang làm ({data.inProgressExams})
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {filteredExams.length === 0 ? (
-              <Alert variant="info" className="py-2 small mb-0">
-                Không có bài tập nào trong mục này.
-              </Alert>
-            ) : (
-              <div className="table-responsive border rounded">
-                <Table hover size="sm" className="mb-0 align-middle">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Tên bài tập / Đề thi</th>
-                      <th className="text-center">Thời lượng</th>
-                      <th className="text-center">Lượt làm</th>
-                      <th className="text-center">Trạng thái</th>
-                      <th className="text-center">Điểm số</th>
-                      <th className="text-end">Thời gian nộp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredExams.map((item) => (
-                      <tr key={item.examId}>
-                        <td>
-                          <div className="fw-semibold text-dark">{item.name}</div>
-                          <div className="text-muted small font-monospace">{item.code}</div>
-                        </td>
-                        <td className="text-center text-nowrap small">
-                          <div>{item.durationMinutes} phút</div>
-                          <div className="text-muted">{item.questionCount} câu</div>
-                        </td>
-                        <td className="text-center small">
-                          <span className="badge bg-light text-dark border">
-                            {item.usedAttempts} / {item.maxAttempts === 0 ? "∞" : item.maxAttempts}
-                          </span>
-                        </td>
-                        <td className="text-center text-nowrap">
-                          {item.isSubmitted ? (
-                            <Badge bg={item.passed === false ? "danger" : "success"}>
-                              {item.passed === true ? "Đã nộp (Đạt)" : item.passed === false ? "Đã nộp (Chưa đạt)" : "Đã nộp"}
-                            </Badge>
-                          ) : item.isInProgress ? (
-                            <Badge bg="warning" text="dark">Đang làm dở</Badge>
-                          ) : (
-                            <Badge bg="secondary">Chưa làm</Badge>
-                          )}
-                        </td>
-                        <td className="text-center text-nowrap">
-                          {item.isSubmitted && item.officialScore !== null ? (
-                            <div>
-                              <span className="fw-bold text-primary">{item.officialScore}</span>
-                              {item.percentage !== null && (
-                                <span className="small text-muted ms-1">({item.percentage}%)</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted">—</span>
-                          )}
-                        </td>
-                        <td className="text-end text-nowrap small text-muted">
-                          {item.lastSubmittedAt ? formatDateTime(item.lastSubmittedAt) : "—"}
-                        </td>
+              {filteredExams.length === 0 ? (
+                <Alert variant="info" className="py-2 small mb-0">
+                  Không có bài tập nào trong mục này.
+                </Alert>
+              ) : (
+                <div className="table-responsive border rounded">
+                  <Table hover size="sm" className="mb-0 align-middle">
+                    <thead className="table-light">
+                      <tr>
+                        <th>Tên bài tập / Đề thi</th>
+                        <th className="text-center">Thời lượng</th>
+                        <th className="text-center">Lượt làm</th>
+                        <th className="text-center">Trạng thái</th>
+                        <th className="text-center">Điểm số</th>
+                        <th className="text-end">Thời gian nộp</th>
+                        <th className="text-end" style={{ width: 150 }}>Hành động</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </div>
-            )}
-          </>
-        )}
-      </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" size="sm" onClick={onHide}>
-          Đóng
-        </Button>
-      </Modal.Footer>
-    </Modal>
+                    </thead>
+                    <tbody>
+                      {filteredExams.map((item) => {
+                        const handleItemClick = () => {
+                          if (item.isSubmitted && item.latestAttemptId) {
+                            setViewAttemptTitle(`Chi tiết bài làm: ${item.name}`);
+                            setViewAttemptId(item.latestAttemptId);
+                          } else if (item.isInProgress && item.inProgressAttemptId) {
+                            setViewAttemptTitle(`Chi tiết bài đang làm: ${item.name}`);
+                            setViewAttemptId(item.inProgressAttemptId);
+                          } else {
+                            setPreviewExam({ examId: item.examId, versionId: item.examVersionId, name: item.name });
+                          }
+                        };
+
+                        return (
+                          <tr key={item.examId}>
+                            <td>
+                              <div
+                                className="fw-semibold text-primary"
+                                role="button"
+                                style={{ cursor: "pointer" }}
+                                title={item.isSubmitted ? "Ấn để xem bài làm và đáp án chi tiết" : "Ấn để xem đề bài (chế độ chỉ đọc)"}
+                                onClick={handleItemClick}
+                              >
+                                {item.name}
+                              </div>
+                              <div className="text-muted small font-monospace">{item.code}</div>
+                            </td>
+                            <td className="text-center text-nowrap small">
+                              {item.durationMinutes === 0 ? (
+                                <Badge bg="info" className="text-dark bg-opacity-25 border border-info">
+                                  Luyện tập
+                                </Badge>
+                              ) : (
+                                <div>{item.durationMinutes} phút</div>
+                              )}
+                              <div className="text-muted">{item.questionCount} câu</div>
+                            </td>
+                            <td className="text-center small">
+                              <span className="badge bg-light text-dark border">
+                                {item.usedAttempts} / {item.maxAttempts === 0 ? "∞" : item.maxAttempts}
+                              </span>
+                            </td>
+                            <td className="text-center text-nowrap">
+                              {item.isSubmitted ? (
+                                <Badge bg={item.passed === false ? "danger" : "success"}>
+                                  {item.passed === true ? "Đã nộp (Đạt)" : item.passed === false ? "Đã nộp (Chưa đạt)" : "Đã nộp"}
+                                </Badge>
+                              ) : item.isInProgress ? (
+                                <Badge bg="warning" text="dark">Đang làm dở</Badge>
+                              ) : (
+                                <Badge bg="secondary">Chưa làm</Badge>
+                              )}
+                            </td>
+                            <td className="text-center text-nowrap">
+                              {item.isSubmitted && item.officialScore !== null ? (
+                                <div>
+                                  <span className="fw-bold text-primary">{item.officialScore}</span>
+                                  {item.percentage !== null && (
+                                    <span className="small text-muted ms-1">({item.percentage}%)</span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-muted">—</span>
+                              )}
+                            </td>
+                            <td className="text-end text-nowrap small text-muted">
+                              {item.lastSubmittedAt ? formatDateTime(item.lastSubmittedAt) : "—"}
+                            </td>
+                            <td className="text-end">
+                              {item.isSubmitted && item.latestAttemptId ? (
+                                <Button
+                                  size="sm"
+                                  variant="success"
+                                  className="d-inline-flex align-items-center gap-1"
+                                  onClick={handleItemClick}
+                                  title="Xem bài làm và đáp án chi tiết"
+                                >
+                                  <i className="bi bi-file-earmark-check" />
+                                  <span>Xem bài làm</span>
+                                </Button>
+                              ) : item.isInProgress && item.inProgressAttemptId ? (
+                                <Button
+                                  size="sm"
+                                  variant="warning"
+                                  className="d-inline-flex align-items-center gap-1"
+                                  onClick={handleItemClick}
+                                  title="Xem bài đang làm dở"
+                                >
+                                  <i className="bi bi-hourglass-split" />
+                                  <span>Xem bài dở</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  variant="outline-secondary"
+                                  className="d-inline-flex align-items-center gap-1"
+                                  onClick={handleItemClick}
+                                  title="Xem đề bài (chỉ đọc)"
+                                >
+                                  <i className="bi bi-eye" />
+                                  <span>Xem đề bài</span>
+                                </Button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </Table>
+                </div>
+              )}
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" size="sm" onClick={onHide}>
+            Đóng
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Modal xem bài làm chi tiết */}
+      <ExamAttemptDetailModal
+        attemptId={viewAttemptId}
+        title={viewAttemptTitle}
+        onClose={() => setViewAttemptId(null)}
+      />
+
+      {/* Modal xem đề bài chỉ đọc */}
+      <ExamPreviewModal
+        examId={previewExam?.examId ?? null}
+        versionId={previewExam?.versionId}
+        examName={previewExam?.name}
+        onClose={() => setPreviewExam(null)}
+      />
+    </>
   );
 }

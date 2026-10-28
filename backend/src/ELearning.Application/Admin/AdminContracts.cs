@@ -32,6 +32,8 @@ public sealed record AdminAttemptListItemDto(
     bool? Passed,
     int EventCount);
 
+public sealed record AdminOptionDto(string OptionCode, string Content, bool IsCorrect);
+
 public sealed record AdminAnswerDto(
     Guid AttemptQuestionId,
     int Order,
@@ -50,7 +52,9 @@ public sealed record AdminAnswerDto(
     decimal? CorrectAnswerNumber,
     bool? IsCorrect,
     decimal? Score,
-    bool IsVoided);
+    bool IsVoided,
+    IReadOnlyList<AdminOptionDto>? Options = null,
+    string? Explanation = null);
 
 public sealed record AdminEventDto(AttemptEventType Type, DateTime? ClientTime, DateTime ServerTime, string? IpAddress, string? Detail);
 

@@ -92,7 +92,7 @@ internal sealed class AttemptService(
             return new StudentExamListItemDto(
                 e.Id, e.Code, e.Name, e.StartAt, e.EndAt, state.Version.DurationMinutes, state.Version.QuestionCount ?? 0,
                 state.Allowed, state.Used, Math.Max(0, state.Allowed - state.Used), state.InProgressId,
-                state.OfficialScore, state.Availability);
+                state.OfficialScore, state.Availability, state.LatestAttemptId, state.Version.Id);
         }).ToList();
 
         return new PagedResult<StudentExamListItemDto>(items, query.Page, query.PageSize, total);
@@ -469,7 +469,7 @@ internal sealed class AttemptService(
     }
 
     private sealed record UserExamState(
-        ExamVersion Version, int Allowed, int Used, Guid? InProgressId, decimal? OfficialScore, ExamAvailability Availability);
+        ExamVersion Version, int Allowed, int Used, Guid? InProgressId, decimal? OfficialScore, ExamAvailability Availability, Guid? LatestAttemptId);
 
     private async Task<Dictionary<Guid, UserExamState>> LoadUserExamStatesAsync(
         Guid userId, IReadOnlyCollection<Guid> examIds, CancellationToken ct)
@@ -480,7 +480,7 @@ internal sealed class AttemptService(
             .ToDictionaryAsync(v => v.ExamId, ct);
         var attempts = await db.ExamAttempts.AsNoTracking()
             .Where(a => examIds.Contains(a.ExamId) && a.UserId == userId)
-            .Select(a => new { a.Id, a.ExamId, a.ExamVersionId, a.Status })
+            .Select(a => new { a.Id, a.ExamId, a.ExamVersionId, a.Status, a.SubmittedAt })
             .ToListAsync(ct);
         var extras = await db.ExamUserOverrides.AsNoTracking()
             .Where(o => examIds.Contains(o.ExamId) && o.UserId == userId)
@@ -505,6 +505,10 @@ internal sealed class AttemptService(
             var used = mine.Count(a => a.ExamVersionId == version.Id && a.Status != AttemptStatus.Cancelled);
             var allowed = exam.MaxAttempts + extras.GetValueOrDefault(exam.Id);
             var inProgress = mine.FirstOrDefault(a => a.ExamVersionId == version.Id && a.Status == AttemptStatus.InProgress)?.Id;
+            var latestAttemptId = mine
+                .Where(a => a.Status == AttemptStatus.Submitted)
+                .OrderByDescending(a => a.SubmittedAt)
+                .FirstOrDefault()?.Id;
 
             var availability = inProgress is not null ? ExamAvailability.InProgress
                 : exam.Status == ExamStatus.Closed ? ExamAvailability.Closed
@@ -522,7 +526,7 @@ internal sealed class AttemptService(
                 : exam.RetakeScoringPolicy == RetakeScoringPolicy.Highest ? examResults.Max(r => r.TotalScore)
                 : examResults.OrderByDescending(r => r.SubmittedAt).First().TotalScore;
 
-            states[exam.Id] = new UserExamState(version, allowed, used, inProgress, official, availability);
+            states[exam.Id] = new UserExamState(version, allowed, used, inProgress, official, availability, latestAttemptId);
         }
 
         return states;

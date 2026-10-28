@@ -22,7 +22,7 @@ public sealed record PublishIssue(string Code, string Message, string? Field = n
 /// </summary>
 public sealed class ExamVersion : Entity, IHasRowVersion
 {
-    public const int MinDuration = 1;
+    public const int MinDuration = 0;
     public const int MaxDuration = 600;
     public const int MaxQuestions = 500;
 

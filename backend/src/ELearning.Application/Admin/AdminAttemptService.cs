@@ -127,6 +127,9 @@ internal sealed class AdminAttemptService(
         var answers = attempt.Questions.OrderBy(q => q.QuestionOrder).Select(q =>
         {
             var eq = snapshot[q.ExamQuestionId];
+            var options = eq.Options.OrderBy(o => o.DisplayOrder)
+                .Select(o => new AdminOptionDto(o.OptionCode, o.Content, o.IsCorrect))
+                .ToList();
             return new AdminAnswerDto(
                 q.Id,
                 q.QuestionOrder,
@@ -145,7 +148,9 @@ internal sealed class AdminAttemptService(
                 eq.CorrectAnswerNumber,
                 q.Answer.IsCorrect,
                 q.Answer.Score,
-                eq.IsVoided);
+                eq.IsVoided,
+                options,
+                eq.Explanation);
         }).ToList();
 
         return new AdminAttemptDetailDto(

@@ -94,7 +94,14 @@ function Player({ attempt }: { attempt: Attempt }) {
     setSubmitting(false);
   }, [attempt.attemptId, autosave, finish]);
 
+  const isUntimed =
+    (attempt.durationMinutes ?? 0) === 0 ||
+    new Date(attempt.expiredAt).getTime() - new Date(attempt.startedAt).getTime() > 30 * 24 * 3600 * 1000;
+
   const remaining = useCountdown(state, () => {
+    if (isUntimed) {
+      return;
+    }
     setTimeUp(true);
     void submit();
   });
@@ -121,7 +128,7 @@ function Player({ attempt }: { attempt: Attempt }) {
         <div className="container-fluid d-flex align-items-center gap-3 py-2">
           <h1 className="h6 mb-0 flex-grow-1 text-truncate">{attempt.examName}</h1>
           <SaveIndicator status={autosave.status} online={state.online} />
-          <Timer remainingMs={remaining} />
+          <Timer remainingMs={remaining} isUntimed={isUntimed} />
           <Button size="sm" variant="outline-secondary" className="d-lg-none" onClick={() => setShowNavigator(true)}>
             {t("player.navigator")}
           </Button>
@@ -224,8 +231,16 @@ function Player({ attempt }: { attempt: Attempt }) {
   );
 }
 
-function Timer({ remainingMs }: { remainingMs: number }) {
+function Timer({ remainingMs, isUntimed }: { remainingMs: number; isUntimed?: boolean }) {
   const { t } = useTranslation();
+  if (isUntimed) {
+    return (
+      <div className="fw-semibold px-2 py-1 rounded bg-info bg-opacity-10 text-info-emphasis border border-info-subtle d-flex align-items-center gap-1 small">
+        <i className="bi bi-infinity fs-6 text-info" />
+        <span>Luyện tập tự do (Không giới hạn thời gian)</span>
+      </div>
+    );
+  }
   const seconds = Math.max(0, Math.floor(remainingMs / 1000));
   const warning = seconds <= 60;
   const caution = seconds <= 5 * 60;

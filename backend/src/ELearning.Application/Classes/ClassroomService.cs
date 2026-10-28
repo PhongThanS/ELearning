@@ -79,7 +79,9 @@ public sealed record StudentClassExamItemDto(
     bool IsSubmitted,
     bool IsInProgress,
     Guid? InProgressAttemptId,
-    string StatusText);
+    string StatusText,
+    Guid? LatestAttemptId = null,
+    Guid? ExamVersionId = null);
 
 public sealed record StudentClassProgressDto(
     Guid UserId,
@@ -487,6 +489,7 @@ internal sealed class ClassroomService(
             decimal? officialScore = null;
             decimal? percentage = null;
             bool? passed = null;
+            Guid? latestAttemptId = null;
 
             if (isSubmitted)
             {
@@ -497,6 +500,7 @@ internal sealed class ClassroomService(
                 officialScore = best.TotalScore;
                 percentage = best.Percentage;
                 passed = best.Passed;
+                latestAttemptId = best.AttemptId;
             }
 
             string statusText;
@@ -530,7 +534,9 @@ internal sealed class ClassroomService(
                 isSubmitted,
                 isInProgress,
                 inProgress?.Id,
-                statusText));
+                statusText,
+                latestAttemptId,
+                latestVersion?.Id));
         }
 
         var completedCount = examItems.Count(e => e.IsSubmitted);

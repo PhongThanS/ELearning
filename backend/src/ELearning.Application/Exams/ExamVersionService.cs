@@ -37,6 +37,8 @@ public interface IExamVersionService
 
     Task<Result<ExamPreviewDto>> PreviewAsync(Guid examId, Guid versionId, CancellationToken ct);
 
+    Task<Result<ExamPreviewDto>> PreviewPublishedAsync(Guid examId, CancellationToken ct);
+
     Task<Result<VersionDetailDto>> AddPoolRuleAsync(Guid examId, Guid versionId, AddPoolRuleRequest request, CancellationToken ct);
 
     Task<Result<VersionDetailDto>> RefreshPoolRuleAsync(Guid examId, Guid versionId, Guid poolRuleId, CancellationToken ct);
@@ -685,6 +687,32 @@ internal sealed class ExamVersionService(
             version.EffectiveMaxScore,
             questions,
             mediaLinks.For(questions.SelectMany(MediaTexts)));
+    }
+
+    public async Task<Result<ExamPreviewDto>> PreviewPublishedAsync(Guid examId, CancellationToken ct)
+    {
+        var exam = await db.Exams.AsNoTracking().SingleOrDefaultAsync(e => e.Id == examId, ct);
+        if (exam is null)
+        {
+            return VersionNotFound;
+        }
+
+        var version = await db.ExamVersions.AsNoTracking()
+            .Where(v => v.ExamId == examId && v.Status == ExamVersionStatus.Published)
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefaultAsync(ct);
+
+        version ??= await db.ExamVersions.AsNoTracking()
+            .Where(v => v.ExamId == examId)
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefaultAsync(ct);
+
+        if (version is null)
+        {
+            return VersionNotFound;
+        }
+
+        return await PreviewAsync(examId, version.Id, ct);
     }
 
     /// <summary>Nội dung học viên nhìn thấy của một câu: đề và lựa chọn (không có giải thích), cho bảng ảnh (D-27).</summary>

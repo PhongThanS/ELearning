@@ -214,6 +214,7 @@ export const examsApi = {
   matrixDraw: (id: string, versionId: string, body: MatrixDrawInput) =>
     http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/matrix-draw`, body),
   preview: (id: string, versionId: string) => http.get<ExamPreview>(`/exams/${id}/versions/${versionId}/preview`),
+  previewPublished: (id: string) => http.get<ExamPreview>(`/exams/${id}/preview`),
   validate: (id: string, versionId: string) => http.post<PublishValidation>(`/exams/${id}/versions/${versionId}/validate`),
   publish: (id: string, versionId: string) => http.post<VersionDetail>(`/exams/${id}/versions/${versionId}/publish`),
   addQuestions: (id: string, versionId: string, questionIds: string[], score?: number | null) =>

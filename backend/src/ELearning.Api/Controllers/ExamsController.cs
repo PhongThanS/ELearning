@@ -159,6 +159,12 @@ public sealed class ExamsController(IExamService exams, IExamVersionService vers
     public async Task<ActionResult> Preview(Guid id, Guid versionId, CancellationToken ct) =>
         ToResponse(await versions.PreviewAsync(id, versionId, ct));
 
+    [HttpGet("{id:guid}/preview")]
+    [HasPermission(Permissions.ExamView)]
+    [ProducesResponseType<ApiResponse<ExamPreviewDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> PreviewPublished(Guid id, CancellationToken ct) =>
+        ToResponse(await versions.PreviewPublishedAsync(id, ct));
+
     [HttpPost("{id:guid}/versions/{versionId:guid}/validate")]
     [HasPermission(Permissions.ExamUpdate)]
     [ProducesResponseType<ApiResponse<PublishValidationDto>>(StatusCodes.Status200OK)]

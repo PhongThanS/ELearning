@@ -14,6 +14,8 @@ import { formatDateTime } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { Group, GroupMember, UserListItem, UserWithPassword } from "../../types/api";
+import { ExamAttemptDetailModal } from "../exams/ExamAttemptDetailModal";
+import { ExamPreviewModal } from "../exams/ExamPreviewModal";
 
 // ======================= Người dùng =======================
 
@@ -437,6 +439,10 @@ export function UserDetailPage() {
 
 function UserExamsSection({ userId }: { userId: string }) {
   const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "history">("all");
+  const [viewAttemptId, setViewAttemptId] = useState<string | null>(null);
+  const [viewAttemptTitle, setViewAttemptTitle] = useState<string | undefined>(undefined);
+  const [previewExam, setPreviewExam] = useState<{ examId: string; versionId?: string | null; name?: string } | null>(null);
+
   const examsQuery = useQuery({
     queryKey: ["user-exams", userId],
     queryFn: () => usersApi.exams(userId, { pageSize: 100 }),
@@ -544,13 +550,24 @@ function UserExamsSection({ userId }: { userId: string }) {
                         <th className="text-center">Điểm số</th>
                         <th className="text-center">Trạng thái</th>
                         <th className="text-end">Thời gian nộp</th>
+                        <th className="text-center" style={{ width: 140 }}>Chi tiết</th>
                       </tr>
                     </thead>
                     <tbody>
                       {history.map((h) => (
                         <tr key={h.attemptId}>
                           <td>
-                            <div className="fw-semibold">{h.examName}</div>
+                            <div
+                              className="fw-semibold text-primary"
+                              role="button"
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                setViewAttemptTitle(`Chi tiết bài làm: ${h.examName} (Lần ${h.attemptNumber})`);
+                                setViewAttemptId(h.attemptId);
+                              }}
+                            >
+                              {h.examName}
+                            </div>
                             <div className="text-muted small font-monospace">{h.examCode}</div>
                           </td>
                           <td className="text-center">Lần {h.attemptNumber}</td>
@@ -572,6 +589,20 @@ function UserExamsSection({ userId }: { userId: string }) {
                           <td className="text-end text-muted small">
                             {h.submittedAt ? formatDateTime(h.submittedAt) : formatDateTime(h.startedAt)}
                           </td>
+                          <td className="text-center">
+                            <Button
+                              size="sm"
+                              variant="outline-primary"
+                              className="d-inline-flex align-items-center gap-1"
+                              onClick={() => {
+                                setViewAttemptTitle(`Chi tiết bài làm: ${h.examName} (Lần ${h.attemptNumber})`);
+                                setViewAttemptId(h.attemptId);
+                              }}
+                            >
+                              <i className="bi bi-file-earmark-check" />
+                              <span>Xem bài</span>
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -591,19 +622,52 @@ function UserExamsSection({ userId }: { userId: string }) {
                       <th className="text-center">Lượt làm</th>
                       <th className="text-center">Trạng thái</th>
                       <th className="text-center">Điểm số</th>
+                      <th className="text-end" style={{ width: 160 }}>Hành động</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredExams.map((e) => {
                       const isCompleted = e.usedAttempts > 0;
                       const isInProgress = Boolean(e.inProgressAttemptId);
+                      // Tìm attemptId từ bài nộp
+                      const attemptId = e.latestAttemptId || history.find((h) => h.examId === e.examId)?.attemptId;
+
+                      const handleExamClick = () => {
+                        if (isCompleted && attemptId) {
+                          setViewAttemptTitle(`Chi tiết bài làm: ${e.name}`);
+                          setViewAttemptId(attemptId);
+                        } else if (isInProgress && e.inProgressAttemptId) {
+                          setViewAttemptTitle(`Chi tiết bài đang làm: ${e.name}`);
+                          setViewAttemptId(e.inProgressAttemptId);
+                        } else {
+                          // Chưa làm: mở đề xem trước chế độ chỉ đọc
+                          setPreviewExam({ examId: e.examId, versionId: e.examVersionId, name: e.name });
+                        }
+                      };
+
                       return (
                         <tr key={e.examId}>
                           <td>
-                            <div className="fw-semibold">{e.name}</div>
+                            <div
+                              className="fw-semibold text-primary"
+                              role="button"
+                              style={{ cursor: "pointer" }}
+                              title={isCompleted ? "Ấn để xem bài làm và đáp án chi tiết" : "Ấn để xem đề bài (chế độ chỉ đọc)"}
+                              onClick={handleExamClick}
+                            >
+                              {e.name}
+                            </div>
                             <div className="text-muted small font-monospace">{e.code}</div>
                           </td>
-                          <td className="text-center small">{e.durationMinutes} phút</td>
+                          <td className="text-center small">
+                            {e.durationMinutes === 0 ? (
+                              <Badge bg="info" className="text-dark bg-opacity-25 border border-info">
+                                Luyện tập tự do
+                              </Badge>
+                            ) : (
+                              `${e.durationMinutes} phút`
+                            )}
+                          </td>
                           <td className="text-center small">{e.questionCount} câu</td>
                           <td className="text-center small">
                             <span className="badge bg-light text-dark border">
@@ -626,6 +690,42 @@ function UserExamsSection({ userId }: { userId: string }) {
                               <span className="text-muted">—</span>
                             )}
                           </td>
+                          <td className="text-end">
+                            {isCompleted ? (
+                              <Button
+                                size="sm"
+                                variant="success"
+                                className="d-inline-flex align-items-center gap-1"
+                                onClick={handleExamClick}
+                                title="Xem đáp án và bài làm chi tiết"
+                              >
+                                <i className="bi bi-file-earmark-check" />
+                                <span>Xem bài làm</span>
+                              </Button>
+                            ) : isInProgress ? (
+                              <Button
+                                size="sm"
+                                variant="warning"
+                                className="d-inline-flex align-items-center gap-1"
+                                onClick={handleExamClick}
+                                title="Xem bài đang làm dở"
+                              >
+                                <i className="bi bi-hourglass-split" />
+                                <span>Xem bài dở</span>
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline-secondary"
+                                className="d-inline-flex align-items-center gap-1"
+                                onClick={handleExamClick}
+                                title="Mở đề bài lên xem (không được làm)"
+                              >
+                                <i className="bi bi-eye" />
+                                <span>Xem đề bài</span>
+                              </Button>
+                            )}
+                          </td>
                         </tr>
                       );
                     })}
@@ -636,6 +736,21 @@ function UserExamsSection({ userId }: { userId: string }) {
           </>
         )}
       </Card.Body>
+
+      {/* Modal xem bài làm chi tiết của học sinh */}
+      <ExamAttemptDetailModal
+        attemptId={viewAttemptId}
+        title={viewAttemptTitle}
+        onClose={() => setViewAttemptId(null)}
+      />
+
+      {/* Modal xem đề bài chỉ đọc (chưa làm bài) */}
+      <ExamPreviewModal
+        examId={previewExam?.examId ?? null}
+        versionId={previewExam?.versionId}
+        examName={previewExam?.name}
+        onClose={() => setPreviewExam(null)}
+      />
     </Card>
   );
 }

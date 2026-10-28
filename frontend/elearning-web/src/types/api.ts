@@ -170,6 +170,8 @@ export interface StudentClassExamItem {
   isInProgress: boolean;
   inProgressAttemptId: string | null;
   statusText: string;
+  latestAttemptId?: string | null;
+  examVersionId?: string | null;
 }
 
 export interface StudentClassProgress {
@@ -535,6 +537,8 @@ export interface StudentExamItem {
   inProgressAttemptId: string | null;
   officialScore: number | null;
   availability: ExamAvailability;
+  latestAttemptId?: string | null;
+  examVersionId?: string | null;
 }
 
 export interface StudentAttemptSummary {
@@ -581,6 +585,7 @@ export interface Attempt {
   startedAt: string;
   expiredAt: string;
   serverTime: string;
+  durationMinutes?: number;
   questions: AttemptQuestion[];
   /** Ảnh trong nội dung: id → URL đã ký, chỉ gồm ảnh của các trường được trả về (D-27). */
   media?: MediaUrlMap;
@@ -687,6 +692,12 @@ export interface AdminAttemptRow {
   eventCount: number;
 }
 
+export interface AdminOptionDto {
+  optionCode: string;
+  content: string;
+  isCorrect: boolean;
+}
+
 export interface AdminAnswer {
   attemptQuestionId: string;
   order: number;
@@ -706,6 +717,8 @@ export interface AdminAnswer {
   isCorrect: boolean | null;
   score: number | null;
   isVoided: boolean;
+  options?: AdminOptionDto[];
+  explanation?: string | null;
 }
 
 export interface AdminAttemptDetail {

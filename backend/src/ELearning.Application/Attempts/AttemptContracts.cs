@@ -29,7 +29,9 @@ public sealed record StudentExamListItemDto(
     int RemainingAttempts,
     Guid? InProgressAttemptId,
     decimal? OfficialScore,
-    ExamAvailability Availability);
+    ExamAvailability Availability,
+    Guid? LatestAttemptId = null,
+    Guid? ExamVersionId = null);
 
 public sealed record StudentAttemptSummaryDto(
     Guid AttemptId,

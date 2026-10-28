@@ -189,7 +189,23 @@ export function VersionSettingsFields({
       <Col md={3}>
         <Form.Group controlId="v-duration">
           <Form.Label>Thời lượng (phút)</Form.Label>
-          <Form.Control type="number" min={1} max={600} disabled={disabled} value={value.durationMinutes} onChange={(e) => onChange({ ...value, durationMinutes: Number(e.target.value) })} />
+          <Form.Control
+            type="number"
+            min={0}
+            max={600}
+            disabled={disabled || value.durationMinutes === 0}
+            value={value.durationMinutes === 0 ? 0 : value.durationMinutes}
+            onChange={(e) => onChange({ ...value, durationMinutes: Math.max(0, Number(e.target.value)) })}
+          />
+          <Form.Check
+            type="checkbox"
+            id="v-untimed"
+            className="small mt-1 text-primary fw-semibold"
+            label="Đề không tính thời gian (Luyện tập)"
+            checked={value.durationMinutes === 0}
+            disabled={disabled}
+            onChange={(e) => onChange({ ...value, durationMinutes: e.target.checked ? 0 : 60 })}
+          />
         </Form.Group>
       </Col>
       <Col md={3}>
