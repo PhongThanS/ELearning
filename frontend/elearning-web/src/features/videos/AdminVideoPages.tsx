@@ -700,6 +700,38 @@ export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClo
   const isDirect = isDirectVideo(video.videoUrl);
   const isDoc = !ytId && !!drive;
 
+  // Tài liệu Drive: xem toàn màn hình như trang xem của Google Drive (thanh trên gọn, tài liệu chiếm hết phần còn lại)
+  if (isDoc && drive) {
+    return (
+      <Modal show={true} onHide={onClose} fullscreen dialogClassName="modal-doc-viewer">
+        <Modal.Header closeButton closeVariant="white" className="bg-dark text-white border-0 py-2 gap-2">
+          <Modal.Title className="h6 mb-0 text-white d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+            <i className="bi bi-file-earmark-text" aria-hidden="true"></i>
+            <span className="text-truncate">{video.title}</span>
+          </Modal.Title>
+          <a
+            href={drive.openUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 text-nowrap"
+          >
+            <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+            <span className="d-none d-sm-inline">Mở trong Google Drive</span>
+          </a>
+        </Modal.Header>
+        <Modal.Body className="p-0 bg-dark d-flex">
+          <iframe
+            src={drive.previewUrl}
+            title={video.title}
+            className="w-100 flex-grow-1 border-0 bg-white"
+            allow="autoplay; encrypted-media; fullscreen"
+            allowFullScreen
+          ></iframe>
+        </Modal.Body>
+      </Modal>
+    );
+  }
+
   return (
     <Modal show={true} onHide={onClose} size="xl" centered dialogClassName="modal-video-player">
       <Modal.Header closeButton className="bg-dark text-white border-0 py-2">
