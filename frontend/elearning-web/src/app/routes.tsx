@@ -20,6 +20,7 @@ const identity = () => import("../features/admin/IdentityPages");
 const classes = () => import("../features/admin/ClassPages");
 const questions = () => import("../features/questions/QuestionPages");
 const exams = () => import("../features/exams/ExamPages");
+const examPreview = () => import("../features/exams/ExamPreviewPage");
 const builder = () => import("../features/exams/VersionBuilderPage");
 const results = () => import("../features/exams/ResultPages");
 const dashboard = () => import("../features/admin/DashboardPage");
@@ -90,6 +91,7 @@ export const routes: RouteObject[] = [
           { path: "questions/:id/edit", element: guard(Permissions.QuestionView, page(questions, "QuestionEditorPage")) },
           { path: "exams", element: guard(Permissions.ExamView, page(exams, "ExamsPage")) },
           { path: "exams/:id", element: guard(Permissions.ExamView, page(exams, "ExamDetailPage")) },
+          { path: "exams/:id/preview", element: guard(Permissions.ExamView, page(examPreview, "ExamPreviewPage")) },
           { path: "exams/:id/versions/:versionId", element: guard(Permissions.ExamView, page(builder, "VersionBuilderPage")) },
           { path: "exams/:id/results", element: guard(Permissions.ResultView, page(results, "ExamResultsPage")) },
           { path: "attempts/:attemptId", element: guard(Permissions.AttemptView, page(results, "AttemptAdminPage")) },

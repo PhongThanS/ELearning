@@ -10,6 +10,7 @@ import { useActiveCategories } from "../../hooks/useCategories";
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
+import { SearchableSelect } from "../../components/common/SearchableSelect";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
 import { ImageInsertButton, insertAt } from "./ImageInsertButton";
@@ -478,12 +479,21 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
           onBlur={(e) => list.setFilter({ tag: e.currentTarget.value.trim() })} />
       </Col>
       <Col md={2}>
-        <Form.Select size="sm" aria-label={t("nav.categories")} value={String(list.state.categoryId ?? "")} onChange={(e) => list.setFilter({ categoryId: e.target.value })}>
-          <option value="">Mọi danh mục</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </Form.Select>
+        <SearchableSelect
+          size="sm"
+          value={String(list.state.categoryId ?? "")}
+          onChange={(val) => list.setFilter({ categoryId: val })}
+          options={categories.map((c) => ({
+            value: c.id,
+            label: c.name,
+            code: c.code,
+            sublabel: c.questionCount ? `${c.questionCount} câu` : undefined,
+          }))}
+          emptyLabel="Mọi danh mục"
+          emptyValue=""
+          placeholder="Mọi danh mục"
+          searchPlaceholder="Tìm mã hoặc tên..."
+        />
       </Col>
       <Col md={2}>
         <Form.Select size="sm" aria-label="Loại câu hỏi" value={String(list.state.questionType ?? "")} onChange={(e) => list.setFilter({ questionType: e.target.value })}>
@@ -618,6 +628,16 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   const toast = useToast();
   const queryClient = useQueryClient();
   const categories = useActiveCategories();
+  const categoryOptions = useMemo(() => {
+    return (
+      categories.data?.items.map((c) => ({
+        value: c.id,
+        label: c.name,
+        code: c.code,
+        sublabel: c.questionCount ? `${c.questionCount} câu` : undefined,
+      })) ?? []
+    );
+  }, [categories.data]);
   const [form, setForm] = useState<EditorState>(() => (existing ? toEditorState(existing) : emptyQuestion()));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [pendingType, setPendingType] = useState<QuestionType | null>(null);
@@ -766,12 +786,17 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                   <Col md={4}>
                     <Form.Group controlId="q-category">
                       <Form.Label>{t("nav.categories")}</Form.Label>
-                      <Form.Select value={form.categoryId ?? ""} isInvalid={!!err("categoryId")} onChange={(e) => set({ categoryId: e.target.value || null })}>
-                        <option value="">(Không có)</option>
-                        {categories.data?.items.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </Form.Select>
+                      <SearchableSelect
+                        id="q-category"
+                        value={form.categoryId ?? ""}
+                        isInvalid={!!err("categoryId")}
+                        onChange={(val) => set({ categoryId: val || null })}
+                        options={categoryOptions}
+                        emptyLabel="(Không có chuyên đề)"
+                        emptyValue=""
+                        placeholder="Chọn hoặc tìm chuyên đề..."
+                        searchPlaceholder="Nhập mã hoặc tên chuyên đề..."
+                      />
                       <Form.Control.Feedback type="invalid">{err("categoryId")}</Form.Control.Feedback>
                     </Form.Group>
                   </Col>

@@ -14,8 +14,6 @@ import { formatDateTime } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { Group, GroupMember, UserListItem, UserWithPassword } from "../../types/api";
-import { ExamAttemptDetailModal } from "../exams/ExamAttemptDetailModal";
-import { ExamPreviewModal } from "../exams/ExamPreviewModal";
 
 // ======================= Người dùng =======================
 
@@ -439,9 +437,6 @@ export function UserDetailPage() {
 
 function UserExamsSection({ userId }: { userId: string }) {
   const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "history">("all");
-  const [viewAttemptId, setViewAttemptId] = useState<string | null>(null);
-  const [viewAttemptTitle, setViewAttemptTitle] = useState<string | undefined>(undefined);
-  const [previewExam, setPreviewExam] = useState<{ examId: string; versionId?: string | null; name?: string } | null>(null);
 
   const examsQuery = useQuery({
     queryKey: ["user-exams", userId],
@@ -557,17 +552,15 @@ function UserExamsSection({ userId }: { userId: string }) {
                       {history.map((h) => (
                         <tr key={h.attemptId}>
                           <td>
-                            <div
-                              className="fw-semibold text-primary"
-                              role="button"
-                              style={{ cursor: "pointer" }}
-                              onClick={() => {
-                                setViewAttemptTitle(`Chi tiết bài làm: ${h.examName} (Lần ${h.attemptNumber})`);
-                                setViewAttemptId(h.attemptId);
-                              }}
+                            <Link
+                              to={`/admin/attempts/${h.attemptId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="fw-semibold text-primary text-decoration-none"
+                              title="Mở bài làm chi tiết ở tab mới"
                             >
-                              {h.examName}
-                            </div>
+                              {h.examName} <i className="bi bi-box-arrow-up-right small text-muted ms-1" />
+                            </Link>
                             <div className="text-muted small font-monospace">{h.examCode}</div>
                           </td>
                           <td className="text-center">Lần {h.attemptNumber}</td>
@@ -590,18 +583,16 @@ function UserExamsSection({ userId }: { userId: string }) {
                             {h.submittedAt ? formatDateTime(h.submittedAt) : formatDateTime(h.startedAt)}
                           </td>
                           <td className="text-center">
-                            <Button
-                              size="sm"
-                              variant="outline-primary"
-                              className="d-inline-flex align-items-center gap-1"
-                              onClick={() => {
-                                setViewAttemptTitle(`Chi tiết bài làm: ${h.examName} (Lần ${h.attemptNumber})`);
-                                setViewAttemptId(h.attemptId);
-                              }}
+                            <Link
+                              to={`/admin/attempts/${h.attemptId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
+                              title="Mở bài làm chi tiết ở tab mới"
                             >
                               <i className="bi bi-file-earmark-check" />
                               <span>Xem bài</span>
-                            </Button>
+                            </Link>
                           </td>
                         </tr>
                       ))}
@@ -629,34 +620,32 @@ function UserExamsSection({ userId }: { userId: string }) {
                     {filteredExams.map((e) => {
                       const isCompleted = e.usedAttempts > 0;
                       const isInProgress = Boolean(e.inProgressAttemptId);
-                      // Tìm attemptId từ bài nộp
                       const attemptId = e.latestAttemptId || history.find((h) => h.examId === e.examId)?.attemptId;
 
-                      const handleExamClick = () => {
-                        if (isCompleted && attemptId) {
-                          setViewAttemptTitle(`Chi tiết bài làm: ${e.name}`);
-                          setViewAttemptId(attemptId);
-                        } else if (isInProgress && e.inProgressAttemptId) {
-                          setViewAttemptTitle(`Chi tiết bài đang làm: ${e.name}`);
-                          setViewAttemptId(e.inProgressAttemptId);
-                        } else {
-                          // Chưa làm: mở đề xem trước chế độ chỉ đọc
-                          setPreviewExam({ examId: e.examId, versionId: e.examVersionId, name: e.name });
-                        }
-                      };
+                      const targetUrl = isCompleted && attemptId
+                        ? `/admin/attempts/${attemptId}`
+                        : isInProgress && e.inProgressAttemptId
+                        ? `/admin/attempts/${e.inProgressAttemptId}`
+                        : `/admin/exams/${e.examId}/preview`;
 
                       return (
                         <tr key={e.examId}>
                           <td>
-                            <div
-                              className="fw-semibold text-primary"
-                              role="button"
-                              style={{ cursor: "pointer" }}
-                              title={isCompleted ? "Ấn để xem bài làm và đáp án chi tiết" : "Ấn để xem đề bài (chế độ chỉ đọc)"}
-                              onClick={handleExamClick}
+                            <Link
+                              to={targetUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="fw-semibold text-primary text-decoration-none"
+                              title={
+                                isCompleted
+                                  ? "Mở xem bài làm và đáp án chi tiết ở tab mới"
+                                  : isInProgress
+                                  ? "Mở xem bài đang làm dở ở tab mới"
+                                  : "Mở xem đề bài (chế độ chỉ đọc) ở tab mới"
+                              }
                             >
-                              {e.name}
-                            </div>
+                              {e.name} <i className="bi bi-box-arrow-up-right small text-muted ms-1" />
+                            </Link>
                             <div className="text-muted small font-monospace">{e.code}</div>
                           </td>
                           <td className="text-center small">
@@ -691,39 +680,39 @@ function UserExamsSection({ userId }: { userId: string }) {
                             )}
                           </td>
                           <td className="text-end">
-                            {isCompleted ? (
-                              <Button
-                                size="sm"
-                                variant="success"
-                                className="d-inline-flex align-items-center gap-1"
-                                onClick={handleExamClick}
-                                title="Xem đáp án và bài làm chi tiết"
+                            {isCompleted && attemptId ? (
+                              <Link
+                                to={`/admin/attempts/${attemptId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-sm btn-success d-inline-flex align-items-center gap-1"
+                                title="Xem đáp án và bài làm chi tiết (mở tab mới)"
                               >
                                 <i className="bi bi-file-earmark-check" />
                                 <span>Xem bài làm</span>
-                              </Button>
-                            ) : isInProgress ? (
-                              <Button
-                                size="sm"
-                                variant="warning"
-                                className="d-inline-flex align-items-center gap-1"
-                                onClick={handleExamClick}
-                                title="Xem bài đang làm dở"
+                              </Link>
+                            ) : isInProgress && e.inProgressAttemptId ? (
+                              <Link
+                                to={`/admin/attempts/${e.inProgressAttemptId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-sm btn-warning d-inline-flex align-items-center gap-1"
+                                title="Xem bài đang làm dở (mở tab mới)"
                               >
                                 <i className="bi bi-hourglass-split" />
                                 <span>Xem bài dở</span>
-                              </Button>
+                              </Link>
                             ) : (
-                              <Button
-                                size="sm"
-                                variant="outline-secondary"
-                                className="d-inline-flex align-items-center gap-1"
-                                onClick={handleExamClick}
-                                title="Mở đề bài lên xem (không được làm)"
+                              <Link
+                                to={`/admin/exams/${e.examId}/preview`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                                title="Mở đề bài lên xem ở chế độ chỉ đọc (mở tab mới)"
                               >
                                 <i className="bi bi-eye" />
                                 <span>Xem đề bài</span>
-                              </Button>
+                              </Link>
                             )}
                           </td>
                         </tr>
@@ -736,21 +725,6 @@ function UserExamsSection({ userId }: { userId: string }) {
           </>
         )}
       </Card.Body>
-
-      {/* Modal xem bài làm chi tiết của học sinh */}
-      <ExamAttemptDetailModal
-        attemptId={viewAttemptId}
-        title={viewAttemptTitle}
-        onClose={() => setViewAttemptId(null)}
-      />
-
-      {/* Modal xem đề bài chỉ đọc (chưa làm bài) */}
-      <ExamPreviewModal
-        examId={previewExam?.examId ?? null}
-        versionId={previewExam?.versionId}
-        examName={previewExam?.name}
-        onClose={() => setPreviewExam(null)}
-      />
     </Card>
   );
 }

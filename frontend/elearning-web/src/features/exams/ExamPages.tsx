@@ -10,6 +10,7 @@ import { examStatusVariant } from "../../constants/ui";
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { DataTable, PageHeader, Pager, SearchBox, type Column } from "../../components/common/DataTable";
+import { SearchableSelect } from "../../components/common/SearchableSelect";
 import { useListQuery } from "../../hooks/useListQuery";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { formatDateTime, formatNumber, markdownExcerpt, utcIsoToVnLocal, vnLocalToUtcIso } from "../../utils/format";
@@ -349,18 +350,19 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                 <Row className="g-2 align-items-center">
                   <Col md={4}>
                     <Form.Label className="small fw-bold mb-1">📁 Lọc theo Chuyên đề</Form.Label>
-                    <Form.Select
+                    <SearchableSelect
                       size="sm"
                       value={String(qList.state.categoryId ?? "")}
-                      onChange={(e) => qList.setFilter({ categoryId: e.target.value })}
-                    >
-                      <option value="">-- Tất cả chuyên đề --</option>
-                      {categoriesQuery.data?.items.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.questionCount} câu)
-                        </option>
-                      ))}
-                    </Form.Select>
+                      onChange={(val) => qList.setFilter({ categoryId: val })}
+                      options={(categoriesQuery.data?.items ?? []).map((c) => ({
+                        value: c.id,
+                        label: `${c.name} (${c.questionCount} câu)`,
+                        code: c.code,
+                      }))}
+                      placeholder="-- Tất cả chuyên đề --"
+                      searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
+                      clearable={true}
+                    />
                   </Col>
                   <Col md={4}>
                     <Form.Label className="small fw-bold mb-1">🔍 Tìm kiếm nội dung / mã</Form.Label>

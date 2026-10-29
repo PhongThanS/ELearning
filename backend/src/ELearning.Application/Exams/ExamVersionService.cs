@@ -430,7 +430,25 @@ internal sealed class ExamVersionService(
         var unspecified = stats.FirstOrDefault(s => s.Difficulty == null)?.Count ?? 0;
         var total = easy + medium + hard + unspecified;
 
-        return Result<MatrixStatsDto>.Success(new MatrixStatsDto(total, easy, medium, hard, unspecified));
+        var categoryGrouped = await baseQuery
+            .GroupBy(q => new { q.CategoryId, q.Difficulty })
+            .Select(g => new { g.Key.CategoryId, g.Key.Difficulty, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var byCategory = categoryGrouped
+            .GroupBy(x => x.CategoryId)
+            .Select(cg =>
+            {
+                var catEasy = cg.FirstOrDefault(x => x.Difficulty == QuestionDifficulty.Easy)?.Count ?? 0;
+                var catMedium = cg.FirstOrDefault(x => x.Difficulty == QuestionDifficulty.Medium)?.Count ?? 0;
+                var catHard = cg.FirstOrDefault(x => x.Difficulty == QuestionDifficulty.Hard)?.Count ?? 0;
+                var catUnspecified = cg.FirstOrDefault(x => x.Difficulty == null)?.Count ?? 0;
+                var catTotal = catEasy + catMedium + catHard + catUnspecified;
+                return new CategoryMatrixStatsDto(cg.Key, catTotal, catEasy, catMedium, catHard, catUnspecified);
+            })
+            .ToList();
+
+        return Result<MatrixStatsDto>.Success(new MatrixStatsDto(total, easy, medium, hard, unspecified, byCategory));
     }
 
     public async Task<Result<VersionDetailDto>> MatrixDrawAsync(
@@ -450,7 +468,16 @@ internal sealed class ExamVersionService(
 
         version.EnsureDraft();
 
-        var totalRequested = request.EasyCount + request.MediumCount + request.HardCount;
+        var topics = request.Topics != null && request.Topics.Count > 0
+            ? request.Topics.Where(t => t.EasyCount > 0 || t.MediumCount > 0 || t.HardCount > 0).ToList()
+            : [new MatrixTopicItem(request.CategoryId, request.EasyCount, request.MediumCount, request.HardCount, request.ScorePerQuestion)];
+
+        var totalRequested = topics.Sum(t => t.EasyCount + t.MediumCount + t.HardCount);
+        if (totalRequested <= 0)
+        {
+            return Error.Validation("TOTAL_COUNT_ZERO", "Vui lòng chọn ít nhất 1 câu hỏi.", "totalCount");
+        }
+
         if (version.EffectiveQuestionCount + totalRequested > ExamVersion.MaxQuestions)
         {
             return Error.Validation(
@@ -469,11 +496,6 @@ internal sealed class ExamVersionService(
             var baseQuery = db.Questions.AsNoTracking()
                 .Where(q => q.IsActive && !existingSourceIds.Contains(q.Id));
 
-            if (request.CategoryId.HasValue)
-            {
-                baseQuery = baseQuery.Where(q => q.CategoryId == request.CategoryId.Value);
-            }
-
             if (request.QuestionType.HasValue)
             {
                 baseQuery = baseQuery.Where(q => q.QuestionType == request.QuestionType.Value);
@@ -485,71 +507,108 @@ internal sealed class ExamVersionService(
                 baseQuery = baseQuery.Where(q => q.Tags.Any(t => t.Tag == tag));
             }
 
-            var easyCandidates = request.EasyCount > 0
-                ? await baseQuery.Where(q => q.Difficulty == QuestionDifficulty.Easy)
-                    .Include(q => q.Options).Include(q => q.AcceptedAnswers)
-                    .ToListAsync(ct)
-                : [];
-
-            var mediumCandidates = request.MediumCount > 0
-                ? await baseQuery.Where(q => q.Difficulty == QuestionDifficulty.Medium)
-                    .Include(q => q.Options).Include(q => q.AcceptedAnswers)
-                    .ToListAsync(ct)
-                : [];
-
-            var hardCandidates = request.HardCount > 0
-                ? await baseQuery.Where(q => q.Difficulty == QuestionDifficulty.Hard)
-                    .Include(q => q.Options).Include(q => q.AcceptedAnswers)
-                    .ToListAsync(ct)
-                : [];
-
-            if (easyCandidates.Count < request.EasyCount)
-            {
-                return Error.Validation(
-                    "INSUFFICIENT_EASY_QUESTIONS",
-                    $"Ngân hàng chỉ còn {easyCandidates.Count} câu Dễ khả dụng, không đủ {request.EasyCount} câu yêu cầu.",
-                    "easyCount");
-            }
-
-            if (mediumCandidates.Count < request.MediumCount)
-            {
-                return Error.Validation(
-                    "INSUFFICIENT_MEDIUM_QUESTIONS",
-                    $"Ngân hàng chỉ còn {mediumCandidates.Count} câu Trung bình khả dụng, không đủ {request.MediumCount} câu yêu cầu.",
-                    "mediumCount");
-            }
-
-            if (hardCandidates.Count < request.HardCount)
-            {
-                return Error.Validation(
-                    "INSUFFICIENT_HARD_QUESTIONS",
-                    $"Ngân hàng chỉ còn {hardCandidates.Count} câu Khó khả dụng, không đủ {request.HardCount} câu yêu cầu.",
-                    "hardCount");
-            }
+            var categoryIds = topics.Where(t => t.CategoryId.HasValue).Select(t => t.CategoryId!.Value).Distinct().ToList();
+            var categoryNames = categoryIds.Count > 0
+                ? await db.QuestionCategories.AsNoTracking()
+                    .Where(c => categoryIds.Contains(c.Id))
+                    .ToDictionaryAsync(c => c.Id, c => c.Name, ct)
+                : new Dictionary<Guid, string>();
 
             var chosen = new List<Question>();
-            if (request.EasyCount > 0)
-            {
-                var arr = easyCandidates.ToArray();
-                Random.Shared.Shuffle(arr);
-                chosen.AddRange(arr.Take(request.EasyCount));
-            }
-            if (request.MediumCount > 0)
-            {
-                var arr = mediumCandidates.ToArray();
-                Random.Shared.Shuffle(arr);
-                chosen.AddRange(arr.Take(request.MediumCount));
-            }
-            if (request.HardCount > 0)
-            {
-                var arr = hardCandidates.ToArray();
-                Random.Shared.Shuffle(arr);
-                chosen.AddRange(arr.Take(request.HardCount));
-            }
+            var chosenIds = new HashSet<Guid>();
 
-            foreach (var q in chosen)
+            foreach (var topic in topics)
             {
-                version.AddQuestion(q, request.ScorePerQuestion, Now);
+                var topicQuery = baseQuery.Where(q => !chosenIds.Contains(q.Id));
+                if (topic.CategoryId.HasValue)
+                {
+                    topicQuery = topicQuery.Where(q => q.CategoryId == topic.CategoryId.Value);
+                }
+
+                var topicName = topic.CategoryId.HasValue && categoryNames.TryGetValue(topic.CategoryId.Value, out var cName)
+                    ? $"Chuyên đề \"{cName}\""
+                    : "Ngân hàng câu hỏi";
+
+                var easyCandidates = topic.EasyCount > 0
+                    ? await topicQuery.Where(q => q.Difficulty == QuestionDifficulty.Easy)
+                        .Include(q => q.Options).Include(q => q.AcceptedAnswers)
+                        .ToListAsync(ct)
+                    : [];
+
+                var mediumCandidates = topic.MediumCount > 0
+                    ? await topicQuery.Where(q => q.Difficulty == QuestionDifficulty.Medium)
+                        .Include(q => q.Options).Include(q => q.AcceptedAnswers)
+                        .ToListAsync(ct)
+                    : [];
+
+                var hardCandidates = topic.HardCount > 0
+                    ? await topicQuery.Where(q => q.Difficulty == QuestionDifficulty.Hard)
+                        .Include(q => q.Options).Include(q => q.AcceptedAnswers)
+                        .ToListAsync(ct)
+                    : [];
+
+                if (easyCandidates.Count < topic.EasyCount)
+                {
+                    return Error.Validation(
+                        "INSUFFICIENT_EASY_QUESTIONS",
+                        $"{topicName} chỉ còn {easyCandidates.Count} câu Dễ khả dụng, không đủ {topic.EasyCount} câu yêu cầu.",
+                        "easyCount");
+                }
+
+                if (mediumCandidates.Count < topic.MediumCount)
+                {
+                    return Error.Validation(
+                        "INSUFFICIENT_MEDIUM_QUESTIONS",
+                        $"{topicName} chỉ còn {mediumCandidates.Count} câu Trung bình khả dụng, không đủ {topic.MediumCount} câu yêu cầu.",
+                        "mediumCount");
+                }
+
+                if (hardCandidates.Count < topic.HardCount)
+                {
+                    return Error.Validation(
+                        "INSUFFICIENT_HARD_QUESTIONS",
+                        $"{topicName} chỉ còn {hardCandidates.Count} câu Khó khả dụng, không đủ {topic.HardCount} câu yêu cầu.",
+                        "hardCount");
+                }
+
+                var score = topic.ScorePerQuestion ?? request.ScorePerQuestion;
+
+                if (topic.EasyCount > 0)
+                {
+                    var arr = easyCandidates.ToArray();
+                    Random.Shared.Shuffle(arr);
+                    var picked = arr.Take(topic.EasyCount).ToList();
+                    chosen.AddRange(picked);
+                    foreach (var q in picked)
+                    {
+                        chosenIds.Add(q.Id);
+                        version.AddQuestion(q, score, Now);
+                    }
+                }
+                if (topic.MediumCount > 0)
+                {
+                    var arr = mediumCandidates.ToArray();
+                    Random.Shared.Shuffle(arr);
+                    var picked = arr.Take(topic.MediumCount).ToList();
+                    chosen.AddRange(picked);
+                    foreach (var q in picked)
+                    {
+                        chosenIds.Add(q.Id);
+                        version.AddQuestion(q, score, Now);
+                    }
+                }
+                if (topic.HardCount > 0)
+                {
+                    var arr = hardCandidates.ToArray();
+                    Random.Shared.Shuffle(arr);
+                    var picked = arr.Take(topic.HardCount).ToList();
+                    chosen.AddRange(picked);
+                    foreach (var q in picked)
+                    {
+                        chosenIds.Add(q.Id);
+                        version.AddQuestion(q, score, Now);
+                    }
+                }
             }
 
             audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, newValue: new
@@ -560,6 +619,7 @@ internal sealed class ExamVersionService(
                 request.MediumCount,
                 request.HardCount,
                 request.ScorePerQuestion,
+                TopicCount = topics.Count,
                 AddedCount = chosen.Count,
                 QuestionIds = chosen.Select(q => q.Id).ToList()
             });
@@ -569,35 +629,39 @@ internal sealed class ExamVersionService(
         }
         else // MatrixDrawMode.Pool
         {
-            var diffItems = new (QuestionDifficulty Difficulty, int Count)[]
-            {
-                (QuestionDifficulty.Easy, request.EasyCount),
-                (QuestionDifficulty.Medium, request.MediumCount),
-                (QuestionDifficulty.Hard, request.HardCount)
-            }.Where(x => x.Count > 0).ToList();
-
-            var score = request.ScorePerQuestion ?? 1m;
             var addedRuleIds = new List<Guid>();
 
-            foreach (var item in diffItems)
+            foreach (var topic in topics)
             {
-                var criteria = new PoolRuleCriteria(request.CategoryId, item.Difficulty, request.Tag, request.QuestionType);
-                var candidates = await LoadPoolCandidatesAsync(version, criteria, excludeRuleId: null, ct);
-                if (candidates.IsFailure)
+                var diffItems = new (QuestionDifficulty Difficulty, int Count)[]
                 {
-                    return Result<VersionDetailDto>.Failure(candidates.Errors);
-                }
+                    (QuestionDifficulty.Easy, topic.EasyCount),
+                    (QuestionDifficulty.Medium, topic.MediumCount),
+                    (QuestionDifficulty.Hard, topic.HardCount)
+                }.Where(x => x.Count > 0).ToList();
 
-                if (candidates.Value.Count < item.Count)
+                var score = topic.ScorePerQuestion ?? request.ScorePerQuestion ?? 1m;
+
+                foreach (var item in diffItems)
                 {
-                    return Error.Validation(
-                        "INSUFFICIENT_POOL_CANDIDATES",
-                        $"Số câu ứng viên ({candidates.Value.Count}) cho mức độ {item.Difficulty} không đủ số câu bốc {item.Count}.",
-                        "drawCount");
-                }
+                    var criteria = new PoolRuleCriteria(topic.CategoryId, item.Difficulty, request.Tag, request.QuestionType);
+                    var candidates = await LoadPoolCandidatesAsync(version, criteria, excludeRuleId: null, ct);
+                    if (candidates.IsFailure)
+                    {
+                        return Result<VersionDetailDto>.Failure(candidates.Errors);
+                    }
 
-                var rule = version.AddPoolRule(criteria, item.Count, score, candidates.Value, Now);
-                addedRuleIds.Add(rule.Id);
+                    if (candidates.Value.Count < item.Count)
+                    {
+                        return Error.Validation(
+                            "INSUFFICIENT_POOL_CANDIDATES",
+                            $"Số câu ứng viên ({candidates.Value.Count}) cho mức độ {item.Difficulty} không đủ số câu bốc {item.Count}.",
+                            "drawCount");
+                    }
+
+                    var rule = version.AddPoolRule(criteria, item.Count, score, candidates.Value, Now);
+                    addedRuleIds.Add(rule.Id);
+                }
             }
 
             audit.Write(AuditActions.ExamUpdated, nameof(ExamVersion), version.Id, newValue: new
@@ -607,7 +671,7 @@ internal sealed class ExamVersionService(
                 request.EasyCount,
                 request.MediumCount,
                 request.HardCount,
-                ScorePerQuestion = score,
+                TopicCount = topics.Count,
                 PoolRuleIds = addedRuleIds
             });
 

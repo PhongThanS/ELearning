@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, InputGroup, ListGroup, Modal, Row, Tab, Tabs } from "react-bootstrap";
+import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -151,6 +152,14 @@ function QuestionPicker({
   const inVersion = new Set(existing.map((q) => q.sourceQuestionId));
   const { t } = useTranslation();
 
+  const categoryOptions = useMemo<SearchableOption[]>(() => {
+    return (categories.data?.items ?? []).map((c) => ({
+      value: c.id,
+      label: `${c.name} (${c.questionCount} câu)`,
+      code: c.code,
+    }));
+  }, [categories.data?.items]);
+
   const handleSelectAllPage = () => {
     const pageAvailable = query.data?.items.filter((q) => !inVersion.has(q.id)).map((q) => q.id) ?? [];
     setSelected(Array.from(new Set([...selected, ...pageAvailable])));
@@ -181,18 +190,15 @@ function QuestionPicker({
           {/* Bộ lọc tối ưu cho sidebar */}
           <div className="mb-2">
             <div className="mb-2">
-              <Form.Select
+              <SearchableSelect
                 size="sm"
                 value={String(list.state.categoryId ?? "")}
-                onChange={(e) => list.setFilter({ categoryId: e.target.value })}
-              >
-                <option value="">📁 Tất cả chuyên đề</option>
-                {categories.data?.items.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.questionCount} câu)
-                  </option>
-                ))}
-              </Form.Select>
+                onChange={(val) => list.setFilter({ categoryId: val })}
+                options={categoryOptions}
+                placeholder="📁 Tất cả chuyên đề"
+                searchPlaceholder="Tìm theo mã hoặc tên..."
+                clearable={true}
+              />
             </div>
             <div className="d-flex gap-2">
               <div className="flex-grow-1">
@@ -295,18 +301,15 @@ function QuestionPicker({
             <Row className="g-2 align-items-center">
               <Col md={4}>
                 <Form.Label className="small fw-bold mb-1">📁 Chuyên đề</Form.Label>
-                <Form.Select
+                <SearchableSelect
                   size="sm"
                   value={String(list.state.categoryId ?? "")}
-                  onChange={(e) => list.setFilter({ categoryId: e.target.value })}
-                >
-                  <option value="">-- Tất cả chuyên đề --</option>
-                  {categories.data?.items.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.questionCount} câu)
-                    </option>
-                  ))}
-                </Form.Select>
+                  onChange={(val) => list.setFilter({ categoryId: val })}
+                  options={categoryOptions}
+                  placeholder="-- Tất cả chuyên đề --"
+                  searchPlaceholder="Tìm theo mã hoặc tên..."
+                  clearable={true}
+                />
               </Col>
               <Col md={4}>
                 <Form.Label className="small fw-bold mb-1">🔍 Tìm kiếm</Form.Label>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Card, Col, Form, ProgressBar, Row, Tab, Table, Tabs } from "react-bootstrap";
+import { Alert, Badge, Button, Card, Col, Form, ProgressBar, Row, Tab, Table, Tabs } from "react-bootstrap";
 import { Link, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -265,6 +265,47 @@ function describeAnswerKey(json: string): string {
   }
 }
 
+function SquareGridDisplay({
+  value,
+  isCorrect,
+  variant,
+}: {
+  value: string;
+  isCorrect?: boolean | null;
+  variant: "student" | "correct";
+}) {
+  const chars = (value || "").split("");
+  if (chars.length === 0) {
+    chars.push("");
+  }
+
+  const isGreen = variant === "correct" || isCorrect === true;
+  const borderColor = isGreen ? "#059669" : "#dc2626";
+  const bgColor = isGreen ? "#ecfdf5" : "#fef2f2";
+  const textColor = isGreen ? "#065f46" : "#991b1b";
+
+  return (
+    <div className="d-flex gap-2">
+      {chars.map((c, i) => (
+        <div
+          key={i}
+          className="d-flex align-items-center justify-content-center fw-bold fs-4 rounded border shadow-sm"
+          style={{
+            width: "44px",
+            height: "48px",
+            backgroundColor: c ? bgColor : "#f8fafc",
+            borderColor: c ? borderColor : "#cbd5e1",
+            borderWidth: "2px",
+            color: textColor,
+          }}
+        >
+          {c || <span className="text-muted small opacity-25">_</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function AttemptAdminPage() {
   const { t } = useTranslation();
   const { attemptId = "" } = useParams();
@@ -351,33 +392,246 @@ export function AttemptAdminPage() {
           </Card>
         </Col>
       </Row>
-      <h2 className="h5">Bài làm</h2>
-      {a.answers.map((q) => (
-        <Card key={q.attemptQuestionId} className="mb-2">
-          <Card.Body className="py-2">
-            <div className="d-flex justify-content-between small">
-              <strong>Câu {q.order} {q.isMarkedForReview && "⚑"}</strong>
-              <span className={q.isCorrect ? "text-success" : q.isCorrect === false ? "text-danger" : ""}>
-                {formatScore(q.score, q.maxScore)} {q.isVoided && <Badge bg="dark">hủy</Badge>}
-              </span>
-            </div>
-            <MarkdownView content={q.content} media={a.media} />
-            <div className="small mt-1 d-flex align-items-center flex-wrap gap-2">
-              <span className="text-secondary">Trả lời:</span>{" "}
-              <span className={q.isCorrect ? "badge bg-success-subtle text-success border border-success fw-bold d-inline-flex align-items-center" : q.isCorrect === false ? "badge bg-danger-subtle text-danger border border-danger fw-bold d-inline-flex align-items-center" : "badge bg-light text-dark border"}>
-                {q.isCorrect ? <i className="bi bi-check-lg me-1" /> : q.isCorrect === false ? <i className="bi bi-x-lg me-1" /> : null}
-                {q.type === "FILL_IN" ? q.answerText ?? "(bỏ trống)" : q.selectedOptions.join(", ") || "(bỏ trống)"}
-              </span>
-              <span className="text-secondary">· Đáp án:</span>{" "}
-              <span className="badge bg-success-subtle text-success border border-success fw-bold d-inline-flex align-items-center">
-                <i className="bi bi-check-lg me-1" />
-                {q.type === "FILL_IN" ? (q.answerDataType === "NUMBER" ? formatNumber(q.correctAnswerNumber) : q.acceptedAnswers.join(" / ")) : q.correctOptions.join(", ")}
-              </span>
-              <span className="text-secondary"> · lưu {q.saveCount} lần</span>
-            </div>
-          </Card.Body>
-        </Card>
-      ))}
+      {/* Thẻ tổng quan kết quả bài làm theo chuẩn học sinh */}
+      <Card className="mb-4 shadow-sm border-0 bg-light">
+        <Card.Body className="p-3">
+          <Row className="align-items-center text-center g-3">
+            <Col xs={12} md={3}>
+              <div
+                className={`score-ring accent-${a.passed == null ? "blue" : a.passed ? "green" : "pink"} mx-auto`}
+                style={{ "--value": Math.min(100, Math.max(0, a.percentage ?? 0)) } as React.CSSProperties}
+                role="img"
+                aria-label={`Điểm đạt: ${formatNumber(a.percentage)}%`}
+              >
+                <span>{formatNumber(a.percentage ?? 0)}%</span>
+              </div>
+            </Col>
+            <Col xs={4} md={3}>
+              <div className="fs-2 fw-bold text-primary">{formatScore(a.totalScore, a.maxScore)}</div>
+              <div className="small text-secondary">Điểm tổng kết</div>
+            </Col>
+            <Col xs={4} md={3}>
+              <div className="fs-2 fw-bold text-info-emphasis">
+                {a.correctCount ?? a.answers.filter((q) => q.isCorrect === true).length}/{a.answers.length}
+              </div>
+              <div className="small text-secondary">Số câu trả lời đúng</div>
+            </Col>
+            {a.passed != null && (
+              <Col xs={4} md={3}>
+                <div className={`fs-2 fw-bold ${a.passed ? "text-success" : "text-danger"}`}>
+                  <i className={`bi ${a.passed ? "bi-trophy-fill" : "bi-emoji-frown"} me-2`} />
+                  {a.passed ? "ĐẠT" : "CHƯA ĐẠT"}
+                </div>
+                <div className="small text-secondary">Kết quả đánh giá</div>
+              </Col>
+            )}
+          </Row>
+        </Card.Body>
+      </Card>
+
+      <div className="d-flex align-items-center justify-content-between mb-3 mt-4">
+        <h2 className="h5 mb-0 d-flex align-items-center gap-2">
+          <i className="bi bi-card-checklist text-primary" />
+          <span>Chi tiết câu hỏi và bài làm của học sinh</span>
+        </h2>
+        <Badge bg="secondary" className="px-2 py-1">
+          {a.answers.length} câu hỏi
+        </Badge>
+      </div>
+
+      {a.answers.map((q) => {
+        const isCorrect = q.isCorrect === true;
+        const isIncorrect = q.isCorrect === false;
+
+        return (
+          <Card
+            key={q.attemptQuestionId}
+            className={`mb-3 shadow-sm border-2 border-${q.isVoided ? "secondary" : isCorrect ? "success" : "danger"}`}
+          >
+            <Card.Body>
+              <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                <div className="d-flex align-items-center gap-2">
+                  <strong className="fs-6">Câu {q.order}</strong>
+                  {q.isMarkedForReview && <Badge bg="warning" text="dark">Đánh dấu xem lại</Badge>}
+                  {q.isVoided ? (
+                    <Badge bg="secondary">Đã hủy câu</Badge>
+                  ) : isCorrect ? (
+                    <Badge bg="success" className="px-2 py-1 d-inline-flex align-items-center gap-1">
+                      <i className="bi bi-check-circle-fill" /> Đúng (+{formatScore(q.score, q.maxScore)} đ)
+                    </Badge>
+                  ) : (
+                    <Badge bg="danger" className="px-2 py-1 d-inline-flex align-items-center gap-1">
+                      <i className="bi bi-x-circle-fill" /> Sai ({formatScore(q.score, q.maxScore)} đ)
+                    </Badge>
+                  )}
+                </div>
+                <div className={`fs-4 ${isCorrect ? "text-success" : isIncorrect ? "text-danger" : "text-muted"}`}>
+                  <i className={`bi ${isCorrect ? "bi-check-circle-fill" : isIncorrect ? "bi-x-circle-fill" : "bi-dash-circle"}`} />
+                </div>
+              </div>
+
+              {q.isVoided && <Alert variant="secondary" className="py-1 small my-2">Câu hỏi đã được hủy điểm.</Alert>}
+
+              <div className="mb-3 fs-6">
+                <MarkdownView content={q.content} media={a.media} />
+              </div>
+
+              {q.type === "FILL_IN" ? (
+                <div className="d-flex flex-column gap-3 mb-2 p-3 border rounded bg-light">
+                  <div>
+                    <div className="d-flex justify-content-between align-items-center mb-1">
+                      <span className="small fw-bold text-secondary">
+                        Câu trả lời của học sinh:
+                      </span>
+                      <Badge bg={isCorrect ? "success" : "danger"} className="py-1 px-2 d-inline-flex align-items-center gap-1">
+                        <i className={`bi ${isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`} />
+                        <span>{isCorrect ? "Học sinh trả lời đúng" : "Học sinh trả lời sai"}</span>
+                      </Badge>
+                    </div>
+                    <div className="d-flex align-items-center gap-3">
+                      <SquareGridDisplay value={q.answerText || ""} isCorrect={isCorrect} variant="student" />
+                      {q.answerText && (
+                        <span className="text-muted small">({q.answerText})</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {!isCorrect && (
+                    <div className="pt-2 border-top">
+                      <div className="small fw-bold text-success mb-1">
+                        Đáp án đúng chuẩn:
+                      </div>
+                      {(() => {
+                        const correctStr =
+                          q.answerDataType === "NUMBER"
+                            ? String(formatNumber(q.correctAnswerNumber)).replace(".", ",")
+                            : q.acceptedAnswers[0] || "";
+                        return (
+                          <div className="d-flex align-items-center gap-3">
+                            <SquareGridDisplay value={correctStr} variant="correct" />
+                            <span className="text-success fw-bold small">({correctStr})</span>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              ) : q.options && q.options.length > 0 ? (
+                <div className="d-flex flex-column gap-2 mb-2">
+                  {q.options.map((o, optIdx) => {
+                    const selected = q.selectedOptions.includes(o.optionCode);
+                    const correct = o.isCorrect || q.correctOptions.includes(o.optionCode);
+
+                    let containerClass = "border border-light-subtle bg-body-tertiary text-body-secondary";
+                    let iconBadge = null;
+                    let statusBadge = null;
+
+                    if (selected && correct) {
+                      containerClass = "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium";
+                      iconBadge = (
+                        <span
+                          className="badge bg-success text-white d-inline-flex align-items-center justify-content-center me-2"
+                          style={{ width: "36px", height: "32px" }}
+                          title="Học sinh chọn đúng"
+                        >
+                          <i className="bi bi-check-lg fs-5" />
+                        </span>
+                      );
+                      statusBadge = (
+                        <Badge bg="success" className="ms-auto py-1 px-2 d-inline-flex align-items-center gap-1">
+                          <i className="bi bi-check2-circle" /> Học sinh chọn đúng
+                        </Badge>
+                      );
+                    } else if (selected && !correct) {
+                      containerClass = "border border-2 border-danger bg-danger-subtle text-danger-emphasis fw-medium";
+                      iconBadge = (
+                        <span
+                          className="badge bg-danger text-white d-inline-flex align-items-center justify-content-center me-2"
+                          style={{ width: "36px", height: "32px" }}
+                          title="Học sinh chọn sai"
+                        >
+                          <i className="bi bi-x-lg fs-5" />
+                        </span>
+                      );
+                      statusBadge = (
+                        <Badge bg="danger" className="ms-auto py-1 px-2 d-inline-flex align-items-center gap-1">
+                          <i className="bi bi-x-circle" /> Học sinh chọn sai
+                        </Badge>
+                      );
+                    } else if (!selected && correct) {
+                      containerClass = "border border-2 border-success bg-success-subtle text-success-emphasis fw-medium";
+                      iconBadge = (
+                        <span
+                          className="badge bg-success text-white d-inline-flex align-items-center justify-content-center me-2"
+                          style={{ width: "36px", height: "32px" }}
+                          title="Đáp án đúng"
+                        >
+                          <i className="bi bi-check-lg fs-5" />
+                        </span>
+                      );
+                      statusBadge = (
+                        <Badge bg="success" className="ms-auto py-1 px-2 d-inline-flex align-items-center gap-1">
+                          <i className="bi bi-check-lg" /> Đáp án đúng
+                        </Badge>
+                      );
+                    } else {
+                      iconBadge = (
+                        <span
+                          className="badge bg-white text-muted border me-2 d-inline-flex align-items-center justify-content-center"
+                          style={{ width: "36px", height: "32px", fontSize: "0.85rem" }}
+                        >
+                          {o.optionCode || String.fromCharCode(65 + optIdx)}
+                        </span>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={o.optionCode}
+                        className={`p-2 px-3 rounded d-flex align-items-center justify-content-between ${containerClass}`}
+                      >
+                        <div className="d-flex align-items-center flex-grow-1 me-2">
+                          {iconBadge}
+                          {(selected || correct) && (
+                            <strong className="me-2">{o.optionCode || String.fromCharCode(65 + optIdx)}.</strong>
+                          )}
+                          <div className="flex-grow-1">
+                            <MarkdownView content={o.content} inline media={a.media} />
+                          </div>
+                        </div>
+                        {statusBadge}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-3 border rounded bg-light mb-2">
+                  <div className="d-flex align-items-center flex-wrap gap-2">
+                    <span className="text-secondary">Trả lời:</span>{" "}
+                    <span className={isCorrect ? "badge bg-success-subtle text-success border border-success fw-bold" : isIncorrect ? "badge bg-danger-subtle text-danger border border-danger fw-bold" : "badge bg-light text-dark border"}>
+                      {q.selectedOptions.join(", ") || q.answerText || "(bỏ trống)"}
+                    </span>
+                    <span className="text-secondary">· Đáp án đúng:</span>{" "}
+                    <span className="badge bg-success-subtle text-success border border-success fw-bold">
+                      {q.correctOptions.join(", ") || q.acceptedAnswers.join(" / ")}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {q.explanation && (
+                <div className="mt-2 p-2 px-3 rounded bg-info-subtle border border-info text-info-emphasis small">
+                  <strong>
+                    <i className="bi bi-lightbulb me-1" />
+                    Lời giải chi tiết:
+                  </strong>{" "}
+                  <MarkdownView content={q.explanation} media={a.media} />
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+        );
+      })}
 
       <ConfirmDialog
         show={dialog === "extend"}

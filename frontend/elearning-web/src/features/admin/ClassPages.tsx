@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, Modal, ProgressBar, Row, Table } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -8,13 +8,12 @@ import { ConfirmDialog, ErrorAlert, Loading } from "../../components/common/Feed
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
+import { SearchableSelect } from "../../components/common/SearchableSelect";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateRange, formatDateTime } from "../../utils/format";
 import { Permissions, StudentRole } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { Classroom, ClassroomStudent } from "../../types/api";
-import { ExamAttemptDetailModal } from "../exams/ExamAttemptDetailModal";
-import { ExamPreviewModal } from "../exams/ExamPreviewModal";
 
 interface ClassForm {
   code: string;
@@ -61,7 +60,20 @@ function ClassFormModal({
   const teachersQuery = useQuery({
     queryKey: ["users", "teachers-list"],
     queryFn: () => usersApi.list({ roleCode: "TEACHER", pageSize: 100, isActive: true }),
+    staleTime: 5 * 60 * 1000,
   });
+
+  const teacherOptions = useMemo(() => {
+    return (
+      teachersQuery.data?.items.map((u) => ({
+        value: u.id,
+        label: u.fullName,
+        code: u.userName,
+        sublabel: u.email ?? undefined,
+      })) ?? []
+    );
+  }, [teachersQuery.data]);
+
   const field = (name: keyof ClassForm) => ({
     value: form[name],
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [name]: e.target.value }),
@@ -114,17 +126,16 @@ function ClassFormModal({
             <Col xs={12}>
               <Form.Group controlId="class-teacher">
                 <Form.Label>Giáo viên chủ nhiệm</Form.Label>
-                <Form.Select
+                <SearchableSelect
+                  id="class-teacher"
                   value={form.homeroomTeacherId}
-                  onChange={(e) => setForm({ ...form, homeroomTeacherId: e.target.value })}
-                >
-                  <option value="">-- Chưa phân công --</option>
-                  {teachersQuery.data?.items.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.fullName} ({u.userName}){u.email ? ` - ${u.email}` : ""}
-                    </option>
-                  ))}
-                </Form.Select>
+                  onChange={(val) => setForm({ ...form, homeroomTeacherId: val })}
+                  options={teacherOptions}
+                  emptyLabel="-- Chưa phân công --"
+                  emptyValue=""
+                  placeholder="Chọn hoặc tìm theo mã, họ tên giáo viên..."
+                  searchPlaceholder="Nhập mã GV hoặc họ tên..."
+                />
               </Form.Group>
             </Col>
             <Col xs={12}>
@@ -510,9 +521,6 @@ function StudentProgressModal({
   onHide: () => void;
 }) {
   const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "inProgress">("all");
-  const [viewAttemptId, setViewAttemptId] = useState<string | null>(null);
-  const [viewAttemptTitle, setViewAttemptTitle] = useState<string | undefined>(undefined);
-  const [previewExam, setPreviewExam] = useState<{ examId: string; versionId?: string | null; name?: string } | null>(null);
 
   const progressQuery = useQuery({
     queryKey: ["class-student-progress", classroomId, student?.userId],
@@ -641,30 +649,32 @@ function StudentProgressModal({
                     </thead>
                     <tbody>
                       {filteredExams.map((item) => {
-                        const handleItemClick = () => {
-                          if (item.isSubmitted && item.latestAttemptId) {
-                            setViewAttemptTitle(`Chi tiết bài làm: ${item.name}`);
-                            setViewAttemptId(item.latestAttemptId);
-                          } else if (item.isInProgress && item.inProgressAttemptId) {
-                            setViewAttemptTitle(`Chi tiết bài đang làm: ${item.name}`);
-                            setViewAttemptId(item.inProgressAttemptId);
-                          } else {
-                            setPreviewExam({ examId: item.examId, versionId: item.examVersionId, name: item.name });
-                          }
-                        };
+                        const isCompleted = item.isSubmitted && Boolean(item.latestAttemptId);
+                        const isInProgress = item.isInProgress && Boolean(item.inProgressAttemptId);
+                        const targetUrl = isCompleted
+                          ? `/admin/attempts/${item.latestAttemptId}`
+                          : isInProgress
+                          ? `/admin/attempts/${item.inProgressAttemptId}`
+                          : `/admin/exams/${item.examId}/preview`;
 
                         return (
                           <tr key={item.examId}>
                             <td>
-                              <div
-                                className="fw-semibold text-primary"
-                                role="button"
-                                style={{ cursor: "pointer" }}
-                                title={item.isSubmitted ? "Ấn để xem bài làm và đáp án chi tiết" : "Ấn để xem đề bài (chế độ chỉ đọc)"}
-                                onClick={handleItemClick}
+                              <Link
+                                to={targetUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="fw-semibold text-primary text-decoration-none"
+                                title={
+                                  isCompleted
+                                    ? "Mở xem bài làm và đáp án chi tiết ở tab mới"
+                                    : isInProgress
+                                    ? "Mở xem bài đang làm dở ở tab mới"
+                                    : "Mở xem đề bài (chế độ chỉ đọc) ở tab mới"
+                                }
                               >
-                                {item.name}
-                              </div>
+                                {item.name} <i className="bi bi-box-arrow-up-right small text-muted ms-1" />
+                              </Link>
                               <div className="text-muted small font-monospace">{item.code}</div>
                             </td>
                             <td className="text-center text-nowrap small">
@@ -709,39 +719,39 @@ function StudentProgressModal({
                               {item.lastSubmittedAt ? formatDateTime(item.lastSubmittedAt) : "—"}
                             </td>
                             <td className="text-end">
-                              {item.isSubmitted && item.latestAttemptId ? (
-                                <Button
-                                  size="sm"
-                                  variant="success"
-                                  className="d-inline-flex align-items-center gap-1"
-                                  onClick={handleItemClick}
-                                  title="Xem bài làm và đáp án chi tiết"
+                              {isCompleted ? (
+                                <Link
+                                  to={targetUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
+                                  title="Mở xem bài làm và đáp án chi tiết ở tab mới"
                                 >
                                   <i className="bi bi-file-earmark-check" />
                                   <span>Xem bài làm</span>
-                                </Button>
-                              ) : item.isInProgress && item.inProgressAttemptId ? (
-                                <Button
-                                  size="sm"
-                                  variant="warning"
-                                  className="d-inline-flex align-items-center gap-1"
-                                  onClick={handleItemClick}
-                                  title="Xem bài đang làm dở"
+                                </Link>
+                              ) : isInProgress ? (
+                                <Link
+                                  to={targetUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
+                                  title="Mở xem bài đang làm dở ở tab mới"
                                 >
                                   <i className="bi bi-hourglass-split" />
                                   <span>Xem bài dở</span>
-                                </Button>
+                                </Link>
                               ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline-secondary"
-                                  className="d-inline-flex align-items-center gap-1"
-                                  onClick={handleItemClick}
-                                  title="Xem đề bài (chỉ đọc)"
+                                <Link
+                                  to={targetUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
+                                  title="Mở xem đề bài (chế độ chỉ đọc) ở tab mới"
                                 >
                                   <i className="bi bi-eye" />
                                   <span>Xem đề bài</span>
-                                </Button>
+                                </Link>
                               )}
                             </td>
                           </tr>
@@ -760,21 +770,6 @@ function StudentProgressModal({
           </Button>
         </Modal.Footer>
       </Modal>
-
-      {/* Modal xem bài làm chi tiết */}
-      <ExamAttemptDetailModal
-        attemptId={viewAttemptId}
-        title={viewAttemptTitle}
-        onClose={() => setViewAttemptId(null)}
-      />
-
-      {/* Modal xem đề bài chỉ đọc */}
-      <ExamPreviewModal
-        examId={previewExam?.examId ?? null}
-        versionId={previewExam?.versionId}
-        examName={previewExam?.name}
-        onClose={() => setPreviewExam(null)}
-      />
     </>
   );
 }

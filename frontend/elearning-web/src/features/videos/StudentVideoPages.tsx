@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Badge,
   Card,
@@ -11,6 +11,7 @@ import {
 } from "react-bootstrap";
 import { useQuery } from "@tanstack/react-query";
 import { videosApi, studentApi } from "../../services/api";
+import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson } from "../../types/api";
 import { VideoPlayerModal } from "./AdminVideoPages";
 
@@ -25,14 +26,14 @@ export function StudentVideoPages() {
   const { data: categoriesData } = useQuery({
     queryKey: ["student-categories"],
     queryFn: () => studentApi.categories(),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   // Lớp học của tôi (từ mục lớp học)
   const { data: myClassesData } = useQuery({
     queryKey: ["student-classes"],
     queryFn: () => studentApi.classes(),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   // Danh sách video bài giảng cho học sinh
@@ -52,6 +53,22 @@ export function StudentVideoPages() {
   const myClasses = myClassesData ?? [];
   const videos: VideoLesson[] = videosData?.items ?? [];
   const totalPages = videosData?.totalPages ?? 1;
+
+  const categoryOptions = useMemo<SearchableOption[]>(() => {
+    return categories.map((c) => ({
+      value: c.id,
+      label: c.name,
+      code: c.code,
+    }));
+  }, [categories]);
+
+  const classOptions = useMemo<SearchableOption[]>(() => {
+    return myClasses.map((c) => ({
+      value: c.id,
+      label: c.name + (c.schoolYear ? ` (${c.schoolYear})` : ""),
+      code: c.code,
+    }));
+  }, [myClasses]);
 
   return (
     <Container className="py-4">
@@ -84,36 +101,30 @@ export function StudentVideoPages() {
               />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Select
+              <SearchableSelect
                 value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value);
+                onChange={(val) => {
+                  setSelectedCategory(val);
                   setPage(1);
                 }}
-              >
-                <option value="">-- Tất cả chuyên đề --</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    📁 {c.name}
-                  </option>
-                ))}
-              </Form.Select>
+                options={categoryOptions}
+                placeholder="-- Tất cả chuyên đề --"
+                searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
+                clearable={true}
+              />
             </Col>
             <Col xs={6} md={4}>
-              <Form.Select
+              <SearchableSelect
                 value={selectedClassroom}
-                onChange={(e) => {
-                  setSelectedClassroom(e.target.value);
+                onChange={(val) => {
+                  setSelectedClassroom(val);
                   setPage(1);
                 }}
-              >
-                <option value="">-- Tất cả lớp của tôi --</option>
-                {myClasses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    🏫 {c.name} {c.schoolYear ? `(${c.schoolYear})` : ""}
-                  </option>
-                ))}
-              </Form.Select>
+                options={classOptions}
+                placeholder="-- Tất cả lớp của tôi --"
+                searchPlaceholder="Tìm theo mã hoặc tên lớp..."
+                clearable={true}
+              />
             </Col>
           </Row>
         </Card.Body>

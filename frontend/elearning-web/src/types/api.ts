@@ -417,7 +417,8 @@ export interface MatrixStatsQuery {
   questionType?: QuestionType | null;
 }
 
-export interface MatrixStats {
+export interface CategoryMatrixStats {
+  categoryId: string | null;
   totalCandidates: number;
   easyCandidates: number;
   mediumCandidates: number;
@@ -425,15 +426,33 @@ export interface MatrixStats {
   unspecifiedCandidates: number;
 }
 
-export interface MatrixDrawInput {
+export interface MatrixStats {
+  totalCandidates: number;
+  easyCandidates: number;
+  mediumCandidates: number;
+  hardCandidates: number;
+  unspecifiedCandidates: number;
+  byCategory?: CategoryMatrixStats[];
+}
+
+export interface MatrixTopicItem {
   categoryId: string | null;
-  tag: string | null;
-  questionType: QuestionType | null;
   easyCount: number;
   mediumCount: number;
   hardCount: number;
-  scorePerQuestion: number | null;
+  scorePerQuestion?: number | null;
+}
+
+export interface MatrixDrawInput {
+  categoryId?: string | null;
+  tag?: string | null;
+  questionType?: QuestionType | null;
+  easyCount?: number;
+  mediumCount?: number;
+  hardCount?: number;
+  scorePerQuestion?: number | null;
   mode: MatrixDrawMode;
+  topics?: MatrixTopicItem[];
 }
 
 export interface VersionDetail {

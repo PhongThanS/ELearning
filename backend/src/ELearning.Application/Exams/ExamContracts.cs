@@ -118,12 +118,28 @@ public sealed record MatrixStatsQuery(
     string? Tag = null,
     QuestionType? QuestionType = null);
 
-public sealed record MatrixStatsDto(
+public sealed record CategoryMatrixStatsDto(
+    Guid? CategoryId,
     int TotalCandidates,
     int EasyCandidates,
     int MediumCandidates,
     int HardCandidates,
     int UnspecifiedCandidates);
+
+public sealed record MatrixStatsDto(
+    int TotalCandidates,
+    int EasyCandidates,
+    int MediumCandidates,
+    int HardCandidates,
+    int UnspecifiedCandidates,
+    IReadOnlyList<CategoryMatrixStatsDto>? ByCategory = null);
+
+public sealed record MatrixTopicItem(
+    Guid? CategoryId,
+    int EasyCount,
+    int MediumCount,
+    int HardCount,
+    decimal? ScorePerQuestion = null);
 
 public sealed record MatrixDrawRequest(
     Guid? CategoryId,
@@ -133,7 +149,8 @@ public sealed record MatrixDrawRequest(
     int MediumCount,
     int HardCount,
     decimal? ScorePerQuestion,
-    MatrixDrawMode Mode);
+    MatrixDrawMode Mode,
+    IReadOnlyList<MatrixTopicItem>? Topics = null);
 
 public sealed record VersionDetailDto(
     Guid Id,
@@ -367,20 +384,44 @@ public sealed class MatrixDrawRequestValidator : AbstractValidator<MatrixDrawReq
         RuleFor(r => r.Mode).IsInEnum()
             .WithErrorCode("MODE_INVALID").WithMessage("Chế độ bốc không hợp lệ.");
 
-        RuleFor(r => r.EasyCount).GreaterThanOrEqualTo(0)
-            .WithErrorCode("EASY_COUNT_INVALID").WithMessage("Số câu Dễ không được âm.");
-        RuleFor(r => r.MediumCount).GreaterThanOrEqualTo(0)
-            .WithErrorCode("MEDIUM_COUNT_INVALID").WithMessage("Số câu Trung bình không được âm.");
-        RuleFor(r => r.HardCount).GreaterThanOrEqualTo(0)
-            .WithErrorCode("HARD_COUNT_INVALID").WithMessage("Số câu Khó không được âm.");
+        When(r => r.Topics != null && r.Topics.Count > 0, () =>
+        {
+            RuleForEach(r => r.Topics!).ChildRules(topic =>
+            {
+                topic.RuleFor(t => t.EasyCount).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("EASY_COUNT_INVALID").WithMessage("Số câu Dễ không được âm.");
+                topic.RuleFor(t => t.MediumCount).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("MEDIUM_COUNT_INVALID").WithMessage("Số câu Trung bình không được âm.");
+                topic.RuleFor(t => t.HardCount).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("HARD_COUNT_INVALID").WithMessage("Số câu Khó không được âm.");
+            });
 
-        RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount > 0)
-            .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")
-            .WithName("totalCount");
+            RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.EasyCount + t.MediumCount + t.HardCount) > 0)
+                .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")
+                .WithName("totalCount");
 
-        RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount <= ExamVersion.MaxQuestions)
-            .WithErrorCode("TOTAL_COUNT_EXCEEDED").WithMessage($"Tổng số câu bốc tối đa {ExamVersion.MaxQuestions}.")
-            .WithName("totalCount");
+            RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.EasyCount + t.MediumCount + t.HardCount) <= ExamVersion.MaxQuestions)
+                .WithErrorCode("TOTAL_COUNT_EXCEEDED").WithMessage($"Tổng số câu bốc tối đa {ExamVersion.MaxQuestions}.")
+                .WithName("totalCount");
+        });
+
+        When(r => r.Topics == null || r.Topics.Count == 0, () =>
+        {
+            RuleFor(r => r.EasyCount).GreaterThanOrEqualTo(0)
+                .WithErrorCode("EASY_COUNT_INVALID").WithMessage("Số câu Dễ không được âm.");
+            RuleFor(r => r.MediumCount).GreaterThanOrEqualTo(0)
+                .WithErrorCode("MEDIUM_COUNT_INVALID").WithMessage("Số câu Trung bình không được âm.");
+            RuleFor(r => r.HardCount).GreaterThanOrEqualTo(0)
+                .WithErrorCode("HARD_COUNT_INVALID").WithMessage("Số câu Khó không được âm.");
+
+            RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount > 0)
+                .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")
+                .WithName("totalCount");
+
+            RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount <= ExamVersion.MaxQuestions)
+                .WithErrorCode("TOTAL_COUNT_EXCEEDED").WithMessage($"Tổng số câu bốc tối đa {ExamVersion.MaxQuestions}.")
+                .WithName("totalCount");
+        });
 
         RuleFor(r => r.ScorePerQuestion)
             .Must(s => s is null || (s is >= 0.25m and <= 100m && s * 4 % 1 == 0))

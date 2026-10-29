@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Badge, Button, Card, Col, Form, Row, Table } from "react-bootstrap";
 import { useTranslation } from "react-i18next";
 import { examsApi } from "../../services/api";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { formatNumber } from "../../utils/format";
+import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { PoolRuleInput, QuestionDifficulty, QuestionType, VersionDetail } from "../../types/api";
 
 const DIFFICULTIES: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
@@ -29,6 +30,14 @@ export function PoolRulesCard({
   const categories = useActiveCategories();
   const [rule, setRule] = useState<PoolRuleInput>(emptyRule);
   const rules = version.poolRules;
+
+  const categoryOptions = useMemo<SearchableOption[]>(() => {
+    return (categories.data?.items ?? []).map((c) => ({
+      value: c.id,
+      label: c.name,
+      code: c.code,
+    }));
+  }, [categories.data?.items]);
 
   if (!canEdit && rules.length === 0) {
     return null;
@@ -102,12 +111,16 @@ export function PoolRulesCard({
             <Row className="g-2 align-items-end">
               <Col md={4}>
                 <Form.Label htmlFor="pool-category" className="small mb-0">{t("nav.categories")}</Form.Label>
-                <Form.Select id="pool-category" size="sm" value={rule.categoryId ?? ""} onChange={(e) => setRule({ ...rule, categoryId: e.target.value || null })}>
-                  <option value="">Mọi danh mục</option>
-                  {categories.data?.items.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </Form.Select>
+                <SearchableSelect
+                  id="pool-category"
+                  size="sm"
+                  value={rule.categoryId ?? ""}
+                  onChange={(val) => setRule({ ...rule, categoryId: val || null })}
+                  options={categoryOptions}
+                  placeholder="Mọi danh mục"
+                  searchPlaceholder="Tìm theo mã hoặc tên..."
+                  clearable={true}
+                />
               </Col>
               <Col md={4}>
                 <Form.Label htmlFor="pool-difficulty" className="small mb-0">Độ khó</Form.Label>

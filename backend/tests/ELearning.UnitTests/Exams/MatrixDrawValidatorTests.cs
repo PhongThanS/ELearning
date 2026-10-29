@@ -97,4 +97,49 @@ public class MatrixDrawValidatorTests
         var result = _validator.TestValidate(request);
         result.ShouldHaveValidationErrorFor(r => r.ScorePerQuestion);
     }
+
+    [Fact]
+    public void Valid_multi_topic_request_passes()
+    {
+        var request = new MatrixDrawRequest(
+            CategoryId: null,
+            Tag: null,
+            QuestionType: null,
+            EasyCount: 0,
+            MediumCount: 0,
+            HardCount: 0,
+            ScorePerQuestion: 0.5m,
+            Mode: MatrixDrawMode.Static,
+            Topics:
+            [
+                new MatrixTopicItem(Guid.NewGuid(), EasyCount: 3, MediumCount: 2, HardCount: 1),
+                new MatrixTopicItem(Guid.NewGuid(), EasyCount: 2, MediumCount: 1, HardCount: 1)
+            ]
+        );
+
+        var result = _validator.TestValidate(request);
+        result.ShouldNotHaveAnyValidationErrors();
+    }
+
+    [Fact]
+    public void Multi_topic_zero_total_fails()
+    {
+        var request = new MatrixDrawRequest(
+            CategoryId: null,
+            Tag: null,
+            QuestionType: null,
+            EasyCount: 0,
+            MediumCount: 0,
+            HardCount: 0,
+            ScorePerQuestion: 1m,
+            Mode: MatrixDrawMode.Static,
+            Topics:
+            [
+                new MatrixTopicItem(Guid.NewGuid(), EasyCount: 0, MediumCount: 0, HardCount: 0)
+            ]
+        );
+
+        var result = _validator.TestValidate(request);
+        result.ShouldHaveValidationErrorFor("totalCount");
+    }
 }

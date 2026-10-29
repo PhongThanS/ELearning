@@ -1,4 +1,4 @@
-import { useState, useId } from "react";
+import { useState, useId, useMemo } from "react";
 import {
   Badge,
   Button,
@@ -12,6 +12,7 @@ import {
 } from "react-bootstrap";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { videosApi, categoriesApi, classesApi } from "../../services/api";
+import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson, CreateVideoInput, UpdateVideoInput } from "../../types/api";
 
 function extractYoutubeId(url: string): string | null {
@@ -56,13 +57,13 @@ export function AdminVideoPages() {
   const { data: categoriesData } = useQuery({
     queryKey: ["categories", "for-videos"],
     queryFn: () => categoriesApi.list({ page: 1, pageSize: 100 }),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const { data: classroomsData } = useQuery({
     queryKey: ["classes", "for-videos"],
     queryFn: () => classesApi.list({ page: 1, pageSize: 100 }),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 
   const { data: videosData, isLoading } = useQuery({
@@ -98,6 +99,22 @@ export function AdminVideoPages() {
   const classrooms = classroomsData?.items ?? [];
   const videos: VideoLesson[] = videosData?.items ?? [];
   const totalPages = videosData?.totalPages ?? 1;
+
+  const categoryOptions = useMemo<SearchableOption[]>(() => {
+    return categories.map((c) => ({
+      value: c.id,
+      label: c.name,
+      code: c.code,
+    }));
+  }, [categories]);
+
+  const classroomOptions = useMemo<SearchableOption[]>(() => {
+    return classrooms.map((c) => ({
+      value: c.id,
+      label: c.name + (c.schoolYear ? ` (${c.schoolYear})` : ""),
+      code: c.code,
+    }));
+  }, [classrooms]);
 
   const handleOpenAdd = () => {
     setEditingVideo(null);
@@ -143,36 +160,30 @@ export function AdminVideoPages() {
               />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Select
+              <SearchableSelect
                 value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value);
+                onChange={(val) => {
+                  setSelectedCategory(val);
                   setPage(1);
                 }}
-              >
-                <option value="">-- Tất cả chuyên đề --</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    📁 {c.name} ({c.code})
-                  </option>
-                ))}
-              </Form.Select>
+                options={categoryOptions}
+                placeholder="-- Tất cả chuyên đề --"
+                searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
+                clearable={true}
+              />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Select
+              <SearchableSelect
                 value={selectedClassroom}
-                onChange={(e) => {
-                  setSelectedClassroom(e.target.value);
+                onChange={(val) => {
+                  setSelectedClassroom(val);
                   setPage(1);
                 }}
-              >
-                <option value="">-- Tất cả lớp học --</option>
-                {classrooms.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    🏫 {c.name} {c.schoolYear ? `(${c.schoolYear})` : ""}
-                  </option>
-                ))}
-              </Form.Select>
+                options={classroomOptions}
+                placeholder="-- Tất cả lớp học --"
+                searchPlaceholder="Tìm theo mã hoặc tên lớp..."
+                clearable={true}
+              />
             </Col>
             <Col xs={12} md={2}>
               <Form.Select
@@ -581,14 +592,19 @@ function VideoEditModal({
                 <Form.Label htmlFor={catId} className="fw-semibold">
                   Chuyên đề liên quan (từ mục Chuyên đề)
                 </Form.Label>
-                <Form.Select id={catId} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
-                  <option value="">-- Không gắn chuyên đề --</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      📁 {c.name} ({c.code})
-                    </option>
-                  ))}
-                </Form.Select>
+                <SearchableSelect
+                  id={catId}
+                  value={categoryId}
+                  onChange={(val) => setCategoryId(val)}
+                  options={categories.map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                    code: c.code,
+                  }))}
+                  placeholder="-- Không gắn chuyên đề --"
+                  searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
+                  clearable={true}
+                />
               </Form.Group>
             </Col>
             <Col md={6}>
@@ -596,14 +612,19 @@ function VideoEditModal({
                 <Form.Label htmlFor={classId} className="fw-semibold">
                   Lớp học được xem (từ mục Lớp học)
                 </Form.Label>
-                <Form.Select id={classId} value={classroomId} onChange={(e) => setClassroomId(e.target.value)}>
-                  <option value="">-- Mọi học sinh đều xem được (Chung) --</option>
-                  {classrooms.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      🏫 {c.name} {c.code ? `[${c.code}]` : ""} {c.schoolYear ? `(${c.schoolYear})` : ""}
-                    </option>
-                  ))}
-                </Form.Select>
+                <SearchableSelect
+                  id={classId}
+                  value={classroomId}
+                  onChange={(val) => setClassroomId(val)}
+                  options={classrooms.map((c) => ({
+                    value: c.id,
+                    label: c.name + (c.schoolYear ? ` (${c.schoolYear})` : ""),
+                    code: c.code,
+                  }))}
+                  placeholder="-- Mọi học sinh đều xem được (Chung) --"
+                  searchPlaceholder="Tìm theo mã hoặc tên lớp..."
+                  clearable={true}
+                />
               </Form.Group>
             </Col>
           </Row>
