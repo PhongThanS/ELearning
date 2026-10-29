@@ -418,11 +418,14 @@ const adminNav: {
   permission: string;
   isGroupsDropdown?: boolean;
   isCategoriesDropdown?: boolean;
+  /** Chỉ sáng khi đúng đường dẫn (không sáng ở trang con có mục menu riêng). */
+  end?: boolean;
 }[] = [
   { to: "/admin/dashboard", label: "nav.dashboard", icon: "📊", permission: Permissions.ReportView },
   { to: "/admin/exams", label: "nav.exams", icon: "📝", permission: Permissions.ExamView },
   { to: "/admin/videos", label: "nav.videos", icon: "🎥", permission: Permissions.VideoView },
-  { to: "/admin/questions", label: "nav.questions", icon: "❓", permission: Permissions.QuestionView },
+  { to: "/admin/questions", label: "nav.questions", icon: "❓", permission: Permissions.QuestionView, end: true },
+  { to: "/admin/questions/import-markdown", label: "nav.importExam", icon: "📥", permission: Permissions.QuestionCreate },
   { to: "/admin/categories", label: "nav.categories", icon: "📁", permission: Permissions.CategoryView, isCategoriesDropdown: true },
   { to: "/admin/users", label: "nav.users", icon: "👤", permission: Permissions.UserView },
   { to: "/admin/roles", label: "nav.roles", icon: "🛡️", permission: Permissions.RoleView },
@@ -493,7 +496,7 @@ export function AdminLayout() {
                   );
                 }
                 return (
-                  <Nav.Link key={item.to} as={NavLink} to={item.to} className="d-flex align-items-center gap-2">
+                  <Nav.Link key={item.to} as={NavLink} to={item.to} end={item.end} className="d-flex align-items-center gap-2">
                     <span>{item.icon}</span>
                     <span>{t(item.label)}</span>
                   </Nav.Link>
@@ -527,7 +530,7 @@ export function AdminLayout() {
                 );
               }
               return (
-                <Nav.Link key={item.to} as={NavLink} to={item.to} className="d-flex align-items-center gap-2">
+                <Nav.Link key={item.to} as={NavLink} to={item.to} end={item.end} className="d-flex align-items-center gap-2">
                   <span className="nav-item-icon">{item.icon}</span>
                   <span className="nav-item-label">{t(item.label)}</span>
                 </Nav.Link>
