@@ -211,6 +211,90 @@ public class ExamMarkdownParserTests
         doc.Questions.Single().Input!.Content.Should().Be("Giải thích đoạn mã:\n" + fence + "python\nprint(1)\n" + fence);
     }
 
+    [Fact]
+    public void Placeholders_for_unreadable_formulas_block_the_question()
+    {
+        // Tái hiện: AI không đọc được MathType trong .docx, ghi chỗ trống nhưng file vẫn "hợp lệ 22/22"
+        var doc = ExamMarkdownParser.Parse(Header + """
+            @question: 1
+            @type: SINGLE_CHOICE
+            @score: 0.25
+            @content:
+            Đường tiệm cận đứng của đồ thị hàm số [công thức không trích xuất được] là
+            @option A: [?]
+            @option B: $x = -1$
+            @answer: B
+            @question: 2
+            @type: NUMBER
+            @score: 0.5
+            @content:
+            Xem [?](https://example.com) và khoảng $[0; 2]$ là nội dung bình thường.
+            @answer: 1
+            """);
+
+        var issues = doc.Questions[0].Issues;
+        issues.Should().Contain(i => i.Code == "CONTENT_UNREADABLE" && i.Field == "content" && i.Line == 5);
+        issues.Should().Contain(i => i.Code == "CONTENT_UNREADABLE" && i.Field == "option" && i.Line == 7);
+        doc.Questions[1].Issues.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Question_mentioning_a_figure_needs_an_image_line()
+    {
+        var doc = ExamMarkdownParser.Parse(Header + """
+            @part: PHẦN I
+            @type: SINGLE_CHOICE
+            @score: 0.25
+            @question: 3
+            @content:
+            Cho hàm số $y = f(x)$ có đồ thị như hình vẽ. Giá trị cực đại bằng
+
+            @option A: $3$
+            @option B: $2$
+            @answer: A
+            @question: 4
+            @content:
+            Cho hàm số có bảng biến thiên như hình bên.
+            ![Bảng biến thiên](hinh-p1-c4.png)
+            @option A: $1$
+            @option B: $2$
+            @answer: A
+            """);
+
+        doc.Questions[0].Issues.Should().ContainSingle(i => i.Code == "FIGURE_MISSING" && i.Line == 6);
+        doc.Questions[1].Issues.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Ai_notes_copied_after_the_code_block_are_reported_not_appended_to_last_explanation()
+    {
+        // Tái hiện: "```", "eof", "### Ghi chú" bị nối vào lời giải câu cuối
+        var doc = ExamMarkdownParser.Parse(Header + """
+            @question: 1
+            @type: NUMBER
+            @score: 0.5
+            @content: Tính $1 + 1$.
+            @answer: 2
+            @explanation:
+            Ghi chú: cộng hai số.
+            ```
+            eof
+
+            ### Ghi chú
+            1. Ảnh cần cắt: không có.
+            """);
+
+        doc.FileIssues.Should().ContainSingle(i => i.Code == "AI_NOTES_INCLUDED" && i.Line == 10);
+    }
+
+    [Fact]
+    public void Unfinished_ai_answer_is_reported()
+    {
+        var doc = ExamMarkdownParser.Parse(Header + "@question: 1\n@type: ESSAY\n@score: 1\n@content: Viết đoạn văn.\nTIẾP TỤC Ở PHẦN SAU\n");
+
+        doc.FileIssues.Should().ContainSingle(i => i.Code == "AI_RESPONSE_INCOMPLETE" && i.Line == 6);
+    }
+
     private static string PublicFile(string name)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

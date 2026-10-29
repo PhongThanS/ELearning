@@ -8,7 +8,7 @@ import { MarkdownView } from "../../components/common/MarkdownView";
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { formatNumber } from "../../utils/format";
-import type { MarkdownImportQuestion, MarkdownImportResult, MediaUrlMap } from "../../types/api";
+import type { DocxSkippedImage, MarkdownImportQuestion, MarkdownImportResult, MediaUrlMap } from "../../types/api";
 import { newPendingId, readAsDataUrl, referencedPending, replacePendingIds, validateImage, type PendingImage } from "./pendingImages";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -26,8 +26,28 @@ function baseName(path: string): string {
   return (path.split(/[\\/]/).pop() ?? path).toLowerCase();
 }
 
+type ImportImage = PendingImage & { name: string; fromDocx?: boolean };
+
+/** Tên file ảnh (chữ thường) mà file .md tham chiếu. */
+function referencedNames(markdown: string): Set<string> {
+  return new Set([...markdown.matchAll(IMAGE_REF)].map((m) => baseName(m[2] ?? "")));
+}
+
+function fileFromBase64(name: string, type: string, base64: string): File {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new File([bytes], name, { type });
+}
+
+function isDocx(file: File): boolean {
+  return file.name.toLowerCase().endsWith(".docx");
+}
+
 /** Thay ![..](hinh-1.png) bằng ![..](media:pending-x) cho các ảnh đã chọn; tên chưa có ảnh giữ nguyên. */
-function attachImages(markdown: string, images: readonly (PendingImage & { name: string })[]): string {
+function attachImages(markdown: string, images: readonly ImportImage[]): string {
   const byName = new Map(images.map((i) => [i.name, i.id]));
   return markdown.replace(IMAGE_REF, (whole, open: string, target: string, close: string) => {
     if (target.toLowerCase().startsWith("media:")) {
@@ -47,11 +67,12 @@ export function MarkdownImportPage() {
   const navigate = useNavigate();
   const [fileName, setFileName] = useState<string | null>(null);
   const [markdown, setMarkdown] = useState<string>("");
-  const [images, setImages] = useState<(PendingImage & { name: string })[]>([]);
+  const [images, setImages] = useState<ImportImage[]>([]);
+  const [docx, setDocx] = useState<{ fileName: string; skipped: DocxSkippedImage[] } | null>(null);
   const [categoryId, setCategoryId] = useState<string>("");
   const [createExam, setCreateExam] = useState(true);
   const [result, setResult] = useState<MarkdownImportResult | null>(null);
-  const [busy, setBusy] = useState<"check" | "import" | null>(null);
+  const [busy, setBusy] = useState<"check" | "import" | "docx" | null>(null);
   const [error, setError] = useState<unknown>(null);
 
   const categories = useQuery({
@@ -92,7 +113,28 @@ export function MarkdownImportPage() {
       return;
     }
     const added: typeof images = [];
-    for (const file of Array.from(files)) {
+    const all = Array.from(files);
+    const word = all.find(isDocx);
+    if (word) {
+      setBusy("docx");
+      try {
+        const extracted = await questionsApi.docxImages(word);
+        const chosenByHand = new Set(images.filter((i) => !i.fromDocx).map((i) => i.name));
+        for (const img of extracted.images) {
+          const name = img.name.toLowerCase();
+          if (!chosenByHand.has(name)) {
+            const file = fileFromBase64(name, img.contentType, img.dataBase64);
+            added.push({ id: newPendingId(), file, previewUrl: `data:${img.contentType};base64,${img.dataBase64}`, name, fromDocx: true });
+          }
+        }
+        setDocx({ fileName: word.name, skipped: extracted.skipped });
+      } catch (e) {
+        toast.error(`${word.name}: ${describeError(e)}`);
+      } finally {
+        setBusy(null);
+      }
+    }
+    for (const file of all.filter((f) => !isDocx(f))) {
       const problem = validateImage(file);
       if (problem) {
         toast.error(problem === "type" ? `${file.name}: chỉ nhận ảnh PNG, JPEG, GIF, WebP.` : `${file.name}: ảnh tối đa 2 MB.`);
@@ -100,7 +142,9 @@ export function MarkdownImportPage() {
       }
       added.push({ id: newPendingId(), file, previewUrl: await readAsDataUrl(file), name: file.name.toLowerCase() });
     }
-    const next = [...images.filter((i) => !added.some((a) => a.name === i.name)), ...added];
+    // Chọn file Word mới thì bỏ các ảnh lấy từ file Word trước
+    const keep = images.filter((i) => !(word && i.fromDocx) && !added.some((a) => a.name === i.name));
+    const next = [...keep, ...added];
     setImages(next);
     await check(markdown, next, categoryId);
   };
@@ -171,6 +215,10 @@ export function MarkdownImportPage() {
     }
   };
 
+  const referenced = useMemo(() => referencedNames(markdown), [markdown]);
+  const docxImages = images.filter((i) => i.fromDocx);
+  const unusedDocx = markdown ? docxImages.filter((i) => !referenced.has(i.name)) : [];
+
   const counts = useMemo(() => {
     const map = new Map<string, number>();
     for (const q of result?.questions ?? []) {
@@ -203,9 +251,17 @@ export function MarkdownImportPage() {
                 </Col>
                 <Col md={6}>
                   <Form.Group controlId="md-images">
-                    <Form.Label className="fw-semibold">2. Ảnh trong đề (nếu có)</Form.Label>
-                    <Form.Control type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple onChange={(e) => void onImages((e.target as HTMLInputElement).files)} />
-                    <Form.Text>Tên file ảnh phải trùng tên ghi trong đề, ví dụ <code>hinh-cau-2.png</code>.</Form.Text>
+                    <Form.Label className="fw-semibold">2. Hình trong đề: file Word gốc hoặc ảnh</Form.Label>
+                    <Form.Control
+                      type="file"
+                      accept=".docx,image/png,image/jpeg,image/gif,image/webp"
+                      multiple
+                      onChange={(e) => void onImages((e.target as HTMLInputElement).files)}
+                    />
+                    <Form.Text>
+                      Chọn <strong>file Word gốc (.docx)</strong> để tự lấy hình theo câu (<code>hinh-p1-c3.png</code>…), hoặc chọn
+                      ảnh có tên trùng tên ghi trong file .md.
+                    </Form.Text>
                   </Form.Group>
                 </Col>
                 <Col md={6}>
@@ -243,8 +299,12 @@ export function MarkdownImportPage() {
               <h2 className="h6"><i className="bi bi-robot me-1" aria-hidden="true" />Chuyển đề sang file .md bằng AI</h2>
               <ol className="small ps-3 mb-3">
                 <li>Tải <strong>prompt hướng dẫn</strong> bên dưới.</li>
-                <li>Mở Claude / ChatGPT / Gemini, dán prompt và đính kèm file đề. Đề Word có công thức MathType: <strong>lưu sang PDF</strong> trước rồi gửi PDF.</li>
-                <li>Lưu kết quả AI trả về thành file <code>.md</code> rồi chọn ở bước 1.</li>
+                <li>
+                  Mở Claude / ChatGPT / Gemini, dán prompt và đính kèm <strong>file PDF</strong> của đề (Word → Lưu thành → PDF) hoặc
+                  ảnh chụp. <strong>Không gửi file .docx</strong>: AI không đọc được công thức MathType trong đó.
+                </li>
+                <li>Chỉ chép phần <strong>bên trong khối code</strong> AI trả về, lưu thành file <code>.md</code> và chọn ở bước 1.</li>
+                <li>Ở bước 2 chọn file Word gốc để hệ thống tự lấy hình cho từng câu.</li>
               </ol>
               <div className="d-grid gap-2">
                 <a className="btn btn-sm btn-primary" href="/huong-dan/prompt-chuyen-de-thi.md" download>
@@ -259,6 +319,43 @@ export function MarkdownImportPage() {
         </Col>
       </Row>
 
+      {busy === "docx" && <div className="text-secondary small mb-2"><Spinner size="sm" className="me-2" />Đang lấy hình từ file Word…</div>}
+      {docx && (
+        <Card className="mb-3">
+          <Card.Body>
+            <div className="fw-semibold mb-2">
+              Hình lấy từ <span className="text-primary">{docx.fileName}</span>: {docxImages.length} ảnh
+            </div>
+            {docxImages.length > 0 && (
+              <div className="d-flex flex-wrap gap-2 mb-2">
+                {docxImages.map((i) => (
+                  <figure key={i.id} className={`border rounded p-1 mb-0 text-center ${referenced.has(i.name) ? "border-success" : "border-warning"}`}>
+                    <img src={i.previewUrl} alt={i.name} style={{ height: 64, maxWidth: 140, objectFit: "contain" }} />
+                    <figcaption className="small"><code>{i.name}</code></figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+            {unusedDocx.length > 0 && (
+              <Alert variant="warning" className="small py-2 mb-2">
+                File Word có hình nhưng file .md không dùng:{" "}
+                {unusedDocx.map((i) => <code key={i.id} className="me-1">{i.name}</code>)}— câu đó có thể đang thiếu hình. Thêm dòng{" "}
+                <code>![mô tả](tên-ảnh)</code> vào đúng câu trong file .md (hoặc bỏ qua nếu là hình không cần thiết).
+              </Alert>
+            )}
+            {docx.skipped.length > 0 && (
+              <Alert variant="warning" className="small py-2 mb-0">
+                <div className="fw-semibold">Không lấy được, cần chọn ảnh tay:</div>
+                <ul className="mb-0 ps-3">
+                  {docx.skipped.map((s, index) => (
+                    <li key={index}>{s.name ? <code>{s.name}</code> : "Ảnh"}: {s.reason}</li>
+                  ))}
+                </ul>
+              </Alert>
+            )}
+          </Card.Body>
+        </Card>
+      )}
       {busy === "check" && <div className="text-secondary small mb-2"><Spinner size="sm" className="me-2" />Đang đọc file…</div>}
       {error != null && <Alert variant="danger">{describeError(error)}</Alert>}
 

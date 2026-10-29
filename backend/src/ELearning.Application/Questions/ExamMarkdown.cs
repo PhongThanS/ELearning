@@ -171,6 +171,7 @@ public static partial class ExamMarkdownParser
         string? argument = null;
         var start = 0;
         StringBuilder? value = null;
+        var aiTextReported = false;
 
         void Close()
         {
@@ -203,6 +204,12 @@ public static partial class ExamMarkdownParser
             {
                 Append(line[1..]);
                 continue;
+            }
+
+            if (!aiTextReported && AiResponseLine(line) is { } aiIssue)
+            {
+                issues.Add(new(lineNo, key, aiIssue.Code, aiIssue.Message));
+                aiTextReported = true;
             }
 
             if (line.StartsWith('@'))
@@ -261,6 +268,27 @@ public static partial class ExamMarkdownParser
 
             value.Append('\n').Append(line);
         }
+    }
+
+    /// <summary>
+    /// Dòng là lời của AI chứ không phải nội dung đề: mục "Ghi chú", dòng "eof", hay dấu "TIẾP TỤC Ở PHẦN SAU"
+    /// (đề dài bị cắt, phần sau chưa được ghép vào). Nếu không chặn, chúng bị nối vào lời giải của câu cuối.
+    /// </summary>
+    private static (string Code, string Message)? AiResponseLine(string line)
+    {
+        if (ContinueMarker().IsMatch(line))
+        {
+            return ("AI_RESPONSE_INCOMPLETE",
+                "File còn dòng \"TIẾP TỤC Ở PHẦN SAU\": đề chưa chuyển hết. Nhắn AI \"tiếp tục\", ghép phần sau vào cuối file và xóa dòng này.");
+        }
+
+        if (AiNotesLine().IsMatch(line))
+        {
+            return ("AI_NOTES_INCLUDED",
+                "Từ dòng này trở đi là phần \"Ghi chú\" / lời của AI, không thuộc đề. Chỉ chép phần bên trong khối code: xóa từ dòng này tới cuối file.");
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -378,6 +406,9 @@ public static partial class ExamMarkdownParser
             issues.Add(new(content?.Line ?? block.Line, "content", "CONTENT_REQUIRED", $"Câu {block.Label}: thiếu @content."));
         }
 
+        CheckUnreadable(block, issues);
+        CheckFigure(content, options, statements, block, issues);
+
         var score = ParseScore(Field("score"), block, issues);
         var difficulty = ParseDifficulty(Field("difficulty"), block, issues);
         var tags = Field("tags")?.Value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
@@ -431,6 +462,36 @@ public static partial class ExamMarkdownParser
 
         q.Input = input;
         return q;
+    }
+
+    /// <summary>Prompt yêu cầu AI ghi <c>[?]</c> ở chỗ không đọc được; không cho nhập câu còn chỗ trống như vậy.</summary>
+    private static void CheckUnreadable(QuestionBlock block, List<MarkdownImportIssue> issues)
+    {
+        foreach (var f in block.Fields.Where(f => f.Key is "content" or "option" or "statement" or "answer" or "explanation"))
+        {
+            if (Unreadable().IsMatch(f.Value))
+            {
+                var where = f.Argument is { Length: > 0 } arg ? $"@{f.Key} {arg}" : $"@{f.Key}";
+                issues.Add(new(f.Line, f.Key, "CONTENT_UNREADABLE",
+                    $"Câu {block.Label}: {where} còn chỗ AI không đọc được ([?]). Đối chiếu đề gốc và điền đúng nội dung."));
+            }
+        }
+    }
+
+    /// <summary>Câu nói "như hình vẽ", "hình bên"… nhưng không có dòng ảnh: học viên sẽ không thấy hình.</summary>
+    private static void CheckFigure(Directive? content, List<Directive> options, List<Directive> statements, QuestionBlock block, List<MarkdownImportIssue> issues)
+    {
+        if (content is null || !FigureMention().IsMatch(content.Value))
+        {
+            return;
+        }
+
+        var texts = new[] { content }.Concat(options).Concat(statements).Select(d => d.Value);
+        if (!texts.Any(t => ImageRefs(t).Any()))
+        {
+            issues.Add(new(content.Line, "content", "FIGURE_MISSING",
+                $"Câu {block.Label}: đề nói tới hình vẽ nhưng không có dòng ảnh ![mô tả](hinh-p<phần>-c<câu>.png). Thêm dòng ảnh vào đúng chỗ."));
+        }
     }
 
     private static QuestionInput BuildChoice(
@@ -700,6 +761,19 @@ public static partial class ExamMarkdownParser
 
     [GeneratedRegex(@"^@(?<key>[A-Za-z_]+)(?:[ \t]+(?<arg>[A-Za-z0-9]+))?[ \t]*:(?<value>.*)$", RegexOptions.CultureInvariant)]
     private static partial Regex DirectiveLine();
+
+    /// <summary><c>[?]</c> (không phải liên kết) hoặc ghi chú kiểu "[công thức không trích xuất được]".</summary>
+    [GeneratedRegex(@"\[\s*\?\s*\](?!\()|\[[^\]\n]*không\s+(?:trích\s+xuất|đọc|nhận\s+dạng|nhận\s+diện)\s+được[^\]\n]*\]", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex Unreadable();
+
+    [GeneratedRegex(@"như\s+hình|hình\s+vẽ|hình\s+bên|hình\s+dưới|hình\s+sau\b|có\s+đồ\s+thị\s+như", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex FigureMention();
+
+    [GeneratedRegex(@"^\s*(?:(?:#{1,6}|\*\*)\s*Ghi\s+chú|Ghi\s+chú\s*:?\s*$|eof\s*$)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex AiNotesLine();
+
+    [GeneratedRegex(@"TIẾP\s+TỤC\s+Ở\s+PHẦN\s+SAU", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex ContinueMarker();
 
     [GeneratedRegex(@"[^0-9]", RegexOptions.CultureInvariant)]
     private static partial Regex DigitsOnly();

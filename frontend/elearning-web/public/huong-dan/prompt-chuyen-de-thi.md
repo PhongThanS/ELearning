@@ -1,12 +1,16 @@
 # PROMPT: Chuyển đề thi sang file nhập "elearning-exam/1"
 
-> Cách dùng: mở Claude / ChatGPT / Gemini (hoặc gọi API), dán **toàn bộ** nội dung dưới đường kẻ này làm lời nhắn
-> đầu tiên (hoặc system prompt), rồi đính kèm file đề (Word, PDF, ảnh chụp). Lưu nội dung AI trả về thành file `.md`
-> (UTF-8) và nhập ở **Ngân hàng câu hỏi → Nhập đề từ file**.
+> **Cách dùng (4 bước):**
 >
-> **Đề Word có công thức MathType** (rất phổ biến ở đề Toán, Lý, Hóa): AI thường **không đọc được** công thức MathType
-> bên trong file `.docx`. Hãy mở đề bằng Word → *File → Save As → PDF* rồi gửi **file PDF** cho AI.
-> Ảnh chụp đề cũng được, chụp thẳng, đủ sáng, mỗi ảnh một trang.
+> 1. **Đề Word → PDF.** Mở đề bằng Word → *File → Save As → PDF*. **Không gửi file `.docx` cho AI**: công thức
+>    MathType (rất phổ biến ở đề Toán, Lý, Hóa) nằm trong file Word dưới dạng đối tượng mà AI **không đọc được**, AI
+>    sẽ bỏ trống hoặc tự bịa công thức. Ảnh chụp đề cũng được: chụp thẳng, đủ sáng, mỗi ảnh một trang.
+> 2. Mở Claude / ChatGPT / Gemini (hoặc gọi API), dán **toàn bộ** nội dung dưới đường kẻ này làm lời nhắn đầu tiên
+>    (hoặc system prompt), rồi đính kèm file PDF / ảnh.
+> 3. Chỉ chép phần **bên trong khối code** AI trả về (từ dòng `@format:` tới hết câu cuối) và lưu thành file `.md`
+>    (UTF-8). **Không** chép dòng ` ``` `, chữ `eof` hay mục "Ghi chú" — phần mềm sẽ báo lỗi nếu còn.
+> 4. Vào **Ngân hàng câu hỏi → Nhập đề từ file**: chọn file `.md` ở bước 1; ở bước 2 chọn **file Word gốc** để phần
+>    mềm tự lấy hình vẽ cho từng câu (theo tên `hinh-p<phần>-c<câu>.png`), hoặc chọn ảnh tự cắt.
 >
 > Sau khi nhập, màn hình **xem trước** hiển thị đề đúng như học sinh sẽ thấy: hãy đối chiếu nhanh với đề gốc
 > (đặc biệt đáp án và công thức) trước khi bấm nhập.
@@ -24,7 +28,12 @@ câu hỏi, đáp án, lời giải sang **đúng một file văn bản** theo �
    (b) chỗ nào trong đề bị mờ / không chắc chắn; (c) câu nào không tìm thấy đáp án.
 3. **Không bịa.** Không tự giải để điền đáp án khi đề không có đáp án; không sửa nội dung câu hỏi; không bỏ câu nào.
    Câu không có đáp án trong đề thì ghi `@answer: ?`.
-4. Nếu đề dài và bạn bị giới hạn độ dài, dừng ở **ranh giới giữa hai câu** và viết `TIẾP TỤC Ở PHẦN SAU`. Khi tôi nhắn
+4. **Không đọc được thì không đoán.** Chỗ nào (công thức, ký hiệu, số liệu) bạn không đọc được chắc chắn thì ghi đúng
+   ký hiệu `[?]` tại chỗ đó (phần mềm sẽ không cho nhập cho tới khi người dùng điền lại). **Không** tự đặt số liệu,
+   tọa độ, hàm số cho "hợp lý" hay cho khớp đáp án. Nếu **phần lớn** công thức không đọc được (thường do file `.docx`
+   chứa MathType) thì **dừng lại, không tạo file**, chỉ trả lời: "Tôi không đọc được công thức trong file này. Hãy lưu
+   đề thành PDF (hoặc chụp ảnh từng trang) rồi gửi lại."
+5. Nếu đề dài và bạn bị giới hạn độ dài, dừng ở **ranh giới giữa hai câu** và viết `TIẾP TỤC Ở PHẦN SAU`. Khi tôi nhắn
    "tiếp tục", viết tiếp từ câu kế tiếp trong một khối code mới, **không** lặp lại phần đầu file.
 
 ## 2. Cấu trúc file
@@ -140,10 +149,16 @@ Ví dụ câu `TEXT` có hai cách viết đúng:
 
 ## 5. Hình vẽ, bảng, định dạng chữ
 
-- **Hình vẽ / đồ thị / bảng biến thiên dạng hình:** chèn tại đúng vị trí trong nội dung bằng
-  `![<mô tả ngắn>](<tên-file>.png)`, đặt tên theo quy ước `hinh-p<số phần>-c<số câu>.png`
-  (thêm `-2`, `-3` nếu một câu có nhiều hình), ví dụ `![Đồ thị hàm số y = f(x)](hinh-p1-c3.png)`.
-  Liệt kê mọi tên file ảnh trong mục "Ghi chú" kèm mô tả để tôi cắt ảnh từ đề và đặt đúng tên.
+- **Hình vẽ / đồ thị / bảng biến thiên dạng hình:** **mỗi** hình trong đề phải có một dòng ảnh, đặt tại đúng vị trí
+  trong nội dung: `![<mô tả ngắn>](<tên-file>.png)`. Phần mềm tự lấy hình từ file Word gốc theo **đúng tên**, nên
+  đặt tên chính xác theo quy ước:
+  - `hinh-p<số phần>-c<số câu>.png`: số phần theo thứ tự "PHẦN I, II, III" của đề (I → 1, II → 2…; đề không chia phần
+    thì là `p1`); số câu **đúng như in trong đề** ("Câu 3" → `c3`). Ví dụ `![Đồ thị hàm số y = f(x)](hinh-p1-c3.png)`.
+  - Một câu nhiều hình: hình đầu `hinh-p1-c4.png`, các hình sau `hinh-p1-c4-2.png`, `hinh-p1-c4-3.png` theo thứ tự.
+  - Hình nằm trước câu đầu tiên của một phần (dùng chung cho nhiều câu): `hinh-p<số phần>-chung.png`.
+  - Hình nằm trong phương án (A, B, C, D) thì đặt dòng ảnh trong `@option` tương ứng, vẫn đánh tên theo câu.
+  Liệt kê mọi tên file ảnh trong mục "Ghi chú" kèm mô tả. Câu nói "như hình vẽ", "hình bên"… mà không có dòng ảnh sẽ bị
+  phần mềm từ chối.
 - **Bảng dạng chữ** (bảng số liệu, bảng tần số): dùng bảng Markdown (`| a | b |` và dòng `|---|---|`).
 - **Bảng biến thiên / bảng xét dấu:** nếu chuyển được thành bảng Markdown rõ ràng thì dùng bảng; nếu không thì dùng
   ảnh như hình vẽ.
@@ -158,6 +173,8 @@ Ví dụ câu `TEXT` có hai cách viết đúng:
 - [ ] Lựa chọn liên tục `A, B, C, D`; ý Đúng/Sai liên tục `a, b, c, d`; đáp án Đúng/Sai có đủ mọi ý.
 - [ ] Đáp án khớp **bảng đáp án** theo đúng phần và đúng số câu; đáp án `NUMBER` chỉ là số.
 - [ ] Mọi công thức nằm trong `$...$` / `$$...$$`, đóng mở đủ cặp.
+- [ ] Mọi công thức, số liệu đọc từ đề, không có cái nào tự đặt ra; chỗ không đọc được ghi `[?]`.
+- [ ] Số dòng ảnh `![...](hinh-...)` bằng số hình trong phần câu hỏi của đề; tên ảnh đúng phần, đúng số câu.
 - [ ] Không còn chữ "Câu 1.", "A.", "a)" lặp lại bên trong nội dung; không còn tiêu đề hành chính.
 - [ ] Không có dòng chữ nào nằm ngoài một trường; dòng bắt đầu bằng `@` đều là tên trường hợp lệ.
 

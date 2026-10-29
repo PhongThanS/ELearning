@@ -1,5 +1,6 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
+  DocxImageResult,
   VideoLesson,
   CreateVideoInput,
   UpdateVideoInput,
@@ -159,6 +160,12 @@ export const questionsApi = {
   },
   importMarkdown: (body: { markdown: string; categoryId: string | null; dryRun: boolean }) =>
     http.post<MarkdownImportResult>("/questions/import-markdown", body),
+  /** Ảnh trong file đề Word gốc, đã đặt tên theo phần / câu (hinh-p1-c3.png). Không lưu gì trên server. */
+  docxImages: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<DocxImageResult>("/questions/import-markdown/docx-images", form);
+  },
 };
 
 /** Ảnh trong câu hỏi (D-27): PNG / JPEG / GIF / WebP, tối đa 2 MB; server kiểm tra lại. */

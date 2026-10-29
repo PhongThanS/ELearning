@@ -1033,6 +1033,27 @@ export interface MarkdownImportQuestion {
   issues: MarkdownImportIssue[];
 }
 
+export interface DocxImage {
+  name: string;
+  contentType: string;
+  dataBase64: string;
+  part: number;
+  question: number | null;
+  bytes: number;
+}
+
+export interface DocxSkippedImage {
+  name: string | null;
+  part: number;
+  question: number | null;
+  reason: string;
+}
+
+export interface DocxImageResult {
+  images: DocxImage[];
+  skipped: DocxSkippedImage[];
+}
+
 export interface MarkdownImportResult {
   dryRun: boolean;
   imported: boolean;

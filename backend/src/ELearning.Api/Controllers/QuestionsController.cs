@@ -57,6 +57,7 @@ public sealed class QuestionsController(IQuestionService questions, IQuestionImp
     : ApiControllerBase
 {
     private const long MaxImportBytes = 5 * 1024 * 1024;
+    private const long MaxDocxBytes = 30 * 1024 * 1024;
     private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     /// <summary>File mẫu import câu hỏi (kèm hướng dẫn và danh sách mã danh mục).</summary>
@@ -101,6 +102,31 @@ public sealed class QuestionsController(IQuestionService questions, IQuestionImp
     [ProducesResponseType<ApiResponse<ExamMarkdownImportResult>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> ImportMarkdown(ExamMarkdownImportRequest request, CancellationToken ct) =>
         ToResponse(await markdownImports.ImportAsync(request, ct));
+
+    /// <summary>
+    /// Lấy ảnh (hình vẽ, đồ thị) từ file đề Word gốc, đặt tên theo phần / câu (<c>hinh-p1-c3.png</c>) như prompt
+    /// yêu cầu AI ghi trong file .md. Không lưu gì; trình duyệt dùng các ảnh này như ảnh người dùng tự chọn.
+    /// </summary>
+    [HttpPost("import-markdown/docx-images")]
+    [HasPermission(Permissions.QuestionCreate)]
+    [RequestSizeLimit(MaxDocxBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxDocxBytes + 64 * 1024)]
+    [ProducesResponseType<ApiResponse<DocxImageResult>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> DocxImages(IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_REQUIRED", "Vui lòng chọn file Word (.docx).", "file")));
+        }
+
+        if (file.Length > MaxDocxBytes || !file.FileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_INVALID", "Chỉ nhận file .docx, tối đa 30 MB.", "file")));
+        }
+
+        await using var stream = file.OpenReadStream();
+        return ToResponse(await markdownImports.ExtractDocxImagesAsync(stream, ct));
+    }
 
     [HttpGet]
     [HasPermission(Permissions.QuestionView)]

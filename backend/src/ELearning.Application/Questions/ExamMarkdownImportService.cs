@@ -1,12 +1,14 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Common.Options;
 using ELearning.Application.Media;
 using ELearning.Domain.Common;
 using ELearning.Domain.Questions;
 using ELearning.Shared.Results;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace ELearning.Application.Questions;
 
@@ -38,6 +40,9 @@ public sealed record ExamMarkdownImportResult(
 public interface IExamMarkdownImportService
 {
     Task<Result<ExamMarkdownImportResult>> ImportAsync(ExamMarkdownImportRequest request, CancellationToken ct);
+
+    /// <summary>Lấy ảnh từ file đề Word gốc, đặt tên theo phần / câu để ghép với file .md. Không lưu gì.</summary>
+    Task<Result<DocxImageResult>> ExtractDocxImagesAsync(Stream docx, CancellationToken ct);
 }
 
 /// <summary>
@@ -52,9 +57,22 @@ internal sealed class ExamMarkdownImportService(
     ICurrentUser currentUser,
     TimeProvider time,
     IMediaService media,
+    IOptions<MediaOptions> mediaOptions,
     IValidator<QuestionInput> validator) : IExamMarkdownImportService
 {
     private const string PendingPrefix = "media:pending-";
+
+    public async Task<Result<DocxImageResult>> ExtractDocxImagesAsync(Stream docx, CancellationToken ct)
+    {
+        // ZipArchive cần đọc ngẫu nhiên; file đã được giới hạn kích thước ở controller
+        using var buffer = new MemoryStream();
+        await docx.CopyToAsync(buffer, ct);
+        buffer.Position = 0;
+        var result = DocxImageExtractor.Extract(buffer, mediaOptions.Value.MaxBytes);
+        return result is null
+            ? Error.Validation("IMPORT_FILE_INVALID", "File không phải file Word .docx hợp lệ (file .doc cũ: mở bằng Word và lưu lại thành .docx).", "file")
+            : result;
+    }
 
     public async Task<Result<ExamMarkdownImportResult>> ImportAsync(ExamMarkdownImportRequest request, CancellationToken ct)
     {
