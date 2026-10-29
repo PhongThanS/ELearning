@@ -412,6 +412,9 @@ export function QuestionsPage() {
                   {removeMany.isPending ? "Đang xóa..." : `Xóa đã chọn (${selectedIds.size})`}
                 </Button>
               )}
+              <Link to="/admin/questions/import-markdown" className="btn btn-outline-primary">
+                <i className="bi bi-filetype-md me-1" aria-hidden="true" />Nhập đề từ file
+              </Link>
               <Button variant="outline-primary" onClick={() => setImporting(true)}>Import Excel</Button>
               <Link to="/admin/questions/create" className="btn btn-primary">{t("common.create")}</Link>
             </>

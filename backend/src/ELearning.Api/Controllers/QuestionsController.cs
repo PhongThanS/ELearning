@@ -53,7 +53,8 @@ public sealed class QuestionCategoriesController(ICategoryService categories) : 
 
 /// <summary>Ngân hàng câu hỏi (docs/05-api.md mục 6.3). Không có DELETE (D-16).</summary>
 [Route("api/questions")]
-public sealed class QuestionsController(IQuestionService questions, IQuestionImportService imports) : ApiControllerBase
+public sealed class QuestionsController(IQuestionService questions, IQuestionImportService imports, IExamMarkdownImportService markdownImports)
+    : ApiControllerBase
 {
     private const long MaxImportBytes = 5 * 1024 * 1024;
     private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -89,6 +90,17 @@ public sealed class QuestionsController(IQuestionService questions, IQuestionImp
         await using var stream = file.OpenReadStream();
         return ToResponse(await imports.ImportAsync(stream, dryRun, ct));
     }
+
+    /// <summary>
+    /// Nhập đề từ file Markdown "elearning-exam/1" (docs/02-nghiep-vu.md mục 1.5). dryRun=true chỉ đọc và kiểm tra,
+    /// trả đủ nội dung từng câu để xem trước. Tất cả hoặc không. Ảnh phải đã tải lên (media:&lt;id&gt;) khi nhập thật.
+    /// </summary>
+    [HttpPost("import-markdown")]
+    [HasPermission(Permissions.QuestionCreate)]
+    [RequestSizeLimit(3 * 1024 * 1024)]
+    [ProducesResponseType<ApiResponse<ExamMarkdownImportResult>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ImportMarkdown(ExamMarkdownImportRequest request, CancellationToken ct) =>
+        ToResponse(await markdownImports.ImportAsync(request, ct));
 
     [HttpGet]
     [HasPermission(Permissions.QuestionView)]

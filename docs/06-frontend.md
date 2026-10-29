@@ -31,6 +31,7 @@ Quản trị  (/admin/*)
 /admin/roles
 /admin/categories
 /admin/questions   /admin/questions/create   /admin/questions/:id/edit
+/admin/questions/import-markdown              nhập đề từ file .md (D-29); prompt + file mẫu ở /huong-dan/
 /admin/exams       /admin/exams/create       /admin/exams/:id
 /admin/exams/:id/versions/:versionId          exam builder (các bước)
 /admin/exams/:id/assignments

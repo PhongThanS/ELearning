@@ -33,6 +33,7 @@ public static class DependencyInjection
         services.AddScoped<ICategoryService, CategoryService>();
         services.AddScoped<IQuestionService, QuestionService>();
         services.AddScoped<IQuestionImportService, QuestionImportService>();
+        services.AddScoped<IExamMarkdownImportService, ExamMarkdownImportService>();
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IExamVersionService, ExamVersionService>();
         services.AddScoped<IVideoService, VideoService>();

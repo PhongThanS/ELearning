@@ -56,6 +56,93 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 - Lưu hoặc import câu hỏi có `media:<id>` không tồn tại → lỗi `MEDIA_NOT_FOUND`.
 - **Ảnh không làm lộ đáp án:** học viên chỉ nhận URL của ảnh nằm trong các trường được trả về. Khi đang thi chỉ có ảnh của đề và lựa chọn; ảnh của giải thích chỉ có khi `ReviewPolicy` cho xem lại.
 
+### 1.5 Nhập đề từ file Markdown (sau MVP, đã làm, D-29)
+
+- **Luồng:** đề Word / PDF / ảnh chụp → người dùng nhờ AI bất kỳ (Claude, ChatGPT, Gemini…) chuyển sang file `.md` theo
+  prompt `frontend/elearning-web/public/huong-dan/prompt-chuyen-de-thi.md` (tải ở màn hình nhập) → **Ngân hàng câu hỏi →
+  Nhập đề từ file** → hệ thống đọc, kiểm tra, hiển thị xem trước đúng như học viên thấy → bấm nhập.
+  Hệ thống **không** gọi AI: chỉ đọc định dạng chặt chẽ bằng quy tắc cố định, cùng file luôn ra cùng kết quả.
+- **Định dạng `elearning-exam/1`** (đặc tả đầy đủ trong prompt; file mẫu `public/huong-dan/mau-de-thi.md`):
+  - Mỗi trường là một dòng `@tên: giá trị` sát lề trái; các dòng tiếp theo nối vào trường đang mở (nội dung nhiều dòng,
+    Markdown, LaTeX, bảng, ảnh không cần escape). Dòng nội dung bắt đầu bằng `@` viết `@@`.
+  - Đầu file: `@format: elearning-exam/1` (bắt buộc), `@title`, `@code`, `@duration` (phút), `@category` (mã danh mục),
+    `@instructions`, `@description`.
+  - `@part` mở một phần, có thể khai mặc định `@type` / `@score` / `@difficulty` / `@tags` cho các câu trong phần.
+  - Mỗi câu: `@question`, `@type` (`SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`, `NUMBER`, `TEXT`, `ESSAY`), `@score`,
+    `@content`, `@option A..J` / `@statement a..f`, `@answer` (`B`; `A, C`; `a=Đ, b=S…`; số; `chữ | chữ`), `@tolerance`,
+    `@ignore_accent`, `@case_sensitive`, `@partial`, `@explanation`, `@difficulty`, `@tags`, `@code`.
+  - `NUMBER` / `TEXT` tạo câu `FILL_IN` kiểu số / chữ. Mọi câu nhập có `ContentFormat = MARKDOWN`.
+- **Không đoán:** trường lạ, thiếu trường, lựa chọn không liên tục, đáp án không khớp lựa chọn / thiếu ý, `@answer: ?`,
+  chữ nằm ngoài trường… đều là lỗi kèm **số dòng**. Rào ```markdown … ``` bao cả file (chép từ khung chat AI) được bỏ qua.
+- **Kiểm tra giống import Excel (mục 1.3):** mỗi câu qua đúng validator và domain của chức năng tạo câu hỏi; mã câu không
+  trùng; **tất cả hoặc không**; audit `QUESTIONS_IMPORTED` (`Source = MARKDOWN`). Tối đa 500 câu, khoảng 2 MB văn bản.
+- **Danh mục:** chọn trên màn hình được ưu tiên; không chọn thì dùng `@category` (phải là danh mục đang hoạt động).
+- **Ảnh:** đề ghi `![mô tả](ten-file.png)`; người dùng chọn các file ảnh cùng tên ở màn hình nhập. Ảnh chỉ được tải lên
+  (D-27) khi bấm nhập, rồi tên file được thay bằng `media:<id>`. Thiếu ảnh hoặc ảnh từ trang ngoài (`http…`) thì không nhập được.
+- **Tạo sẵn đề thi nháp (tùy chọn):** sau khi nhập, giao diện tạo đề `ASSIGNED`, 1 lượt, thời lượng theo `@duration`
+  (mặc định 60 phút), thêm các câu theo đúng thứ tự trong file với điểm `@score`; admin kiểm tra rồi publish như thường.
+- **Công thức toán:** nội dung Markdown hiển thị LaTeX trong `$...# 02 — Nghiệp vụ
+
+## 1. Loại câu hỏi
+
+MVP có đúng 4 loại. Mọi loại dùng chung một bảng; không tạo bảng riêng cho từng loại.
+
+| `QuestionType` | Mô tả | Lưu đáp án đúng |
+|---|---|---|
+| `SINGLE_CHOICE` | Chọn 1 | `IsCorrect` trên option |
+| `MULTIPLE_CHOICE` | Chọn nhiều | `IsCorrect` trên option |
+| `TRUE_FALSE` | Đúng / Sai | `IsCorrect` trên option |
+| `FILL_IN` | Điền đáp án | `AcceptedAnswers` (TEXT) hoặc `CorrectAnswerNumber` (NUMBER) |
+
+Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
+
+### 1.1 Quy tắc hợp lệ
+
+| Loại | Quy tắc |
+|---|---|
+| `SINGLE_CHOICE` | 2–10 option (khuyến nghị 4); đúng **1** option đúng |
+| `MULTIPLE_CHOICE` | 2–10 option; **≥ 1** option đúng |
+| `TRUE_FALSE` | Đúng 2 option, mã `TRUE` và `FALSE` (nhãn UI: "Đúng" / "Sai"); đúng 1 option đúng |
+| `FILL_IN` + `TEXT` | Không có option; **≥ 1** đáp án chấp nhận; tối đa 20 |
+| `FILL_IN` + `NUMBER` | Không có option; bắt buộc `CorrectAnswerNumber`; `NumericTolerance ≥ 0` |
+
+**Quy tắc chung:**
+- `OptionCode` là chữ cái in hoa `A`–`J` (hoặc `TRUE` / `FALSE`), duy nhất trong một câu.
+- Nội dung câu hỏi: 1–10.000 ký tự. Nội dung option: 1–2.000 ký tự.
+- Điểm (`Score`) nằm trong khoảng `0.25`–`100`, bước `0.25`.
+- `Code` của câu hỏi là duy nhất và không được dùng lại, kể cả khi câu hỏi đã tắt. Nếu để trống, hệ thống tự sinh `Q000123`.
+
+### 1.2 Nội dung câu hỏi (D-17)
+
+- `ContentFormat`: `PLAIN` hoặc `MARKDOWN`.
+- Markdown được hỗ trợ: đoạn văn, xuống dòng, **đậm**, *nghiêng*, `inline code`, code block có ngôn ngữ, danh sách, bảng.
+- **HTML thô bị vô hiệu hóa** khi render (không bật `rehype-raw`). Liên kết chỉ nhận `http`/`https`. Ảnh chỉ nhận ảnh đã tải lên hệ thống, cú pháp `![mô tả](media:<id>)` (mục 1.4); ảnh ngoài (`http…`) không hiển thị.
+- Lý do: đề demo là "C# Basic", cần hiển thị code nhiều dòng; plain text không đủ.
+
+### 1.3 Import câu hỏi từ Excel (sau MVP, đã làm)
+
+- File `.xlsx` tối đa 5 MB, tối đa 1.000 câu mỗi lần. Đọc sheet `CauHoi` (không có thì sheet đầu tiên). Cột được nhận theo **tiêu đề**, không theo vị trí.
+- File mẫu (`GET /api/questions/import/template`) có sẵn sheet hướng dẫn và danh sách mã danh mục đang hoạt động.
+- Cột: `Mã`, `Danh mục` (mã), `Loại`, `Định dạng`, `Nội dung`, `Điểm`, `Lựa chọn A` … `Lựa chọn J`, `Đáp án đúng`, `Kiểu đáp án`, `Đáp án chấp nhận` (cách nhau bởi `|` hoặc xuống dòng), `Đáp án số`, `Sai số`, `Phân biệt hoa thường`, `Bỏ qua dấu`, `Giải thích`.
+- `Loại` nhận mã enum hoặc tên tiếng Việt. Đúng / Sai nhận `Đúng` / `Sai` / `TRUE` / `FALSE`. Số nhận dấu phẩy hoặc dấu chấm thập phân. Định dạng mặc định là `MARKDOWN`.
+- Mỗi dòng đi qua **đúng validator và domain của chức năng tạo câu hỏi**. Không có quy tắc hợp lệ riêng cho import.
+- Kiểm tra thêm: danh mục phải tồn tại và đang hoạt động; mã câu không trùng câu đã có và không trùng nhau trong file; lựa chọn phải liên tục từ A.
+- **Tất cả hoặc không:** có một dòng lỗi thì không câu nào được tạo, kết quả trả lỗi theo từng dòng (số dòng Excel + tên cột). `dryRun=true` chỉ kiểm tra.
+- Import thành công ghi một audit `QUESTIONS_IMPORTED` (số câu và danh sách mã).
+
+
+### 1.4 Ảnh trong câu hỏi (sau MVP, đã làm, D-27)
+
+- Dùng được ở **đề bài, nội dung lựa chọn và giải thích** (đề bài phải là Markdown; chèn ảnh vào đề PLAIN thì trình soạn tự bật Markdown).
+- Admin bấm "Chèn ảnh" → chọn PNG / JPEG / GIF / WebP tối đa 2 MB (kiểm tra ngay trên trình duyệt) → ảnh **chỉ hiển thị xem trước trên máy**, nội dung được chèn mã tạm `![tên file](media:pending-…)`. **Ảnh chỉ được tải lên server khi bấm Tạo mới / Lưu:** chỉ ảnh còn được dùng trong đề, lựa chọn hoặc giải thích mới được tải lên (lưu thành file trong thư mục ảnh `Media:RootPath`, theo SHA-256), mã tạm được thay bằng `media:<id>` thật rồi mới lưu câu hỏi. Ảnh đã bỏ hoặc đã xóa khỏi nội dung không bao giờ lên server. Sửa phần mô tả trong ngoặc vuông để có văn bản thay thế cho trình đọc màn hình.
+- **Ảnh bất biến:** không sửa, không xóa (D-16). Thay ảnh = tải ảnh mới và sửa nội dung. Nhờ vậy version đã publish (snapshot giữ chuỗi `media:<id>`) luôn hiển thị đúng ảnh lúc publish (D-01). Cùng một file tải lên nhiều lần chỉ lưu một bản.
+- Lưu hoặc import câu hỏi có `media:<id>` không tồn tại → lỗi `MEDIA_NOT_FOUND`.
+- **Ảnh không làm lộ đáp án:** học viên chỉ nhận URL của ảnh nằm trong các trường được trả về. Khi đang thi chỉ có ảnh của đề và lựa chọn; ảnh của giải thích chỉ có khi `ReviewPolicy` cho xem lại.
+
+ / `$...$` bằng KaTeX (mọi nơi dùng `MarkdownView`);
+  LaTeX sai cú pháp hiện chữ đỏ, không làm hỏng trang. KaTeX tự sinh phần tử, vẫn không nhận HTML thô (D-17).
+- **Đề Word có công thức MathType:** AI thường không đọc được công thức MathType trong `.docx` → lưu đề sang PDF rồi gửi PDF.
+
 ## 2. Chấm điểm
 
 Mặc định mỗi câu chỉ có hai kết quả: đúng (điểm tối đa) hoặc sai (0 điểm). Ngoại lệ (sau MVP, đã làm): câu chọn nhiều bật **chấm từng phần** (mục 2.2) và câu **tự luận** chấm tay (mục 2.3).

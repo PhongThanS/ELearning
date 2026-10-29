@@ -19,6 +19,7 @@ function page<M>(loader: () => Promise<M>, name: keyof M): ReactNode {
 const identity = () => import("../features/admin/IdentityPages");
 const classes = () => import("../features/admin/ClassPages");
 const questions = () => import("../features/questions/QuestionPages");
+const markdownImport = () => import("../features/questions/MarkdownImportPage");
 const exams = () => import("../features/exams/ExamPages");
 const examPreview = () => import("../features/exams/ExamPreviewPage");
 const builder = () => import("../features/exams/VersionBuilderPage");
@@ -87,6 +88,7 @@ export const routes: RouteObject[] = [
           { path: "roles", element: guard(Permissions.RoleView, page(identity, "RolesPage")) },
           { path: "categories", element: guard(Permissions.CategoryView, page(questions, "CategoriesPage")) },
           { path: "questions", element: guard(Permissions.QuestionView, page(questions, "QuestionsPage")) },
+          { path: "questions/import-markdown", element: guard(Permissions.QuestionCreate, page(markdownImport, "MarkdownImportPage")) },
           { path: "questions/create", element: guard(Permissions.QuestionCreate, page(questions, "QuestionEditorPage")) },
           { path: "questions/:id/edit", element: guard(Permissions.QuestionView, page(questions, "QuestionEditorPage")) },
           { path: "exams", element: guard(Permissions.ExamView, page(exams, "ExamsPage")) },

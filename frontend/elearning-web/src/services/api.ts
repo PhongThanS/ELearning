@@ -12,6 +12,7 @@ import type {
   MatrixStats,
   MatrixStatsQuery,
   QuestionImportResult,
+  MarkdownImportResult,
   AnswerKeyCorrection,
   UserOverride,
   AdminAttemptDetail,
@@ -156,6 +157,8 @@ export const questionsApi = {
     form.append("file", file);
     return http.post<QuestionImportResult>(`/questions/import?dryRun=${dryRun}`, form);
   },
+  importMarkdown: (body: { markdown: string; categoryId: string | null; dryRun: boolean }) =>
+    http.post<MarkdownImportResult>("/questions/import-markdown", body),
 };
 
 /** Ảnh trong câu hỏi (D-27): PNG / JPEG / GIF / WebP, tối đa 2 MB; server kiểm tra lại. */

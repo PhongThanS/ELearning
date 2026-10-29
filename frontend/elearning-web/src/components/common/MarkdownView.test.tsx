@@ -53,3 +53,20 @@ describe("insertAt", () => {
     expect(insertAt("abc ", "IMG", 99)).toBe("abc IMG");
   });
 });
+
+describe("MarkdownView công thức toán (D-29)", () => {
+  it("vẽ LaTeX trong $...$ bằng KaTeX, kể cả ở chế độ inline (lựa chọn)", () => {
+    const { container } = render(<MarkdownView content={"Cho $y = \\dfrac{1}{x}$ và\n\n$$\n\\sqrt{2}\n$$"} />);
+    expect(container.querySelectorAll(".katex").length).toBeGreaterThanOrEqual(2);
+    expect(container.querySelector(".katex-display")).not.toBeNull();
+
+    const inline = render(<MarkdownView content={"$x^2$"} inline />);
+    expect(inline.container.querySelector(".katex")).not.toBeNull();
+    expect(inline.container.querySelector("p, div:not(.md-content)")).toBeNull();
+  });
+
+  it("LaTeX sai cú pháp không làm hỏng trang", () => {
+    const { container } = render(<MarkdownView content={"Sai: $\frac{1$ hết"} />);
+    expect(container.textContent).toContain("hết");
+  });
+});

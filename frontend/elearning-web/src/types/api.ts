@@ -992,3 +992,63 @@ export interface VideoListQuery extends PageQuery {
   isActive?: boolean;
 }
 
+// ----- Nhập đề từ file Markdown "elearning-exam/1" (D-29) -----
+
+export interface MarkdownImportIssue {
+  line: number | null;
+  field: string | null;
+  code: string;
+  message: string;
+}
+
+/** Câu hỏi đọc được (cùng cấu trúc body tạo câu hỏi); chỉ admin thấy, có đáp án để xem trước. */
+export interface MarkdownImportQuestionInput {
+  code: string | null;
+  categoryId: string | null;
+  content: string;
+  contentFormat: ContentFormat;
+  questionType: QuestionType;
+  answerDataType: AnswerDataType | null;
+  defaultScore: number;
+  explanation: string | null;
+  options: { optionCode: string | null; content: string; isCorrect: boolean }[] | null;
+  acceptedAnswers: string[] | null;
+  correctAnswerNumber: number | null;
+  numericTolerance: number | null;
+  caseSensitive: boolean;
+  ignoreAccent: boolean;
+  difficulty: QuestionDifficulty | null;
+  partialScoring: boolean;
+  tags: string[] | null;
+}
+
+export interface MarkdownImportQuestion {
+  index: number;
+  line: number;
+  label: string;
+  part: string | null;
+  questionId: string | null;
+  code: string | null;
+  question: MarkdownImportQuestionInput | null;
+  issues: MarkdownImportIssue[];
+}
+
+export interface MarkdownImportResult {
+  dryRun: boolean;
+  imported: boolean;
+  exam: {
+    title: string | null;
+    code: string | null;
+    durationMinutes: number | null;
+    categoryCode: string | null;
+    description: string | null;
+    instructions: string | null;
+  };
+  categoryId: string | null;
+  totalQuestions: number;
+  validQuestions: number;
+  totalScore: number;
+  questions: MarkdownImportQuestion[];
+  fileIssues: MarkdownImportIssue[];
+  missingImages: string[];
+}
