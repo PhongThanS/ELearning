@@ -70,97 +70,110 @@ public sealed class SingleChoiceGrader : IQuestionGrader
 }
 
 /// <summary>
-/// Câu Đúng/Sai đa mệnh đề (a, b, c, d...):
-/// Mỗi mệnh đề thí sinh chọn Đúng hoặc Sai.
-/// Chia đều điểm: Mỗi ý đúng được (Điểm câu / Tổng số mệnh đề).
-/// Đúng hết toàn bộ các mệnh đề -> IsCorrect = true, ngược lại false.
+/// Câu Đúng/Sai (docs/02-nghiep-vu.md mục 2):
+/// - Kiểu cũ, hai lựa chọn mã TRUE / FALSE: chấm như câu chọn một (chọn đúng một lựa chọn).
+/// - Nhiều mệnh đề (A, B, C, D…): mỗi mệnh đề thí sinh phải chọn rõ Đúng hoặc Sai. Mệnh đề không trả lời không có điểm
+///   (không suy "không chọn" thành "Sai"). Điểm chia đều theo số mệnh đề trả lời đúng; đúng hết thì IsCorrect = true.
+/// Câu trả lời đọc từ AnswerText dạng JSON {"A": true, "B": false}; nếu không có JSON thì chỉ các mã trong
+/// SelectedOptionCodes được coi là đã chọn "Đúng" (các mệnh đề còn lại là chưa trả lời).
 /// </summary>
 public sealed class TrueFalseGrader : IQuestionGrader
 {
+    private readonly SingleChoiceGrader _single = new();
+
     public QuestionType Type => QuestionType.TrueFalse;
+
+    /// <summary>Câu Đúng/Sai kiểu cũ: đúng hai lựa chọn TRUE và FALSE.</summary>
+    public static bool IsClassic(IReadOnlyCollection<string>? optionCodes) =>
+        optionCodes is null || optionCodes.Count == 0
+        || (optionCodes.Count == 2
+            && optionCodes.Contains(Questions.Question.TrueCode, StringComparer.OrdinalIgnoreCase)
+            && optionCodes.Contains(Questions.Question.FalseCode, StringComparer.OrdinalIgnoreCase));
 
     public GradingResult Grade(GradingQuestion question, StudentAnswer answer)
     {
-        var allOptions = question.AllOptionCodes ?? [];
-        if (allOptions.Count == 0)
+        var statements = question.AllOptionCodes;
+        if (IsClassic(statements))
+        {
+            return _single.Grade(question, answer);
+        }
+
+        var choices = ReadChoices(answer, statements!);
+        var correctCount = statements!.Count(code =>
+            choices.TryGetValue(code, out var chosen) && chosen == question.CorrectOptionCodes.Contains(code));
+        if (correctCount == 0)
         {
             return GradingResult.Wrong(question.Score);
         }
 
-        // Phân tích câu trả lời của thí sinh cho từng mệnh đề
-        var studentChoices = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        var score = Math.Round(question.Score * correctCount / statements!.Count, 2, MidpointRounding.AwayFromZero);
+        return new GradingResult(correctCount == statements.Count, score, question.Score);
+    }
 
-        if (!string.IsNullOrWhiteSpace(answer.AnswerText) && answer.AnswerText.TrimStart().StartsWith('{'))
+    /// <summary>Lựa chọn Đúng / Sai thí sinh đã chọn rõ cho từng mệnh đề (mã chuẩn hóa theo mã của câu hỏi).</summary>
+    public static Dictionary<string, bool> ReadChoices(StudentAnswer answer, IReadOnlyList<string> statements)
+    {
+        var byCode = statements.ToDictionary(c => c, c => c, StringComparer.OrdinalIgnoreCase);
+        var choices = new Dictionary<string, bool>(StringComparer.Ordinal);
+        if (TryParseJson(answer.AnswerText, out var json))
         {
-            try
+            foreach (var (key, value) in json)
             {
-                using var doc = System.Text.Json.JsonDocument.Parse(answer.AnswerText);
-                foreach (var prop in doc.RootElement.EnumerateObject())
+                if (byCode.TryGetValue(key, out var code))
                 {
-                    if (prop.Value.ValueKind is System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False)
-                    {
-                        studentChoices[prop.Name] = prop.Value.GetBoolean();
-                    }
+                    choices[code] = value;
                 }
             }
-            catch
+
+            return choices;
+        }
+
+        foreach (var selected in answer.SelectedOptionCodes)
+        {
+            if (byCode.TryGetValue(selected, out var code))
             {
-                // Bỏ qua lỗi parse JSON nếu có
+                choices[code] = true;
             }
         }
 
-        // Nếu không có từ JSON thì đọc từ SelectedOptionCodes (các mã được đánh dấu là Đúng)
-        if (studentChoices.Count == 0 && answer.SelectedOptionCodes.Count > 0)
+        return choices;
+    }
+
+    /// <summary>JSON object chỉ gồm giá trị true / false. Sai dạng thì trả false (không đoán).</summary>
+    public static bool TryParseJson(string? text, out IReadOnlyList<(string Key, bool Value)> pairs)
+    {
+        pairs = [];
+        if (string.IsNullOrWhiteSpace(text) || !text.TrimStart().StartsWith('{'))
         {
-            var selectedSet = answer.SelectedOptionCodes.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            if (allOptions.Count == 1 && (selectedSet.Contains("FALSE") || selectedSet.Contains("SAI")))
+            return false;
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(text);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
             {
-                studentChoices[allOptions[0]] = false;
+                return false;
             }
-            else
+
+            var list = new List<(string, bool)>();
+            foreach (var prop in doc.RootElement.EnumerateObject())
             {
-                foreach (var code in allOptions)
+                if (prop.Value.ValueKind is not (System.Text.Json.JsonValueKind.True or System.Text.Json.JsonValueKind.False))
                 {
-                    studentChoices[code] = selectedSet.Contains(code);
+                    return false;
                 }
-            }
-        }
 
-        // Hỗ trợ câu hỏi Đúng/Sai đơn (1 mệnh đề) khi học sinh gửi AnswerText là "true"/"false" hoặc "đúng"/"sai"
-        if (studentChoices.Count == 0 && allOptions.Count == 1 && !string.IsNullOrWhiteSpace(answer.AnswerText))
+                list.Add((prop.Name, prop.Value.GetBoolean()));
+            }
+
+            pairs = list;
+            return true;
+        }
+        catch (System.Text.Json.JsonException)
         {
-            var text = answer.AnswerText.Trim().ToLowerInvariant();
-            if (text is "true" or "1" or "đúng" or "dung")
-            {
-                studentChoices[allOptions[0]] = true;
-            }
-            else if (text is "false" or "0" or "sai")
-            {
-                studentChoices[allOptions[0]] = false;
-            }
+            return false;
         }
-
-        if (studentChoices.Count == 0)
-        {
-            return GradingResult.Wrong(question.Score);
-        }
-
-        var correctCount = 0;
-        foreach (var code in allOptions)
-        {
-            var expectedIsCorrect = question.CorrectOptionCodes.Contains(code);
-            if (studentChoices.TryGetValue(code, out var actualIsCorrect) && actualIsCorrect == expectedIsCorrect)
-            {
-                correctCount++;
-            }
-        }
-
-        var total = allOptions.Count;
-        var ratio = (decimal)correctCount / total;
-        var score = Math.Round(question.Score * ratio, 2, MidpointRounding.AwayFromZero);
-        var isAllCorrect = correctCount == total;
-
-        return new GradingResult(isAllCorrect, score, question.Score);
     }
 }
 

@@ -19,7 +19,7 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 |---|---|
 | `SINGLE_CHOICE` | 2–10 option (khuyến nghị 4); đúng **1** option đúng |
 | `MULTIPLE_CHOICE` | 2–10 option; **≥ 1** option đúng |
-| `TRUE_FALSE` | Đúng 2 option, mã `TRUE` và `FALSE` (nhãn UI: "Đúng" / "Sai"); đúng 1 option đúng |
+| `TRUE_FALSE` | **Nhiều mệnh đề:** 1–6 mệnh đề mã `A`…`F`, mỗi mệnh đề có `IsCorrect` (Đúng / Sai). **Kiểu cũ:** đúng 2 option mã `TRUE` và `FALSE`, đúng 1 option đúng |
 | `FILL_IN` + `TEXT` | Không có option; **≥ 1** đáp án chấp nhận; tối đa 20 |
 | `FILL_IN` + `NUMBER` | Không có option; bắt buộc `CorrectAnswerNumber`; `NumericTolerance ≥ 0` |
 
@@ -102,7 +102,7 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 |---|---|
 | `SINGLE_CHOICE` | 2–10 option (khuyến nghị 4); đúng **1** option đúng |
 | `MULTIPLE_CHOICE` | 2–10 option; **≥ 1** option đúng |
-| `TRUE_FALSE` | Đúng 2 option, mã `TRUE` và `FALSE` (nhãn UI: "Đúng" / "Sai"); đúng 1 option đúng |
+| `TRUE_FALSE` | **Nhiều mệnh đề:** 1–6 mệnh đề mã `A`…`F`, mỗi mệnh đề có `IsCorrect` (Đúng / Sai). **Kiểu cũ:** đúng 2 option mã `TRUE` và `FALSE`, đúng 1 option đúng |
 | `FILL_IN` + `TEXT` | Không có option; **≥ 1** đáp án chấp nhận; tối đa 20 |
 | `FILL_IN` + `NUMBER` | Không có option; bắt buộc `CorrectAnswerNumber`; `NumericTolerance ≥ 0` |
 
@@ -149,7 +149,8 @@ Mặc định mỗi câu chỉ có hai kết quả: đúng (điểm tối đa) h
 
 | Loại | Đúng khi |
 |---|---|
-| `SINGLE_CHOICE`, `TRUE_FALSE` | Chọn đúng 1 option và đó là option đúng |
+| `SINGLE_CHOICE`, `TRUE_FALSE` kiểu cũ (`TRUE`/`FALSE`) | Chọn đúng 1 option và đó là option đúng. Gửi cả `TRUE` lẫn `FALSE`, hoặc gửi chữ → lỗi `INVALID_ANSWER_SHAPE` khi lưu |
+| `TRUE_FALSE` nhiều mệnh đề | Câu trả lời là `answerText` JSON `{"A": true, "B": false}` (khóa là mã mệnh đề, giá trị true/false; server lưu dạng chuẩn). Mỗi mệnh đề **trả lời đúng** được `Score / số mệnh đề` (làm tròn 2 chữ số); mệnh đề **bỏ trống không có điểm** (không suy "không chọn" thành "Sai"); đúng hết mới `IsCorrect`. Khóa lạ, giá trị không phải true/false → `INVALID_ANSWER_SHAPE`. Không có JSON thì chỉ các mã trong `selectedOptions` được coi là chọn "Đúng" |
 | `MULTIPLE_CHOICE` | Tập option đã chọn **bằng đúng** tập option đúng (không phân biệt thứ tự) |
 | `FILL_IN` + `TEXT` | `Normalize(bài làm)` trùng `Normalize(một trong các đáp án chấp nhận)` |
 | `FILL_IN` + `NUMBER` | Parse được và `|bài làm − đáp án| ≤ NumericTolerance` |

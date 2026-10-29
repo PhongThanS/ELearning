@@ -137,9 +137,9 @@ public class QuestionBankTests(ApiFactory factory)
         {
             new
             {
-                content = "Sai mã",
+                content = "Bảy mệnh đề (tối đa 6)",
                 questionType = "TRUE_FALSE",
-                options = new[] { new { optionCode = "A", content = "Đúng", isCorrect = true }, new { optionCode = "B", content = "Sai", isCorrect = false } },
+                options = "ABCDEFG".Select(c => new { optionCode = c.ToString(), content = $"Ý {c}", isCorrect = true }).ToArray(),
             },
             "TRUE_FALSE_INVALID"
         },

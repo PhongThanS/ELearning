@@ -11,6 +11,25 @@ const base = {
 };
 
 describe("QuestionCard", () => {
+  it("câu Đúng/Sai kiểu cũ (TRUE/FALSE): hai lựa chọn radio, chỉ chọn được một", async () => {
+    const onSelect = vi.fn();
+    render(
+      <QuestionCard
+        question={{ ...base, type: "TRUE_FALSE", answerDataType: null, options: [{ code: "TRUE", content: "" }, { code: "FALSE", content: "" }] }}
+        total={1}
+        draft={{ selectedOptions: ["TRUE"], answerText: null, isMarkedForReview: false }}
+        onSelect={onSelect}
+        onText={vi.fn()}
+        onMark={vi.fn()}
+      />,
+    );
+
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    expect(screen.getByRole("radio", { name: "Đúng" })).toBeChecked();
+    await userEvent.click(screen.getByRole("radio", { name: "Sai" }));
+    expect(onSelect).toHaveBeenLastCalledWith(["FALSE"]);
+  });
+
   it("câu chọn nhiều: bật / tắt từng lựa chọn", async () => {
     const onSelect = vi.fn();
     render(

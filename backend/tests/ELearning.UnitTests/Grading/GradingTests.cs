@@ -37,6 +37,47 @@ public class GradingTests
         Assert(Choice(QuestionType.TrueFalse, "TRUE"), StudentAnswer.Empty, false);
 
     [Theory]
+    [InlineData(new[] { "TRUE" }, true)]
+    [InlineData(new[] { "FALSE" }, false)]
+    [InlineData(new[] { "TRUE", "FALSE" }, false)]
+    public void Classic_true_false_with_both_options_is_graded_as_single_choice(string[] selected, bool correct) =>
+        Assert(Classic(), Choices(selected), correct);
+
+    [Fact]
+    public void Classic_true_false_choosing_both_never_earns_points()
+    {
+        var result = _engine.Grade(Classic(), Choices(["TRUE", "FALSE"]));
+
+        result.Score.Should().Be(0m, "chọn cả Đúng lẫn Sai không được nửa số điểm");
+    }
+
+    [Theory]
+    [InlineData("{\"A\":true,\"B\":false,\"C\":false,\"D\":true}", 1, true)]
+    [InlineData("{\"a\":true,\"b\":false,\"c\":false,\"d\":false}", 0.75, false)]
+    [InlineData("{\"A\":false,\"B\":true,\"C\":true,\"D\":false}", 0, false)]
+    [InlineData("{\"A\":true}", 0.25, false)]
+    [InlineData("{\"A\":\"yes\"}", 0, false)]
+    [InlineData("không phải JSON", 0, false)]
+    public void Statements_score_only_what_was_explicitly_answered(string answer, decimal score, bool correct)
+    {
+        var result = _engine.Grade(Statements(), new StudentAnswer([], answer, null));
+
+        result.Score.Should().Be(score);
+        result.IsCorrect.Should().Be(correct);
+        result.MaxScore.Should().Be(1m);
+    }
+
+    [Fact]
+    public void Statements_left_blank_are_not_counted_as_false()
+    {
+        // Trước đây: chỉ gửi mã các mệnh đề chọn "Đúng" thì mệnh đề còn lại bị coi là "Sai" và được điểm không cần trả lời
+        var result = _engine.Grade(Statements(), Choices(["A"]));
+
+        result.Score.Should().Be(0.25m);
+        result.IsCorrect.Should().BeFalse();
+    }
+
+    [Theory]
     [InlineData("Hà Nội", true)]
     [InlineData("  hà   NỘI ", true)]
     [InlineData("Thành phố Hà Nội", true)]
@@ -136,6 +177,14 @@ public class GradingTests
 
     private static GradingQuestion Choice(QuestionType type, params string[] correct) =>
         new(type, null, 1m, false, correct.ToHashSet(StringComparer.Ordinal), [], null, null, false, false);
+
+    /// <summary>Đúng/Sai kiểu cũ: hai lựa chọn TRUE / FALSE, đáp án TRUE.</summary>
+    private static GradingQuestion Classic() =>
+        new(QuestionType.TrueFalse, null, 1m, false, new HashSet<string>(["TRUE"]), [], null, null, false, false, false, ["TRUE", "FALSE"]);
+
+    /// <summary>Đúng/Sai 4 mệnh đề: A đúng, B sai, C sai, D đúng.</summary>
+    private static GradingQuestion Statements() =>
+        new(QuestionType.TrueFalse, null, 1m, false, new HashSet<string>(["A", "D"]), [], null, null, false, false, false, ["A", "B", "C", "D"]);
 
     private static GradingQuestion Text(string[] accepted, bool caseSensitive = false, bool ignoreAccent = false) =>
         new(QuestionType.FillIn, AnswerDataType.Text, 1m, false, new HashSet<string>(), accepted, null, null, caseSensitive, ignoreAccent);

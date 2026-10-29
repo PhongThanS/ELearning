@@ -314,6 +314,15 @@ function Navigator({ questions, state, onGoto }: { questions: AttemptQuestion[];
   );
 }
 
+/**
+ * Câu Đúng/Sai kiểu cũ (hai lựa chọn TRUE / FALSE): chọn một trong hai như câu chọn một.
+ * Câu nhiều mệnh đề (A, B, C, D…) thì mỗi mệnh đề chọn Đúng hoặc Sai (docs/02-nghiep-vu.md mục 2).
+ */
+export function isClassicTrueFalse(options: readonly { code: string }[]): boolean {
+  const codes = options.map((o) => o.code.toUpperCase());
+  return codes.length === 2 && codes.includes("TRUE") && codes.includes("FALSE");
+}
+
 export function QuestionCard({
   question,
   total,
@@ -356,7 +365,7 @@ export function QuestionCard({
         </div>
         <MarkdownView content={question.content} format={question.contentFormat} />
 
-        {question.type === "TRUE_FALSE" ? (
+        {question.type === "TRUE_FALSE" && !isClassicTrueFalse(question.options) ? (
           question.options.length === 1 ? (
             <SingleTrueFalseAnswerBox
               option={question.options[0]!}
@@ -409,10 +418,14 @@ export function QuestionCard({
                     )
                   }
                   label={
-                    <span className="d-flex gap-2">
-                      <strong>{optionLabel(index)}.</strong>
-                      <MarkdownView content={option.content} inline />
-                    </span>
+                    question.type === "TRUE_FALSE" ? (
+                      <strong>{option.code === "TRUE" ? "Đúng" : "Sai"}</strong>
+                    ) : (
+                      <span className="d-flex gap-2">
+                        <strong>{optionLabel(index)}.</strong>
+                        <MarkdownView content={option.content} inline />
+                      </span>
+                    )
                   }
                 />
               );

@@ -26,10 +26,13 @@ public class QuestionDomainTests
     }
 
     [Fact]
-    public void True_false_requires_true_and_false_codes()
+    public void True_false_has_one_to_six_statements_or_classic_true_false()
     {
-        Question.Validate(Choice(QuestionType.TrueFalse, ("A", true), ("B", false))).Should().NotBeEmpty();
+        Question.Validate(Choice(QuestionType.TrueFalse, ("A", true), ("B", false), ("C", false), ("D", true))).Should().BeEmpty();
         Question.Validate(Choice(QuestionType.TrueFalse, ("TRUE", true), ("FALSE", false))).Should().BeEmpty();
+        Question.Validate(Choice(QuestionType.TrueFalse)).Should().NotBeEmpty();
+        Question.Validate(Choice(QuestionType.TrueFalse, ("A", true), ("B", true), ("C", true), ("D", true), ("E", true), ("F", true), ("G", true)))
+            .Should().NotBeEmpty();
     }
 
     [Fact]

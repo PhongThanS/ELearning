@@ -74,7 +74,8 @@ internal sealed class AttemptTestKit(ApiFactory factory, HttpClient admin)
         Guid[]? assignUserIds = null,
         DateTime? endAt = null,
         decimal passPercentage = 60,
-        Guid[]? assignClassroomIds = null)
+        Guid[]? assignClassroomIds = null,
+        IReadOnlyList<object>? extraQuestions = null)
     {
         var questionIds = new List<Guid>
         {
@@ -114,6 +115,11 @@ internal sealed class AttemptTestKit(ApiFactory factory, HttpClient admin)
                 correctAnswerNumber = 3.5,
             }),
         };
+
+        foreach (var extra in extraQuestions ?? [])
+        {
+            questionIds.Add(await CreateQuestionAsync(extra));
+        }
 
         var (createResponse, exam) = await admin.PostJsonAsync<ExamDetail>("/api/exams", new
         {

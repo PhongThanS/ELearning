@@ -604,7 +604,39 @@ internal sealed class AttemptService(
             return (null, text, null);
         }
 
-        if (text is not null && question.QuestionType != QuestionType.TrueFalse)
+        if (question.QuestionType == QuestionType.TrueFalse)
+        {
+            var statements = question.Options.OrderBy(o => o.DisplayOrder).Select(o => o.OptionCode).ToList();
+            if (TrueFalseGrader.IsClassic(statements))
+            {
+                // Kiểu cũ TRUE / FALSE: chọn đúng một, không nhận chữ (chọn cả hai không được nửa số điểm)
+                if (text is not null)
+                {
+                    return (Error.Business(ErrorCodes.InvalidAnswerShape, "Câu Đúng/Sai chỉ chọn Đúng hoặc Sai.") with { Field = $"{field}.answerText" }, null, null);
+                }
+
+                if (codes.Count > 1)
+                {
+                    return (Error.Business(ErrorCodes.InvalidAnswerShape, "Câu này chỉ được chọn một lựa chọn.") with { Field = $"{field}.selectedOptions" }, null, null);
+                }
+            }
+            else if (text is not null)
+            {
+                // Nhiều mệnh đề: {"A": true, "B": false}, khóa là mã mệnh đề của câu, mỗi mệnh đề một lần; lưu dạng chuẩn
+                var known = statements.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (!TrueFalseGrader.TryParseJson(text, out var pairs)
+                    || pairs.Any(p => !known.Contains(p.Key))
+                    || pairs.Select(p => p.Key.ToUpperInvariant()).Distinct().Count() != pairs.Count)
+                {
+                    return (Error.Business(ErrorCodes.InvalidAnswerShape, "Câu trả lời Đúng/Sai không hợp lệ.") with { Field = $"{field}.answerText" }, null, null);
+                }
+
+                var choices = TrueFalseGrader.ReadChoices(new StudentAnswer([], text, null), statements);
+                text = System.Text.Json.JsonSerializer.Serialize(
+                    statements.Where(choices.ContainsKey).ToDictionary(c => c, c => choices[c], StringComparer.Ordinal));
+            }
+        }
+        else if (text is not null)
         {
             return (Error.Business(ErrorCodes.InvalidAnswerShape, "Câu trắc nghiệm không nhận câu trả lời dạng chữ.") with { Field = $"{field}.answerText" }, null, null);
         }
