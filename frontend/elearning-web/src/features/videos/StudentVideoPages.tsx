@@ -13,7 +13,8 @@ import { useQuery } from "@tanstack/react-query";
 import { videosApi, studentApi } from "../../services/api";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson } from "../../types/api";
-import { VideoPlayerModal } from "./AdminVideoPages";
+import { LessonThumbnail, VideoPlayerModal } from "./AdminVideoPages";
+import { lessonKind } from "./mediaLinks";
 
 export function StudentVideoPages() {
   const [page, setPage] = useState(1);
@@ -149,8 +150,7 @@ export function StudentVideoPages() {
       ) : (
         <Row className="g-3">
           {videos.map((v) => {
-            const ytId = v.youtubeVideoId;
-            const thumb = v.thumbnailUrl || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null);
+            const isDoc = lessonKind(v.videoUrl, v.youtubeVideoId) === "drive";
 
             return (
               <Col key={v.id} xs={12} sm={6} lg={4} xl={3}>
@@ -164,27 +164,7 @@ export function StudentVideoPages() {
                     className="position-relative bg-dark video-thumbnail-wrap ratio ratio-16x9"
                     style={{ overflow: "hidden", borderTopLeftRadius: "inherit", borderTopRightRadius: "inherit" }}
                   >
-                    {thumb ? (
-                      <img
-                        src={thumb}
-                        alt={v.title}
-                        className="w-100 h-100 object-fit-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="d-flex align-items-center justify-content-center text-white-50 h-100">
-                        <i className="bi bi-play-circle fs-1"></i>
-                      </div>
-                    )}
-                    {/* Play button overlay */}
-                    <div className="position-absolute top-50 start-50 translate-middle video-play-overlay">
-                      <div
-                        className="btn btn-danger btn-sm rounded-circle d-flex align-items-center justify-content-center shadow"
-                        style={{ width: 48, height: 48 }}
-                      >
-                        <i className="bi bi-play-fill fs-3 ms-0.5"></i>
-                      </div>
-                    </div>
+                    <LessonThumbnail video={v} />
                     {/* Duration badge */}
                     {v.durationMinutes && (
                       <span className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white font-monospace small">
@@ -231,7 +211,7 @@ export function StudentVideoPages() {
                     {/* Watch now button */}
                     <div className="pt-2 border-top mt-auto text-end">
                       <span className="text-primary fw-semibold small d-inline-flex align-items-center gap-1">
-                        <span>Xem bài giảng</span>
+                        <span>{isDoc ? "Xem tài liệu" : "Xem bài giảng"}</span>
                         <i className="bi bi-arrow-right"></i>
                       </span>
                     </div>

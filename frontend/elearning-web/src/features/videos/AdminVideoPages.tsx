@@ -14,25 +14,45 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { videosApi, categoriesApi, classesApi } from "../../services/api";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson, CreateVideoInput, UpdateVideoInput } from "../../types/api";
+import { extractYoutubeId, isDirectVideo, lessonKind, lessonThumbnail, parseDriveLink } from "./mediaLinks";
 
-function extractYoutubeId(url: string): string | null {
-  if (!url) return null;
-  const trimmed = url.trim();
-  const match = trimmed.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*[&?]v=|shorts\/|live\/))([\w-]{11})/i);
-  if (match && match[1]) return match[1];
-  if (trimmed.length === 11 && /^[\w-]{11}$/.test(trimmed)) return trimmed;
-  return null;
-}
-
-function extractDrivePreview(url: string): string | null {
-  if (!url) return null;
-  const match = url.trim().match(/drive\.google\.com\/file\/d\/([\w-]+)/i);
-  return match && match[1] ? `https://drive.google.com/file/d/${match[1]}/preview` : null;
-}
-
-function isDirectVideo(url: string): boolean {
-  if (!url) return false;
-  return /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url.trim());
+/** Ảnh bìa thẻ bài giảng: YouTube / trang đầu tệp Drive; lỗi tải ảnh (tệp riêng tư) thì hiện biểu tượng. */
+export function LessonThumbnail({ video }: { video: VideoLesson }) {
+  const [failed, setFailed] = useState(false);
+  const kind = lessonKind(video.videoUrl, video.youtubeVideoId);
+  const thumb = lessonThumbnail(video.videoUrl, video.youtubeVideoId, video.thumbnailUrl);
+  const isDoc = kind === "drive";
+  return (
+    <>
+      {thumb && !failed ? (
+        <img
+          src={thumb}
+          alt={video.title}
+          className={`w-100 h-100 ${isDoc ? "object-fit-cover object-position-top bg-white" : "object-fit-cover"}`}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className={`d-flex align-items-center justify-content-center h-100 ${isDoc ? "bg-primary-subtle text-primary" : "text-white-50"}`}>
+          <i className={`bi ${isDoc ? "bi-file-earmark-text" : "bi-camera-video"} fs-1`}></i>
+        </div>
+      )}
+      <div className="position-absolute top-50 start-50 translate-middle video-play-overlay">
+        <div
+          className={`btn ${isDoc ? "btn-primary" : "btn-danger"} btn-sm rounded-circle d-flex align-items-center justify-content-center shadow`}
+          style={{ width: 46, height: 46 }}
+        >
+          <i className={`bi ${isDoc ? "bi-eye-fill fs-5" : "bi-play-fill fs-4"}`}></i>
+        </div>
+      </div>
+      {isDoc && (
+        <span className="position-absolute bottom-0 start-0 m-2 badge bg-primary shadow-sm">
+          <i className="bi bi-google me-1"></i>Tài liệu Drive
+        </span>
+      )}
+    </>
+  );
 }
 
 export function AdminVideoPages() {
@@ -224,9 +244,6 @@ export function AdminVideoPages() {
       ) : (
         <Row className="g-3">
           {videos.map((v) => {
-            const ytId = v.youtubeVideoId || extractYoutubeId(v.videoUrl);
-            const thumb = v.thumbnailUrl || (ytId ? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg` : null);
-
             return (
               <Col key={v.id} xs={12} sm={6} lg={4} xl={3}>
                 <Card className="h-100 border-0 shadow-sm video-card hover-shadow transition-all">
@@ -236,24 +253,7 @@ export function AdminVideoPages() {
                     onClick={() => setPlayingVideo(v)}
                     style={{ cursor: "pointer", overflow: "hidden", borderTopLeftRadius: "inherit", borderTopRightRadius: "inherit" }}
                   >
-                    {thumb ? (
-                      <img
-                        src={thumb}
-                        alt={v.title}
-                        className="w-100 h-100 object-fit-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="d-flex align-items-center justify-content-center text-white-50 h-100">
-                        <i className="bi bi-camera-video fs-1"></i>
-                      </div>
-                    )}
-                    {/* Play button overlay */}
-                    <div className="position-absolute top-50 start-50 translate-middle video-play-overlay">
-                      <div className="btn btn-danger btn-sm rounded-circle d-flex align-items-center justify-content-center shadow" style={{ width: 44, height: 44 }}>
-                        <i className="bi bi-play-fill fs-4 ms-0.5"></i>
-                      </div>
-                    </div>
+                    <LessonThumbnail video={v} />
                     {/* Duration badge */}
                     {v.durationMinutes && (
                       <span className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white font-monospace small">
@@ -323,10 +323,10 @@ export function AdminVideoPages() {
                           variant="outline-primary"
                           size="sm"
                           className="px-2 py-1"
-                          title="Xem video"
+                          title="Xem"
                           onClick={() => setPlayingVideo(v)}
                         >
-                          <i className="bi bi-play-circle"></i>
+                          <i className="bi bi-eye"></i>
                         </Button>
                         <Button
                           variant="outline-secondary"
@@ -451,7 +451,7 @@ function VideoEditModal({
   const [errorMsg, setErrorMsg] = useState("");
 
   const ytId = extractYoutubeId(videoUrl);
-  const driveUrl = extractDrivePreview(videoUrl);
+  const driveUrl = parseDriveLink(videoUrl)?.previewUrl ?? null;
   const isDirect = isDirectVideo(videoUrl);
 
   const mutation = useMutation({
@@ -529,18 +529,19 @@ function VideoEditModal({
 
           <Form.Group className="mb-3">
             <Form.Label htmlFor={urlId} className="fw-semibold">
-              Đường dẫn link Video (YouTube / URL) <span className="text-danger">*</span>
+              Đường dẫn (YouTube / Google Drive / link video) <span className="text-danger">*</span>
             </Form.Label>
             <Form.Control
               id={urlId}
               type="text"
-              placeholder="https://www.youtube.com/watch?v=... hoặc https://youtu.be/..."
+              placeholder="https://www.youtube.com/watch?v=...  hoặc  https://drive.google.com/file/d/.../view"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
               required
             />
             <Form.Text className="text-muted">
-              Hệ thống tự động phát hiện video YouTube và nhúng player xem trực tiếp trên web.
+              Hệ thống tự nhận video YouTube và tệp Google Drive (PDF, Word, Excel, PowerPoint, ảnh, video…; cả Google Docs / Sheets / Slides) để xem ngay trên web.
+              Với Drive: chia sẻ tệp ở chế độ <strong>"Bất kỳ ai có đường liên kết"</strong> thì học viên mới xem được.
             </Form.Text>
           </Form.Group>
 
@@ -554,7 +555,7 @@ function VideoEditModal({
                   </>
                 ) : driveUrl ? (
                   <>
-                    <i className="bi bi-google text-primary fs-5"></i> Xem trước video Google Drive:
+                    <i className="bi bi-google text-primary fs-5"></i> Xem trước tệp Google Drive:
                   </>
                 ) : (
                   <>
@@ -562,7 +563,10 @@ function VideoEditModal({
                   </>
                 )}
               </div>
-              <div className="ratio ratio-16x9 rounded overflow-hidden shadow-sm" style={{ maxHeight: 240 }}>
+              <div
+                className={`rounded overflow-hidden shadow-sm ${driveUrl && !ytId ? "" : "ratio ratio-16x9"}`}
+                style={driveUrl && !ytId ? { height: 360 } : { maxHeight: 240 }}
+              >
                 {ytId ? (
                   <iframe
                     src={`https://www.youtube-nocookie.com/embed/${ytId}`}
@@ -574,6 +578,7 @@ function VideoEditModal({
                   <iframe
                     src={driveUrl}
                     title="Drive Preview"
+                    className="w-100 h-100 border-0"
                     allow="autoplay"
                     allowFullScreen
                   ></iframe>
@@ -690,14 +695,16 @@ function VideoEditModal({
 
 export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClose: () => void }) {
   const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
-  const driveUrl = extractDrivePreview(video.videoUrl);
+  const drive = parseDriveLink(video.videoUrl);
+  const driveUrl = drive?.previewUrl ?? null;
   const isDirect = isDirectVideo(video.videoUrl);
+  const isDoc = !ytId && !!drive;
 
   return (
     <Modal show={true} onHide={onClose} size="xl" centered dialogClassName="modal-video-player">
       <Modal.Header closeButton className="bg-dark text-white border-0 py-2">
         <Modal.Title className="h6 mb-0 text-truncate text-white d-flex align-items-center gap-2">
-          <span>🎬</span> {video.title}
+          <i className={`bi ${isDoc ? "bi-file-earmark-text" : "bi-camera-reels"}`}></i> {video.title}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body className="p-0 bg-black">
@@ -711,10 +718,11 @@ export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClo
             ></iframe>
           </div>
         ) : driveUrl ? (
-          <div className="ratio ratio-16x9">
+          <div className="bg-white" style={{ height: "75vh" }}>
             <iframe
               src={driveUrl}
               title={video.title}
+              className="w-100 h-100 border-0"
               allow="autoplay; encrypted-media; fullscreen"
               allowFullScreen
             ></iframe>
@@ -753,21 +761,41 @@ export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClo
               </Badge>
             ) : (
               <Badge bg="secondary-subtle" className="text-secondary border border-secondary-subtle">
-                🌐 Video chung
+                🌐 Bài giảng chung
               </Badge>
             )}
             {video.durationMinutes && (
               <span className="text-muted small">⏱️ Thời lượng: {video.durationMinutes} phút</span>
             )}
           </div>
-          <a
-            href={video.videoUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1"
-          >
-            <i className="bi bi-youtube"></i> Xem trên YouTube
-          </a>
+          {ytId ? (
+            <a
+              href={`https://www.youtube.com/watch?v=${ytId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1"
+            >
+              <i className="bi bi-youtube"></i> Xem trên YouTube
+            </a>
+          ) : drive ? (
+            <a
+              href={drive.openUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+            >
+              <i className="bi bi-google"></i> Mở trong Google Drive
+            </a>
+          ) : (
+            <a
+              href={video.videoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
+            >
+              <i className="bi bi-box-arrow-up-right"></i> Mở liên kết
+            </a>
+          )}
         </div>
         {video.description && (
           <div className="text-secondary small mt-2" style={{ whiteSpace: "pre-line" }}>

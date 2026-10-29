@@ -613,3 +613,8 @@ body {
   font-weight: 600;
 }
 
+
+/* Ảnh bìa tài liệu Drive: giữ phần đầu trang */
+.object-position-top {
+  object-position: top;
+}
