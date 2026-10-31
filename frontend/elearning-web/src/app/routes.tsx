@@ -5,10 +5,11 @@ import { AdminLayout, PlayerLayout, PublicLayout, StudentLayout } from "../layou
 import { ChangePasswordPage, ForgotPasswordPage, LoginPage, ProfilePage, RegisterPage } from "../features/auth/AuthPages";
 import { AdminHome, HomeRedirect, RequireAuth, RequirePermission, RequireStudent } from "../features/auth/guards";
 import { Loading } from "../components/common/Feedback";
+import { withChunkReload } from "./chunkReload";
 
-/** Tải trang theo route (tách bundle admin / học viên). Module xuất nhiều trang theo tên. */
+/** Tải trang theo route (tách bundle admin / học viên). Module xuất nhiều trang theo tên. File trang cũ sau deploy: tự tải lại. */
 function page<M>(loader: () => Promise<M>, name: keyof M): ReactNode {
-  const Component = lazy(() => loader().then((m) => ({ default: m[name] as ComponentType })));
+  const Component = lazy(() => withChunkReload(loader)().then((m) => ({ default: m[name] as ComponentType })));
   return (
     <Suspense fallback={<Loading />}>
       <Component />
