@@ -16,6 +16,13 @@ public sealed class VideosController(IVideoService videos) : ApiControllerBase
     public async Task<ActionResult> List([FromQuery] VideoListQuery query, CancellationToken ct) =>
         Ok(ApiResponse.Ok(await videos.ListAsync(query, ct), TraceId));
 
+    /// <summary>Tiêu đề và ảnh bìa của video YouTube (oEmbed) để tự điền form bài giảng. Không lưu gì.</summary>
+    [HttpGet("youtube-info")]
+    [HasPermission(Permissions.VideoManage)]
+    [ProducesResponseType<ApiResponse<YoutubeVideoInfo>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> YoutubeInfo([FromQuery] string? url, CancellationToken ct) =>
+        ToResponse(await videos.GetYoutubeInfoAsync(url, ct));
+
     [HttpGet("{id:guid}")]
     [HasPermission(Permissions.VideoView)]
     [ProducesResponseType<ApiResponse<VideoLessonDto>>(StatusCodes.Status200OK)]

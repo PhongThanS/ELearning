@@ -1,4 +1,4 @@
-import { useState, useId, useMemo } from "react";
+import { useEffect, useState, useId, useMemo } from "react";
 import {
   Badge,
   Button,
@@ -461,6 +461,24 @@ function VideoEditModal({
 
   const ytId = extractYoutubeId(videoUrl);
   const driveUrl = parseDriveLink(videoUrl)?.previewUrl ?? null;
+
+  // Link YouTube: server hỏi YouTube tiêu đề video; tự điền khi ô tiêu đề trống hoặc đang là tiêu đề tự điền trước đó
+  const [autoTitle, setAutoTitle] = useState<string | null>(null);
+  const youtubeInfo = useQuery({
+    queryKey: ["youtube-info", ytId],
+    queryFn: () => videosApi.youtubeInfo(`https://www.youtube.com/watch?v=${ytId}`),
+    enabled: !!ytId,
+    retry: false,
+    staleTime: Infinity,
+  });
+  const fetchedTitle = ytId && youtubeInfo.data?.videoId === ytId ? youtubeInfo.data.title : null;
+  useEffect(() => {
+    if (fetchedTitle && (!title.trim() || title === autoTitle)) {
+      setTitle(fetchedTitle);
+      setAutoTitle(fetchedTitle);
+    }
+    // Chỉ chạy khi có tiêu đề mới từ YouTube, không chạy lại mỗi lần gõ tiêu đề
+  }, [fetchedTitle]);
   const isDirect = isDirectVideo(videoUrl);
 
   const mutation = useMutation({
@@ -555,10 +573,53 @@ function VideoEditModal({
               required
             />
             <Form.Text className="text-muted">
+              Dán link YouTube: tiêu đề và ảnh bìa của bài giảng được lấy luôn từ video.
               Hệ thống tự nhận video YouTube và tệp Google Drive (PDF, Word, Excel, PowerPoint, ảnh, video…; cả Google Docs / Sheets / Slides) để xem ngay trên web.
               Với Drive: chia sẻ tệp ở chế độ <strong>"Bất kỳ ai có đường liên kết"</strong> thì học viên mới xem được.
             </Form.Text>
           </Form.Group>
+
+          {ytId && (
+            <div className="d-flex align-items-center gap-2 mb-3 small" aria-live="polite">
+              <img
+                src={youtubeInfo.data?.thumbnailUrl ?? `https://img.youtube.com/vi/${ytId}/mqdefault.jpg`}
+                alt=""
+                width={96}
+                height={54}
+                className="rounded border object-fit-cover flex-shrink-0"
+                referrerPolicy="no-referrer"
+              />
+              {youtubeInfo.isFetching ? (
+                <span className="text-secondary">
+                  <Spinner size="sm" animation="border" className="me-1" />
+                  Đang lấy tiêu đề từ YouTube…
+                </span>
+              ) : fetchedTitle ? (
+                <span className="d-flex flex-wrap align-items-center gap-2">
+                  <span>
+                    <i className="bi bi-youtube text-danger me-1" aria-hidden="true"></i>
+                    <strong>{fetchedTitle}</strong>
+                    {youtubeInfo.data?.authorName && <span className="text-secondary"> · {youtubeInfo.data.authorName}</span>}
+                  </span>
+                  {title !== fetchedTitle && (
+                    <Button
+                      size="sm"
+                      variant="outline-secondary"
+                      className="py-0"
+                      onClick={() => {
+                        setTitle(fetchedTitle);
+                        setAutoTitle(fetchedTitle);
+                      }}
+                    >
+                      Dùng tiêu đề này
+                    </Button>
+                  )}
+                </span>
+              ) : youtubeInfo.isError ? (
+                <span className="text-secondary">Không lấy được tiêu đề từ YouTube (video riêng tư hoặc đã xoá) — hãy tự nhập tiêu đề.</span>
+              ) : null}
+            </div>
+          )}
 
           <Form.Group className="mb-3">
             <Form.Label htmlFor={docId} className="fw-semibold">

@@ -131,24 +131,35 @@ public sealed class VideoLesson : Entity, IHasRowVersion
         UpdatedAt = now;
     }
 
-    private void ApplyYoutubeExtraction()
+    /// <summary>Mã video YouTube (11 ký tự) từ link watch / youtu.be / embed / shorts / live, hoặc chính mã đó; null nếu không phải YouTube.</summary>
+    public static string? TryExtractYoutubeId(string? url)
     {
-        var match = YoutubeRegex.Match(VideoUrl);
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        var trimmed = url.Trim();
+        var match = YoutubeRegex.Match(trimmed);
         if (match.Success)
         {
-            YoutubeVideoId = match.Groups[1].Value;
-            ThumbnailUrl = $"https://img.youtube.com/vi/{YoutubeVideoId}/hqdefault.jpg";
+            return match.Groups[1].Value;
         }
-        else if (VideoUrl.Length == 11 && Regex.IsMatch(VideoUrl, @"^[\w-]{11}$"))
+
+        return IsYoutubeVideoId(trimmed) ? trimmed : null;
+    }
+
+    public static bool IsYoutubeVideoId(string value) => value.Length == 11 && Regex.IsMatch(value, @"^[\w-]{11}$");
+
+    public static string YoutubeThumbnail(string videoId) => $"https://img.youtube.com/vi/{videoId}/hqdefault.jpg";
+
+    private void ApplyYoutubeExtraction()
+    {
+        YoutubeVideoId = TryExtractYoutubeId(VideoUrl);
+        ThumbnailUrl = YoutubeVideoId is null ? null : YoutubeThumbnail(YoutubeVideoId);
+        if (YoutubeVideoId is not null && VideoUrl == YoutubeVideoId)
         {
-            YoutubeVideoId = VideoUrl;
-            ThumbnailUrl = $"https://img.youtube.com/vi/{YoutubeVideoId}/hqdefault.jpg";
             VideoUrl = $"https://www.youtube.com/watch?v={YoutubeVideoId}";
-        }
-        else
-        {
-            YoutubeVideoId = null;
-            ThumbnailUrl = null;
         }
     }
 }

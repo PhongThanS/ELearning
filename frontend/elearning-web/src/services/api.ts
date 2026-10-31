@@ -1,6 +1,7 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
   DocxImageResult,
+  YoutubeVideoInfo,
   VideoLesson,
   CreateVideoInput,
   UpdateVideoInput,
@@ -294,6 +295,8 @@ export const videosApi = {
     http.patch<VideoLesson>(`/videos/${id}/status`, { isActive }),
   listForStudent: (query?: VideoListQuery) =>
     http.get<Paged<VideoLesson>>("/student/videos", query),
+  /** Tiêu đề / ảnh bìa của video YouTube (server hỏi YouTube oEmbed) để tự điền form. */
+  youtubeInfo: (url: string) => http.get<YoutubeVideoInfo>("/videos/youtube-info", { url }),
   getForStudent: (id: string) =>
     http.get<VideoLesson>(`/student/videos/${id}`),
 };

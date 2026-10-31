@@ -4,6 +4,8 @@ namespace ELearning.ApiTests.Videos;
 
 public sealed record VideoView(Guid Id, string Title, string VideoUrl, string? DocumentUrl, string? YoutubeVideoId, string RowVersion);
 
+public sealed record YoutubeInfoView(string VideoId, string Title, string? AuthorName, string ThumbnailUrl);
+
 /// <summary>Bài giảng gồm video YouTube và tài liệu PDF trên Google Drive, xem song song (docs/05-api.md).</summary>
 [Collection(ApiCollection.Name)]
 public class VideoLessonTests(ApiFactory factory)
@@ -46,6 +48,28 @@ public class VideoLessonTests(ApiFactory factory)
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         body.Errors.Should().Contain(e => e.Code == "INVALID_DOCUMENT_URL" && e.Field == "documentUrl");
+    }
+
+    [Fact]
+    public async Task Youtube_link_returns_title_and_thumbnail_for_the_form()
+    {
+        var admin = await AdminAsync();
+        var anonymous = factory.CreateHttpsClient();
+        static string Url(string link) => $"/api/videos/youtube-info?url={Uri.EscapeDataString(link)}";
+
+        var (ok, okBody) = await admin.GetJsonAsync<YoutubeInfoView>(Url($"https://youtu.be/{FakeYoutubeMetadataClient.KnownId}?si=x"));
+        var (unavailable, unavailableBody) = await admin.GetJsonAsync<YoutubeInfoView>(Url("https://www.youtube.com/watch?v=AAAAAAAAAAA"));
+        var (notYoutube, notYoutubeBody) = await admin.GetJsonAsync<YoutubeInfoView>(Url("https://example.com/video"));
+        var noLogin = await anonymous.GetAsync(new Uri(Url(Video), UriKind.Relative));
+
+        ok.StatusCode.Should().Be(HttpStatusCode.OK);
+        okBody.Data!.Title.Should().Be(FakeYoutubeMetadataClient.KnownTitle);
+        okBody.Data.ThumbnailUrl.Should().Be($"https://img.youtube.com/vi/{FakeYoutubeMetadataClient.KnownId}/hqdefault.jpg");
+        unavailable.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity, "video riêng tư / đã xoá: người dùng tự nhập tiêu đề");
+        unavailableBody.Errors.Should().Contain(e => e.Code == "YOUTUBE_INFO_UNAVAILABLE");
+        notYoutube.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        notYoutubeBody.Errors.Should().Contain(e => e.Code == "INVALID_YOUTUBE_URL");
+        noLogin.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     private async Task<HttpClient> AdminAsync()

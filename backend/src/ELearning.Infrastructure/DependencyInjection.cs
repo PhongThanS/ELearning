@@ -2,6 +2,7 @@ using ELearning.Application.Admin;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Media;
 using ELearning.Application.Questions;
+using ELearning.Application.Videos;
 using ELearning.Infrastructure.BackgroundJobs;
 using ELearning.Infrastructure.Excel;
 using ELearning.Infrastructure.Media;
@@ -47,6 +48,11 @@ public static class DependencyInjection
         services.AddSingleton<IResultExporter, ResultExporter>();
         services.AddSingleton<IQuestionImportWorkbook, QuestionImportWorkbook>();
         services.AddSingleton<IMediaStore, FileSystemMediaStore>();
+        services.AddHttpClient<IYoutubeMetadataClient, ELearning.Infrastructure.Videos.YoutubeOEmbedClient>(client =>
+        {
+            client.BaseAddress = new Uri(ELearning.Infrastructure.Videos.YoutubeOEmbedClient.BaseAddress);
+            client.Timeout = TimeSpan.FromSeconds(5);
+        });
         services.AddHostedService<AttemptExpirationWorker>();
         services.AddHostedService<MonitoringSnapshotWorker>();
 

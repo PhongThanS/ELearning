@@ -103,6 +103,8 @@ ExamBuilder
 
 ### 3.5 Kho video bài giảng
 
+- Form bài giảng: dán link YouTube thì tự lấy tiêu đề video (`/api/videos/youtube-info`) điền vào ô tiêu đề khi ô trống hoặc
+  đang là tiêu đề tự điền trước đó; người dùng đã tự gõ tiêu đề thì chỉ hiện nút "Dùng tiêu đề này". Ảnh bìa lấy từ mã video.
 - Thẻ bài giảng: ảnh bìa YouTube / trang đầu tệp Drive; bài có tài liệu đi kèm gắn nhãn "Kèm tài liệu PDF".
 - Xem bài có cả video và tài liệu (`documentUrl`): cửa sổ toàn màn hình, video bên trái, tài liệu Drive bên phải;
   thanh giữa (`features/videos/SplitView.tsx`, `role="separator"`) kéo bằng chuột / cảm ứng, phím mũi tên ±5%,

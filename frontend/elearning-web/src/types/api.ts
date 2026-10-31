@@ -971,6 +971,13 @@ export interface VideoLesson {
   rowVersion: string;
 }
 
+export interface YoutubeVideoInfo {
+  videoId: string;
+  title: string;
+  authorName: string | null;
+  thumbnailUrl: string;
+}
+
 export interface CreateVideoInput {
   title: string;
   videoUrl: string;

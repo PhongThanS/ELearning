@@ -69,6 +69,10 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         {
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Time);
+
+            // Không gọi YouTube thật khi test
+            services.RemoveAll<ELearning.Application.Videos.IYoutubeMetadataClient>();
+            services.AddSingleton<ELearning.Application.Videos.IYoutubeMetadataClient, Videos.FakeYoutubeMetadataClient>();
         });
     }
 }

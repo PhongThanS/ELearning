@@ -19,6 +19,9 @@ public interface IVideoService
     Task<Result> DeleteAsync(Guid id, CancellationToken ct);
     Task<Result<VideoLessonDto>> SetStatusAsync(Guid id, bool isActive, CancellationToken ct);
     Task<PagedResult<VideoLessonDto>> ListForStudentAsync(VideoListQuery query, CancellationToken ct);
+
+    /// <summary>Tiêu đề / ảnh bìa của video YouTube để tự điền form bài giảng (không lưu gì).</summary>
+    Task<Result<YoutubeVideoInfo>> GetYoutubeInfoAsync(string? url, CancellationToken ct);
 }
 
 internal sealed class VideoService(
@@ -27,7 +30,8 @@ internal sealed class VideoService(
     ICurrentUser currentUser,
     TimeProvider time,
     IValidator<CreateVideoRequest> createValidator,
-    IValidator<UpdateVideoRequest> updateValidator) : IVideoService
+    IValidator<UpdateVideoRequest> updateValidator,
+    IYoutubeMetadataClient youtube) : IVideoService
 {
     private static readonly Error VideoNotFound = Error.NotFound("VIDEO_NOT_FOUND", "Không tìm thấy video bài giảng.");
 
@@ -205,6 +209,20 @@ internal sealed class VideoService(
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(video.Id, ct);
+    }
+
+    public async Task<Result<YoutubeVideoInfo>> GetYoutubeInfoAsync(string? url, CancellationToken ct)
+    {
+        if (VideoLesson.TryExtractYoutubeId(url) is not { } videoId)
+        {
+            return Error.Validation("INVALID_YOUTUBE_URL", "Không nhận ra link YouTube.", "url");
+        }
+
+        return await youtube.GetAsync(videoId, ct) is { } info
+            ? info
+            : Error.Business(
+                "YOUTUBE_INFO_UNAVAILABLE",
+                "Không lấy được thông tin video từ YouTube (video riêng tư / đã xoá, hoặc máy chủ không kết nối được YouTube). Hãy tự nhập tiêu đề.");
     }
 
     public async Task<Result> DeleteAsync(Guid id, CancellationToken ct)

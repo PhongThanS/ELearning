@@ -354,6 +354,7 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 | POST | `/api/videos` `{ title, videoUrl, documentUrl?, description?, categoryId?, classroomId?, durationMinutes?, displayOrder }` | `Video.Manage` |
 | PUT | `/api/videos/{id}` `{ …như POST, isActive, rowVersion }` | `Video.Manage` |
 | PATCH | `/api/videos/{id}/status` `{ isActive }` | `Video.Manage` |
+| GET | `/api/videos/youtube-info?url=` → `YoutubeVideoInfo { videoId, title, authorName, thumbnailUrl }`: server hỏi YouTube oEmbed (chỉ dựng URL từ mã video 11 ký tự, nhớ 1 giờ, timeout 5 giây) để tự điền tiêu đề. Không phải link YouTube → 400 `INVALID_YOUTUBE_URL`; video riêng tư / đã xoá / không kết nối được YouTube → 422 `YOUTUBE_INFO_UNAVAILABLE` | `Video.Manage` |
 | DELETE | `/api/videos/{id}` | `Video.Manage` |
 | GET | `/api/student/videos` (bài đang bật: bài chung + bài của lớp học viên tham gia) | Học viên |
 
