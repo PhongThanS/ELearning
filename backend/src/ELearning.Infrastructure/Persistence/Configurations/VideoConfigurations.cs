@@ -13,6 +13,7 @@ internal sealed class VideoLessonConfiguration : IEntityTypeConfiguration<VideoL
         builder.ConfigureEntity("VideoLessons");
         builder.Property(v => v.Title).HasMaxLength(VideoLesson.MaxTitleLength).IsRequired();
         builder.Property(v => v.VideoUrl).HasMaxLength(VideoLesson.MaxUrlLength).IsRequired();
+        builder.Property(v => v.DocumentUrl).HasMaxLength(VideoLesson.MaxUrlLength);
         builder.Property(v => v.YoutubeVideoId).HasMaxLength(50).IsUnicode(false);
         builder.Property(v => v.ThumbnailUrl).HasMaxLength(VideoLesson.MaxUrlLength);
         builder.Property(v => v.Description).HasMaxLength(VideoLesson.MaxDescriptionLength);

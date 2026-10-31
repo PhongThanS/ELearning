@@ -71,6 +71,7 @@ internal sealed class VideoService(
                 v.Id,
                 v.Title,
                 v.VideoUrl,
+                v.DocumentUrl,
                 v.YoutubeVideoId,
                 v.ThumbnailUrl,
                 v.Description,
@@ -102,6 +103,7 @@ internal sealed class VideoService(
                 v.Id,
                 v.Title,
                 v.VideoUrl,
+                v.DocumentUrl,
                 v.YoutubeVideoId,
                 v.ThumbnailUrl,
                 v.Description,
@@ -141,6 +143,7 @@ internal sealed class VideoService(
         var video = new VideoLesson(
             request.Title,
             request.VideoUrl,
+            request.DocumentUrl,
             request.Description,
             request.CategoryId,
             request.ClassroomId,
@@ -150,7 +153,7 @@ internal sealed class VideoService(
             Now);
 
         db.VideoLessons.Add(video);
-        audit.Write("Video.Created", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl });
+        audit.Write("Video.Created", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl });
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(video.Id, ct);
@@ -188,6 +191,7 @@ internal sealed class VideoService(
         video.Update(
             request.Title,
             request.VideoUrl,
+            request.DocumentUrl,
             request.Description,
             request.CategoryId,
             request.ClassroomId,
@@ -197,7 +201,7 @@ internal sealed class VideoService(
             currentUser.RequiredUserId,
             Now);
 
-        audit.Write("Video.Updated", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl });
+        audit.Write("Video.Updated", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl });
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(video.Id, ct);
@@ -276,6 +280,7 @@ internal sealed class VideoService(
                 v.Id,
                 v.Title,
                 v.VideoUrl,
+                v.DocumentUrl,
                 v.YoutubeVideoId,
                 v.ThumbnailUrl,
                 v.Description,

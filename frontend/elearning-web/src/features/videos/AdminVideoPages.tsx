@@ -15,6 +15,7 @@ import { videosApi, categoriesApi, classesApi } from "../../services/api";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson, CreateVideoInput, UpdateVideoInput } from "../../types/api";
 import { extractYoutubeId, isDirectVideo, lessonKind, lessonThumbnail, parseDriveLink } from "./mediaLinks";
+import { SplitView } from "./SplitView";
 
 /** Ảnh bìa thẻ bài giảng: YouTube / trang đầu tệp Drive; lỗi tải ảnh (tệp riêng tư) thì hiện biểu tượng. */
 export function LessonThumbnail({ video }: { video: VideoLesson }) {
@@ -49,6 +50,11 @@ export function LessonThumbnail({ video }: { video: VideoLesson }) {
       {isDoc && (
         <span className="position-absolute bottom-0 start-0 m-2 badge bg-primary shadow-sm">
           <i className="bi bi-google me-1"></i>Tài liệu Drive
+        </span>
+      )}
+      {!isDoc && video.documentUrl && (
+        <span className="position-absolute bottom-0 start-0 m-2 badge bg-primary shadow-sm">
+          <i className="bi bi-file-earmark-pdf me-1"></i>Kèm tài liệu PDF
         </span>
       )}
     </>
@@ -433,6 +439,7 @@ function VideoEditModal({
   const isEditing = Boolean(video);
   const titleId = useId();
   const urlId = useId();
+  const docId = useId();
   const descId = useId();
   const catId = useId();
   const classId = useId();
@@ -441,6 +448,8 @@ function VideoEditModal({
 
   const [title, setTitle] = useState(video?.title ?? "");
   const [videoUrl, setVideoUrl] = useState(video?.videoUrl ?? "");
+  const [documentUrl, setDocumentUrl] = useState(video?.documentUrl ?? "");
+  const attachment = parseDriveLink(documentUrl);
   const [description, setDescription] = useState(video?.description ?? "");
   const [categoryId, setCategoryId] = useState(video?.categoryId ?? "");
   const [classroomId, setClassroomId] = useState(video?.classroomId ?? "");
@@ -460,6 +469,7 @@ function VideoEditModal({
         const input: UpdateVideoInput = {
           title: title.trim(),
           videoUrl: videoUrl.trim(),
+          documentUrl: documentUrl.trim() || null,
           description: description.trim() || null,
           categoryId: categoryId || null,
           classroomId: classroomId || null,
@@ -473,6 +483,7 @@ function VideoEditModal({
         const input: CreateVideoInput = {
           title: title.trim(),
           videoUrl: videoUrl.trim(),
+          documentUrl: documentUrl.trim() || null,
           description: description.trim() || null,
           categoryId: categoryId || null,
           classroomId: classroomId || null,
@@ -496,6 +507,10 @@ function VideoEditModal({
     }
     if (!videoUrl.trim()) {
       setErrorMsg("Vui lòng nhập đường dẫn liên kết video.");
+      return;
+    }
+    if (documentUrl.trim() && !attachment) {
+      setErrorMsg("Link tài liệu phải là link Google Drive (https://drive.google.com/file/d/...) hoặc Google Docs.");
       return;
     }
     setErrorMsg("");
@@ -542,6 +557,26 @@ function VideoEditModal({
             <Form.Text className="text-muted">
               Hệ thống tự nhận video YouTube và tệp Google Drive (PDF, Word, Excel, PowerPoint, ảnh, video…; cả Google Docs / Sheets / Slides) để xem ngay trên web.
               Với Drive: chia sẻ tệp ở chế độ <strong>"Bất kỳ ai có đường liên kết"</strong> thì học viên mới xem được.
+            </Form.Text>
+          </Form.Group>
+
+          <Form.Group className="mb-3">
+            <Form.Label htmlFor={docId} className="fw-semibold">
+              Tài liệu PDF đi kèm (Google Drive)
+            </Form.Label>
+            <Form.Control
+              id={docId}
+              type="text"
+              placeholder="https://drive.google.com/file/d/.../view"
+              value={documentUrl}
+              onChange={(e) => setDocumentUrl(e.target.value)}
+              isInvalid={!!documentUrl.trim() && !attachment}
+              isValid={!!attachment}
+            />
+            <Form.Control.Feedback type="invalid">Chỉ nhận link Google Drive / Google Docs.</Form.Control.Feedback>
+            <Form.Text className="text-muted">
+              Không bắt buộc. Có cả video và tài liệu thì khi xem, video và tài liệu hiện <strong>song song</strong>, kéo thanh giữa
+              để co giãn hai bên. Chia sẻ tệp ở chế độ <strong>"Bất kỳ ai có đường liên kết"</strong>.
             </Form.Text>
           </Form.Group>
 
@@ -693,12 +728,105 @@ function VideoEditModal({
   );
 }
 
+/** Video (YouTube / Drive / file trực tiếp) lấp đầy khung chứa. */
+function LessonMedia({ video }: { video: VideoLesson }) {
+  const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
+  const drive = parseDriveLink(video.videoUrl);
+  if (ytId) {
+    return (
+      <iframe
+        src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0`}
+        title={video.title}
+        className="w-100 h-100 border-0 d-block bg-black"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+      ></iframe>
+    );
+  }
+  if (drive) {
+    return (
+      <iframe
+        src={drive.previewUrl}
+        title={video.title}
+        className="w-100 h-100 border-0 d-block bg-white"
+        allow="autoplay; encrypted-media; fullscreen"
+        allowFullScreen
+      ></iframe>
+    );
+  }
+  if (isDirectVideo(video.videoUrl)) {
+    return (
+      <video src={video.videoUrl} controls className="w-100 h-100 d-block bg-black">
+        Trình duyệt của bạn không hỗ trợ phát thẻ video trực tiếp.
+      </video>
+    );
+  }
+  return (
+    <div className="h-100 d-flex flex-column align-items-center justify-content-center text-white p-3 text-center">
+      <p className="mb-3">Không thể nhúng video này trực tiếp.</p>
+      <a href={video.videoUrl} target="_blank" rel="noreferrer" className="btn btn-primary">
+        <i className="bi bi-box-arrow-up-right me-1"></i> Mở liên kết video
+      </a>
+    </div>
+  );
+}
+
 export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClose: () => void }) {
   const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
   const drive = parseDriveLink(video.videoUrl);
   const driveUrl = drive?.previewUrl ?? null;
   const isDirect = isDirectVideo(video.videoUrl);
   const isDoc = !ytId && !!drive;
+  const attachment = video.documentUrl ? parseDriveLink(video.documentUrl) : null;
+
+  // Video + tài liệu: toàn màn hình, video một bên, tài liệu một bên, thanh giữa kéo để co giãn
+  if (attachment) {
+    return (
+      <Modal show={true} onHide={onClose} fullscreen dialogClassName="modal-doc-viewer">
+        <Modal.Header closeButton closeVariant="white" className="bg-dark text-white border-0 py-2 gap-2">
+          <Modal.Title className="h6 mb-0 text-white d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+            <i className="bi bi-collection-play" aria-hidden="true"></i>
+            <span className="text-truncate">{video.title}</span>
+          </Modal.Title>
+          {ytId && (
+            <a
+              href={`https://www.youtube.com/watch?v=${ytId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 text-nowrap"
+            >
+              <i className="bi bi-youtube" aria-hidden="true"></i>
+              <span className="d-none d-md-inline">YouTube</span>
+            </a>
+          )}
+          <a
+            href={attachment.openUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 text-nowrap"
+          >
+            <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
+            <span className="d-none d-md-inline">Mở tài liệu trong Drive</span>
+          </a>
+        </Modal.Header>
+        <Modal.Body className="p-0 bg-dark d-flex">
+          <SplitView
+            label="Thanh chia giữa video và tài liệu"
+            first={<LessonMedia video={video} />}
+            second={
+              <iframe
+                src={attachment.previewUrl}
+                title={`Tài liệu: ${video.title}`}
+                className="w-100 h-100 border-0 d-block bg-white"
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              ></iframe>
+            }
+          />
+        </Modal.Body>
+      </Modal>
+    );
+  }
 
   // Tài liệu Drive: xem toàn màn hình như trang xem của Google Drive (thanh trên gọn, tài liệu chiếm hết phần còn lại)
   if (isDoc && drive) {

@@ -101,6 +101,15 @@ ExamBuilder
   - Dòng thời gian sự kiện (`AttemptEvents`); IP, user agent.
   - Nút gia hạn / buộc nộp / hủy lượt (đều bắt buộc nhập lý do).
 
+### 3.5 Kho video bài giảng
+
+- Thẻ bài giảng: ảnh bìa YouTube / trang đầu tệp Drive; bài có tài liệu đi kèm gắn nhãn "Kèm tài liệu PDF".
+- Xem bài có cả video và tài liệu (`documentUrl`): cửa sổ toàn màn hình, video bên trái, tài liệu Drive bên phải;
+  thanh giữa (`features/videos/SplitView.tsx`, `role="separator"`) kéo bằng chuột / cảm ứng, phím mũi tên ±5%,
+  Home / End, nhấp đúp để chia đều; mỗi bên tối thiểu 15%. Màn hẹp hơn 768px xếp trên / dưới. Khi kéo, hai khung
+  không nhận chuột (`pointer-events: none`) để iframe YouTube / Drive không giữ mất sự kiện.
+- Bài chỉ có tài liệu Drive (link ở `videoUrl`): xem toàn màn hình như trang xem của Drive.
+
 ## 4. Exam player (học viên)
 
 ### 4.1 Bố cục

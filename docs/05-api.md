@@ -344,6 +344,22 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 
 **Thống kê câu hỏi** (MVP): số lượt trả lời, số đúng, số sai, số bỏ trống, tỉ lệ đúng, điểm trung bình, và phân bố lựa chọn đối với câu trắc nghiệm.
 
+### 6.8a Kho video bài giảng
+| Method | Route | Quyền |
+|---|---|---|
+| GET | `/api/videos` (lọc `categoryId`, `classroomId`, `keyword`, `isActive`) | `Video.View` |
+| GET | `/api/videos/{id}` | `Video.View` |
+| POST | `/api/videos` `{ title, videoUrl, documentUrl?, description?, categoryId?, classroomId?, durationMinutes?, displayOrder }` | `Video.Manage` |
+| PUT | `/api/videos/{id}` `{ …như POST, isActive, rowVersion }` | `Video.Manage` |
+| PATCH | `/api/videos/{id}/status` `{ isActive }` | `Video.Manage` |
+| DELETE | `/api/videos/{id}` | `Video.Manage` |
+| GET | `/api/student/videos` (bài đang bật: bài chung + bài của lớp học viên tham gia) | Học viên |
+
+`VideoLessonDto { id, title, videoUrl, documentUrl, youtubeVideoId, thumbnailUrl, description, categoryId, categoryName,
+classroomId, classroomName, durationMinutes, displayOrder, isActive, createdAt, updatedAt, rowVersion }`.
+`documentUrl` (tài liệu PDF đi kèm, không bắt buộc) phải là link `https://drive.google.com` / `https://docs.google.com`,
+sai → 400 `INVALID_DOCUMENT_URL`; gửi rỗng là bỏ tài liệu.
+
 ### 6.9 Hệ thống
 | Method | Route | Quyền |
 |---|---|---|

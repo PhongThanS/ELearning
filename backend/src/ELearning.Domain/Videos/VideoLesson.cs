@@ -7,7 +7,8 @@ namespace ELearning.Domain.Videos;
 
 /// <summary>
 /// Video bài giảng / tài liệu học tập (chỉ lưu link nhúng như YouTube, Vimeo, hoặc URL trực tiếp).
-/// Phân loại theo Chuyên đề (Category) hoặc Lớp học (Classroom).
+/// Mỗi bài có thể kèm một tài liệu PDF trên Google Drive (<see cref="DocumentUrl"/>): có cả hai thì xem song song
+/// video và tài liệu. Phân loại theo Chuyên đề (Category) hoặc Lớp học (Classroom).
 /// </summary>
 public sealed class VideoLesson : Entity, IHasRowVersion
 {
@@ -26,6 +27,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
     public VideoLesson(
         string title,
         string videoUrl,
+        string? documentUrl,
         string? description,
         Guid? categoryId,
         Guid? classroomId,
@@ -39,6 +41,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
 
         Title = title.Trim();
         VideoUrl = videoUrl.Trim();
+        DocumentUrl = string.IsNullOrWhiteSpace(documentUrl) ? null : documentUrl.Trim();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         CategoryId = categoryId;
         ClassroomId = classroomId;
@@ -54,6 +57,9 @@ public sealed class VideoLesson : Entity, IHasRowVersion
     public string Title { get; private set; } = null!;
 
     public string VideoUrl { get; private set; } = null!;
+
+    /// <summary>Tài liệu đi kèm (PDF trên Google Drive / Google Docs), xem song song với video.</summary>
+    public string? DocumentUrl { get; private set; }
 
     /// <summary>ID video YouTube (11 ký tự) để sinh iframe nhúng trực tiếp trên web.</summary>
     public string? YoutubeVideoId { get; private set; }
@@ -90,6 +96,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
     public void Update(
         string title,
         string videoUrl,
+        string? documentUrl,
         string? description,
         Guid? categoryId,
         Guid? classroomId,
@@ -104,6 +111,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
 
         Title = title.Trim();
         VideoUrl = videoUrl.Trim();
+        DocumentUrl = string.IsNullOrWhiteSpace(documentUrl) ? null : documentUrl.Trim();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         CategoryId = categoryId;
         ClassroomId = classroomId;

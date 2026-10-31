@@ -237,6 +237,36 @@ CREATE TABLE MediaFiles (
 - Các quy tắc cần đếm số dòng (số option, số option đúng, số đáp án chấp nhận) được kiểm tra bằng FluentValidation và domain, không dùng CHECK.
 - Sửa câu hỏi: xóa rồi tạo lại option và đáp án chấp nhận trong cùng transaction là chấp nhận được, vì câu hỏi trong ngân hàng không được tham chiếu trực tiếp khi chấm (D-01).
 
+### 3.2 Kho video bài giảng
+
+```sql
+CREATE TABLE VideoLessons (
+    Id              UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_VideoLessons PRIMARY KEY,
+    Title           NVARCHAR(250)  NOT NULL,
+    VideoUrl        NVARCHAR(1000) NOT NULL,   -- YouTube, Google Drive hoặc file video trực tiếp
+    DocumentUrl     NVARCHAR(1000) NULL,       -- tài liệu PDF đi kèm: chỉ link https Google Drive / Docs
+    YoutubeVideoId  VARCHAR(50)    NULL,       -- domain tự tách từ VideoUrl
+    ThumbnailUrl    NVARCHAR(1000) NULL,
+    Description     NVARCHAR(4000) NULL,
+    CategoryId      UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_Category REFERENCES QuestionCategories(Id),
+    ClassroomId     UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_Classroom REFERENCES Classrooms(Id), -- NULL = bài chung
+    DurationMinutes INT            NULL,
+    DisplayOrder    INT            NOT NULL,
+    IsActive        BIT            NOT NULL,
+    CreatedBy       UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_VideoLessons_CreatedBy REFERENCES Users(Id),
+    CreatedAt       DATETIME2(3)   NOT NULL,
+    UpdatedBy       UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_UpdatedBy REFERENCES Users(Id),
+    UpdatedAt       DATETIME2(3)   NULL,
+    RowVersion      ROWVERSION     NOT NULL
+);
+CREATE INDEX IX_VideoLessons_CategoryId ON VideoLessons(CategoryId);
+CREATE INDEX IX_VideoLessons_ClassroomId ON VideoLessons(ClassroomId);
+```
+
+- Bài có cả `VideoUrl` và `DocumentUrl` hiển thị video và tài liệu song song, thanh chia giữa kéo được (`06-frontend.md`).
+  `DocumentUrl` chỉ nhận link Google Drive / Docs vì CSP `frame-src` chỉ cho nhúng các trang đó (migration
+  `AddDocumentUrlToVideoLessons`).
+
 ## 4. Đề thi và version
 
 ```sql

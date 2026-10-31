@@ -211,7 +211,7 @@ export function StudentVideoPages() {
                     {/* Watch now button */}
                     <div className="pt-2 border-top mt-auto text-end">
                       <span className="text-primary fw-semibold small d-inline-flex align-items-center gap-1">
-                        <span>{isDoc ? "Xem tài liệu" : "Xem bài giảng"}</span>
+                        <span>{isDoc ? "Xem tài liệu" : v.documentUrl ? "Xem video + tài liệu" : "Xem bài giảng"}</span>
                         <i className="bi bi-arrow-right"></i>
                       </span>
                     </div>

@@ -948,6 +948,8 @@ export interface VideoLesson {
   id: string;
   title: string;
   videoUrl: string;
+  /** Tài liệu PDF trên Google Drive, xem song song với video. */
+  documentUrl?: string | null;
   youtubeVideoId?: string | null;
   thumbnailUrl?: string | null;
   description?: string | null;
@@ -966,6 +968,7 @@ export interface VideoLesson {
 export interface CreateVideoInput {
   title: string;
   videoUrl: string;
+  documentUrl?: string | null;
   description?: string | null;
   categoryId?: string | null;
   classroomId?: string | null;
@@ -976,6 +979,7 @@ export interface CreateVideoInput {
 export interface UpdateVideoInput {
   title: string;
   videoUrl: string;
+  documentUrl?: string | null;
   description?: string | null;
   categoryId?: string | null;
   classroomId?: string | null;
