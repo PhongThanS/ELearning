@@ -591,8 +591,25 @@ body {
   border: 1px solid var(--table-frame);
   border-radius: 1rem;
   box-shadow: 0 1px 2px rgba(15, 31, 61, 0.05), 0 6px 18px rgba(15, 31, 61, 0.05);
-  overflow: hidden;
+  /* Cuộn ngang khi màn hẹp (table-responsive); "hidden" làm mất luôn cột cuối */
+  overflow-x: auto;
   margin-bottom: 0.75rem;
+}
+
+/* Cột nội dung dài: tối thiểu đủ đọc, tối đa 2 dòng */
+.cell-content {
+  min-width: 15rem;
+}
+
+.cell-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cell-min-8 {
+  min-width: 8rem;
 }
 
 .table-card .table {

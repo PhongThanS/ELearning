@@ -347,51 +347,103 @@ export function QuestionsPage() {
         />
       ),
     },
-    { key: "code", header: t("common.code"), sortKey: "code", render: (q) => <Link to={`/admin/questions/${q.id}/edit`}><code>{q.code}</code></Link> },
-    { key: "content", header: "Nội dung", render: (q) => <span className="text-truncate d-inline-block" style={{ maxWidth: 420 }}>{markdownExcerpt(q.contentPreview)}</span> },
-    { key: "type", header: "Loại", render: (q) => t(`enums.questionType.${q.questionType}`) + (q.answerDataType ? ` (${t(`enums.answerDataType.${q.answerDataType}`)})` : "") },
-    { key: "category", header: t("nav.categories"), render: (q) => q.categoryName ?? "—" },
+    { key: "code", header: t("common.code"), sortKey: "code", className: "text-nowrap", render: (q) => <Link to={`/admin/questions/${q.id}/edit`}><code>{q.code}</code></Link> },
     {
-      key: "difficulty",
-      header: "Độ khó / tag",
+      key: "content",
+      header: "Nội dung",
+      className: "cell-content",
+      render: (q) => {
+        const excerpt = markdownExcerpt(q.contentPreview);
+        return (
+          <>
+            <div className="cell-clamp-2" title={excerpt}>
+              <MarkdownView content={excerpt} inline />
+            </div>
+            {/* Màn hẹp: chuyên đề hiện dưới nội dung thay cho cột riêng */}
+            {q.categoryName && <div className="small text-secondary d-xxl-none"><i className="bi bi-folder2 me-1" aria-hidden="true" />{q.categoryName}</div>}
+          </>
+        );
+      },
+    },
+    {
+      key: "type",
+      header: "Loại",
+      className: "text-nowrap",
       render: (q) => (
         <>
-          {q.difficulty && <Badge bg="light" text="dark" className="me-1">{t(`enums.difficulty.${q.difficulty}`)}</Badge>}
-          {q.tags.map((tag) => (
-            <Badge key={tag} bg="info-subtle" text="dark" className="me-1">{tag}</Badge>
-          ))}
+          {t(`enums.questionType.${q.questionType}`)}
+          {q.answerDataType && <div className="small text-secondary">{t(`enums.answerDataType.${q.answerDataType}`)}</div>}
         </>
       ),
     },
-    { key: "score", header: "Điểm", render: (q) => formatNumber(q.defaultScore) },
-    { key: "status", header: t("common.status"), render: (q) => <ActiveBadge active={q.isActive} /> },
-    { key: "updated", header: t("common.updatedAt"), sortKey: "updatedAt", render: (q) => formatDateTime(q.updatedAt ?? q.createdAt) },
+    { key: "category", header: t("nav.categories"), className: "cell-min-8 d-none d-xxl-table-cell", render: (q) => q.categoryName ?? "—" },
+    {
+      key: "difficulty",
+      header: "Độ khó / tag",
+      className: "cell-min-8",
+      render: (q) => (
+        <div className="d-flex flex-wrap gap-1">
+          {q.difficulty && <Badge bg="light" text="dark" className="border">{t(`enums.difficulty.${q.difficulty}`)}</Badge>}
+          {q.tags.map((tag) => (
+            <Badge key={tag} bg="info-subtle" text="dark">{tag}</Badge>
+          ))}
+        </div>
+      ),
+    },
+    { key: "score", header: "Điểm", className: "text-center text-nowrap", render: (q) => formatNumber(q.defaultScore) },
+    { key: "status", header: t("common.status"), className: "text-nowrap", render: (q) => <ActiveBadge active={q.isActive} /> },
+    {
+      key: "updated",
+      header: t("common.updatedAt"),
+      sortKey: "updatedAt",
+      // Màn nhỏ hơn 1400px (còn trừ menu trái): ẩn để nhường chỗ cho nội dung
+      className: "text-nowrap small d-none d-xxl-table-cell",
+      render: (q) => formatDateTime(q.updatedAt ?? q.createdAt),
+    },
     {
       key: "actions",
-      header: "",
+      header: <span className="visually-hidden">{t("common.actions")}</span>,
       className: "text-end text-nowrap",
       render: (q) => (
-        <>
+        <div className="d-inline-flex gap-1">
           {hasPermission(Permissions.QuestionCreate) && (
-            <Button size="sm" variant="link" onClick={() => action.mutate(async () => {
-              const clone = await questionsApi.clone(q.id);
-              navigate(`/admin/questions/${clone.id}/edit`);
-              return clone;
-            })}>
-              {t("common.clone")}
+            <Button
+              size="sm"
+              variant="outline-secondary"
+              title={t("common.clone")}
+              aria-label={`${t("common.clone")} ${q.code}`}
+              onClick={() => action.mutate(async () => {
+                const clone = await questionsApi.clone(q.id);
+                navigate(`/admin/questions/${clone.id}/edit`);
+                return clone;
+              })}
+            >
+              <i className="bi bi-copy" aria-hidden="true" />
             </Button>
           )}
           {hasPermission(Permissions.QuestionUpdate) && (
             <>
-              <Button size="sm" variant="link" onClick={() => action.mutate(() => questionsApi.setStatus(q.id, !q.isActive))}>
-                {q.isActive ? t("common.deactivate") : t("common.activate")}
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                title={q.isActive ? t("common.deactivate") : t("common.activate")}
+                aria-label={`${q.isActive ? t("common.deactivate") : t("common.activate")} ${q.code}`}
+                onClick={() => action.mutate(() => questionsApi.setStatus(q.id, !q.isActive))}
+              >
+                <i className={`bi ${q.isActive ? "bi-pause-circle" : "bi-play-circle"}`} aria-hidden="true" />
               </Button>
-              <Button size="sm" variant="link" className="text-danger" onClick={() => setDeleting(q)}>
-                {t("common.delete")}
+              <Button
+                size="sm"
+                variant="outline-danger"
+                title={t("common.delete")}
+                aria-label={`${t("common.delete")} ${q.code}`}
+                onClick={() => setDeleting(q)}
+              >
+                <i className="bi bi-trash" aria-hidden="true" />
               </Button>
             </>
           )}
-        </>
+        </div>
       ),
     },
   ];
@@ -465,10 +517,10 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
   const { t } = useTranslation();
   return (
     <Row className="g-2 mb-3">
-      <Col md={3}>
+      <Col xs={12} md={6} xl={4} xxl={3}>
         <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc nội dung..." />
       </Col>
-      <Col md={2}>
+      <Col xs={6} md={3} xl={2}>
         <Form.Select size="sm" aria-label="Độ khó" value={String(list.state.difficulty ?? "")} onChange={(e) => list.setFilter({ difficulty: e.target.value })}>
           <option value="">Mọi độ khó</option>
           {DIFFICULTIES.map((d) => (
@@ -476,12 +528,12 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
           ))}
         </Form.Select>
       </Col>
-      <Col md={2}>
+      <Col xs={6} md={3} xl={2}>
         <Form.Control size="sm" aria-label="Tag" placeholder="Tag" defaultValue={String(list.state.tag ?? "")}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); list.setFilter({ tag: e.currentTarget.value.trim() }); } }}
           onBlur={(e) => list.setFilter({ tag: e.currentTarget.value.trim() })} />
       </Col>
-      <Col md={2}>
+      <Col xs={12} md={6} xl={4} xxl={3}>
         <SearchableSelect
           size="sm"
           value={String(list.state.categoryId ?? "")}
@@ -498,7 +550,7 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
           searchPlaceholder="Tìm mã hoặc tên..."
         />
       </Col>
-      <Col md={2}>
+      <Col xs={6} md={3} xl={2} xxl={1}>
         <Form.Select size="sm" aria-label="Loại câu hỏi" value={String(list.state.questionType ?? "")} onChange={(e) => list.setFilter({ questionType: e.target.value })}>
           <option value="">Mọi loại</option>
           {QUESTION_TYPES.map((type) => (
@@ -506,7 +558,7 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
           ))}
         </Form.Select>
       </Col>
-      <Col md={1}>
+      <Col xs={6} md={3} xl={2} xxl={1}>
         <Form.Select size="sm" aria-label={t("common.status")} value={String(list.state.isActive ?? "")} onChange={(e) => list.setFilter({ isActive: e.target.value })}>
           <option value="">{t("common.all")}</option>
           <option value="true">{t("common.active")}</option>
