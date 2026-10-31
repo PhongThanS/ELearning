@@ -10,6 +10,9 @@ import { describeError } from "../../utils/errors";
 import { formatNumber } from "../../utils/format";
 import type { DocxSkippedImage, MarkdownImportQuestion, MarkdownImportResult, MediaUrlMap } from "../../types/api";
 import { newPendingId, readAsDataUrl, referencedPending, replacePendingIds, validateImage, type PendingImage } from "./pendingImages";
+import { normalizeMarkdown, questionText, replaceQuestion, setQuestionDifficulty, type Difficulty } from "./markdownBlocks";
+
+const DIFFICULTY_LABEL: Record<Difficulty, string> = { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" };
 
 const TYPE_LABEL: Record<string, string> = {
   SINGLE_CHOICE: "Chọn một",
@@ -102,10 +105,37 @@ export function MarkdownImportPage() {
     if (!file) {
       return;
     }
-    const text = await file.text();
+    const text = normalizeMarkdown(await file.text());
     setFileName(file.name);
     setMarkdown(text);
+    setEdited(false);
     await check(text, images, categoryId);
+  };
+
+  // Sửa lúc xem trước: đổi thẳng nội dung file .md rồi cho server kiểm tra lại cả file
+  const [edited, setEdited] = useState(false);
+  const applyEdit = async (next: string) => {
+    if (next === markdown) {
+      return;
+    }
+    setMarkdown(next);
+    setEdited(true);
+    await check(next, images, categoryId);
+  };
+
+  /** Đặt độ khó cho mọi câu; sửa từ câu cuối lên để số dòng của các câu phía trên không đổi. */
+  const setAllDifficulty = (difficulty: Difficulty) => {
+    const lines = [...(result?.questions ?? [])].map((q) => q.line).sort((a, b) => b - a);
+    void applyEdit(lines.reduce((text, line) => setQuestionDifficulty(text, line, difficulty), markdown));
+  };
+
+  const downloadEdited = () => {
+    const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = (fileName ?? "de-thi.md").replace(/(\.[^.]+)?$/, "-da-sua.md");
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const onImages = async (files: FileList | null) => {
@@ -392,6 +422,32 @@ export function MarkdownImportPage() {
             </Card.Body>
           </Card>
 
+          {!result.imported && (
+            <div className="d-flex flex-wrap align-items-center gap-2 mb-3 small">
+              <span className="text-secondary">
+                Sửa trước khi nhập: chọn độ khó hoặc bấm <i className="bi bi-pencil" aria-hidden="true" /> ở từng câu.
+              </span>
+              <Form.Select
+                size="sm"
+                style={{ width: "auto" }}
+                aria-label="Đặt độ khó cho tất cả câu"
+                value=""
+                disabled={busy !== null}
+                onChange={(e) => e.target.value && setAllDifficulty(e.target.value as Difficulty)}
+              >
+                <option value="">Đặt độ khó cho tất cả câu…</option>
+                {(Object.keys(DIFFICULTY_LABEL) as Difficulty[]).map((d) => (
+                  <option key={d} value={d}>{DIFFICULTY_LABEL[d]}</option>
+                ))}
+              </Form.Select>
+              {edited && (
+                <Button size="sm" variant="outline-secondary" onClick={downloadEdited}>
+                  <i className="bi bi-download me-1" aria-hidden="true" />Tải file .md đã sửa
+                </Button>
+              )}
+            </div>
+          )}
+
           {result.fileIssues.length > 0 && (
             <Alert variant="danger">
               <div className="fw-semibold mb-1">Lỗi trong file</div>
@@ -410,7 +466,17 @@ export function MarkdownImportPage() {
           )}
 
           <div className="d-grid gap-3">
-            {result.questions.map((q) => <PreviewQuestion key={q.index} q={q} media={media} />)}
+            {result.questions.map((q) => (
+              <PreviewQuestion
+                key={`${q.index}-${q.line}`}
+                q={q}
+                media={media}
+                source={result.imported ? null : questionText(markdown, q.line)}
+                busy={busy !== null}
+                onDifficulty={(d) => void applyEdit(setQuestionDifficulty(markdown, q.line, d))}
+                onSave={(text) => applyEdit(replaceQuestion(markdown, q.line, text))}
+              />
+            ))}
           </div>
         </>
       )}
@@ -418,9 +484,26 @@ export function MarkdownImportPage() {
   );
 }
 
-function PreviewQuestion({ q, media }: { q: MarkdownImportQuestion; media: MediaUrlMap }) {
+function PreviewQuestion({
+  q,
+  media,
+  source,
+  busy,
+  onDifficulty,
+  onSave,
+}: {
+  q: MarkdownImportQuestion;
+  media: MediaUrlMap;
+  /** Nội dung gốc của câu trong file .md; null = không cho sửa (đã nhập). */
+  source: string | null;
+  busy: boolean;
+  onDifficulty: (difficulty: Difficulty | null) => void;
+  onSave: (text: string) => Promise<void>;
+}) {
   const input = q.question;
   const isTrueFalse = input?.questionType === "TRUE_FALSE";
+  const [draft, setDraft] = useState<string | null>(null);
+  const difficulty = (input?.difficulty ?? "") as Difficulty | "";
   return (
     <Card className={q.issues.length > 0 ? "border-danger" : undefined}>
       <Card.Header className="d-flex flex-wrap align-items-center gap-2 bg-transparent">
@@ -430,8 +513,63 @@ function PreviewQuestion({ q, media }: { q: MarkdownImportQuestion; media: Media
         {input && <Badge bg="light" text="dark" className="border">{formatNumber(input.defaultScore)} điểm</Badge>}
         {q.code && <code className="small">{q.code}</code>}
         <span className="ms-auto small text-secondary">dòng {q.line}</span>
+        {source != null && (
+          <>
+            <Form.Select
+              size="sm"
+              style={{ width: "auto" }}
+              aria-label={`Độ khó câu ${q.label}`}
+              value={difficulty}
+              disabled={busy || draft != null}
+              onChange={(e) => onDifficulty((e.target.value || null) as Difficulty | null)}
+            >
+              <option value="">Độ khó: chưa đặt</option>
+              {(Object.keys(DIFFICULTY_LABEL) as Difficulty[]).map((d) => (
+                <option key={d} value={d}>{DIFFICULTY_LABEL[d]}</option>
+              ))}
+            </Form.Select>
+            <Button
+              size="sm"
+              variant={draft != null ? "secondary" : "outline-primary"}
+              disabled={busy}
+              onClick={() => setDraft(draft != null ? null : source)}
+              aria-label={`Sửa câu ${q.label}`}
+              title="Sửa nội dung câu trong file .md"
+            >
+              <i className="bi bi-pencil" aria-hidden="true" />
+            </Button>
+          </>
+        )}
       </Card.Header>
       <Card.Body>
+        {draft != null && (
+          <div className="mb-3">
+            <Form.Control
+              as="textarea"
+              aria-label={`Nội dung câu ${q.label} (định dạng elearning-exam/1)`}
+              className="font-monospace small"
+              rows={Math.min(24, Math.max(6, draft.split("\n").length + 1))}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+            />
+            <div className="d-flex flex-wrap align-items-center gap-2 mt-2">
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={async () => {
+                  await onSave(draft);
+                  setDraft(null);
+                }}
+              >
+                {busy ? <Spinner size="sm" className="me-1" /> : <i className="bi bi-check-lg me-1" aria-hidden="true" />}Lưu và kiểm tra lại
+              </Button>
+              <Button size="sm" variant="outline-secondary" onClick={() => setDraft(null)}>Hủy</Button>
+              <span className="small text-secondary">
+                Giữ đúng định dạng: <code>@content:</code>, <code>@option A:</code>, <code>@answer:</code>, <code>@difficulty: EASY | MEDIUM | HARD</code>…
+              </span>
+            </div>
+          </div>
+        )}
         {q.issues.length > 0 && (
           <Alert variant="danger" className="py-2 small">
             <ul className="mb-0 ps-3">

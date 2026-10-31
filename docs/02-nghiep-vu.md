@@ -82,6 +82,10 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
     `AI_RESPONSE_INCOMPLETE`: còn dòng "TIẾP TỤC Ở PHẦN SAU" (đề chưa chuyển hết).
 - **Kiểm tra giống import Excel (mục 1.3):** mỗi câu qua đúng validator và domain của chức năng tạo câu hỏi; mã câu không
   trùng; **tất cả hoặc không**; audit `QUESTIONS_IMPORTED` (`Source = MARKDOWN`). Tối đa 500 câu, khoảng 2 MB văn bản.
+- **Sửa lúc xem trước:** mỗi câu có ô **độ khó** (Dễ / Trung bình / Khó / chưa đặt) và nút **sửa** mở đúng đoạn văn bản
+  của câu trong file `.md`; có thêm "đặt độ khó cho tất cả câu". Mọi thay đổi sửa thẳng vào nội dung file (dòng
+  `@difficulty` riêng của câu, hoặc thay cả khối câu) rồi server kiểm tra lại cả file như lúc mới chọn — không có
+  đường nhập nào bỏ qua kiểm tra. Bỏ độ khó riêng thì câu theo mặc định của `@part` (nếu có). Tải được file `.md` đã sửa.
 - **Danh mục:** chọn trên màn hình được ưu tiên; không chọn thì dùng `@category` (phải là danh mục đang hoạt động).
 - **Ảnh:** đề ghi `![mô tả](ten-file.png)`; người dùng chọn các file ảnh cùng tên ở màn hình nhập. Ảnh chỉ được tải lên
   (D-27) khi bấm nhập, rồi tên file được thay bằng `media:<id>`. Thiếu ảnh hoặc ảnh từ trang ngoài (`http…`) thì không nhập được.
