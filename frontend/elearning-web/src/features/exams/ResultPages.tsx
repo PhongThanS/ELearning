@@ -70,19 +70,30 @@ function ResultsTab({ examId }: { examId: string }) {
 
   const columns: Column<AdminResultRow>[] = [
     { key: "user", header: t("auth.userNameOnly"), sortKey: "userName", render: (r) => <>{r.userName}<div className="small text-secondary">{r.fullName}</div></> },
-    { key: "attempt", header: "Lượt", render: (r) => <>#{r.attemptNumber} {r.isOfficial && <Badge bg="primary">chính thức</Badge>}</> },
+    { key: "attempt", header: "Lượt", className: "text-nowrap", render: (r) => <>#{r.attemptNumber} {r.isOfficial && <Badge bg="primary">chính thức</Badge>}</> },
     { key: "status", header: t("common.status"), render: (r) => <Badge bg={attemptVariant[r.status]}>{t(`enums.attemptStatus.${r.status}`)}</Badge> },
-    { key: "score", header: "Điểm", sortKey: "totalScore", render: (r) => (
+    { key: "score", header: "Điểm", sortKey: "totalScore", className: "text-nowrap", render: (r) => (
       <>
-        {formatScore(r.totalScore, r.maxScore)} ({formatNumber(r.percentage)}%)
+        {formatScore(r.totalScore, r.maxScore)}
+        <div className="small text-secondary">{formatNumber(r.percentage)}%</div>
         {r.pendingManualCount > 0 && <Badge bg="warning" text="dark" className="ms-1" title="Điểm tạm tính">Chờ chấm {r.pendingManualCount}</Badge>}
       </>
     ) },
     { key: "correct", header: "Đúng", render: (r) => `${r.correctCount}/${r.totalQuestion}` },
     { key: "passed", header: "Kết quả", render: (r) => (r.passed == null ? "—" : <Badge bg={r.passed ? "success" : "danger"}>{r.passed ? "Đạt" : "Chưa đạt"}</Badge>) },
-    { key: "submitted", header: "Nộp lúc", sortKey: "submittedAt", render: (r) => formatDateTime(r.submittedAt) },
-    { key: "duration", header: "Thời gian", render: (r) => formatDuration(r.durationSeconds) },
-    { key: "detail", header: "", render: (r) => <Link to={`/admin/attempts/${r.attemptId}`}>{t("common.detail")}</Link> },
+    {
+      key: "submitted",
+      header: "Nộp lúc",
+      sortKey: "submittedAt",
+      render: (r) => (
+        <>
+          {formatDateTime(r.submittedAt)}
+          <div className="small text-secondary d-xxl-none">Làm trong {formatDuration(r.durationSeconds)}</div>
+        </>
+      ),
+    },
+    { key: "duration", header: "Thời gian", className: "d-none d-xxl-table-cell", render: (r) => formatDuration(r.durationSeconds) },
+    { key: "detail", header: "", className: "text-nowrap", render: (r) => <Link to={`/admin/attempts/${r.attemptId}`}>{t("common.detail")}</Link> },
   ];
 
   return (
@@ -112,13 +123,13 @@ function AttemptsTab({ examId }: { examId: string }) {
 
   const columns: Column<AdminAttemptRow>[] = [
     { key: "user", header: t("auth.userNameOnly"), sortKey: "userName", render: (a) => <>{a.userName}<div className="small text-secondary">{a.fullName}</div></> },
-    { key: "attempt", header: "Lượt", render: (a) => `#${a.attemptNumber} (v${a.versionNumber})` },
+    { key: "attempt", header: "Lượt", className: "text-nowrap", render: (a) => `#${a.attemptNumber} (v${a.versionNumber})` },
     { key: "status", header: t("common.status"), render: (a) => <Badge bg={attemptVariant[a.status]}>{t(`enums.attemptStatus.${a.status}`)}</Badge> },
     { key: "started", header: "Bắt đầu", sortKey: "startedAt", render: (a) => formatDateTime(a.startedAt) },
     { key: "expired", header: "Hạn", render: (a) => <>{formatDateTime(a.expiredAt)}{a.timeExtensionMinutes > 0 && <Badge bg="info" className="ms-1">+{a.timeExtensionMinutes}′</Badge>}</> },
-    { key: "score", header: "Điểm", render: (a) => formatScore(a.totalScore, a.maxScore) },
+    { key: "score", header: "Điểm", className: "text-nowrap", render: (a) => formatScore(a.totalScore, a.maxScore) },
     { key: "events", header: "Sự kiện", render: (a) => (a.eventCount > 0 ? <Badge bg="warning" text="dark">{a.eventCount}</Badge> : 0) },
-    { key: "detail", header: "", render: (a) => <Link to={`/admin/attempts/${a.attemptId}`}>{t("common.detail")}</Link> },
+    { key: "detail", header: "", className: "text-nowrap", render: (a) => <Link to={`/admin/attempts/${a.attemptId}`}>{t("common.detail")}</Link> },
   ];
 
   return (
@@ -683,7 +694,7 @@ export function AuditLogsPage() {
     { key: "entity", header: "Đối tượng", render: (l) => (l.entityName ? `${l.entityName}` : "—") },
     { key: "reason", header: t("common.reason"), render: (l) => l.reason ?? "" },
     { key: "ip", header: "IP", render: (l) => l.ipAddress ?? "" },
-    { key: "detail", header: "", render: (l) => (l.oldValue || l.newValue ? <Button size="sm" variant="link" onClick={() => setDetail(l)}>{t("common.detail")}</Button> : null) },
+    { key: "detail", header: "", className: "text-nowrap", render: (l) => (l.oldValue || l.newValue ? <Button size="sm" variant="link" onClick={() => setDetail(l)}>{t("common.detail")}</Button> : null) },
   ];
 
   return (

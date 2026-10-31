@@ -28,13 +28,52 @@ export function ExamsPage() {
 
   const columns: Column<ExamListItem>[] = [
     { key: "code", header: t("common.code"), sortKey: "code", render: (e) => <Link to={`/admin/exams/${e.id}`}><code>{e.code}</code></Link> },
-    { key: "name", header: t("common.name"), sortKey: "name", render: (e) => e.name },
-    { key: "category", header: t("nav.categories"), render: (e) => e.categoryName ?? <span className="text-secondary">—</span> },
+    {
+      key: "name",
+      header: t("common.name"),
+      sortKey: "name",
+      className: "cell-content",
+      render: (e) => (
+        <>
+          <div className="cell-clamp-2" title={e.name}>{e.name}</div>
+          {/* Màn hẹp: chuyên đề và người thi hiện dưới tên thay cho cột riêng */}
+          <div className="small text-secondary d-xxl-none">
+            {e.categoryName && <span className="me-2"><i className="bi bi-folder2 me-1" aria-hidden="true" />{e.categoryName}</span>}
+            <span className="text-nowrap"><i className="bi bi-people me-1" aria-hidden="true" />{t(`enums.accessMode.${e.accessMode}`)}</span>
+          </div>
+        </>
+      ),
+    },
+    { key: "category", header: t("nav.categories"), className: "cell-min-8 d-none d-xxl-table-cell", render: (e) => e.categoryName ?? <span className="text-secondary">—</span> },
     { key: "status", header: t("common.status"), render: (e) => <Badge bg={examStatusVariant[e.status]}>{t(`enums.examStatus.${e.status}`)}</Badge> },
-    { key: "window", header: "Khung giờ", sortKey: "startAt", render: (e) => (e.startAt || e.endAt ? `${formatDateTime(e.startAt)} – ${formatDateTime(e.endAt)}` : "Không giới hạn") },
-    { key: "version", header: "Phiên bản", render: (e) => (e.publishedVersionNumber ? `v${e.publishedVersionNumber}` : "—") + (e.hasDraftVersion ? " + nháp" : "") },
-    { key: "access", header: "Người thi", render: (e) => t(`enums.accessMode.${e.accessMode}`) },
-    { key: "attempts", header: "Lượt thi", render: (e) => e.attemptCount },
+    {
+      key: "window",
+      header: "Khung giờ",
+      sortKey: "startAt",
+      className: "small text-nowrap",
+      render: (e) =>
+        e.startAt || e.endAt ? (
+          <>
+            <div>Từ {formatDateTime(e.startAt)}</div>
+            <div>Đến {formatDateTime(e.endAt)}</div>
+          </>
+        ) : (
+          <span className="text-secondary">Không giới hạn</span>
+        ),
+    },
+    {
+      key: "version",
+      header: "Phiên bản",
+      className: "text-nowrap",
+      render: (e) => (
+        <>
+          {e.publishedVersionNumber ? `v${e.publishedVersionNumber}` : <span className="text-secondary">—</span>}
+          {e.hasDraftVersion && <Badge bg="secondary-subtle" text="dark" className="ms-1 border">nháp</Badge>}
+        </>
+      ),
+    },
+    { key: "access", header: "Người thi", className: "text-nowrap d-none d-xxl-table-cell", render: (e) => t(`enums.accessMode.${e.accessMode}`) },
+    { key: "attempts", header: "Lượt thi", className: "text-center", render: (e) => e.attemptCount },
   ];
 
   return (
@@ -859,14 +898,13 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
             </Button>
           )}
         </div>
-        <Table size="sm" className="mb-0">
+        <Table size="sm" responsive className="mb-0 small">
           <thead>
             <tr>
               <th>#</th>
               <th>{t("common.status")}</th>
-              <th>Số câu</th>
-              <th>Điểm</th>
-              <th>Publish</th>
+              <th className="text-center">Số câu</th>
+              <th className="text-center">Điểm</th>
               {canDeleteDraft && <th aria-label={t("common.actions")} />}
             </tr>
           </thead>
@@ -882,10 +920,11 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
                   <Badge bg={v.status === "PUBLISHED" ? "success" : "secondary"}>
                     {t(`enums.versionStatus.${v.status}`)}
                   </Badge>
+                  {/* Khung hẹp (cột phải): ngày publish nằm dưới trạng thái thay cho cột riêng */}
+                  <div className="small text-secondary">{v.publishedAt ? formatDateTime(v.publishedAt) : "Chưa xuất bản"}</div>
                 </td>
-                <td>{v.questionCount}</td>
-                <td>{formatNumber(v.maxScore)}</td>
-                <td>{v.publishedAt ? formatDateTime(v.publishedAt) : <span className="text-secondary small">Chưa xuất bản</span>}</td>
+                <td className="text-center">{v.questionCount}</td>
+                <td className="text-center">{formatNumber(v.maxScore)}</td>
                 {canDeleteDraft && (
                   <td className="text-end">
                     {v.status === "DRAFT" && (
@@ -954,7 +993,7 @@ function UserOverridesCard({ exam }: { exam: ExamDetail }) {
         {overrides.error && <ErrorAlert error={overrides.error} />}
         {overrides.data && overrides.data.items.length === 0 && <p className="small mb-2">Chưa cấp thêm lượt cho ai.</p>}
         {overrides.data && overrides.data.items.length > 0 && (
-          <Table size="sm" className="mb-2">
+          <Table size="sm" responsive className="mb-2">
             <thead>
               <tr>
                 <th>Học viên</th>

@@ -1001,7 +1001,7 @@ export function GroupDetailPage() {
               <Form.Control size="sm" value={search} onChange={(e) => setSearch(e.target.value)} />
             </Form.Group>
             {candidates.data && (
-              <Table size="sm" className="mt-2 mb-0">
+              <Table size="sm" responsive className="mt-2 mb-0">
                 <tbody>
                   {candidates.data.items.map((u) => (
                     <tr key={u.id}>

@@ -16,7 +16,8 @@ export function formatDateTime(value: string | null | undefined): string {
     return "—";
   }
   const parts = Object.fromEntries(dateTimeFormatter.formatToParts(new Date(value)).map((p) => [p.type, p.value]));
-  return `${parts.day}/${parts.month}/${parts.year} ${parts.hour}:${parts.minute}`;
+  // Dấu cách không ngắt dòng: ngày và giờ luôn trên cùng một dòng (bảng hẹp không tách đôi)
+  return `${parts.day}/${parts.month}/${parts.year}\u00a0${parts.hour}:${parts.minute}`;
 }
 
 /**

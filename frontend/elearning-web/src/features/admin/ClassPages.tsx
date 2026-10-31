@@ -173,11 +173,24 @@ export function ClassesPage() {
   });
 
   const columns: Column<Classroom>[] = [
-    { key: "code", header: t("common.code"), sortKey: "code", render: (c) => <Link to={`/admin/classes/${c.id}`}>{c.code}</Link> },
-    { key: "name", header: t("common.name"), sortKey: "name", render: (c) => c.name },
+    { key: "code", header: t("common.code"), sortKey: "code", className: "text-nowrap", render: (c) => <Link to={`/admin/classes/${c.id}`}>{c.code}</Link> },
+    {
+      key: "name",
+      header: t("common.name"),
+      sortKey: "name",
+      className: "cell-min-10",
+      render: (c) => (
+        <>
+          {c.name}
+          {/* Màn hẹp hơn 1400px: năm học hiện dưới tên thay cho cột riêng */}
+          {c.schoolYear && <div className="small text-secondary text-nowrap d-xxl-none">{c.schoolYear}</div>}
+        </>
+      ),
+    },
     {
       key: "teacher",
-      header: "Giáo viên chủ nhiệm",
+      header: <span title="Giáo viên chủ nhiệm">Chủ nhiệm</span>,
+      className: "cell-min-8",
       render: (c) =>
         c.homeroomTeacherName ? (
           <div>
@@ -188,10 +201,10 @@ export function ClassesPage() {
           <span className="text-secondary small">Chưa phân công</span>
         ),
     },
-    { key: "schoolYear", header: t("classes.schoolYear"), sortKey: "schoolYear", render: (c) => c.schoolYear ?? "—" },
-    { key: "period", header: t("classes.period"), render: (c) => formatDateRange(c.startDate, c.endDate) },
-    { key: "students", header: t("classes.students"), render: (c) => c.studentCount },
-    { key: "exams", header: t("classes.exams"), render: (c) => c.examCount },
+    { key: "schoolYear", header: t("classes.schoolYear"), sortKey: "schoolYear", className: "text-nowrap d-none d-xxl-table-cell", render: (c) => c.schoolYear ?? "—" },
+    { key: "period", header: t("classes.period"), className: "small", render: (c) => formatDateRange(c.startDate, c.endDate) },
+    { key: "students", header: t("classes.students"), className: "text-center", render: (c) => c.studentCount },
+    { key: "exams", header: t("classes.exams"), className: "text-center", render: (c) => c.examCount },
     { key: "status", header: t("common.status"), render: (c) => <ActiveBadge active={c.isActive} /> },
   ];
 
@@ -306,6 +319,7 @@ export function ClassDetailPage() {
           >
             <i className="bi bi-box-arrow-up-right" style={{ fontSize: "0.75rem" }} />
           </Link>
+          {s.email && <div className="small text-secondary d-xxl-none">{s.email}</div>}
         </div>
       ),
     },
@@ -324,7 +338,8 @@ export function ClassDetailPage() {
         </button>
       ),
     },
-    { key: "email", header: t("auth.email"), render: (s) => s.email },
+    // Màn hẹp hơn 1400px: email hiện dưới tên đăng nhập thay cho cột riêng
+    { key: "email", header: t("auth.email"), className: "d-none d-xxl-table-cell", render: (s) => s.email },
     { key: "status", header: t("common.status"), render: (s) => <ActiveBadge active={s.isActive} /> },
     { key: "joinedAt", header: t("classes.joinedAt"), render: (s) => formatDateTime(s.joinedAt) },
     {
@@ -338,17 +353,19 @@ export function ClassDetailPage() {
             onClick={() => setInspectingStudent(s)}
             title="Xem bài tập đã làm và chưa làm"
           >
-            <i className="bi bi-journal-check me-1" aria-hidden="true" />
-            Bài tập
+            <i className="bi bi-journal-check" aria-hidden="true" />
+            <span className="d-none d-xxl-inline ms-1">Bài tập</span>
           </Button>
           {canManage && (
             <Button
               size="sm"
               variant="outline-danger"
               onClick={() => change.mutate(() => classesApi.removeStudent(id, s.userId))}
+              title={t("classes.removeStudent")}
+              aria-label={`${t("classes.removeStudent")}: ${s.fullName}`}
             >
-              <i className="bi bi-person-dash me-1" aria-hidden="true" />
-              {t("classes.removeStudent")}
+              <i className="bi bi-person-dash" aria-hidden="true" />
+              <span className="d-none d-xxl-inline ms-1">{t("classes.removeStudent")}</span>
             </Button>
           )}
         </div>
@@ -436,7 +453,7 @@ export function ClassDetailPage() {
               <Form.Control size="sm" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("classes.addStudentPlaceholder")} />
             </Form.Group>
             {candidates.data && (
-              <Table size="sm" className="mt-2 mb-0">
+              <Table size="sm" responsive className="mt-2 mb-0">
                 <tbody>
                   {candidates.data.items.length === 0 && (
                     <tr>

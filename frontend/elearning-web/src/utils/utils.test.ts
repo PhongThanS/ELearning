@@ -22,7 +22,7 @@ describe("answerNormalizer (khớp thuật toán server)", () => {
 
 describe("format", () => {
   it("hiển thị theo giờ Việt Nam dd/MM/yyyy HH:mm", () => {
-    expect(formatDateTime("2026-09-29T02:05:00.000Z")).toBe("29/09/2026 09:05");
+    expect(formatDateTime("2026-09-29T02:05:00.000Z")).toBe("29/09/2026\u00a009:05");
     expect(formatDateTime(null)).toBe("—");
   });
 

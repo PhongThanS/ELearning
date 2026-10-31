@@ -62,7 +62,7 @@ export function PoolRulesCard({
           Mỗi lượt thi có câu cố định bên dưới cộng thêm số câu bốc ngẫu nhiên theo từng quy tắc; hai học viên có thể nhận bộ câu khác nhau.
         </p>
         {rules.length > 0 && (
-          <Table size="sm" className="mb-2 align-middle">
+          <Table size="sm" responsive className="mb-2 align-middle">
             <thead>
               <tr>
                 <th>#</th>
