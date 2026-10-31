@@ -61,6 +61,9 @@ internal sealed class ExamService(
 {
     internal static readonly Error ExamNotFound = Error.NotFound(ErrorCodes.ExamNotFound, "Không tìm thấy đề thi.");
 
+    private static readonly Error CategoryNotFound =
+        Error.Validation("CATEGORY_NOT_FOUND", "Chuyên đề không tồn tại hoặc đã tắt.", "categoryId");
+
     private DateTime Now => time.GetUtcNow().UtcDateTime;
 
     public async Task<PagedResult<ExamListItemDto>> ListAsync(ExamListQuery query, CancellationToken ct)
@@ -75,6 +78,11 @@ internal sealed class ExamService(
         {
             var kw = Like.Contains(query.Keyword);
             exams = exams.Where(e => EF.Functions.ILike(e.Code, kw) || EF.Functions.ILike(e.Name, kw));
+        }
+
+        if (query.CategoryId is { } categoryId)
+        {
+            exams = exams.Where(e => e.CategoryId == categoryId);
         }
 
         exams = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch
@@ -104,7 +112,9 @@ internal sealed class ExamService(
                 e.Versions.Any(v => v.Status == ExamVersionStatus.Draft),
                 db.ExamAttempts.Count(a => a.ExamId == e.Id),
                 e.CreatedAt,
-                e.UpdatedAt))
+                e.UpdatedAt,
+                e.CategoryId,
+                db.QuestionCategories.Where(c => c.Id == e.CategoryId).Select(c => c.Name).FirstOrDefault()))
             .ToListAsync(ct);
 
         return new PagedResult<ExamListItemDto>(items, query.Page, query.PageSize, total);
@@ -128,6 +138,11 @@ internal sealed class ExamService(
         if (await db.Exams.AnyAsync(e => e.Code == code, ct))
         {
             return Error.Conflict(ErrorCodes.DuplicateCode, "Mã đề đã tồn tại.");
+        }
+
+        if (request.CategoryId is { } categoryId && !await db.QuestionCategories.AnyAsync(c => c.Id == categoryId && c.IsActive, ct))
+        {
+            return CategoryNotFound;
         }
 
         var settings = new VersionSettings(
@@ -178,6 +193,19 @@ internal sealed class ExamService(
             }
 
             exam.ChangeCode(code);
+        }
+
+        if (details.CategoryId != exam.CategoryId && details.CategoryId is { } newCategory)
+        {
+            if (!await db.QuestionCategories.AnyAsync(c => c.Id == newCategory && c.IsActive, ct))
+            {
+                return CategoryNotFound;
+            }
+
+            if (await CategoryMismatchAsync(exam, newCategory, ct) is { } mismatch)
+            {
+                return mismatch;
+            }
         }
 
         // Quy tắc chéo với version đang publish (docs/02-nghiep-vu.md mục 4.5)
@@ -265,7 +293,8 @@ internal sealed class ExamService(
             null,
             source.MaxAttempts,
             source.AccessMode,
-            source.RetakeScoringPolicy);
+            source.RetakeScoringPolicy,
+            source.CategoryId);
         var clone = Exam.Create(code, details, sourceVersion.Settings, currentUser.RequiredUserId, Now);
         clone.Versions.Single().CopyFrom(sourceVersion, Now);
         db.Exams.Add(clone);
@@ -487,7 +516,44 @@ internal sealed class ExamService(
         e.MaxAttempts,
         e.AccessMode,
         e.RetakeScoringPolicy,
+        e.CategoryId,
     };
+
+    /// <summary>
+    /// Đổi sang chuyên đề <paramref name="categoryId"/> chỉ được khi mọi câu trong các version còn dùng (nháp, đang publish)
+    /// thuộc chuyên đề đó và mọi quy tắc ngẫu nhiên lấy câu từ chính chuyên đề đó (D-30).
+    /// </summary>
+    private async Task<Error?> CategoryMismatchAsync(Exam exam, Guid categoryId, CancellationToken ct)
+    {
+        var versionIds = exam.Versions.Where(v => v.Status != ExamVersionStatus.Archived).Select(v => v.Id).ToList();
+        var outside = await db.ExamQuestions.AsNoTracking()
+            .Where(q => versionIds.Contains(q.ExamVersionId) && q.PoolRuleId == null && q.SourceQuestionId != null)
+            .Join(db.Questions, eq => eq.SourceQuestionId, q => q.Id, (eq, q) => q.CategoryId)
+            .CountAsync(c => c != categoryId, ct);
+        var rules = await db.ExamVersions.AsNoTracking()
+            .Where(v => versionIds.Contains(v.Id))
+            .SelectMany(v => v.PoolRules)
+            .CountAsync(r => r.CategoryId != categoryId, ct);
+        if (outside == 0 && rules == 0)
+        {
+            return null;
+        }
+
+        var parts = new List<string>();
+        if (outside > 0)
+        {
+            parts.Add($"{outside} câu hỏi");
+        }
+
+        if (rules > 0)
+        {
+            parts.Add($"{rules} quy tắc chọn ngẫu nhiên");
+        }
+
+        return Error.Business(
+            ErrorCodes.ExamCategoryMismatch,
+            $"Không đổi được chuyên đề: đề đang có {string.Join(" và ", parts)} không thuộc chuyên đề đã chọn. Gỡ chúng khỏi đề (hoặc để trống chuyên đề) rồi thử lại.");
+    }
 
     private async Task<AssignmentsDto> ToAssignmentsAsync(Exam exam, CancellationToken ct)
     {
@@ -544,6 +610,10 @@ internal sealed class ExamService(
             exam.UpdatedAt,
             exam.ClosedAt,
             exam.RowVersion.ToBase64(),
-            versions.FirstOrDefault(v => v.Status == ExamVersionStatus.Published)?.ReviewPolicy);
+            versions.FirstOrDefault(v => v.Status == ExamVersionStatus.Published)?.ReviewPolicy,
+            exam.CategoryId,
+            exam.CategoryId is { } categoryId
+                ? await db.QuestionCategories.AsNoTracking().Where(c => c.Id == categoryId).Select(c => c.Name).SingleOrDefaultAsync(ct)
+                : null);
     }
 }

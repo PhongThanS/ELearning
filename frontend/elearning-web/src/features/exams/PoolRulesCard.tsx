@@ -20,11 +20,14 @@ export function PoolRulesCard({
   version,
   canEdit,
   change,
+  lockedCategoryId = null,
 }: {
   examId: string;
   version: VersionDetail;
   canEdit: boolean;
   change: { mutate: (run: () => Promise<VersionDetail>) => void; isPending: boolean };
+  /** Chuyên đề của đề (D-30): quy tắc chỉ lấy câu của chuyên đề này. */
+  lockedCategoryId?: string | null;
 }) {
   const { t } = useTranslation();
   const categories = useActiveCategories();
@@ -114,7 +117,8 @@ export function PoolRulesCard({
                 <SearchableSelect
                   id="pool-category"
                   size="sm"
-                  value={rule.categoryId ?? ""}
+                  disabled={!!lockedCategoryId}
+                  value={lockedCategoryId ?? rule.categoryId ?? ""}
                   onChange={(val) => setRule({ ...rule, categoryId: val || null })}
                   options={categoryOptions}
                   placeholder="Mọi danh mục"

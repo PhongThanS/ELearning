@@ -25,13 +25,19 @@ interface RandomMatrixModalProps {
   onHide: () => void;
   examId: string;
   version: VersionDetail;
+  /** Chuyên đề của đề (D-30): ma trận chỉ lấy câu của chuyên đề này. */
+  lockedCategoryId?: string | null;
   onSuccess: (updatedVersion: VersionDetail) => void;
 }
 
-export function RandomMatrixModal({ show, onHide, examId, version, onSuccess }: RandomMatrixModalProps) {
+export function RandomMatrixModal({ show, onHide, examId, version, lockedCategoryId = null, onSuccess }: RandomMatrixModalProps) {
   const { t } = useTranslation();
   const toast = useToast();
   const categories = useActiveCategories();
+  const categoryItems = useMemo(
+    () => (categories.data?.items ?? []).filter((c) => !lockedCategoryId || c.id === lockedCategoryId),
+    [categories.data, lockedCategoryId],
+  );
 
   // Bộ lọc chung ngân hàng
   const [tag, setTag] = useState<string>("");
@@ -95,7 +101,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, onSuccess }: 
       return;
     }
 
-    const found = categories.data?.items.find((c) => c.id === catId);
+    const found = categoryItems.find((c) => c.id === catId);
     if (!found) return;
     if (topicRows.some((r) => r.categoryId === catId)) return;
 
@@ -115,12 +121,10 @@ export function RandomMatrixModal({ show, onHide, examId, version, onSuccess }: 
 
   // Nạp tất cả chuyên đề có câu hỏi khả dụng vào ma trận
   const handleLoadAllAvailableCategories = () => {
-    if (!categories.data?.items) return;
-
     const newRows: TopicRow[] = [];
     const addedIds = new Set<string>();
 
-    for (const cat of categories.data.items) {
+    for (const cat of categoryItems) {
       const cStat = categoryStatsMap.get(cat.id);
       if (cStat && cStat.total > 0) {
         newRows.push({
@@ -136,9 +140,9 @@ export function RandomMatrixModal({ show, onHide, examId, version, onSuccess }: 
       }
     }
 
-    // Nếu có câu chưa phân loại
+    // Nếu có câu chưa phân loại (đề không gắn chuyên đề)
     const uncatStat = categoryStatsMap.get("uncategorized");
-    if (uncatStat && uncatStat.total > 0) {
+    if (!lockedCategoryId && uncatStat && uncatStat.total > 0) {
       newRows.push({
         key: "uncategorized",
         categoryId: null,
@@ -297,9 +301,8 @@ export function RandomMatrixModal({ show, onHide, examId, version, onSuccess }: 
 
   // Danh sách các chuyên đề chưa được chọn vào bảng (dùng cho SearchableSelect)
   const unselectedOptions = useMemo(() => {
-    if (!categories.data?.items) return [];
     const selectedIds = new Set(topicRows.map((r) => r.categoryId));
-    const unselected = categories.data.items.filter((c) => !selectedIds.has(c.id));
+    const unselected = categoryItems.filter((c) => !selectedIds.has(c.id));
 
     const opts: SearchableOption[] = unselected.map((c) => {
       const cStat = categoryStatsMap.get(c.id);
@@ -311,7 +314,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, onSuccess }: 
       };
     });
 
-    if (!topicRows.some((r) => r.categoryId === null)) {
+    if (!lockedCategoryId && !topicRows.some((r) => r.categoryId === null)) {
       const uncatStat = categoryStatsMap.get("uncategorized");
       opts.push({
         value: "uncategorized",
@@ -322,7 +325,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, onSuccess }: 
     }
 
     return opts;
-  }, [categories.data, topicRows, categoryStatsMap]);
+  }, [categoryItems, lockedCategoryId, topicRows, categoryStatsMap]);
 
   return (
     <Modal show={show} onHide={onHide} size="xl" backdrop="static" centered>

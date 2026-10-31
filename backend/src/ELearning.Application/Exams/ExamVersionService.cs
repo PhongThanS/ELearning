@@ -203,6 +203,13 @@ internal sealed class ExamVersionService(
             return Error.Validation("QUESTION_INACTIVE", "Không thêm được câu hỏi đã bị tắt.", "questionIds");
         }
 
+        if (await ExamCategoryAsync(examId, ct) is { } examCategory && questions.Count(q => q.CategoryId != examCategory) is var outside and > 0)
+        {
+            return Error.Business(
+                ErrorCodes.QuestionCategoryMismatch,
+                $"Đề thuộc một chuyên đề: chỉ thêm được câu hỏi của chuyên đề đó ({outside} câu đã chọn thuộc chuyên đề khác).");
+        }
+
         // Giữ đúng thứ tự admin chọn
         var added = 0;
         foreach (var question in ids.Select(id => questions.First(q => q.Id == id)))
@@ -330,7 +337,14 @@ internal sealed class ExamVersionService(
             return Error.Validation("TAG_TOO_LONG", $"Tag tối đa {Question.MaxTagLength} ký tự.", "tag");
         }
 
-        var criteria = new PoolRuleCriteria(request.CategoryId, request.Difficulty, request.Tag, request.QuestionType);
+        // Đề có chuyên đề (D-30): quy tắc không chọn chuyên đề thì lấy chuyên đề của đề; chọn chuyên đề khác là lỗi
+        var examCategory = await ExamCategoryAsync(examId, ct);
+        if (examCategory is not null && request.CategoryId is not null && request.CategoryId != examCategory)
+        {
+            return Error.Business(ErrorCodes.QuestionCategoryMismatch, "Đề thuộc một chuyên đề: quy tắc chỉ được lấy câu của chuyên đề đó.");
+        }
+
+        var criteria = new PoolRuleCriteria(request.CategoryId ?? examCategory, request.Difficulty, request.Tag, request.QuestionType);
         var candidates = await LoadPoolCandidatesAsync(version, criteria, excludeRuleId: null, ct);
         if (candidates.IsFailure)
         {
@@ -471,6 +485,17 @@ internal sealed class ExamVersionService(
         var topics = request.Topics != null && request.Topics.Count > 0
             ? request.Topics.Where(t => t.EasyCount > 0 || t.MediumCount > 0 || t.HardCount > 0).ToList()
             : [new MatrixTopicItem(request.CategoryId, request.EasyCount, request.MediumCount, request.HardCount, request.ScorePerQuestion)];
+
+        // Đề có chuyên đề (D-30): mục ma trận không chọn chuyên đề thì lấy chuyên đề của đề; chuyên đề khác là lỗi
+        if (await ExamCategoryAsync(examId, ct) is { } examCategory)
+        {
+            if (topics.Exists(t => t.CategoryId is not null && t.CategoryId != examCategory))
+            {
+                return Error.Business(ErrorCodes.QuestionCategoryMismatch, "Đề thuộc một chuyên đề: ma trận chỉ được lấy câu của chuyên đề đó.");
+            }
+
+            topics = topics.Select(t => t with { CategoryId = examCategory }).ToList();
+        }
 
         var totalRequested = topics.Sum(t => t.EasyCount + t.MediumCount + t.HardCount);
         if (totalRequested <= 0)
@@ -869,6 +894,9 @@ internal sealed class ExamVersionService(
             options.Select(o => new PlayerOptionDto(o.OptionCode, o.Content)).ToList(),
             expectedLength);
     }
+
+    private Task<Guid?> ExamCategoryAsync(Guid examId, CancellationToken ct) =>
+        db.Exams.AsNoTracking().Where(e => e.Id == examId).Select(e => e.CategoryId).SingleOrDefaultAsync(ct);
 
     private Task<ExamVersion?> LoadVersionAsync(Guid examId, Guid versionId, bool tracking, CancellationToken ct)
     {

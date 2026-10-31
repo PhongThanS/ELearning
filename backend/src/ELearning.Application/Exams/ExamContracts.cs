@@ -11,6 +11,9 @@ public sealed record ExamListQuery : PageRequest
     public ExamStatus? Status { get; init; }
 
     public string? Keyword { get; init; }
+
+    /// <summary>Lọc theo chuyên đề của đề (D-30).</summary>
+    public Guid? CategoryId { get; init; }
 }
 
 public sealed record ExamListItemDto(
@@ -26,7 +29,9 @@ public sealed record ExamListItemDto(
     bool HasDraftVersion,
     int AttemptCount,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    Guid? CategoryId = null,
+    string? CategoryName = null);
 
 public sealed record VersionSummaryDto(
     Guid Id,
@@ -60,7 +65,9 @@ public sealed record ExamDetailDto(
     DateTime? UpdatedAt,
     DateTime? ClosedAt,
     string RowVersion,
-    ReviewPolicy? PublishedReviewPolicy = null);
+    ReviewPolicy? PublishedReviewPolicy = null,
+    Guid? CategoryId = null,
+    string? CategoryName = null);
 
 public sealed record VersionOptionDto(string OptionCode, string Content, bool IsCorrect, int DisplayOrder);
 
@@ -232,8 +239,11 @@ public record ExamDetailsInput
 
     public RetakeScoringPolicy RetakeScoringPolicy { get; init; } = RetakeScoringPolicy.Highest;
 
+    /// <summary>Chuyên đề của đề (D-30); null = không gắn chuyên đề.</summary>
+    public Guid? CategoryId { get; init; }
+
     internal ExamDetails ToDetails() =>
-        new(Name, Description, Instructions, ToUtc(StartAt), ToUtc(EndAt), MaxAttempts, AccessMode, RetakeScoringPolicy);
+        new(Name, Description, Instructions, ToUtc(StartAt), ToUtc(EndAt), MaxAttempts, AccessMode, RetakeScoringPolicy, CategoryId);
 
     private static DateTime? ToUtc(DateTime? value) => value?.Kind switch
     {

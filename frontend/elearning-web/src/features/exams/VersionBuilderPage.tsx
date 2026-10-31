@@ -57,6 +57,9 @@ export function VersionBuilderPage() {
     <>
       <Link to={`/admin/exams/${id}`} className="small">← {exam.data.name}</Link>
       <PageHeader title={`Phiên bản ${v.versionNumber} — ${exam.data.code}`}>
+        {exam.data.categoryName && (
+          <Badge bg="primary-subtle" text="primary" className="border border-primary-subtle me-1">📁 {exam.data.categoryName}</Badge>
+        )}
         <Badge bg={draft ? "secondary" : v.status === "PUBLISHED" ? "success" : "dark"}>{t(`enums.versionStatus.${v.status}`)}</Badge>{" "}
         <span className="small text-secondary">
           {v.questionCount} câu · {formatNumber(v.maxScore)} điểm · {v.durationMinutes} phút
@@ -94,6 +97,7 @@ export function VersionBuilderPage() {
             {canEdit && (
               <Col xl={5}>
                 <QuestionPicker
+                  lockedCategoryId={exam.data.categoryId ?? null}
                   existing={v.questions}
                   onAdd={(ids, score) => change.mutate(() => examsApi.addQuestions(id, versionId, ids, score))}
                   busy={change.isPending}
@@ -102,7 +106,7 @@ export function VersionBuilderPage() {
               </Col>
             )}
             <Col xl={canEdit ? 7 : 12}>
-              <PoolRulesCard examId={id} version={v} canEdit={canEdit} change={change} />
+              <PoolRulesCard examId={id} version={v} canEdit={canEdit} change={change} lockedCategoryId={exam.data.categoryId ?? null} />
               <SelectedQuestions examId={id} version={v} canEdit={canEdit} change={change} />
             </Col>
           </Row>
@@ -125,6 +129,7 @@ export function VersionBuilderPage() {
           onHide={() => setShowMatrixModal(false)}
           examId={id}
           version={v}
+          lockedCategoryId={exam.data.categoryId ?? null}
           onSuccess={setVersion}
         />
       )}
@@ -133,17 +138,20 @@ export function VersionBuilderPage() {
 }
 
 function QuestionPicker({
+  lockedCategoryId,
   existing,
   onAdd,
   busy,
   onOpenMatrix,
 }: {
+  /** Chuyên đề của đề (D-30): chỉ lấy câu của chuyên đề này. */
+  lockedCategoryId: string | null;
   existing: VersionQuestion[];
   onAdd: (ids: string[], score: number | null) => void;
   busy: boolean;
   onOpenMatrix?: () => void;
 }) {
-  const list = useListQuery({ isActive: "true", pageSize: 10 });
+  const list = useListQuery({ isActive: "true", pageSize: 10, ...(lockedCategoryId ? { categoryId: lockedCategoryId } : {}) });
   const categories = useActiveCategories();
   const query = useQuery({ queryKey: ["questions", "picker", list.params], queryFn: () => questionsApi.list(list.params) });
   const [selected, setSelected] = useState<string[]>([]);
@@ -192,6 +200,7 @@ function QuestionPicker({
             <div className="mb-2">
               <SearchableSelect
                 size="sm"
+                disabled={!!lockedCategoryId}
                 value={String(list.state.categoryId ?? "")}
                 onChange={(val) => list.setFilter({ categoryId: val })}
                 options={categoryOptions}

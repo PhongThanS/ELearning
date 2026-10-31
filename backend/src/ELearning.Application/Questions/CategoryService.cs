@@ -188,15 +188,20 @@ internal sealed class CategoryService(
             .Where(q => q.CategoryId == id)
             .ToListAsync(ct);
 
+        var examCount = await db.Exams.CountAsync(e => e.CategoryId == id, ct);
+        if ((questions.Count > 0 || examCount > 0) && !force)
+        {
+            var exams = examCount > 0 ? $" và {examCount} đề thi (đề sẽ chuyển thành không có chuyên đề)" : string.Empty;
+            return Error.Conflict(
+                "CATEGORY_HAS_QUESTIONS",
+                $"Chuyên đề '{category.Name}' đang có {questions.Count} câu hỏi trực thuộc{exams}. Vui lòng xác nhận xóa để xóa chuyên đề và các câu hỏi trực thuộc.");
+        }
+
+        // Đề thi giữ nguyên, chỉ bỏ chuyên đề (D-30)
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"Exams\" SET \"CategoryId\" = NULL WHERE \"CategoryId\" = {id}", ct);
+
         if (questions.Count > 0)
         {
-            if (!force)
-            {
-                return Error.Conflict(
-                    "CATEGORY_HAS_QUESTIONS",
-                    $"Chuyên đề '{category.Name}' đang có {questions.Count} câu hỏi trực thuộc. Vui lòng xác nhận xóa để xóa chuyên đề và các câu hỏi trực thuộc.");
-            }
-
             // Gỡ liên kết SourceQuestionId ở ExamQuestions (nếu có) để snapshot bài thi không bị vỡ và không vi phạm ràng buộc FK
             await db.Database.ExecuteSqlInterpolatedAsync(
                 $"UPDATE \"ExamQuestions\" SET \"SourceQuestionId\" = NULL WHERE \"SourceQuestionId\" IN (SELECT \"Id\" FROM \"Questions\" WHERE \"CategoryId\" = {id})",

@@ -526,6 +526,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .IsUnicode(false)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -586,6 +589,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("PK_Exams");
+
+                    b.HasIndex("CategoryId")
+                        .HasDatabaseName("IX_Exams_CategoryId");
 
                     b.HasIndex("Code")
                         .IsUnique()
@@ -2031,6 +2037,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("ELearning.Domain.Exams.Exam", b =>
                 {
+                    b.HasOne("ELearning.Domain.Questions.QuestionCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_Exams_Category");
+
                     b.HasOne("ELearning.Domain.Identity.User", null)
                         .WithMany()
                         .HasForeignKey("CreatedBy")

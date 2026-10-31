@@ -91,6 +91,8 @@ Lỗi nghiệp vụ (422):
 | `RESULT_NOT_AVAILABLE` | 422 | Chưa đến lúc được xem điểm / xem lại bài |
 | `USERNAME_TAKEN` / `EMAIL_TAKEN` | 409 | Tên đăng nhập / email đã được dùng |
 | `SYSTEM_ROLE_IMMUTABLE` | 409 | Sửa quyền của vai trò ADMIN hoặc vô hiệu hóa vai trò hệ thống |
+| `QUESTION_CATEGORY_MISMATCH` | 422 | Đề có chuyên đề: thêm câu / quy tắc ngẫu nhiên / ma trận của chuyên đề khác (D-30) |
+| `EXAM_CATEGORY_MISMATCH` | 422 | Đổi chuyên đề của đề khi đề còn câu / quy tắc thuộc chuyên đề khác (D-30) |
 | `INVALID_CURRENT_PASSWORD` | 422 | Mật khẩu hiện tại không đúng khi đổi mật khẩu |
 | `CANNOT_MODIFY_SELF` | 422 | Tự vô hiệu hóa / tự gỡ ADMIN / tự ẩn danh hóa |
 | `USER_ANONYMIZED` | 422 | Thao tác trên user đã bị ẩn danh hóa |
@@ -210,9 +212,9 @@ Ví dụ tạo câu hỏi:
 ### 6.4 Đề thi và version
 | Method | Route | Quyền |
 |---|---|---|
-| GET | `/api/exams` (lọc `status`, `keyword`) | `Exam.View` |
+| GET | `/api/exams` (lọc `status`, `keyword`, `categoryId`; mỗi dòng có `categoryId`, `categoryName`) | `Exam.View` |
 | GET | `/api/exams/{id}` (gồm version PUBLISHED / DRAFT hiện tại) | `Exam.View` |
-| POST | `/api/exams` (tạo đề DRAFT kèm version 1 DRAFT) | `Exam.Create` |
+| POST | `/api/exams` (tạo đề DRAFT kèm version 1 DRAFT; `categoryId?` = chuyên đề của đề, D-30, phải đang hoạt động) | `Exam.Create` |
 | PUT | `/api/exams/{id}` (các trường của `Exams`, kèm `rowVersion`) | `Exam.Update` |
 | DELETE | `/api/exams/{id}` (chỉ khi chưa từng publish) | `Exam.Delete` |
 | POST | `/api/exams/{id}/clone` (**clone thành một đề mới**, lấy version mới nhất) | `Exam.Create` |

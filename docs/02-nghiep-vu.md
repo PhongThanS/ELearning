@@ -194,6 +194,7 @@ Mỗi câu `FILL_IN` + `TEXT` có từ 1 đến 20 đáp án chấp nhận (bả
 | `MaxAttempts` | `ScoreVisibility`, `ReviewPolicy` |
 | `AccessMode`, danh sách gán đề | `ShuffleQuestions`, `ShuffleOptions` (mặc định `false`, xem mục 4.7) |
 | `RetakeScoringPolicy` (khóa khi đã có lượt thi) | Danh sách câu hỏi và điểm |
+| `CategoryId` — chuyên đề của đề (D-30, mục 4.4) | |
 
 ### 4.2 Trạng thái đề thi (D-04)
 
@@ -235,6 +236,15 @@ DRAFT ──publish──► PUBLISHED ──(publish version mới)──► AR
   - Không thêm trùng một câu hỏi nguồn (filtered unique index).
 - Nếu câu hỏi trong ngân hàng thay đổi sau khi được thêm (so sánh `RowVersion`): UI hiển thị cảnh báo "Câu hỏi gốc đã thay đổi". Admin có thể chạy "Đồng bộ từ ngân hàng" cho từng câu hoặc toàn bộ.
 - Khi publish, `ExamQuestions` bị khóa. **Publish không tự động đồng bộ**: admin publish đúng những gì đang thấy trong preview.
+- **Chuyên đề của đề (D-30):** đề có thể gắn một chuyên đề (chọn khi tạo / sửa đề, hoặc theo danh mục khi nhập đề từ file
+  Markdown) hoặc để trống.
+  - Đề có chuyên đề: câu thêm thủ công phải thuộc chuyên đề đó (câu không có chuyên đề cũng bị từ chối); quy tắc ngẫu nhiên
+    và ma trận không chọn chuyên đề thì tự lấy chuyên đề của đề, chọn chuyên đề khác thì bị từ chối
+    (`QUESTION_CATEGORY_MISMATCH`, 422). Giao diện khóa bộ lọc chuyên đề của ngân hàng theo đề.
+  - Đổi sang chuyên đề khác chỉ được khi mọi câu cố định (theo câu hỏi nguồn) và mọi quy tắc ngẫu nhiên trong các version
+    nháp / đang publish thuộc chuyên đề mới (`EXAM_CATEGORY_MISMATCH`, 422). Bỏ chuyên đề (để trống) luôn được.
+  - Kiểm tra theo chuyên đề hiện tại của câu hỏi nguồn trong ngân hàng; snapshot đã publish không đổi theo.
+  - Xóa chuyên đề (sau khi xác nhận): đề vẫn giữ, chỉ thành không có chuyên đề.
 
 ### 4.5 Kiểm tra khi publish
 

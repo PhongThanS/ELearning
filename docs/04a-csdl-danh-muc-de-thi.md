@@ -276,6 +276,7 @@ CREATE TABLE Exams (
     Name                NVARCHAR(300)  NOT NULL,
     Description         NVARCHAR(MAX)  NULL,
     Instructions        NVARCHAR(MAX)  NULL,          -- Markdown, hiển thị trước khi bắt đầu
+    CategoryId          UNIQUEIDENTIFIER NULL CONSTRAINT FK_Exams_Category REFERENCES QuestionCategories(Id), -- D-30, index IX_Exams_CategoryId
     Status              VARCHAR(30)    NOT NULL CONSTRAINT DF_Exams_Status DEFAULT 'DRAFT'
         CONSTRAINT CK_Exams_Status CHECK (Status IN ('DRAFT','PUBLISHED','CLOSED')),
     StartAt             DATETIME2(3)   NULL,

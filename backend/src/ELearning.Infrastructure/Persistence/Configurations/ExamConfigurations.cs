@@ -24,6 +24,9 @@ internal sealed class ExamConfiguration : IEntityTypeConfiguration<Exam>
         builder.HasUserReference(e => e.CreatedBy, "FK_Exams_CreatedBy");
         builder.HasUserReference(e => e.UpdatedBy, "FK_Exams_UpdatedBy");
 
+        builder.HasOne<QuestionCategory>().WithMany().HasForeignKey(e => e.CategoryId).HasConstraintName("FK_Exams_Category");
+        builder.HasIndex(e => e.CategoryId).HasDatabaseName("IX_Exams_CategoryId");
+
         builder.HasMany(e => e.Versions).WithOne().HasForeignKey(v => v.ExamId).HasConstraintName("FK_ExamVersions_Exam").OnDelete(DeleteBehavior.ClientCascade);
         builder.HasMany(e => e.Assignments).WithOne().HasForeignKey(a => a.ExamId)
             .HasConstraintName("FK_ExamAssignments_Exam").OnDelete(DeleteBehavior.ClientCascade);

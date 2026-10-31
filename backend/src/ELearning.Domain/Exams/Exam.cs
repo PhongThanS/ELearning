@@ -3,7 +3,7 @@ using ELearning.Domain.Enums;
 
 namespace ELearning.Domain.Exams;
 
-/// <summary>Thông tin đề sửa được (kể cả sau publish, có audit — D-03).</summary>
+/// <summary>Thông tin đề sửa được (kể cả sau publish, có audit — D-03). CategoryId: chuyên đề của đề (D-30), có thể trống.</summary>
 public sealed record ExamDetails(
     string Name,
     string? Description,
@@ -12,7 +12,8 @@ public sealed record ExamDetails(
     DateTime? EndAt,
     int MaxAttempts,
     AccessMode AccessMode,
-    RetakeScoringPolicy RetakeScoringPolicy);
+    RetakeScoringPolicy RetakeScoringPolicy,
+    Guid? CategoryId = null);
 
 /// <summary>
 /// Đề thi: metadata, lịch thi, số lượt, quyền dự thi (docs/02-nghiep-vu.md mục 4).
@@ -37,6 +38,12 @@ public sealed class Exam : Entity, IHasRowVersion
     public string? Description { get; private set; }
 
     public string? Instructions { get; private set; }
+
+    /// <summary>
+    /// Chuyên đề của đề (D-30). Có chuyên đề thì mọi câu hỏi trong đề (câu cố định, quy tắc ngẫu nhiên, ma trận) phải
+    /// thuộc chuyên đề này; trống thì không giới hạn. Ứng dụng kiểm tra khi thêm câu và khi đổi chuyên đề.
+    /// </summary>
+    public Guid? CategoryId { get; private set; }
 
     public ExamStatus Status { get; private set; }
 
@@ -181,6 +188,7 @@ public sealed class Exam : Entity, IHasRowVersion
         MaxAttempts = details.MaxAttempts;
         AccessMode = details.AccessMode;
         RetakeScoringPolicy = details.RetakeScoringPolicy;
+        CategoryId = details.CategoryId;
     }
 
     private void EnsureStatus(ExamStatus expected, string message)

@@ -59,6 +59,8 @@ public static class ErrorCodes
     public const string CannotModifySelf = "CANNOT_MODIFY_SELF";
     public const string UserAnonymized = "USER_ANONYMIZED";
     public const string SystemRoleImmutable = "SYSTEM_ROLE_IMMUTABLE";
+    public const string QuestionCategoryMismatch = "QUESTION_CATEGORY_MISMATCH";
+    public const string ExamCategoryMismatch = "EXAM_CATEGORY_MISMATCH";
 
     // 429 / 500
     public const string RateLimited = "RATE_LIMITED";

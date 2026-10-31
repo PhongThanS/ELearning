@@ -23,11 +23,13 @@ export function ExamsPage() {
   const { hasPermission } = useAuth();
   const list = useListQuery();
   const query = useQuery({ queryKey: ["exams", list.params], queryFn: () => examsApi.list(list.params) });
+  const categories = useActiveCategories();
   const [creating, setCreating] = useState(false);
 
   const columns: Column<ExamListItem>[] = [
     { key: "code", header: t("common.code"), sortKey: "code", render: (e) => <Link to={`/admin/exams/${e.id}`}><code>{e.code}</code></Link> },
     { key: "name", header: t("common.name"), sortKey: "name", render: (e) => e.name },
+    { key: "category", header: t("nav.categories"), render: (e) => e.categoryName ?? <span className="text-secondary">—</span> },
     { key: "status", header: t("common.status"), render: (e) => <Badge bg={examStatusVariant[e.status]}>{t(`enums.examStatus.${e.status}`)}</Badge> },
     { key: "window", header: "Khung giờ", sortKey: "startAt", render: (e) => (e.startAt || e.endAt ? `${formatDateTime(e.startAt)} – ${formatDateTime(e.endAt)}` : "Không giới hạn") },
     { key: "version", header: "Phiên bản", render: (e) => (e.publishedVersionNumber ? `v${e.publishedVersionNumber}` : "—") + (e.hasDraftVersion ? " + nháp" : "") },
@@ -41,6 +43,17 @@ export function ExamsPage() {
       <Row className="g-2 mb-3">
         <Col md={5}>
           <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc tên đề thi..." />
+        </Col>
+        <Col md={4}>
+          <SearchableSelect
+            size="sm"
+            value={String(list.state.categoryId ?? "")}
+            onChange={(val) => list.setFilter({ categoryId: val })}
+            options={(categories.data?.items ?? []).map((c) => ({ value: c.id, label: c.name, code: c.code }))}
+            placeholder="📁 Tất cả chuyên đề"
+            searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
+            clearable={true}
+          />
         </Col>
         <Col md={3}>
           <Form.Select size="sm" aria-label={t("common.status")} value={String(list.state.status ?? "")} onChange={(e) => list.setFilter({ status: e.target.value })}>
@@ -67,6 +80,8 @@ interface ExamForm {
   maxAttempts: number;
   accessMode: AccessMode;
   retakeScoringPolicy: RetakeScoringPolicy;
+  /** "" = không gắn chuyên đề. */
+  categoryId: string;
 }
 
 const toBody = (f: ExamForm): ExamDetailsBody => ({
@@ -79,10 +94,12 @@ const toBody = (f: ExamForm): ExamDetailsBody => ({
   maxAttempts: f.maxAttempts,
   accessMode: f.accessMode,
   retakeScoringPolicy: f.retakeScoringPolicy,
+  categoryId: f.categoryId || null,
 });
 
 function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: (p: Partial<ExamForm>) => void; errors: Record<string, string>; codeEditable: boolean }) {
   const { t } = useTranslation();
+  const categories = useActiveCategories();
   return (
     <Row className="g-2">
       <Col md={4}>
@@ -108,6 +125,22 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
             onChange={(e) => set({ name: e.target.value })}
           />
           <Form.Control.Feedback type="invalid">{errors.name}</Form.Control.Feedback>
+        </Form.Group>
+      </Col>
+      <Col md={12}>
+        <Form.Group controlId="exam-category">
+          <Form.Label>Chuyên đề của đề</Form.Label>
+          <SearchableSelect
+            id="exam-category"
+            value={form.categoryId}
+            onChange={(val) => set({ categoryId: val })}
+            options={(categories.data?.items ?? []).map((c) => ({ value: c.id, label: `${c.name} (${c.questionCount} câu)`, code: c.code }))}
+            placeholder="-- Không gắn chuyên đề (lấy câu từ mọi chuyên đề) --"
+            searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
+            clearable={true}
+          />
+          {errors.categoryId && <div className="invalid-feedback d-block">{errors.categoryId}</div>}
+          <Form.Text>Chọn chuyên đề thì mọi câu hỏi trong đề phải thuộc chuyên đề này. Có thể để trống.</Form.Text>
         </Form.Group>
       </Col>
       <Col md={12}>
@@ -269,6 +302,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
     maxAttempts: 1,
     accessMode: "ASSIGNED",
     retakeScoringPolicy: "HIGHEST",
+    categoryId: "",
   });
   const [settings, setSettings] = useState<VersionSettingsValue>({
     durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "NEVER", shuffleQuestions: false, shuffleOptions: false,
@@ -327,7 +361,19 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
 
           <Tabs activeKey={activeTab} onSelect={(k) => setActiveTab(k ?? "info")} className="mb-3">
             <Tab eventKey="info" title="1. Thông tin chung & Cấu hình">
-              <ExamFields form={form} set={(p) => setForm({ ...form, ...p })} errors={errors} codeEditable />
+              <ExamFields
+                form={form}
+                set={(p) => {
+                  // Đổi chuyên đề của đề: lọc ngân hàng theo chuyên đề mới và bỏ các câu đã chọn (có thể khác chuyên đề)
+                  if (p.categoryId !== undefined && p.categoryId !== form.categoryId) {
+                    qList.setFilter({ categoryId: p.categoryId });
+                    setSelectedQuestionIds([]);
+                  }
+                  setForm({ ...form, ...p });
+                }}
+                errors={errors}
+                codeEditable
+              />
               <hr />
               <VersionSettingsFields value={settings} onChange={setSettings} />
             </Tab>
@@ -352,6 +398,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                     <Form.Label className="small fw-bold mb-1">📁 Lọc theo Chuyên đề</Form.Label>
                     <SearchableSelect
                       size="sm"
+                      disabled={!!form.categoryId}
                       value={String(qList.state.categoryId ?? "")}
                       onChange={(val) => qList.setFilter({ categoryId: val })}
                       options={(categoriesQuery.data?.items ?? []).map((c) => ({
@@ -743,6 +790,7 @@ function ExamInfoForm({ exam, onSaved }: { exam: ExamDetail; onSaved: (exam: Exa
     maxAttempts: exam.maxAttempts,
     accessMode: exam.accessMode,
     retakeScoringPolicy: exam.retakeScoringPolicy,
+    categoryId: exam.categoryId ?? "",
   }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = useMutation({

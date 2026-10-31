@@ -195,6 +195,7 @@ export function MarkdownImportPage() {
             passPercentage: 50,
             scoreVisibility: "IMMEDIATE",
             reviewPolicy: "NEVER",
+            categoryId: imported.categoryId,
           });
           const ids = imported.questions.map((q) => q.questionId).filter((id): id is string => !!id);
           if (created.draftVersionId) {

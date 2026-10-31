@@ -187,6 +187,8 @@ export interface ExamDetailsBody {
   maxAttempts: number;
   accessMode: string;
   retakeScoringPolicy: string;
+  /** Chuyên đề của đề (D-30); null = không gắn. */
+  categoryId?: string | null;
 }
 
 export const examsApi = {

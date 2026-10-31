@@ -318,6 +318,9 @@ export interface ExamListItem {
   attemptCount: number;
   createdAt: string;
   updatedAt: string | null;
+  /** Chuyên đề của đề (D-30). */
+  categoryId?: string | null;
+  categoryName?: string | null;
 }
 
 export interface VersionSummary {
@@ -354,6 +357,9 @@ export interface ExamDetail {
   closedAt: string | null;
   rowVersion: string;
   publishedReviewPolicy?: ReviewPolicy | null;
+  /** Chuyên đề của đề (D-30): có thì mọi câu trong đề thuộc chuyên đề này. */
+  categoryId?: string | null;
+  categoryName?: string | null;
 }
 
 export interface VersionOption {
