@@ -1,5 +1,5 @@
 ﻿<#
-  Cập nhật EClass trên máy chủ Windows bằng một lệnh (deploy/server/README.md mục 5).
+  Cập nhật SClass trên máy chủ Windows bằng một lệnh (deploy/server/README.md mục 5).
   Đặt file này cạnh docker-compose.yml và .env (ví dụ C:\elearning), rồi chạy:
       powershell -ExecutionPolicy Bypass -File C:\elearning\update.ps1
   hoặc bấm đúp update.cmd.
@@ -55,7 +55,7 @@ function EnvValue([string]$name, [string]$default) {
     return $value
 }
 
-Write-Host "Cập nhật EClass — $Dir — $(Get-Date -Format 'dd/MM/yyyy HH:mm')" -ForegroundColor White
+Write-Host "Cập nhật SClass — $Dir — $(Get-Date -Format 'dd/MM/yyyy HH:mm')" -ForegroundColor White
 
 # ---------------------------------------------------------------- 0. Kiểm tra thư mục
 Step "Kiểm tra thư mục cài đặt"
