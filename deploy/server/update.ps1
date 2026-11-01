@@ -28,15 +28,46 @@ $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 New-Item -ItemType Directory -Force (Join-Path $Dir "logs") | Out-Null
 Start-Transcript -Path (Join-Path $Dir "logs\update-$stamp.log") | Out-Null
 
-function Step($text) { Write-Host ""; Write-Host "==> $text" -ForegroundColor Cyan }
-function Ok($text) { Write-Host "    [OK] $text" -ForegroundColor Green }
-function Warn($text) { Write-Host "    [!] $text" -ForegroundColor Yellow }
+# Font mặc định của cửa sổ cmd trên Windows Server / Windows 10 không có chữ tiếng Việt có dấu (hiện thành "?"):
+# mọi thông báo của script được in không dấu để đọc được trên mọi máy.
+function Plain([string]$text) {
+    $decomposed = $text.Replace("đ", "d").Replace("Đ", "D").Normalize([Text.NormalizationForm]::FormD)
+    $sb = New-Object Text.StringBuilder
+    foreach ($ch in $decomposed.ToCharArray()) {
+        if ([Globalization.CharUnicodeInfo]::GetUnicodeCategory($ch) -ne [Globalization.UnicodeCategory]::NonSpacingMark) { [void]$sb.Append($ch) }
+    }
+    return $sb.ToString().Replace("—", "-").Replace("…", "...")
+}
+function Say([string]$text, [string]$color = "Gray") { Write-Host (Plain $text) -ForegroundColor $color }
+function Step($text) { Write-Host ""; Say "==> $text" Cyan }
+function Ok($text) { Say "    [OK] $text" Green }
+function Warn($text) { Say "    [!] $text" Yellow }
 function Fail($text) {
     Write-Host ""
-    Write-Host "[LỖI] $text" -ForegroundColor Red
-    Write-Host "Nhật ký: $Dir\logs\update-$stamp.log"
+    Say "[LỖI] $text" Red
+    Say "Nhật ký: $Dir\logs\update-$stamp.log"
     Stop-Transcript | Out-Null
     exit 1
+}
+
+# "docker info" có thể treo khi Docker Desktop đang khởi động dở: chạy có giới hạn thời gian
+function DockerReady([int]$timeoutSeconds = 15) {
+    # Dùng System.Diagnostics.Process: Start-Process -PassThru của PowerShell 5.1 trả ExitCode rỗng
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo "docker", "info --format {{.ServerVersion}}"
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        if (-not $proc.WaitForExit($timeoutSeconds * 1000)) {
+            try { $proc.Kill() } catch { }
+            return $false
+        }
+        return $proc.ExitCode -eq 0
+    } catch {
+        return $false
+    }
 }
 
 # Gọi lệnh ngoài (docker…), dừng nếu mã thoát khác 0
@@ -55,7 +86,7 @@ function EnvValue([string]$name, [string]$default) {
     return $value
 }
 
-Write-Host "Cập nhật SClass — $Dir — $(Get-Date -Format 'dd/MM/yyyy HH:mm')" -ForegroundColor White
+Say "Cập nhật SClass — $Dir — $(Get-Date -Format 'dd/MM/yyyy HH:mm')" White
 
 # ---------------------------------------------------------------- 0. Kiểm tra thư mục
 Step "Kiểm tra thư mục cài đặt"
@@ -65,19 +96,25 @@ Ok "Có .env và docker-compose.yml"
 
 # ---------------------------------------------------------------- 1. Docker
 Step "Kiểm tra Docker"
-docker info --format "{{.ServerVersion}}" 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
-    $desktop = Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"
-    if (-not (Test-Path $desktop)) { Fail "Docker chưa chạy và không tìm thấy Docker Desktop." }
-    Warn "Docker đang tắt, đang bật Docker Desktop (tối đa 3 phút)…"
-    Start-Process $desktop
-    $ready = $false
-    for ($i = 0; $i -lt 60; $i++) {
-        Start-Sleep -Seconds 3
-        docker info --format "{{.ServerVersion}}" 2>$null | Out-Null
-        if ($LASTEXITCODE -eq 0) { $ready = $true; break }
+if (-not (DockerReady)) {
+    if (-not (Get-Process "Docker Desktop" -ErrorAction SilentlyContinue)) {
+        $desktop = Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"
+        if (-not (Test-Path $desktop)) { Fail "Docker chưa chạy và không tìm thấy Docker Desktop." }
+        Warn "Docker đang tắt, đang bật Docker Desktop…"
+        Start-Process $desktop
+    } else {
+        Warn "Docker Desktop đang khởi động…"
     }
-    if (-not $ready) { Fail "Docker Desktop không khởi động được. Mở Docker Desktop bằng tay rồi chạy lại." }
+    Write-Host -NoNewline (Plain "    Đang chờ Docker (tối đa 5 phút) ")
+    $ready = $false
+    $deadline = (Get-Date).AddMinutes(5)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 5
+        Write-Host -NoNewline "."
+        if (DockerReady) { $ready = $true; break }
+    }
+    Write-Host ""
+    if (-not $ready) { Fail "Docker chưa sẵn sàng sau 5 phút. Mở Docker Desktop, chờ biểu tượng cá voi chuyển xanh rồi chạy lại." }
 }
 Ok "Docker đang chạy"
 
@@ -212,6 +249,6 @@ try {
 }
 
 Write-Host ""
-Write-Host "HOÀN TẤT. Web: $(EnvValue 'PUBLIC_ORIGIN' $local)" -ForegroundColor Green
-Write-Host "Người dùng đang mở web: nhấn Ctrl+F5 nếu giao diện chưa đổi."
+Say "HOÀN TẤT. Web: $(EnvValue 'PUBLIC_ORIGIN' $local)" Green
+Say "Người dùng đang mở web: nhấn Ctrl+F5 nếu giao diện chưa đổi."
 Stop-Transcript | Out-Null
