@@ -84,11 +84,14 @@ Invoke-WebRequest https://raw.githubusercontent.com/PhongThanS/ELearning/main/de
 ```
 
 Từ đó mỗi lần cập nhật chỉ cần **bấm đúp `update.cmd`** (hoặc `powershell -ExecutionPolicy Bypass -File C:\elearning\update.ps1`).
-Script tự: bật Docker Desktop nếu đang tắt → sao lưu database vào `BACKUP_DIR` (`before-update-*.dump`, giữ 10 bản) →
+Không cần mã nguồn hay đẩy gì từ máy khác: code chỉ cần nằm trên nhánh `main` (GitHub Actions tự build image).
+Script tự: bật Docker Desktop nếu đang tắt → hỏi GitHub commit mới nhất của `main` và **chờ build xong** (tối đa 30 phút;
+commit chỉ sửa tài liệu thì không cần build) → sao lưu database vào `BACKUP_DIR` (`before-update-*.dump`, giữ 10 bản) →
 tải `docker-compose.yml` mới nhất (bản cũ giữ ở `docker-compose.yml.bak-*`, không hợp lệ thì giữ nguyên bản cũ) →
 `docker compose pull` + `up -d` → chờ `migrate` / `seed` xong → kiểm tra `/health/ready`, trang web, tunnel → dọn image cũ
 → tự cập nhật `update.ps1`. Bước nào lỗi thì dừng và in lệnh xem log; nhật ký mỗi lần chạy ở `logs\update-*.log`.
-Không đụng tới `.env`. Tham số: `-SkipBackup`, `-KeepCompose`.
+Cuối cùng in phiên bản đang chạy và xác nhận đúng commit mới nhất. Không đụng tới `.env`. Tham số: `-SkipBackup`,
+`-KeepCompose`, `-NoWait` (không chờ GitHub build, lấy ngay bản đã build gần nhất).
 
 Khôi phục từ bản sao lưu (ví dụ): `docker compose exec -T postgres pg_restore -U postgres -d elearning_db --clean /backups/before-update-<thời gian>.dump`.
 

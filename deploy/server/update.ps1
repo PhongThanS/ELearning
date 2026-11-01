@@ -4,23 +4,30 @@
       powershell -ExecutionPolicy Bypass -File C:\elearning\update.ps1
   hoặc bấm đúp update.cmd.
 
-  Các bước: bật Docker nếu đang tắt -> sao lưu database -> tải docker-compose.yml mới nhất -> kéo image mới ->
-  khởi động lại (database tự cập nhật qua "migrate") -> kiểm tra web / API -> dọn image cũ -> tự cập nhật script.
+  Các bước: bật Docker nếu đang tắt -> hỏi GitHub commit mới nhất của nhánh main và chờ GitHub Actions build xong
+  -> sao lưu database -> tải docker-compose.yml mới nhất -> kéo image mới -> khởi động lại (database tự cập nhật qua
+  "migrate") -> kiểm tra web / API và đúng phiên bản -> dọn image cũ -> tự cập nhật script.
+  Code mới chỉ cần được đẩy lên nhánh main (từ bất kỳ máy nào); máy chủ không cần mã nguồn.
   Không đụng tới .env (mật khẩu, token) và dữ liệu. Có bước nào lỗi thì dừng và báo, không làm tiếp.
 
   Tham số:
     -SkipBackup   bỏ qua sao lưu database (không khuyến nghị)
     -KeepCompose  giữ nguyên docker-compose.yml đang có, không tải bản mới
+    -NoWait       không chờ GitHub build xong bản mới nhất, lấy ngay bản đã build gần nhất
 #>
 param(
     [switch]$SkipBackup,
-    [switch]$KeepCompose
+    [switch]$KeepCompose,
+    [switch]$NoWait
 )
 
 # Không dùng "Stop": PowerShell 5.1 coi mọi dòng docker ghi ra stderr (tiến trình pull…) là lỗi.
 # Lỗi được kiểm tra tường minh qua $LASTEXITCODE (lệnh docker) và try/catch (-ErrorAction Stop).
 $ErrorActionPreference = "Continue"
 $Repo = "https://raw.githubusercontent.com/PhongThanS/ELearning/main/deploy/server"
+$Api = "https://api.github.com/repos/PhongThanS/ELearning"
+# Windows PowerShell 5.1 có thể mặc định TLS cũ; GitHub yêu cầu TLS 1.2
+[Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 $Dir = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $Dir
 
@@ -117,6 +124,45 @@ if (-not (DockerReady)) {
     if (-not $ready) { Fail "Docker chưa sẵn sàng sau 5 phút. Mở Docker Desktop, chờ biểu tượng cá voi chuyển xanh rồi chạy lại." }
 }
 Ok "Docker đang chạy"
+
+# ---------------------------------------------------------------- 1b. Bản mới nhất trên nhánh main
+# Mỗi lần code được đẩy lên main, GitHub Actions (workflow "release") build image :latest. Commit chỉ sửa tài liệu
+# không build lại, khi đó bản build gần nhất vẫn là bản mới nhất. API GitHub không cần đăng nhập (60 lần gọi / giờ).
+Step "Kiểm tra bản mới nhất trên GitHub (nhánh main)"
+$expected = $null
+try {
+    $head = Invoke-RestMethod "$Api/commits/main" -TimeoutSec 20 -ErrorAction Stop
+    Ok ("Commit mới nhất: {0} — {1}" -f $head.sha.Substring(0, 7), ($head.commit.message -split "`n")[0])
+    $deadline = (Get-Date).AddMinutes(30)
+    $printed = $false
+    while ($true) {
+        $runs = (Invoke-RestMethod "$Api/actions/workflows/release.yml/runs?branch=main&per_page=10" -TimeoutSec 20 -ErrorAction Stop).workflow_runs
+        $pending = @($runs | Where-Object { $_.status -ne "completed" })
+        if ($pending.Count -eq 0 -or $NoWait -or (Get-Date) -gt $deadline) { break }
+        if (-not $printed) {
+            Write-Host -NoNewline (Plain "    GitHub đang build bản $($pending[0].head_sha.Substring(0, 7)), đang chờ (tối đa 30 phút) ")
+            $printed = $true
+        }
+        Write-Host -NoNewline "."
+        Start-Sleep -Seconds 45
+    }
+    if ($printed) { Write-Host "" }
+    if (@($runs | Where-Object { $_.status -ne "completed" }).Count -gt 0) {
+        Warn "GitHub vẫn đang build — triển khai bản đã build gần nhất (chạy lại sau ít phút để lấy bản mới hơn)"
+    }
+    $headRun = $runs | Where-Object { $_.head_sha -eq $head.sha } | Select-Object -First 1
+    if ($headRun -and $headRun.status -eq "completed" -and $headRun.conclusion -ne "success") {
+        Warn "Bản mới nhất build LỖI trên GitHub — triển khai bản build thành công gần nhất. Xem tab Actions trên GitHub."
+    }
+    $lastOk = $runs | Where-Object { $_.status -eq "completed" -and $_.conclusion -eq "success" } | Select-Object -First 1
+    if ($lastOk) {
+        $expected = $lastOk.head_sha
+        if (-not $headRun) { Ok "Commit mới nhất không đổi code chạy trên máy chủ (chỉ tài liệu…) — dùng bản build gần nhất" }
+        Ok ("Sẽ triển khai bản {0}" -f $expected.Substring(0, 7))
+    }
+} catch {
+    Warn "Không hỏi được GitHub ($($_.Exception.Message)) — vẫn lấy image mới nhất đã build"
+}
 
 # ---------------------------------------------------------------- 2. Sao lưu database
 $dbUser = EnvValue "POSTGRES_USER" "postgres"
@@ -227,7 +273,12 @@ if ((EnvValue "COMPOSE_PROFILES" "") -match "tunnel") {
 $labels = docker image inspect "$(EnvValue 'IMAGE_REGISTRY' 'ghcr.io/phongthans')/elearning-api:$(EnvValue 'IMAGE_TAG' 'latest')" --format "{{json .Config.Labels}}" 2>$null
 if ($LASTEXITCODE -eq 0 -and $labels) {
     $revision = ($labels | ConvertFrom-Json)."org.opencontainers.image.revision"
-    if ($revision) { Ok ("Phiên bản: {0}" -f $revision.Substring(0, [Math]::Min(7, $revision.Length))) }
+    if ($revision) {
+        $short = $revision.Substring(0, [Math]::Min(7, $revision.Length))
+        if (-not $expected) { Ok "Phiên bản: $short" }
+        elseif ($revision -eq $expected) { Ok "Phiên bản: $short — đúng bản mới nhất trên main" }
+        else { Warn ("Phiên bản đang chạy {0} khác bản mong đợi {1} — chạy lại script sau ít phút" -f $short, $expected.Substring(0, 7)) }
+    }
 }
 
 # ---------------------------------------------------------------- 6. Dọn dẹp + tự cập nhật script
