@@ -75,6 +75,25 @@ docker compose -f docker-compose.yml -f docker-compose.https.yml up -d
 
 ## 5. Cập nhật bản mới
 
+**Windows — một lệnh (khuyến nghị):** đặt `update.ps1` và `update.cmd` cạnh `.env` (lần đầu tải về):
+
+```powershell
+cd C:\elearning
+Invoke-WebRequest https://raw.githubusercontent.com/PhongThanS/ELearning/main/deploy/server/update.ps1 -OutFile update.ps1
+Invoke-WebRequest https://raw.githubusercontent.com/PhongThanS/ELearning/main/deploy/server/update.cmd -OutFile update.cmd
+```
+
+Từ đó mỗi lần cập nhật chỉ cần **bấm đúp `update.cmd`** (hoặc `powershell -ExecutionPolicy Bypass -File C:\elearning\update.ps1`).
+Script tự: bật Docker Desktop nếu đang tắt → sao lưu database vào `BACKUP_DIR` (`before-update-*.dump`, giữ 10 bản) →
+tải `docker-compose.yml` mới nhất (bản cũ giữ ở `docker-compose.yml.bak-*`, không hợp lệ thì giữ nguyên bản cũ) →
+`docker compose pull` + `up -d` → chờ `migrate` / `seed` xong → kiểm tra `/health/ready`, trang web, tunnel → dọn image cũ
+→ tự cập nhật `update.ps1`. Bước nào lỗi thì dừng và in lệnh xem log; nhật ký mỗi lần chạy ở `logs\update-*.log`.
+Không đụng tới `.env`. Tham số: `-SkipBackup`, `-KeepCompose`.
+
+Khôi phục từ bản sao lưu (ví dụ): `docker compose exec -T postgres pg_restore -U postgres -d elearning_db --clean /backups/before-update-<thời gian>.dump`.
+
+**Thủ công (mọi hệ điều hành):**
+
 ```bash
 docker compose pull
 docker compose up -d
