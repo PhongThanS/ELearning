@@ -249,7 +249,6 @@ CREATE TABLE VideoLessons (
     ThumbnailUrl    NVARCHAR(1000) NULL,
     Description     NVARCHAR(4000) NULL,
     CategoryId      UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_Category REFERENCES QuestionCategories(Id),
-    ClassroomId     UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_Classroom REFERENCES Classrooms(Id), -- NULL = bài chung
     DurationMinutes INT            NULL,
     DisplayOrder    INT            NOT NULL,
     IsActive        BIT            NOT NULL,
@@ -260,12 +259,23 @@ CREATE TABLE VideoLessons (
     RowVersion      ROWVERSION     NOT NULL
 );
 CREATE INDEX IX_VideoLessons_CategoryId ON VideoLessons(CategoryId);
-CREATE INDEX IX_VideoLessons_ClassroomId ON VideoLessons(ClassroomId);
+
+-- Lớp được xem bài giảng (nhiều-nhiều). Video không có dòng nào = bài chung (mọi học viên xem được).
+CREATE TABLE VideoLessonClassrooms (
+    VideoLessonId UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_VideoLessonClassrooms_VideoLesson REFERENCES VideoLessons(Id),
+    ClassroomId   UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_VideoLessonClassrooms_Classroom REFERENCES Classrooms(Id),
+    CONSTRAINT PK_VideoLessonClassrooms PRIMARY KEY (VideoLessonId, ClassroomId)
+);
+CREATE INDEX IX_VideoLessonClassrooms_Classroom ON VideoLessonClassrooms(ClassroomId);
 ```
 
 - Bài có cả `VideoUrl` và `DocumentUrl` hiển thị video và tài liệu song song, thanh chia giữa kéo được (`06-frontend.md`).
   `DocumentUrl` chỉ nhận link Google Drive / Docs vì CSP `frame-src` chỉ cho nhúng các trang đó (migration
   `AddDocumentUrlToVideoLessons`).
+- Một bài giảng gắn được **nhiều lớp** (migration `VideoLessonMultipleClassrooms`: chép `VideoLessons.ClassroomId` cũ sang
+  `VideoLessonClassrooms` rồi mới bỏ cột). Học viên xem được bài chung và bài gắn với **bất kỳ** lớp nào mình thuộc về.
+  Tối đa 200 lớp mỗi bài. Xóa bài giảng xóa kèm các dòng lớp; **xóa lớp** còn được gán cho bài giảng → 409
+  `CLASSROOM_IN_USE` (bỏ ngầm lớp có thể biến bài thành bài chung).
 
 ## 4. Đề thi và version
 

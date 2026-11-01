@@ -1824,9 +1824,6 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid?>("ClassroomId")
-                        .HasColumnType("uuid");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1886,14 +1883,28 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.HasIndex("CategoryId")
                         .HasDatabaseName("IX_VideoLessons_CategoryId");
 
-                    b.HasIndex("ClassroomId")
-                        .HasDatabaseName("IX_VideoLessons_ClassroomId");
-
                     b.HasIndex("CreatedBy");
 
                     b.HasIndex("UpdatedBy");
 
                     b.ToTable("VideoLessons", (string)null);
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Videos.VideoLessonClassroom", b =>
+                {
+                    b.Property<Guid>("VideoLessonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClassroomId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("VideoLessonId", "ClassroomId")
+                        .HasName("PK_VideoLessonClassrooms");
+
+                    b.HasIndex("ClassroomId")
+                        .HasDatabaseName("IX_VideoLessonClassrooms_Classroom");
+
+                    b.ToTable("VideoLessonClassrooms", (string)null);
                 });
 
             modelBuilder.Entity("ELearning.Domain.Attempts.AttemptAnswer", b =>
@@ -2406,12 +2417,6 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_VideoLessons_Category");
 
-                    b.HasOne("ELearning.Domain.Classes.Classroom", "Classroom")
-                        .WithMany()
-                        .HasForeignKey("ClassroomId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("FK_VideoLessons_Classroom");
-
                     b.HasOne("ELearning.Domain.Identity.User", null)
                         .WithMany()
                         .HasForeignKey("CreatedBy")
@@ -2426,8 +2431,23 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasConstraintName("FK_VideoLessons_UpdatedBy");
 
                     b.Navigation("Category");
+                });
 
-                    b.Navigation("Classroom");
+            modelBuilder.Entity("ELearning.Domain.Videos.VideoLessonClassroom", b =>
+                {
+                    b.HasOne("ELearning.Domain.Classes.Classroom", null)
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_VideoLessonClassrooms_Classroom");
+
+                    b.HasOne("ELearning.Domain.Videos.VideoLesson", null)
+                        .WithMany("Classrooms")
+                        .HasForeignKey("VideoLessonId")
+                        .OnDelete(DeleteBehavior.ClientCascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_VideoLessonClassrooms_VideoLesson");
                 });
 
             modelBuilder.Entity("ELearning.Domain.Attempts.AttemptAnswer", b =>
@@ -2499,6 +2519,11 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Results.ExamResult", b =>
                 {
                     b.Navigation("History");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Videos.VideoLesson", b =>
+                {
+                    b.Navigation("Classrooms");
                 });
 #pragma warning restore 612, 618
         }

@@ -26,8 +26,10 @@ Quản trị  (/admin/*)
 /admin                        → chuyển hướng tới /admin/dashboard
 /admin/dashboard
 /admin/users   /admin/users/:id
-/admin/groups  /admin/groups/:id
-/admin/classes /admin/classes/:id            lớp học, thêm / rút học viên (D-28)
+/admin/groups  /admin/groups/:id              menu "Nhóm người dùng" (UserGroups)
+/admin/classes /admin/classes/:id            menu "Danh sách lớp học" (Classrooms): lớp học, thêm / rút học viên (D-28);
+                                              flyout ở menu liệt kê toàn bộ lớp, ô tìm theo mã hoặc tên
+/admin/videos/:id/watch                       xem bài giảng toàn màn hình (tab mới)
 /admin/roles
 /admin/categories
 /admin/questions   /admin/questions/create   /admin/questions/:id/edit
@@ -92,6 +94,10 @@ ExamBuilder
 └── Bước 6  PublishDialog      gọi /validate, hiển thị toàn bộ lỗi kèm liên kết tới bước tương ứng, xác nhận publish
 ```
 - Khi đề đã publish, builder mở version DRAFT (nếu có) hoặc có nút "Tạo phiên bản mới".
+- Bảng "Phiên bản" ở trang chi tiết đề có thao tác theo dòng (hiện theo quyền): version DRAFT → "Xuất bản" (`Exam.Publish`;
+  hộp thoại gọi `validate` trước, chỉ cho xác nhận khi hợp lệ, báo version PUBLISHED hiện tại sẽ chuyển ARCHIVED);
+  version PUBLISHED → "Đóng" khi đề `PUBLISHED`, "Mở lại" khi đề `CLOSED` (`Exam.Close`; đóng / mở là trạng thái của đề).
+  Version ARCHIVED không có thao tác. Publish khi đề đang `CLOSED` không tự mở lại đề.
 - Version PUBLISHED / ARCHIVED chỉ ở chế độ đọc, trừ thao tác "Sửa đáp án / Hủy câu" (cần permission `Exam.Regrade`, có hộp thoại nhập lý do, hiển thị số lượt bị ảnh hưởng trước khi xác nhận).
 
 ### 3.4 Kết quả và lượt thi
@@ -104,12 +110,24 @@ ExamBuilder
 ### 3.5 Kho video bài giảng
 
 - Form bài giảng: dán link YouTube thì tự lấy tiêu đề video (`/api/videos/youtube-info`) điền vào ô tiêu đề khi ô trống hoặc
-  đang là tiêu đề tự điền trước đó; người dùng đã tự gõ tiêu đề thì chỉ hiện nút "Dùng tiêu đề này". Ảnh bìa lấy từ mã video.
+  đang là tiêu đề tự điền trước đó; người dùng đã tự gõ tiêu đề thì chỉ hiện nút "Dùng tiêu đề này". Ô "Mô tả / Ghi chú" cũng
+  được điền tiêu đề video theo cùng quy tắc (trống hoặc đang là giá trị tự điền). Ảnh bìa lấy từ mã video.
+- Ô "Lớp học được xem" và bộ lọc lớp lấy **toàn bộ** lớp học (`classesApi.listAll`, gọi lần lượt từng trang 100 lớp;
+  hook `useAllClassrooms`), tìm theo mã hoặc tên. Video gắn với Lớp học (`Classrooms`), không phải Nhóm người dùng.
+  Form chọn được **nhiều lớp** (`components/common/MultiSearchableSelect.tsx`: lớp đã chọn là thẻ, bấm × để bỏ);
+  không chọn lớp nào = bài chung. Thẻ / trang xem hiện nhãn từng lớp (`LessonClassBadges`, quá 3 lớp gộp "+N lớp").
+- Form bài giảng không có ô thời lượng và thứ tự sắp xếp: tạo mới gửi mặc định (`durationMinutes` null, `displayOrder` 0),
+  sửa thì gửi lại giá trị đang lưu của bài giảng.
 - Thẻ bài giảng: ảnh bìa YouTube / trang đầu tệp Drive; bài có tài liệu đi kèm gắn nhãn "Kèm tài liệu PDF".
-- Xem bài có cả video và tài liệu (`documentUrl`): cửa sổ toàn màn hình, video bên trái, tài liệu Drive bên phải;
+- Bấm xem bài giảng mở **tab mới** tới trang xem toàn màn hình (`features/videos/VideoWatchPage.tsx`, không có menu):
+  admin `/admin/videos/:id/watch` (quyền `Video.View`, `GET /api/videos/{id}`), học viên `/student/videos/:id/watch`
+  (`GET /api/student/videos/{id}`). Tab mới tự lấy phiên đăng nhập qua refresh cookie.
+- Xem bài có cả video và tài liệu (`documentUrl`): video bên trái, tài liệu Drive bên phải;
   thanh giữa (`features/videos/SplitView.tsx`, `role="separator"`) kéo bằng chuột / cảm ứng, phím mũi tên ±5%,
-  Home / End, nhấp đúp để chia đều; mỗi bên tối thiểu 15%. Màn hẹp hơn 768px xếp trên / dưới. Khi kéo, hai khung
-  không nhận chuột (`pointer-events: none`) để iframe YouTube / Drive không giữ mất sự kiện.
+  Home / End, nhấp đúp để chia đều; tỉ lệ 15–85% nhưng mỗi khung không nhỏ hơn 240px (xếp dọc: 160px) để không bị che mất.
+  Video YouTube / file trực tiếp luôn giữ tỉ lệ 16:9 và co vừa khung (`.lesson-media-fit`, container query), không bị cắt.
+  Màn hẹp hơn 768px xếp trên / dưới. Khi kéo, hai khung không nhận chuột (`pointer-events: none`) để iframe YouTube / Drive
+  không giữ mất sự kiện.
 - Bài chỉ có tài liệu Drive (link ở `videoUrl`): xem toàn màn hình như trang xem của Drive.
 
 ## 4. Exam player (học viên)

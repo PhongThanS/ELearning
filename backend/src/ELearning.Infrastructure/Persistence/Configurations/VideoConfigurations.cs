@@ -23,15 +23,27 @@ internal sealed class VideoLessonConfiguration : IEntityTypeConfiguration<VideoL
             .HasForeignKey(v => v.CategoryId)
             .HasConstraintName("FK_VideoLessons_Category");
 
-        builder.HasOne(v => v.Classroom)
-            .WithMany()
-            .HasForeignKey(v => v.ClassroomId)
-            .HasConstraintName("FK_VideoLessons_Classroom");
+        builder.HasMany(v => v.Classrooms)
+            .WithOne()
+            .HasForeignKey(c => c.VideoLessonId)
+            .HasConstraintName("FK_VideoLessonClassrooms_VideoLesson")
+            .OnDelete(DeleteBehavior.ClientCascade);
 
         builder.HasUserReference(v => v.CreatedBy, "FK_VideoLessons_CreatedBy");
         builder.HasUserReference(v => v.UpdatedBy, "FK_VideoLessons_UpdatedBy");
 
         builder.HasIndex(v => v.CategoryId).HasDatabaseName("IX_VideoLessons_CategoryId");
-        builder.HasIndex(v => v.ClassroomId).HasDatabaseName("IX_VideoLessons_ClassroomId");
+    }
+}
+
+internal sealed class VideoLessonClassroomConfiguration : IEntityTypeConfiguration<VideoLessonClassroom>
+{
+    public void Configure(EntityTypeBuilder<VideoLessonClassroom> builder)
+    {
+        builder.ToTable("VideoLessonClassrooms");
+        builder.HasKey(c => new { c.VideoLessonId, c.ClassroomId }).HasName("PK_VideoLessonClassrooms");
+        builder.HasOne<Classroom>().WithMany().HasForeignKey(c => c.ClassroomId).HasConstraintName("FK_VideoLessonClassrooms_Classroom");
+        // Lọc video theo lớp, kiểm tra lớp còn được gán video trước khi xóa lớp
+        builder.HasIndex(c => c.ClassroomId).HasDatabaseName("IX_VideoLessonClassrooms_Classroom");
     }
 }

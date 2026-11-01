@@ -351,15 +351,16 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 |---|---|---|
 | GET | `/api/videos` (lọc `categoryId`, `classroomId`, `keyword`, `isActive`) | `Video.View` |
 | GET | `/api/videos/{id}` | `Video.View` |
-| POST | `/api/videos` `{ title, videoUrl, documentUrl?, description?, categoryId?, classroomId?, durationMinutes?, displayOrder }` | `Video.Manage` |
+| POST | `/api/videos` `{ title, videoUrl, documentUrl?, description?, categoryId?, classroomIds?, durationMinutes?, displayOrder }` (`classroomIds` rỗng = bài chung; tối đa 200; lớp không tồn tại → 400 `CLASSROOM_NOT_FOUND`) | `Video.Manage` |
 | PUT | `/api/videos/{id}` `{ …như POST, isActive, rowVersion }` | `Video.Manage` |
 | PATCH | `/api/videos/{id}/status` `{ isActive }` | `Video.Manage` |
 | GET | `/api/videos/youtube-info?url=` → `YoutubeVideoInfo { videoId, title, authorName, thumbnailUrl }`: server hỏi YouTube oEmbed (chỉ dựng URL từ mã video 11 ký tự, nhớ 1 giờ, timeout 5 giây) để tự điền tiêu đề. Không phải link YouTube → 400 `INVALID_YOUTUBE_URL`; video riêng tư / đã xoá / không kết nối được YouTube → 422 `YOUTUBE_INFO_UNAVAILABLE` | `Video.Manage` |
 | DELETE | `/api/videos/{id}` | `Video.Manage` |
-| GET | `/api/student/videos` (bài đang bật: bài chung + bài của lớp học viên tham gia) | Học viên |
+| GET | `/api/student/videos` (bài đang bật: bài chung + bài gắn với bất kỳ lớp nào học viên tham gia) | Học viên |
 
 `VideoLessonDto { id, title, videoUrl, documentUrl, youtubeVideoId, thumbnailUrl, description, categoryId, categoryName,
-classroomId, classroomName, durationMinutes, displayOrder, isActive, createdAt, updatedAt, rowVersion }`.
+classrooms: [{ id, code, name }], durationMinutes, displayOrder, isActive, createdAt, updatedAt, rowVersion }`
+(`classrooms` rỗng = bài chung). Lọc `classroomId` trả các bài có gắn lớp đó.
 `documentUrl` (tài liệu PDF đi kèm, không bắt buộc) phải là link `https://drive.google.com` / `https://docs.google.com`,
 sai → 400 `INVALID_DOCUMENT_URL`; gửi rỗng là bỏ tài liệu.
 

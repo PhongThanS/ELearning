@@ -115,6 +115,15 @@ export interface ClassroomInput {
 
 export const classesApi = {
   list: (q: Query) => http.get<Paged<Classroom>>("/classes", q),
+  /** Toàn bộ lớp học: lấy lần lượt từng trang 100 lớp (pageSize tối đa 100). */
+  listAll: async (q: Query = {}): Promise<Classroom[]> => {
+    const all: Classroom[] = [];
+    for (let page = 1; ; page++) {
+      const result = await http.get<Paged<Classroom>>("/classes", { ...q, page, pageSize: 100 });
+      all.push(...result.items);
+      if (page >= result.totalPages || result.items.length === 0) return all;
+    }
+  },
   get: (id: string) => http.get<Classroom>(`/classes/${id}`),
   create: (body: ClassroomInput & { code: string }) => http.post<Classroom>("/classes", body),
   update: (id: string, body: ClassroomInput & { isActive: boolean; rowVersion: string }) => http.put<Classroom>(`/classes/${id}`, body),

@@ -1,3 +1,4 @@
+using ELearning.Domain.Videos;
 using ELearning.Shared.Paging;
 using FluentValidation;
 
@@ -13,8 +14,7 @@ public sealed record VideoLessonDto(
     string? Description,
     Guid? CategoryId,
     string? CategoryName,
-    Guid? ClassroomId,
-    string? ClassroomName,
+    IReadOnlyList<VideoClassroomDto> Classrooms,
     int? DurationMinutes,
     int DisplayOrder,
     bool IsActive,
@@ -22,12 +22,16 @@ public sealed record VideoLessonDto(
     DateTime? UpdatedAt,
     string RowVersion);
 
+/// <summary>Lớp được xem bài giảng.</summary>
+public sealed record VideoClassroomDto(Guid Id, string Code, string Name);
+
+/// <summary>ClassroomIds rỗng / null = bài giảng chung (mọi học viên xem được).</summary>
 public sealed record CreateVideoRequest(
     string Title,
     string VideoUrl,
     string? Description = null,
     Guid? CategoryId = null,
-    Guid? ClassroomId = null,
+    IReadOnlyList<Guid>? ClassroomIds = null,
     int? DurationMinutes = null,
     int DisplayOrder = 0,
     string? DocumentUrl = null);
@@ -37,7 +41,7 @@ public sealed record UpdateVideoRequest(
     string VideoUrl,
     string? Description,
     Guid? CategoryId,
-    Guid? ClassroomId,
+    IReadOnlyList<Guid>? ClassroomIds,
     int? DurationMinutes,
     int DisplayOrder,
     bool IsActive,
@@ -64,6 +68,8 @@ public sealed class CreateVideoRequestValidator : AbstractValidator<CreateVideoR
             .Must(url => VideoLinks.IsGoogleDocument(url!)).When(r => !string.IsNullOrWhiteSpace(r.DocumentUrl))
             .WithErrorCode("INVALID_DOCUMENT_URL").WithMessage(VideoLinks.DocumentUrlMessage);
         RuleFor(r => r.Description).MaximumLength(4000).WithMessage("Mô tả không vượt quá 4000 ký tự.");
+        RuleFor(r => r.ClassroomIds).Must(ids => ids!.Count <= VideoLesson.MaxClassrooms).When(r => r.ClassroomIds is not null)
+            .WithMessage($"Mỗi bài giảng gắn tối đa {VideoLesson.MaxClassrooms} lớp.");
         RuleFor(r => r.DurationMinutes).GreaterThanOrEqualTo(0).When(r => r.DurationMinutes.HasValue)
             .WithMessage("Thời lượng video phải lớn hơn hoặc bằng 0.");
     }
@@ -81,6 +87,8 @@ public sealed class UpdateVideoRequestValidator : AbstractValidator<UpdateVideoR
             .Must(url => VideoLinks.IsGoogleDocument(url!)).When(r => !string.IsNullOrWhiteSpace(r.DocumentUrl))
             .WithErrorCode("INVALID_DOCUMENT_URL").WithMessage(VideoLinks.DocumentUrlMessage);
         RuleFor(r => r.Description).MaximumLength(4000).WithMessage("Mô tả không vượt quá 4000 ký tự.");
+        RuleFor(r => r.ClassroomIds).Must(ids => ids!.Count <= VideoLesson.MaxClassrooms).When(r => r.ClassroomIds is not null)
+            .WithMessage($"Mỗi bài giảng gắn tối đa {VideoLesson.MaxClassrooms} lớp.");
         RuleFor(r => r.DurationMinutes).GreaterThanOrEqualTo(0).When(r => r.DurationMinutes.HasValue)
             .WithMessage("Thời lượng video phải lớn hơn hoặc bằng 0.");
         RuleFor(r => r.RowVersion).NotEmpty().WithMessage("Thiếu rowVersion.");

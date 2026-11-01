@@ -13,15 +13,18 @@ import { useQuery } from "@tanstack/react-query";
 import { videosApi, studentApi } from "../../services/api";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson } from "../../types/api";
-import { LessonThumbnail, VideoPlayerModal } from "./AdminVideoPages";
+import { LessonThumbnail } from "./AdminVideoPages";
 import { lessonKind } from "./mediaLinks";
+import { openLessonInNewTab } from "./VideoWatchPage";
+import { LessonClassBadges } from "./LessonClassBadges";
 
 export function StudentVideoPages() {
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedClassroom, setSelectedClassroom] = useState<string>("");
-  const [playingVideo, setPlayingVideo] = useState<VideoLesson | null>(null);
+  // Xem bài giảng: mở trang xem ở tab mới
+  const watch = (v: VideoLesson) => openLessonInNewTab("/student/videos", v.id);
 
   // Danh mục chuyên đề (từ mục chuyên đề)
   const { data: categoriesData } = useQuery({
@@ -156,7 +159,7 @@ export function StudentVideoPages() {
               <Col key={v.id} xs={12} sm={6} lg={4} xl={3}>
                 <Card
                   className="h-100 border-0 shadow-sm video-card hover-shadow transition-all rounded-3 cursor-pointer"
-                  onClick={() => setPlayingVideo(v)}
+                  onClick={() => watch(v)}
                   style={{ cursor: "pointer" }}
                 >
                   {/* Thumbnail Container */}
@@ -164,13 +167,16 @@ export function StudentVideoPages() {
                     className="position-relative bg-dark video-thumbnail-wrap ratio ratio-16x9"
                     style={{ overflow: "hidden", borderTopLeftRadius: "inherit", borderTopRightRadius: "inherit" }}
                   >
-                    <LessonThumbnail video={v} />
-                    {/* Duration badge */}
-                    {v.durationMinutes && (
-                      <span className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white font-monospace small">
-                        ⏱️ {v.durationMinutes} phút
-                      </span>
-                    )}
+                    {/* .ratio kéo mọi con trực tiếp phủ kín khung: gói nội dung vào một khối để nhãn giữ kích thước */}
+                    <div>
+                      <LessonThumbnail video={v} />
+                      {/* Duration badge */}
+                      {v.durationMinutes && (
+                        <span className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white font-monospace small">
+                          ⏱️ {v.durationMinutes} phút
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <Card.Body className="d-flex flex-column p-3">
@@ -190,15 +196,7 @@ export function StudentVideoPages() {
                           📁 {v.categoryName}
                         </Badge>
                       )}
-                      {v.classroomName ? (
-                        <Badge bg="info-subtle" className="text-info-emphasis border border-info-subtle fw-normal">
-                          🏫 {v.classroomName}
-                        </Badge>
-                      ) : (
-                        <Badge bg="secondary-subtle" className="text-secondary border border-secondary-subtle fw-normal">
-                          🌐 Bài giảng chung
-                        </Badge>
-                      )}
+                      <LessonClassBadges classrooms={v.classrooms} />
                     </div>
 
                     {/* Description preview */}
@@ -236,11 +234,6 @@ export function StudentVideoPages() {
             <Pagination.Next disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} />
           </Pagination>
         </div>
-      )}
-
-      {/* Video Player Modal */}
-      {playingVideo && (
-        <VideoPlayerModal video={playingVideo} onClose={() => setPlayingVideo(null)} />
       )}
     </Container>
   );

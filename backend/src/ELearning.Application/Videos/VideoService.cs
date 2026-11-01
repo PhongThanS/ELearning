@@ -48,7 +48,7 @@ internal sealed class VideoService(
 
         if (query.ClassroomId is { } classroomId)
         {
-            videos = videos.Where(v => v.ClassroomId == classroomId);
+            videos = videos.Where(v => v.Classrooms.Any(c => c.ClassroomId == classroomId));
         }
 
         if (query.IsActive is { } isActive)
@@ -64,64 +64,15 @@ internal sealed class VideoService(
 
         var total = await videos.CountAsync(ct);
 
-        var items = await (
-            from v in videos
-            join c in db.QuestionCategories.AsNoTracking() on v.CategoryId equals c.Id into cats
-            from c in cats.DefaultIfEmpty()
-            join cl in db.Classrooms.AsNoTracking() on v.ClassroomId equals cl.Id into cls
-            from cl in cls.DefaultIfEmpty()
-            orderby v.DisplayOrder, v.CreatedAt descending
-            select new VideoLessonDto(
-                v.Id,
-                v.Title,
-                v.VideoUrl,
-                v.DocumentUrl,
-                v.YoutubeVideoId,
-                v.ThumbnailUrl,
-                v.Description,
-                v.CategoryId,
-                c != null ? c.Name : null,
-                v.ClassroomId,
-                cl != null ? cl.Name : null,
-                v.DurationMinutes,
-                v.DisplayOrder,
-                v.IsActive,
-                v.CreatedAt,
-                v.UpdatedAt,
-                v.RowVersion.ToBase64())
-        ).Skip(query.Skip).Take(query.PageSize).ToListAsync(ct);
+        var items = await ToDto(videos.OrderBy(v => v.DisplayOrder).ThenByDescending(v => v.CreatedAt))
+            .Skip(query.Skip).Take(query.PageSize).ToListAsync(ct);
 
         return new PagedResult<VideoLessonDto>(items, query.Page, query.PageSize, total);
     }
 
     public async Task<Result<VideoLessonDto>> GetAsync(Guid id, CancellationToken ct)
     {
-        var item = await (
-            from v in db.VideoLessons.AsNoTracking()
-            where v.Id == id
-            join c in db.QuestionCategories.AsNoTracking() on v.CategoryId equals c.Id into cats
-            from c in cats.DefaultIfEmpty()
-            join cl in db.Classrooms.AsNoTracking() on v.ClassroomId equals cl.Id into cls
-            from cl in cls.DefaultIfEmpty()
-            select new VideoLessonDto(
-                v.Id,
-                v.Title,
-                v.VideoUrl,
-                v.DocumentUrl,
-                v.YoutubeVideoId,
-                v.ThumbnailUrl,
-                v.Description,
-                v.CategoryId,
-                c != null ? c.Name : null,
-                v.ClassroomId,
-                cl != null ? cl.Name : null,
-                v.DurationMinutes,
-                v.DisplayOrder,
-                v.IsActive,
-                v.CreatedAt,
-                v.UpdatedAt,
-                v.RowVersion.ToBase64())
-        ).SingleOrDefaultAsync(ct);
+        var item = await ToDto(db.VideoLessons.AsNoTracking().Where(v => v.Id == id)).SingleOrDefaultAsync(ct);
 
         return item is null ? VideoNotFound : item;
     }
@@ -139,9 +90,10 @@ internal sealed class VideoService(
             return Error.Validation("CATEGORY_NOT_FOUND", "Chuyên đề không tồn tại.", "categoryId");
         }
 
-        if (request.ClassroomId is { } classId && !await db.Classrooms.AnyAsync(c => c.Id == classId, ct))
+        var classroomIds = (request.ClassroomIds ?? []).Distinct().ToList();
+        if (await ClassroomsMissingAsync(classroomIds, ct))
         {
-            return Error.Validation("CLASSROOM_NOT_FOUND", "Lớp học không tồn tại.", "classroomId");
+            return Error.Validation("CLASSROOM_NOT_FOUND", "Có lớp học không tồn tại.", "classroomIds");
         }
 
         var video = new VideoLesson(
@@ -150,14 +102,14 @@ internal sealed class VideoService(
             request.DocumentUrl,
             request.Description,
             request.CategoryId,
-            request.ClassroomId,
+            classroomIds,
             request.DurationMinutes,
             request.DisplayOrder,
             currentUser.RequiredUserId,
             Now);
 
         db.VideoLessons.Add(video);
-        audit.Write("Video.Created", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl });
+        audit.Write("Video.Created", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl, ClassroomIds = classroomIds });
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(video.Id, ct);
@@ -171,7 +123,7 @@ internal sealed class VideoService(
             return Result<VideoLessonDto>.Failure(errors);
         }
 
-        var video = await db.VideoLessons.SingleOrDefaultAsync(v => v.Id == id, ct);
+        var video = await db.VideoLessons.Include(v => v.Classrooms).SingleOrDefaultAsync(v => v.Id == id, ct);
         if (video is null)
         {
             return VideoNotFound;
@@ -187,9 +139,10 @@ internal sealed class VideoService(
             return Error.Validation("CATEGORY_NOT_FOUND", "Chuyên đề không tồn tại.", "categoryId");
         }
 
-        if (request.ClassroomId is { } classId && !await db.Classrooms.AnyAsync(c => c.Id == classId, ct))
+        var classroomIds = (request.ClassroomIds ?? []).Distinct().ToList();
+        if (await ClassroomsMissingAsync(classroomIds, ct))
         {
-            return Error.Validation("CLASSROOM_NOT_FOUND", "Lớp học không tồn tại.", "classroomId");
+            return Error.Validation("CLASSROOM_NOT_FOUND", "Có lớp học không tồn tại.", "classroomIds");
         }
 
         video.Update(
@@ -198,14 +151,14 @@ internal sealed class VideoService(
             request.DocumentUrl,
             request.Description,
             request.CategoryId,
-            request.ClassroomId,
+            classroomIds,
             request.DurationMinutes,
             request.DisplayOrder,
             request.IsActive,
             currentUser.RequiredUserId,
             Now);
 
-        audit.Write("Video.Updated", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl });
+        audit.Write("Video.Updated", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl, ClassroomIds = classroomIds });
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(video.Id, ct);
@@ -227,7 +180,8 @@ internal sealed class VideoService(
 
     public async Task<Result> DeleteAsync(Guid id, CancellationToken ct)
     {
-        var video = await db.VideoLessons.SingleOrDefaultAsync(v => v.Id == id, ct);
+        // Nạp các dòng lớp để EF xóa kèm (ClientCascade)
+        var video = await db.VideoLessons.Include(v => v.Classrooms).SingleOrDefaultAsync(v => v.Id == id, ct);
         if (video is null)
         {
             return VideoNotFound;
@@ -265,9 +219,9 @@ internal sealed class VideoService(
             .Select(cs => cs.ClassroomId)
             .ToListAsync(ct);
 
-        // Học sinh chỉ xem video active, và hoặc là video chung (ClassroomId == null) hoặc video thuộc lớp học sinh tham gia
+        // Học sinh chỉ xem video active, và hoặc là video chung (không gắn lớp nào) hoặc video gắn với một lớp học sinh tham gia
         var videos = db.VideoLessons.AsNoTracking()
-            .Where(v => v.IsActive && (v.ClassroomId == null || myClassroomIds.Contains(v.ClassroomId.Value)));
+            .Where(v => v.IsActive && (!v.Classrooms.Any() || v.Classrooms.Any(c => myClassroomIds.Contains(c.ClassroomId))));
 
         if (query.CategoryId is { } categoryId)
         {
@@ -276,7 +230,7 @@ internal sealed class VideoService(
 
         if (query.ClassroomId is { } classroomId)
         {
-            videos = videos.Where(v => v.ClassroomId == classroomId);
+            videos = videos.Where(v => v.Classrooms.Any(c => c.ClassroomId == classroomId));
         }
 
         if (!string.IsNullOrWhiteSpace(query.Keyword))
@@ -287,33 +241,39 @@ internal sealed class VideoService(
 
         var total = await videos.CountAsync(ct);
 
-        var items = await (
-            from v in videos
-            join c in db.QuestionCategories.AsNoTracking() on v.CategoryId equals c.Id into cats
-            from c in cats.DefaultIfEmpty()
-            join cl in db.Classrooms.AsNoTracking() on v.ClassroomId equals cl.Id into cls
-            from cl in cls.DefaultIfEmpty()
-            orderby v.DisplayOrder, v.CreatedAt descending
-            select new VideoLessonDto(
-                v.Id,
-                v.Title,
-                v.VideoUrl,
-                v.DocumentUrl,
-                v.YoutubeVideoId,
-                v.ThumbnailUrl,
-                v.Description,
-                v.CategoryId,
-                c != null ? c.Name : null,
-                v.ClassroomId,
-                cl != null ? cl.Name : null,
-                v.DurationMinutes,
-                v.DisplayOrder,
-                v.IsActive,
-                v.CreatedAt,
-                v.UpdatedAt,
-                v.RowVersion.ToBase64())
-        ).Skip(query.Skip).Take(query.PageSize).ToListAsync(ct);
+        var items = await ToDto(videos.OrderBy(v => v.DisplayOrder).ThenByDescending(v => v.CreatedAt))
+            .Skip(query.Skip).Take(query.PageSize).ToListAsync(ct);
 
         return new PagedResult<VideoLessonDto>(items, query.Page, query.PageSize, total);
     }
+
+    /// <summary>Có id lớp nào không tồn tại.</summary>
+    private async Task<bool> ClassroomsMissingAsync(List<Guid> classroomIds, CancellationToken ct) =>
+        classroomIds.Count > 0 && await db.Classrooms.CountAsync(c => classroomIds.Contains(c.Id), ct) != classroomIds.Count;
+
+    /// <summary>Video → DTO kèm tên chuyên đề và danh sách lớp được xem (sắp theo mã lớp).</summary>
+    private IQueryable<VideoLessonDto> ToDto(IQueryable<VideoLesson> videos) =>
+        from v in videos
+        join c in db.QuestionCategories.AsNoTracking() on v.CategoryId equals c.Id into cats
+        from c in cats.DefaultIfEmpty()
+        select new VideoLessonDto(
+            v.Id,
+            v.Title,
+            v.VideoUrl,
+            v.DocumentUrl,
+            v.YoutubeVideoId,
+            v.ThumbnailUrl,
+            v.Description,
+            v.CategoryId,
+            c != null ? c.Name : null,
+            (from link in v.Classrooms
+             join cl in db.Classrooms on link.ClassroomId equals cl.Id
+             orderby cl.Code
+             select new VideoClassroomDto(cl.Id, cl.Code, cl.Name)).ToList(),
+            v.DurationMinutes,
+            v.DisplayOrder,
+            v.IsActive,
+            v.CreatedAt,
+            v.UpdatedAt,
+            v.RowVersion.ToBase64());
 }

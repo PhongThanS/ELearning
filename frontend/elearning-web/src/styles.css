@@ -266,6 +266,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  /* Danh sách lớp lấy toàn bộ: cuộn trong khung thay vì tràn màn hình */
+  max-height: 60vh;
+  overflow-y: auto;
 }
 
 .class-card-item {
@@ -707,4 +710,34 @@ body {
 }
 .split-view-dragging .split-view-pane {
   pointer-events: none;
+}
+
+/* Video giữ tỉ lệ 16:9, co theo khung chứa (kể cả khi kéo thanh chia nhỏ lại) và nằm giữa, không bị cắt */
+.lesson-media-fit {
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+.lesson-media-fit > * {
+  width: min(100cqw, 100cqh * 16 / 9);
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+
+/* Trang xem bài giảng (tab riêng): thanh tiêu đề + nội dung chiếm hết màn hình */
+.lesson-watch {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: #111827;
+}
+.lesson-watch-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
 }

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "EClass",
+    "name": "SClass",
     "tagline": "Dạy học là truyền cảm hứng"
   },
   "common": {
@@ -64,7 +64,8 @@
   "nav": {
     "dashboard": "Tổng quan",
     "users": "Người dùng",
-    "groups": "Danh sách lớp học",
+    "groups": "Nhóm người dùng",
+    "classList": "Danh sách lớp học",
     "roles": "Vai trò & quyền",
     "categories": "Chuyên đề",
     "questions": "Ngân hàng câu hỏi",

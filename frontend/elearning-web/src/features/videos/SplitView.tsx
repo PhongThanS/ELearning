@@ -3,6 +3,16 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Poin
 const MIN = 15;
 const MAX = 85;
 const STEP = 5;
+/** Kích thước tối thiểu (px) của mỗi khung: kéo hết cỡ thì khung kia vẫn đủ rộng để xem, không bị che mất. */
+const MIN_PANE_PX = 240;
+const MIN_PANE_STACKED_PX = 160;
+
+/** Lưới hai khung theo tỉ lệ; mỗi khung không nhỏ hơn mức tối thiểu. */
+export function splitTemplate(percent: number, stacked: boolean): string {
+  const min = stacked ? MIN_PANE_STACKED_PX : MIN_PANE_PX;
+  const tracks = `minmax(${min}px, ${percent}fr) auto minmax(${min}px, ${100 - percent}fr)`;
+  return stacked ? `${tracks} / 1fr` : `1fr / ${tracks}`;
+}
 
 export function clampSplit(percent: number): number {
   return Math.min(MAX, Math.max(MIN, Math.round(percent * 10) / 10));
@@ -82,7 +92,7 @@ export function SplitView({
     <div
       ref={container}
       className={`split-view ${stacked ? "split-view-stacked" : ""} ${dragging ? "split-view-dragging" : ""}`}
-      style={{ gridTemplate: stacked ? `${percent}fr auto ${100 - percent}fr / 1fr` : `1fr / ${percent}fr auto ${100 - percent}fr` }}
+      style={{ gridTemplate: splitTemplate(percent, stacked) }}
     >
       <div className="split-view-pane">{first}</div>
       <div

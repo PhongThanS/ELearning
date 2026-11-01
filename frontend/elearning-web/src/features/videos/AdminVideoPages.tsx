@@ -11,11 +11,14 @@ import {
   Spinner,
 } from "react-bootstrap";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { videosApi, categoriesApi, classesApi } from "../../services/api";
+import { videosApi, categoriesApi } from "../../services/api";
+import { useAllClassrooms } from "../../hooks/useClassrooms";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson, CreateVideoInput, UpdateVideoInput } from "../../types/api";
 import { extractYoutubeId, isDirectVideo, lessonKind, lessonThumbnail, parseDriveLink } from "./mediaLinks";
-import { SplitView } from "./SplitView";
+import { openLessonInNewTab } from "./VideoWatchPage";
+import { LessonClassBadges } from "./LessonClassBadges";
+import { MultiSearchableSelect } from "../../components/common/MultiSearchableSelect";
 
 /** Ảnh bìa thẻ bài giảng: YouTube / trang đầu tệp Drive; lỗi tải ảnh (tệp riêng tư) thì hiện biểu tượng. */
 export function LessonThumbnail({ video }: { video: VideoLesson }) {
@@ -73,8 +76,8 @@ export function AdminVideoPages() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingVideo, setEditingVideo] = useState<VideoLesson | null>(null);
 
-  // Modal xem video
-  const [playingVideo, setPlayingVideo] = useState<VideoLesson | null>(null);
+  // Xem bài giảng: mở trang xem ở tab mới
+  const watch = (v: VideoLesson) => openLessonInNewTab("/admin/videos", v.id);
 
   // Modal xóa
   const [deletingVideo, setDeletingVideo] = useState<VideoLesson | null>(null);
@@ -86,11 +89,8 @@ export function AdminVideoPages() {
     staleTime: 5 * 60_000,
   });
 
-  const { data: classroomsData } = useQuery({
-    queryKey: ["classes", "for-videos"],
-    queryFn: () => classesApi.list({ page: 1, pageSize: 100 }),
-    staleTime: 5 * 60_000,
-  });
+  // Toàn bộ lớp học (mục Lớp học), không giới hạn 100 lớp đầu
+  const { data: allClassrooms } = useAllClassrooms();
 
   const { data: videosData, isLoading } = useQuery({
     queryKey: ["admin-videos", page, keyword, selectedCategory, selectedClassroom, activeFilter],
@@ -122,7 +122,7 @@ export function AdminVideoPages() {
   });
 
   const categories = categoriesData?.items ?? [];
-  const classrooms = classroomsData?.items ?? [];
+  const classrooms = allClassrooms ?? [];
   const videos: VideoLesson[] = videosData?.items ?? [];
   const totalPages = videosData?.totalPages ?? 1;
 
@@ -256,24 +256,27 @@ export function AdminVideoPages() {
                   {/* Thumbnail Container */}
                   <div
                     className="position-relative bg-dark video-thumbnail-wrap ratio ratio-16x9 cursor-pointer"
-                    onClick={() => setPlayingVideo(v)}
+                    onClick={() => watch(v)}
                     style={{ cursor: "pointer", overflow: "hidden", borderTopLeftRadius: "inherit", borderTopRightRadius: "inherit" }}
                   >
-                    <LessonThumbnail video={v} />
-                    {/* Duration badge */}
-                    {v.durationMinutes && (
-                      <span className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white font-monospace small">
-                        ⏱️ {v.durationMinutes} phút
-                      </span>
-                    )}
-                    {/* Active status badge */}
-                    <span className="position-absolute top-0 start-0 m-2">
-                      {v.isActive ? (
-                        <Badge bg="success" className="shadow-sm">Hiển thị</Badge>
-                      ) : (
-                        <Badge bg="secondary" className="shadow-sm">Đã ẩn</Badge>
+                    {/* .ratio kéo mọi con trực tiếp phủ kín khung: gói nội dung vào một khối để nhãn giữ kích thước */}
+                    <div>
+                      <LessonThumbnail video={v} />
+                      {/* Duration badge */}
+                      {v.durationMinutes && (
+                        <span className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white font-monospace small">
+                          ⏱️ {v.durationMinutes} phút
+                        </span>
                       )}
-                    </span>
+                      {/* Active status badge */}
+                      <span className="position-absolute top-0 start-0 m-2">
+                        {v.isActive ? (
+                          <Badge bg="success" className="shadow-sm">Hiển thị</Badge>
+                        ) : (
+                          <Badge bg="secondary" className="shadow-sm">Đã ẩn</Badge>
+                        )}
+                      </span>
+                    </div>
                   </div>
 
                   <Card.Body className="d-flex flex-column p-3">
@@ -281,7 +284,7 @@ export function AdminVideoPages() {
                     <h6
                       className="fw-bold text-dark text-truncate-2 mb-2 cursor-pointer line-clamp-2"
                       title={v.title}
-                      onClick={() => setPlayingVideo(v)}
+                      onClick={() => watch(v)}
                       style={{ minHeight: "2.6rem", cursor: "pointer" }}
                     >
                       {v.title}
@@ -294,15 +297,7 @@ export function AdminVideoPages() {
                           📁 {v.categoryName}
                         </Badge>
                       )}
-                      {v.classroomName ? (
-                        <Badge bg="info-subtle" className="text-info-emphasis border border-info-subtle fw-normal">
-                          🏫 {v.classroomName}
-                        </Badge>
-                      ) : (
-                        <Badge bg="secondary-subtle" className="text-secondary border border-secondary-subtle fw-normal">
-                          🌐 Chung cho tất cả
-                        </Badge>
-                      )}
+                      <LessonClassBadges classrooms={v.classrooms} />
                     </div>
 
                     {/* Description preview */}
@@ -330,7 +325,7 @@ export function AdminVideoPages() {
                           size="sm"
                           className="px-2 py-1"
                           title="Xem"
-                          onClick={() => setPlayingVideo(v)}
+                          onClick={() => watch(v)}
                         >
                           <i className="bi bi-eye"></i>
                         </Button>
@@ -391,11 +386,6 @@ export function AdminVideoPages() {
         />
       )}
 
-      {/* Modal Xem Video Player */}
-      {playingVideo && (
-        <VideoPlayerModal video={playingVideo} onClose={() => setPlayingVideo(null)} />
-      )}
-
       {/* Modal Xác nhận xóa */}
       {deletingVideo && (
         <Modal show={true} onHide={() => setDeletingVideo(null)} centered>
@@ -443,8 +433,6 @@ function VideoEditModal({
   const descId = useId();
   const catId = useId();
   const classId = useId();
-  const durId = useId();
-  const orderId = useId();
 
   const [title, setTitle] = useState(video?.title ?? "");
   const [videoUrl, setVideoUrl] = useState(video?.videoUrl ?? "");
@@ -452,18 +440,16 @@ function VideoEditModal({
   const attachment = parseDriveLink(documentUrl);
   const [description, setDescription] = useState(video?.description ?? "");
   const [categoryId, setCategoryId] = useState(video?.categoryId ?? "");
-  const [classroomId, setClassroomId] = useState(video?.classroomId ?? "");
-  const [durationMinutes, setDurationMinutes] = useState<string>(
-    video?.durationMinutes ? String(video.durationMinutes) : ""
-  );
-  const [displayOrder, setDisplayOrder] = useState<number>(video?.displayOrder ?? 0);
+  const [classroomIds, setClassroomIds] = useState<string[]>(video?.classrooms.map((c) => c.id) ?? []);
   const [errorMsg, setErrorMsg] = useState("");
 
   const ytId = extractYoutubeId(videoUrl);
   const driveUrl = parseDriveLink(videoUrl)?.previewUrl ?? null;
 
-  // Link YouTube: server hỏi YouTube tiêu đề video; tự điền khi ô tiêu đề trống hoặc đang là tiêu đề tự điền trước đó
+  // Link YouTube: server hỏi YouTube tiêu đề video; tự điền vào ô tiêu đề và ô mô tả khi ô trống
+  // hoặc đang là tiêu đề tự điền trước đó (người dùng đã tự gõ thì giữ nguyên)
   const [autoTitle, setAutoTitle] = useState<string | null>(null);
+  const [autoDescription, setAutoDescription] = useState<string | null>(null);
   const youtubeInfo = useQuery({
     queryKey: ["youtube-info", ytId],
     queryFn: () => videosApi.youtubeInfo(`https://www.youtube.com/watch?v=${ytId}`),
@@ -477,7 +463,11 @@ function VideoEditModal({
       setTitle(fetchedTitle);
       setAutoTitle(fetchedTitle);
     }
-    // Chỉ chạy khi có tiêu đề mới từ YouTube, không chạy lại mỗi lần gõ tiêu đề
+    if (fetchedTitle && (!description.trim() || description === autoDescription)) {
+      setDescription(fetchedTitle);
+      setAutoDescription(fetchedTitle);
+    }
+    // Chỉ chạy khi có tiêu đề mới từ YouTube, không chạy lại mỗi lần gõ tiêu đề / mô tả
   }, [fetchedTitle]);
   const isDirect = isDirectVideo(videoUrl);
 
@@ -490,9 +480,10 @@ function VideoEditModal({
           documentUrl: documentUrl.trim() || null,
           description: description.trim() || null,
           categoryId: categoryId || null,
-          classroomId: classroomId || null,
-          durationMinutes: durationMinutes ? parseInt(durationMinutes, 10) : null,
-          displayOrder,
+          classroomIds,
+          // Form không còn ô thời lượng / thứ tự: giữ nguyên giá trị đã lưu của video
+          durationMinutes: video.durationMinutes ?? null,
+          displayOrder: video.displayOrder,
           isActive: video.isActive,
           rowVersion: video.rowVersion,
         };
@@ -504,9 +495,7 @@ function VideoEditModal({
           documentUrl: documentUrl.trim() || null,
           description: description.trim() || null,
           categoryId: categoryId || null,
-          classroomId: classroomId || null,
-          durationMinutes: durationMinutes ? parseInt(durationMinutes, 10) : null,
-          displayOrder,
+          classroomIds,
         };
         return videosApi.create(input);
       }
@@ -573,7 +562,7 @@ function VideoEditModal({
               required
             />
             <Form.Text className="text-muted">
-              Dán link YouTube: tiêu đề và ảnh bìa của bài giảng được lấy luôn từ video.
+              Dán link YouTube: tiêu đề, mô tả và ảnh bìa của bài giảng được lấy luôn từ video.
               Hệ thống tự nhận video YouTube và tệp Google Drive (PDF, Word, Excel, PowerPoint, ảnh, video…; cả Google Docs / Sheets / Slides) để xem ngay trên web.
               Với Drive: chia sẻ tệp ở chế độ <strong>"Bất kỳ ai có đường liên kết"</strong> thì học viên mới xem được.
             </Form.Text>
@@ -711,51 +700,20 @@ function VideoEditModal({
             <Col md={6}>
               <Form.Group>
                 <Form.Label htmlFor={classId} className="fw-semibold">
-                  Lớp học được xem (từ mục Lớp học)
+                  Lớp học được xem (chọn được nhiều lớp)
                 </Form.Label>
-                <SearchableSelect
+                <MultiSearchableSelect
                   id={classId}
-                  value={classroomId}
-                  onChange={(val) => setClassroomId(val)}
+                  value={classroomIds}
+                  onChange={setClassroomIds}
                   options={classrooms.map((c) => ({
                     value: c.id,
                     label: c.name + (c.schoolYear ? ` (${c.schoolYear})` : ""),
                     code: c.code,
                   }))}
-                  placeholder="-- Mọi học sinh đều xem được (Chung) --"
+                  placeholder="-- Thêm lớp được xem --"
                   searchPlaceholder="Tìm theo mã hoặc tên lớp..."
-                  clearable={true}
-                />
-              </Form.Group>
-            </Col>
-          </Row>
-
-          <Row className="g-3 mb-3">
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label htmlFor={durId} className="fw-semibold">
-                  Thời lượng ước tính (phút)
-                </Form.Label>
-                <Form.Control
-                  id={durId}
-                  type="number"
-                  min="0"
-                  placeholder="Ví dụ: 45"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(e.target.value)}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={6}>
-              <Form.Group>
-                <Form.Label htmlFor={orderId} className="fw-semibold">
-                  Thứ tự sắp xếp
-                </Form.Label>
-                <Form.Control
-                  id={orderId}
-                  type="number"
-                  value={displayOrder}
-                  onChange={(e) => setDisplayOrder(parseInt(e.target.value, 10) || 0)}
+                  emptyText="🌐 Chưa chọn lớp: mọi học sinh đều xem được (Chung)"
                 />
               </Form.Group>
             </Col>
@@ -785,245 +743,6 @@ function VideoEditModal({
           </Button>
         </Modal.Footer>
       </Form>
-    </Modal>
-  );
-}
-
-/** Video (YouTube / Drive / file trực tiếp) lấp đầy khung chứa. */
-function LessonMedia({ video }: { video: VideoLesson }) {
-  const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
-  const drive = parseDriveLink(video.videoUrl);
-  if (ytId) {
-    return (
-      <iframe
-        src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0`}
-        title={video.title}
-        className="w-100 h-100 border-0 d-block bg-black"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-      ></iframe>
-    );
-  }
-  if (drive) {
-    return (
-      <iframe
-        src={drive.previewUrl}
-        title={video.title}
-        className="w-100 h-100 border-0 d-block bg-white"
-        allow="autoplay; encrypted-media; fullscreen"
-        allowFullScreen
-      ></iframe>
-    );
-  }
-  if (isDirectVideo(video.videoUrl)) {
-    return (
-      <video src={video.videoUrl} controls className="w-100 h-100 d-block bg-black">
-        Trình duyệt của bạn không hỗ trợ phát thẻ video trực tiếp.
-      </video>
-    );
-  }
-  return (
-    <div className="h-100 d-flex flex-column align-items-center justify-content-center text-white p-3 text-center">
-      <p className="mb-3">Không thể nhúng video này trực tiếp.</p>
-      <a href={video.videoUrl} target="_blank" rel="noreferrer" className="btn btn-primary">
-        <i className="bi bi-box-arrow-up-right me-1"></i> Mở liên kết video
-      </a>
-    </div>
-  );
-}
-
-export function VideoPlayerModal({ video, onClose }: { video: VideoLesson; onClose: () => void }) {
-  const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
-  const drive = parseDriveLink(video.videoUrl);
-  const driveUrl = drive?.previewUrl ?? null;
-  const isDirect = isDirectVideo(video.videoUrl);
-  const isDoc = !ytId && !!drive;
-  const attachment = video.documentUrl ? parseDriveLink(video.documentUrl) : null;
-
-  // Video + tài liệu: toàn màn hình, video một bên, tài liệu một bên, thanh giữa kéo để co giãn
-  if (attachment) {
-    return (
-      <Modal show={true} onHide={onClose} fullscreen dialogClassName="modal-doc-viewer">
-        <Modal.Header closeButton closeVariant="white" className="bg-dark text-white border-0 py-2 gap-2">
-          <Modal.Title className="h6 mb-0 text-white d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-            <i className="bi bi-collection-play" aria-hidden="true"></i>
-            <span className="text-truncate">{video.title}</span>
-          </Modal.Title>
-          {ytId && (
-            <a
-              href={`https://www.youtube.com/watch?v=${ytId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 text-nowrap"
-            >
-              <i className="bi bi-youtube" aria-hidden="true"></i>
-              <span className="d-none d-md-inline">YouTube</span>
-            </a>
-          )}
-          <a
-            href={attachment.openUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 text-nowrap"
-          >
-            <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-            <span className="d-none d-md-inline">Mở tài liệu trong Drive</span>
-          </a>
-        </Modal.Header>
-        <Modal.Body className="p-0 bg-dark d-flex">
-          <SplitView
-            label="Thanh chia giữa video và tài liệu"
-            first={<LessonMedia video={video} />}
-            second={
-              <iframe
-                src={attachment.previewUrl}
-                title={`Tài liệu: ${video.title}`}
-                className="w-100 h-100 border-0 d-block bg-white"
-                allow="autoplay; encrypted-media; fullscreen"
-                allowFullScreen
-              ></iframe>
-            }
-          />
-        </Modal.Body>
-      </Modal>
-    );
-  }
-
-  // Tài liệu Drive: xem toàn màn hình như trang xem của Google Drive (thanh trên gọn, tài liệu chiếm hết phần còn lại)
-  if (isDoc && drive) {
-    return (
-      <Modal show={true} onHide={onClose} fullscreen dialogClassName="modal-doc-viewer">
-        <Modal.Header closeButton closeVariant="white" className="bg-dark text-white border-0 py-2 gap-2">
-          <Modal.Title className="h6 mb-0 text-white d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-            <i className="bi bi-file-earmark-text" aria-hidden="true"></i>
-            <span className="text-truncate">{video.title}</span>
-          </Modal.Title>
-          <a
-            href={drive.openUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 text-nowrap"
-          >
-            <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-            <span className="d-none d-sm-inline">Mở trong Google Drive</span>
-          </a>
-        </Modal.Header>
-        <Modal.Body className="p-0 bg-dark d-flex">
-          <iframe
-            src={drive.previewUrl}
-            title={video.title}
-            className="w-100 flex-grow-1 border-0 bg-white"
-            allow="autoplay; encrypted-media; fullscreen"
-            allowFullScreen
-          ></iframe>
-        </Modal.Body>
-      </Modal>
-    );
-  }
-
-  return (
-    <Modal show={true} onHide={onClose} size="xl" centered dialogClassName="modal-video-player">
-      <Modal.Header closeButton className="bg-dark text-white border-0 py-2">
-        <Modal.Title className="h6 mb-0 text-truncate text-white d-flex align-items-center gap-2">
-          <i className={`bi ${isDoc ? "bi-file-earmark-text" : "bi-camera-reels"}`}></i> {video.title}
-        </Modal.Title>
-      </Modal.Header>
-      <Modal.Body className="p-0 bg-black">
-        {ytId ? (
-          <div className="ratio ratio-16x9">
-            <iframe
-              src={`https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&rel=0`}
-              title={video.title}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            ></iframe>
-          </div>
-        ) : driveUrl ? (
-          <div className="bg-white" style={{ height: "75vh" }}>
-            <iframe
-              src={driveUrl}
-              title={video.title}
-              className="w-100 h-100 border-0"
-              allow="autoplay; encrypted-media; fullscreen"
-              allowFullScreen
-            ></iframe>
-          </div>
-        ) : isDirect ? (
-          <div className="ratio ratio-16x9 bg-black">
-            <video
-              src={video.videoUrl}
-              controls
-              autoPlay
-              className="w-100 h-100"
-            >
-              Trình duyệt của bạn không hỗ trợ phát thẻ video trực tiếp.
-            </video>
-          </div>
-        ) : (
-          <div className="p-4 text-center text-white">
-            <p className="mb-3">Không thể nhúng video này trực tiếp. Vui lòng mở bằng liên kết:</p>
-            <a href={video.videoUrl} target="_blank" rel="noreferrer" className="btn btn-primary">
-              <i className="bi bi-box-arrow-up-right me-1"></i> Mở liên kết video
-            </a>
-          </div>
-        )}
-      </Modal.Body>
-      <div className="bg-light p-3 border-top">
-        <div className="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-          <div className="d-flex flex-wrap gap-2 align-items-center">
-            {video.categoryName && (
-              <Badge bg="primary-subtle" className="text-primary border border-primary-subtle">
-                📁 {video.categoryName}
-              </Badge>
-            )}
-            {video.classroomName ? (
-              <Badge bg="info-subtle" className="text-info-emphasis border border-info-subtle">
-                🏫 {video.classroomName}
-              </Badge>
-            ) : (
-              <Badge bg="secondary-subtle" className="text-secondary border border-secondary-subtle">
-                🌐 Bài giảng chung
-              </Badge>
-            )}
-            {video.durationMinutes && (
-              <span className="text-muted small">⏱️ Thời lượng: {video.durationMinutes} phút</span>
-            )}
-          </div>
-          {ytId ? (
-            <a
-              href={`https://www.youtube.com/watch?v=${ytId}`}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1"
-            >
-              <i className="bi bi-youtube"></i> Xem trên YouTube
-            </a>
-          ) : drive ? (
-            <a
-              href={drive.openUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
-            >
-              <i className="bi bi-google"></i> Mở trong Google Drive
-            </a>
-          ) : (
-            <a
-              href={video.videoUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1"
-            >
-              <i className="bi bi-box-arrow-up-right"></i> Mở liên kết
-            </a>
-          )}
-        </div>
-        {video.description && (
-          <div className="text-secondary small mt-2" style={{ whiteSpace: "pre-line" }}>
-            {video.description}
-          </div>
-        )}
-      </div>
     </Modal>
   );
 }

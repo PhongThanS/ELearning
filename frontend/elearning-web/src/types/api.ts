@@ -961,14 +961,20 @@ export interface VideoLesson {
   description?: string | null;
   categoryId?: string | null;
   categoryName?: string | null;
-  classroomId?: string | null;
-  classroomName?: string | null;
+  /** Lớp được xem; rỗng = bài giảng chung (mọi học viên). */
+  classrooms: VideoClassroom[];
   durationMinutes?: number | null;
   displayOrder: number;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string | null;
   rowVersion: string;
+}
+
+export interface VideoClassroom {
+  id: string;
+  code: string;
+  name: string;
 }
 
 export interface YoutubeVideoInfo {
@@ -984,7 +990,7 @@ export interface CreateVideoInput {
   documentUrl?: string | null;
   description?: string | null;
   categoryId?: string | null;
-  classroomId?: string | null;
+  classroomIds?: string[];
   durationMinutes?: number | null;
   displayOrder?: number;
 }
@@ -995,7 +1001,7 @@ export interface UpdateVideoInput {
   documentUrl?: string | null;
   description?: string | null;
   categoryId?: string | null;
-  classroomId?: string | null;
+  classroomIds?: string[];
   durationMinutes?: number | null;
   displayOrder: number;
   isActive: boolean;

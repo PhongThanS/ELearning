@@ -5,8 +5,9 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Permissions, StudentRole } from "../constants/permissions";
 import { useAuth } from "../features/auth/useAuth";
-import { groupsApi, categoriesApi } from "../services/api";
-import type { Group, Category } from "../types/api";
+import { categoriesApi } from "../services/api";
+import { matchClassroom, useAllClassrooms } from "../hooks/useClassrooms";
+import type { Category, Classroom } from "../types/api";
 
 export function SClassLogo({
   size = 36,
@@ -57,7 +58,7 @@ export function SClassLogo({
             letterSpacing: "-0.02em",
           }}
         >
-          EClass
+          SClass
         </span>
         {showTagline && (
           <span
@@ -153,19 +154,15 @@ function getGroupBadge(code: string) {
 }
 
 
-// Hover dropdown cho Danh sách lớp học (dữ liệu động từ API backend)
-function SidebarGroupsHoverItem({ label }: { label: string }) {
+// Hover dropdown cho Danh sách lớp học: toàn bộ lớp (mục Lớp học, /api/classes), tìm theo mã hoặc tên
+function SidebarClassesHoverItem({ label }: { label: string }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [keyword, setKeyword] = useState("");
   const timerRef = useRef<number | null>(null);
 
-  // Gọi trực tiếp API backend /api/groups
-  const { data: groupsData, isLoading } = useQuery({
-    queryKey: ["sidebar-groups"],
-    queryFn: () => groupsApi.list({ page: 1, pageSize: 18 }),
-    staleTime: 60_000,
-  });
-
-  const groups: Group[] = groupsData?.items ?? [];
+  const { data: allClasses, isLoading } = useAllClassrooms();
+  const classes: Classroom[] = allClasses ?? [];
+  const shown = classes.filter((c) => matchClassroom(c, keyword));
 
   const handleMouseEnter = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -185,7 +182,7 @@ function SidebarGroupsHoverItem({ label }: { label: string }) {
       onMouseLeave={handleMouseLeave}
     >
       <NavLink
-        to="/admin/groups"
+        to="/admin/classes"
         className={({ isActive }) =>
           `nav-link groups-nav-link d-flex align-items-center justify-content-between ${
             isActive ? "active" : ""
@@ -199,7 +196,7 @@ function SidebarGroupsHoverItem({ label }: { label: string }) {
         </span>
         <span className="d-flex align-items-center gap-1">
           <span className="class-pill-badge">
-            {isLoading ? "..." : `${groups.length} lớp`}
+            {isLoading ? "..." : `${classes.length} lớp`}
           </span>
           <span className={`chevron-indicator ${isOpen ? "open" : ""}`}>›</span>
         </span>
@@ -212,12 +209,17 @@ function SidebarGroupsHoverItem({ label }: { label: string }) {
           <div className="d-flex align-items-center justify-content-between">
             <span className="groups-flyout-title">🏫 Danh sách lớp học</span>
             <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
-              {groups.length} lớp đang mở
+              {classes.filter((c) => c.isActive).length} lớp đang mở
             </span>
           </div>
-          <div className="groups-flyout-subtitle">
-            Dữ liệu trực tiếp từ máy chủ backend
-          </div>
+          <input
+            type="search"
+            className="form-control form-control-sm mt-2"
+            placeholder="Tìm theo mã hoặc tên lớp..."
+            aria-label="Tìm lớp theo mã hoặc tên"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
         </div>
 
         <div className="groups-flyout-list">
@@ -228,16 +230,16 @@ function SidebarGroupsHoverItem({ label }: { label: string }) {
             </div>
           )}
 
-          {!isLoading && groups.length === 0 && (
+          {!isLoading && shown.length === 0 && (
             <div className="text-center py-3 text-muted small">
-              Chưa có lớp học nào trong hệ thống.
+              {classes.length === 0 ? "Chưa có lớp học nào trong hệ thống." : "Không có lớp nào khớp từ khóa."}
             </div>
           )}
 
-          {groups.map((g) => (
+          {shown.map((c) => (
             <NavLink
-              key={g.id}
-              to={`/admin/groups/${g.id}`}
+              key={c.id}
+              to={`/admin/classes/${c.id}`}
               className={({ isActive }) =>
                 `class-card-item d-flex align-items-center ${isActive ? "active" : ""}`
               }
@@ -245,21 +247,22 @@ function SidebarGroupsHoverItem({ label }: { label: string }) {
             >
               <div
                 className="class-card-badge"
-                style={{ backgroundColor: getCodeColor(g.code) }}
+                style={{ backgroundColor: getCodeColor(c.code) }}
               >
-                {getGroupBadge(g.code)}
+                {getGroupBadge(c.code)}
               </div>
               <div className="class-card-info flex-grow-1 min-w-0">
                 <div className="class-card-name text-truncate">
-                  {g.name}
+                  {c.name}
                 </div>
                 <div className="class-card-meta d-flex align-items-center gap-2">
                   <span className="class-card-students">
-                    👥 {g.memberCount} học viên
+                    👥 {c.studentCount} học viên
                   </span>
                   <span className="class-card-code">
-                    {g.code}
+                    {c.code}
                   </span>
+                  {!c.isActive && <span className="text-secondary">(đã tắt)</span>}
                 </div>
               </div>
               <span className="class-card-arrow">→</span>
@@ -269,7 +272,7 @@ function SidebarGroupsHoverItem({ label }: { label: string }) {
 
         <div className="groups-flyout-footer">
           <NavLink
-            to="/admin/groups"
+            to="/admin/classes"
             className="view-all-link"
             onClick={() => setIsOpen(false)}
           >
@@ -416,7 +419,7 @@ const adminNav: {
   label: string;
   icon: string;
   permission: string;
-  isGroupsDropdown?: boolean;
+  isClassesDropdown?: boolean;
   isCategoriesDropdown?: boolean;
   /** Chỉ sáng khi đúng đường dẫn (không sáng ở trang con có mục menu riêng). */
   end?: boolean;
@@ -430,7 +433,8 @@ const adminNav: {
   { to: "/admin/users", label: "nav.users", icon: "👤", permission: Permissions.UserView },
   { to: "/admin/roles", label: "nav.roles", icon: "🛡️", permission: Permissions.RoleView },
   { to: "/admin/audit-logs", label: "nav.auditLogs", icon: "📜", permission: Permissions.AuditView },
-  { to: "/admin/groups", label: "nav.groups", icon: "👥", permission: Permissions.GroupView, isGroupsDropdown: true },
+  { to: "/admin/groups", label: "nav.groups", icon: "👥", permission: Permissions.GroupView },
+  { to: "/admin/classes", label: "nav.classList", icon: "🏫", permission: Permissions.ClassView, isClassesDropdown: true },
 ];
 
 export function AdminLayout() {
@@ -439,18 +443,14 @@ export function AdminLayout() {
   const items = adminNav.filter((item) => hasPermission(item.permission));
 
   // Lấy dữ liệu cho menu di động từ API backend
-  const { data: groupsData } = useQuery({
-    queryKey: ["sidebar-groups"],
-    queryFn: () => groupsApi.list({ page: 1, pageSize: 18 }),
-    staleTime: 60_000,
-  });
+  const { data: allClasses } = useAllClassrooms(hasPermission(Permissions.ClassView));
   const { data: categoriesData } = useQuery({
     queryKey: ["sidebar-categories"],
     queryFn: () => categoriesApi.list({ page: 1, pageSize: 50 }),
     staleTime: 60_000,
   });
 
-  const groups = groupsData?.items ?? [];
+  const classes = allClasses ?? [];
   const categories = categoriesData?.items ?? [];
 
   return (
@@ -465,16 +465,16 @@ export function AdminLayout() {
           <Navbar.Collapse id="admin-nav">
             <Nav className="me-auto d-lg-none py-2">
               {items.map((item) => {
-                if (item.isGroupsDropdown) {
+                if (item.isClassesDropdown) {
                   return (
-                    <NavDropdown key={item.to} title={`🏫 ${t(item.label)}`} id="mobile-groups-nav">
-                      <NavDropdown.Item as={NavLink} to="/admin/groups" end>
+                    <NavDropdown key={item.to} title={`🏫 ${t(item.label)}`} id="mobile-classes-nav">
+                      <NavDropdown.Item as={NavLink} to="/admin/classes" end>
                         📋 Tất cả danh sách lớp học
                       </NavDropdown.Item>
                       <NavDropdown.Divider />
-                      {groups.map((g) => (
-                        <NavDropdown.Item key={g.id} as={NavLink} to={`/admin/groups/${g.id}`}>
-                          🎓 {g.name} ({g.memberCount} học viên)
+                      {classes.map((c) => (
+                        <NavDropdown.Item key={c.id} as={NavLink} to={`/admin/classes/${c.id}`}>
+                          🎓 {c.name} ({c.studentCount} học viên)
                         </NavDropdown.Item>
                       ))}
                     </NavDropdown>
@@ -513,9 +513,9 @@ export function AdminLayout() {
         <nav className="admin-sidebar d-none d-lg-block border-end p-2.5" aria-label="Menu quản trị">
           <Nav className="flex-column" variant="pills">
             {items.map((item) => {
-              if (item.isGroupsDropdown) {
+              if (item.isClassesDropdown) {
                 return (
-                  <SidebarGroupsHoverItem
+                  <SidebarClassesHoverItem
                     key={item.to}
                     label={t(item.label)}
                   />

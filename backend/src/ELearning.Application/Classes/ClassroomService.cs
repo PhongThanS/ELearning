@@ -329,6 +329,15 @@ internal sealed class ClassroomService(
                 $"Lớp đang được gán cho {examCount} đề thi. Bỏ gán lớp khỏi các đề đó trước, hoặc tắt lớp thay vì xóa.");
         }
 
+        // Bỏ ngầm lớp khỏi video có thể biến video thành bài giảng chung (ai cũng xem) → bắt bỏ gán trước
+        var videoCount = await db.VideoLessonClassrooms.CountAsync(v => v.ClassroomId == id, ct);
+        if (videoCount > 0)
+        {
+            return Error.Conflict(
+                ErrorCodes.ClassroomInUse,
+                $"Lớp đang được gán cho {videoCount} video bài giảng. Bỏ lớp khỏi các video đó trước, hoặc tắt lớp thay vì xóa.");
+        }
+
         var students = await db.ClassroomStudents.Where(s => s.ClassroomId == id).ToListAsync(ct);
         db.ClassroomStudents.RemoveRange(students);
         db.Classrooms.Remove(classroom);

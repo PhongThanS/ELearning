@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using ELearning.Domain.Classes;
 using ELearning.Domain.Common;
 using ELearning.Domain.Questions;
 
@@ -8,17 +7,21 @@ namespace ELearning.Domain.Videos;
 /// <summary>
 /// Video bài giảng / tài liệu học tập (chỉ lưu link nhúng như YouTube, Vimeo, hoặc URL trực tiếp).
 /// Mỗi bài có thể kèm một tài liệu PDF trên Google Drive (<see cref="DocumentUrl"/>): có cả hai thì xem song song
-/// video và tài liệu. Phân loại theo Chuyên đề (Category) hoặc Lớp học (Classroom).
+/// video và tài liệu. Phân loại theo Chuyên đề (Category); giới hạn người xem theo một hoặc nhiều Lớp học
+/// (<see cref="Classrooms"/>; không gắn lớp nào = bài giảng chung, mọi học viên xem được).
 /// </summary>
 public sealed class VideoLesson : Entity, IHasRowVersion
 {
     public const int MaxTitleLength = 250;
     public const int MaxUrlLength = 1000;
     public const int MaxDescriptionLength = 4000;
+    public const int MaxClassrooms = 200;
 
     private static readonly Regex YoutubeRegex = new(
         @"(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.*[&?]v=|shorts\/|live\/))([\w-]{11})",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private readonly List<VideoLessonClassroom> _classrooms = [];
 
     private VideoLesson()
     {
@@ -30,7 +33,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
         string? documentUrl,
         string? description,
         Guid? categoryId,
-        Guid? classroomId,
+        IEnumerable<Guid> classroomIds,
         int? durationMinutes,
         int displayOrder,
         Guid createdBy,
@@ -44,7 +47,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
         DocumentUrl = string.IsNullOrWhiteSpace(documentUrl) ? null : documentUrl.Trim();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         CategoryId = categoryId;
-        ClassroomId = classroomId;
+        SetClassrooms(classroomIds);
         DurationMinutes = durationMinutes;
         DisplayOrder = displayOrder;
         IsActive = true;
@@ -73,9 +76,8 @@ public sealed class VideoLesson : Entity, IHasRowVersion
 
     public QuestionCategory? Category { get; private set; }
 
-    public Guid? ClassroomId { get; private set; }
-
-    public Classroom? Classroom { get; private set; }
+    /// <summary>Các lớp được xem bài giảng; rỗng = bài giảng chung.</summary>
+    public IReadOnlyCollection<VideoLessonClassroom> Classrooms => _classrooms;
 
     public int? DurationMinutes { get; private set; }
 
@@ -99,7 +101,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
         string? documentUrl,
         string? description,
         Guid? categoryId,
-        Guid? classroomId,
+        IEnumerable<Guid> classroomIds,
         int? durationMinutes,
         int displayOrder,
         bool isActive,
@@ -114,7 +116,7 @@ public sealed class VideoLesson : Entity, IHasRowVersion
         DocumentUrl = string.IsNullOrWhiteSpace(documentUrl) ? null : documentUrl.Trim();
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
         CategoryId = categoryId;
-        ClassroomId = classroomId;
+        SetClassrooms(classroomIds);
         DurationMinutes = durationMinutes;
         DisplayOrder = displayOrder;
         IsActive = isActive;
@@ -122,6 +124,21 @@ public sealed class VideoLesson : Entity, IHasRowVersion
         UpdatedAt = now;
 
         ApplyYoutubeExtraction();
+    }
+
+    /// <summary>Thay toàn bộ danh sách lớp được xem (bỏ trùng); trả về true nếu có thay đổi.</summary>
+    public bool SetClassrooms(IEnumerable<Guid> classroomIds)
+    {
+        var target = classroomIds.Distinct().ToHashSet();
+        var removed = _classrooms.RemoveAll(c => !target.Contains(c.ClassroomId));
+        var added = 0;
+        foreach (var classroomId in target.Where(id => _classrooms.TrueForAll(c => c.ClassroomId != id)))
+        {
+            _classrooms.Add(new VideoLessonClassroom(Id, classroomId));
+            added++;
+        }
+
+        return removed + added > 0;
     }
 
     public void SetActive(bool isActive, Guid updatedBy, DateTime now)

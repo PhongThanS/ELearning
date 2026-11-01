@@ -72,6 +72,8 @@ public interface IAppDbContext
 
     DbSet<ELearning.Domain.Videos.VideoLesson> VideoLessons { get; }
 
+    DbSet<ELearning.Domain.Videos.VideoLessonClassroom> VideoLessonClassrooms { get; }
+
     DbSet<ELearning.Domain.Settings.SystemSetting> SystemSettings { get; }
 
     DatabaseFacade Database { get; }
