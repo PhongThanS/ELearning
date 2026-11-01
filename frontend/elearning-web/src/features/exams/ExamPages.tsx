@@ -699,7 +699,12 @@ export function ExamDetailPage() {
           {exam.status !== "DRAFT" && (
             <ReviewPolicyCard exam={exam} onUpdated={(saved) => onChanged(saved)} />
           )}
-          <VersionsCard exam={exam} />
+          <VersionsCard
+            exam={exam}
+            busy={action.isPending}
+            onRequestClose={() => setDialog("close")}
+            onReopen={() => action.mutate(() => examsApi.reopen(id))}
+          />
           <AssignmentsCard exam={exam} />
           <UserOverridesCard exam={exam} />
         </Col>
@@ -863,13 +868,31 @@ function ExamInfoForm({ exam, onSaved }: { exam: ExamDetail; onSaved: (exam: Exa
   );
 }
 
-function VersionsCard({ exam }: { exam: ExamDetail }) {
+type ExamVersionRow = ExamDetail["versions"][number];
+
+/**
+ * Danh sách phiên bản của đề. Thao tác theo dòng (theo quyền): bản nháp → Xuất bản (kiểm tra điều kiện trước);
+ * bản đang dùng → Đóng đề / Mở lại (đóng / mở là trạng thái của đề, áp cho phiên bản đang dùng — docs/02 mục 4.2).
+ * Bản lưu trữ không xuất bản lại được (docs/02 mục 4.3).
+ */
+function VersionsCard({
+  exam,
+  busy,
+  onRequestClose,
+  onReopen,
+}: {
+  exam: ExamDetail;
+  busy: boolean;
+  onRequestClose: () => void;
+  onReopen: () => void;
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
-  const [deleting, setDeleting] = useState<ExamDetail["versions"][number] | null>(null);
+  const [deleting, setDeleting] = useState<ExamVersionRow | null>(null);
+  const [publishing, setPublishing] = useState<ExamVersionRow | null>(null);
   const createVersion = useMutation({
     mutationFn: () => examsApi.createVersion(exam.id),
     onSuccess: (v) => navigate(`/admin/exams/${exam.id}/versions/${v.id}`),
@@ -886,6 +909,9 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
   });
   // Đề chưa publish lần nào chỉ có một phiên bản: xóa đề thay vì xóa phiên bản
   const canDeleteDraft = exam.status !== "DRAFT" && hasPermission(Permissions.ExamUpdate);
+  const canPublish = hasPermission(Permissions.ExamPublish);
+  const canClose = hasPermission(Permissions.ExamClose);
+  const hasActions = canDeleteDraft || canPublish || canClose;
 
   return (
     <Card className="mb-3">
@@ -905,7 +931,7 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
               <th>{t("common.status")}</th>
               <th className="text-center">Số câu</th>
               <th className="text-center">Điểm</th>
-              {canDeleteDraft && <th aria-label={t("common.actions")} />}
+              {hasActions && <th aria-label={t("common.actions")} />}
             </tr>
           </thead>
           <tbody>
@@ -920,18 +946,41 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
                   <Badge bg={v.status === "PUBLISHED" ? "success" : "secondary"}>
                     {t(`enums.versionStatus.${v.status}`)}
                   </Badge>
+                  {/* Phiên bản đang dùng: kèm trạng thái mở / đóng của đề */}
+                  {v.status === "PUBLISHED" && exam.status !== "DRAFT" && (
+                    <Badge bg={examStatusVariant[exam.status]} className="ms-1">
+                      {t(`enums.examStatus.${exam.status}`)}
+                    </Badge>
+                  )}
                   {/* Khung hẹp (cột phải): ngày publish nằm dưới trạng thái thay cho cột riêng */}
                   <div className="small text-secondary">{v.publishedAt ? formatDateTime(v.publishedAt) : "Chưa xuất bản"}</div>
                 </td>
                 <td className="text-center">{v.questionCount}</td>
                 <td className="text-center">{formatNumber(v.maxScore)}</td>
-                {canDeleteDraft && (
+                {hasActions && (
                   <td className="text-end">
-                    {v.status === "DRAFT" && (
-                      <Button size="sm" variant="link" className="text-danger p-0" aria-label={`Xóa phiên bản ${v.versionNumber}`} onClick={() => setDeleting(v)}>
-                        {t("common.delete")}
-                      </Button>
-                    )}
+                    <div className="d-inline-flex flex-wrap justify-content-end align-items-center gap-2">
+                      {v.status === "DRAFT" && canPublish && (
+                        <Button size="sm" variant="primary" className="py-0" aria-label={`Xuất bản phiên bản ${v.versionNumber}`} onClick={() => setPublishing(v)}>
+                          Xuất bản
+                        </Button>
+                      )}
+                      {v.status === "PUBLISHED" && exam.status === "PUBLISHED" && canClose && (
+                        <Button size="sm" variant="outline-warning" className="py-0" disabled={busy} aria-label={`Đóng đề (phiên bản ${v.versionNumber})`} onClick={onRequestClose}>
+                          Đóng
+                        </Button>
+                      )}
+                      {v.status === "PUBLISHED" && exam.status === "CLOSED" && canClose && (
+                        <Button size="sm" variant="outline-success" className="py-0" disabled={busy} aria-label={`Mở lại đề (phiên bản ${v.versionNumber})`} onClick={onReopen}>
+                          Mở lại
+                        </Button>
+                      )}
+                      {v.status === "DRAFT" && canDeleteDraft && (
+                        <Button size="sm" variant="link" className="text-danger p-0" aria-label={`Xóa phiên bản ${v.versionNumber}`} onClick={() => setDeleting(v)}>
+                          {t("common.delete")}
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -948,7 +997,90 @@ function VersionsCard({ exam }: { exam: ExamDetail }) {
         onCancel={() => setDeleting(null)}
         onConfirm={() => deleteVersion.mutate(deleting!.id)}
       />
+      {publishing && (
+        <PublishVersionDialog
+          exam={exam}
+          version={publishing}
+          onClose={() => setPublishing(null)}
+          onPublished={() => {
+            setPublishing(null);
+            toast.success(`Đã xuất bản phiên bản v${publishing.versionNumber}.`);
+            void queryClient.invalidateQueries({ queryKey: ["exam", exam.id] });
+            void queryClient.invalidateQueries({ queryKey: ["exams"] });
+          }}
+        />
+      )}
     </Card>
+  );
+}
+
+/** Xuất bản một phiên bản nháp từ trang đề: kiểm tra điều kiện (validate) rồi mới cho xác nhận publish. */
+function PublishVersionDialog({
+  exam,
+  version,
+  onClose,
+  onPublished,
+}: {
+  exam: ExamDetail;
+  version: ExamVersionRow;
+  onClose: () => void;
+  onPublished: () => void;
+}) {
+  const validation = useQuery({
+    queryKey: ["version-validate", version.id],
+    queryFn: () => examsApi.validate(exam.id, version.id),
+    gcTime: 0,
+    retry: false,
+  });
+  const publish = useMutation({ mutationFn: () => examsApi.publish(exam.id, version.id), onSuccess: onPublished });
+  const result = validation.data;
+  const replacing = exam.versions.find((v) => v.status === "PUBLISHED");
+
+  return (
+    <Modal show onHide={publish.isPending ? undefined : onClose} centered>
+      <Modal.Header closeButton={!publish.isPending}>
+        <Modal.Title className="h5">Xuất bản phiên bản v{version.versionNumber}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        {validation.isLoading ? (
+          <Loading text="Đang kiểm tra điều kiện xuất bản…" />
+        ) : validation.error ? (
+          <ErrorAlert error={validation.error} onRetry={() => void validation.refetch()} />
+        ) : result && !result.isValid ? (
+          <Alert variant="danger" className="mb-0">
+            <strong>Chưa thể xuất bản:</strong>
+            <ul className="mb-2">
+              {result.issues.map((issue, i) => (
+                <li key={i}>{issue.message}</li>
+              ))}
+            </ul>
+            <Link to={`/admin/exams/${exam.id}/versions/${version.id}`}>Mở trang soạn để sửa →</Link>
+          </Alert>
+        ) : (
+          <>
+            <Alert variant="success" className="py-2">
+              Phiên bản hợp lệ: {version.questionCount} câu, tổng {formatNumber(version.maxScore)} điểm.
+            </Alert>
+            <p className="mb-0 small">
+              Sau khi xuất bản, phiên bản <strong>không thể chỉnh sửa</strong>.
+              {replacing
+                ? ` Phiên bản đang dùng v${replacing.versionNumber} sẽ chuyển sang lưu trữ; lượt thi đang làm trên v${replacing.versionNumber} vẫn tiếp tục bình thường.`
+                : " Học viên được gán đề sẽ bắt đầu làm bài được."}
+              {exam.status === "CLOSED" && " Đề đang đóng và vẫn đóng sau khi xuất bản: bấm \"Mở lại\" để học viên làm bài."}
+            </p>
+          </>
+        )}
+        {publish.error && <ErrorAlert error={publish.error} />}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onClose} disabled={publish.isPending}>
+          Hủy
+        </Button>
+        <Button onClick={() => publish.mutate()} disabled={!result?.isValid || publish.isPending}>
+          {publish.isPending ? "Đang xuất bản…" : "Xuất bản"}
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 }
 
