@@ -916,6 +916,16 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                     <MediaUrls value={media}>
                       <div className="border rounded p-3 bg-white">
                         <MarkdownView content={fullContentWithImages || "_(Chưa có nội dung)_"} format={form.contentFormat} />
+                        {["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE"].includes(form.questionType) && form.options.some((o) => o.content.trim()) && (
+                          <ul className="list-unstyled mt-3 mb-0">
+                            {form.options.map((o) => (
+                              <li key={o.optionCode} className="d-flex gap-2 py-1">
+                                <strong>{form.questionType === "TRUE_FALSE" ? `${o.optionCode})` : `${o.optionCode}.`}</strong>
+                                <MarkdownView content={o.content || "…"} inline />
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     </MediaUrls>
                   </Tab>
@@ -1039,6 +1049,23 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   );
 }
 
+/** Phương án / mệnh đề có công thức ($…$) hoặc định dạng Markdown: ô nhập giữ nguyên văn, dòng này cho thấy kết quả hiển thị. */
+function needsRenderedPreview(content: string): boolean {
+  return /\$[^$]+\$|\*\*|!\[/.test(content);
+}
+
+function OptionRenderedPreview({ content }: { content: string }) {
+  if (!needsRenderedPreview(content)) {
+    return null;
+  }
+  return (
+    <div className="w-100 small text-secondary pt-1 ps-2">
+      <i className="bi bi-eye me-1" aria-hidden="true" />
+      <MarkdownView content={content} inline />
+    </div>
+  );
+}
+
 function OptionsEditor({
   form,
   set,
@@ -1122,6 +1149,7 @@ function OptionsEditor({
               </Button>
             )}
             <Form.Control.Feedback type="invalid">{errors[`options[${index}].content`]}</Form.Control.Feedback>
+            <OptionRenderedPreview content={option.content} />
           </InputGroup>
         ))}
         {form.options.length < 6 && (
@@ -1187,6 +1215,7 @@ function OptionsEditor({
             ✕
           </Button>
           <Form.Control.Feedback type="invalid">{errors[`options[${index}].content`]}</Form.Control.Feedback>
+          <OptionRenderedPreview content={option.content} />
         </InputGroup>
       ))}
       {form.options.length < 10 && (
