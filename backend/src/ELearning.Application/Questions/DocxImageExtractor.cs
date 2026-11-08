@@ -20,7 +20,8 @@ public sealed record DocxImageResult(IReadOnlyList<DocxImage> Images, IReadOnlyL
 /// Lấy ảnh (hình vẽ, đồ thị) từ file đề .docx gốc và đặt tên theo vị trí trong đề, đúng quy ước mà prompt yêu cầu AI
 /// ghi trong file .md: <c>hinh-p&lt;phần&gt;-c&lt;câu&gt;[-2].png</c>, ảnh trước câu đầu tiên của phần là
 /// <c>hinh-p&lt;phần&gt;-chung.png</c> (docs/02-nghiep-vu.md mục 1.5, D-29). Không dùng AI: phần nhận từ dòng
-/// "PHẦN I/II/…", câu nhận từ dòng "Câu 3." / "Bài 3:". Dừng ở bảng đáp án / lời giải để ảnh trong lời giải
+/// "PHẦN I/II/…", câu nhận từ dòng "Câu 3." / "Bài 3:" hoặc số Word tự đánh kiểu "Câu %1:" (tính như Word in ra).
+/// Hình trong lời giải ngay dưới câu được đếm tiếp theo câu đó. Dừng ở bảng đáp án / lời giải cuối đề để ảnh trong lời giải
 /// không bị đặt nhầm tên. Công thức MathType (đối tượng OLE) không phải ảnh nên bị bỏ qua.
 /// </summary>
 public static partial class DocxImageExtractor
@@ -49,7 +50,8 @@ public static partial class DocxImageExtractor
 
             var xml = Load(document);
             var targets = LoadRelationships(zip.GetEntry("word/_rels/document.xml.rels"));
-            return Collect(zip, xml, targets, maxImageBytes);
+            var numbering = WordNumbering.Load(zip.GetEntry("word/numbering.xml"));
+            return Collect(zip, xml, targets, numbering, maxImageBytes);
         }
         catch (Exception ex) when (ex is InvalidDataException or XmlException or IOException)
         {
@@ -57,7 +59,8 @@ public static partial class DocxImageExtractor
         }
     }
 
-    private static DocxImageResult Collect(ZipArchive zip, XDocument xml, Dictionary<string, string> targets, int maxImageBytes)
+    private static DocxImageResult Collect(
+        ZipArchive zip, XDocument xml, Dictionary<string, string> targets, WordNumbering numbering, int maxImageBytes)
     {
         var images = new List<DocxImage>();
         var skipped = new List<DocxSkippedImage>();
@@ -70,6 +73,8 @@ public static partial class DocxImageExtractor
         foreach (var p in xml.Descendants(W + "p"))
         {
             var text = ParagraphText(p);
+            // Gọi cho mọi đoạn để số tự đánh khớp với số Word in ra
+            var autoNumber = numbering.QuestionNumber(p);
             if (StopHeading().IsMatch(text))
             {
                 break;
@@ -86,6 +91,10 @@ public static partial class DocxImageExtractor
             else if (QuestionStart().Match(text) is { Success: true } q)
             {
                 question = int.Parse(q.Groups["n"].Value, CultureInfo.InvariantCulture);
+            }
+            else if (autoNumber is { } n)
+            {
+                question = n;
             }
 
             foreach (var relId in PictureRelIds(p))
@@ -240,6 +249,101 @@ public static partial class DocxImageExtractor
 
         return total is > 0 and <= 20 ? total : null;
     }
+
+    /// <summary>
+    /// Đánh số tự động của Word (word/numbering.xml). Đếm theo abstractNum như Word: các numId cùng một abstractNum
+    /// đánh tiếp nhau, trừ khi numId có startOverride; cấp trên tăng thì cấp dưới đếm lại.
+    /// </summary>
+    private sealed class WordNumbering
+    {
+        private const int Levels = 9;
+
+        private readonly Dictionary<string, (string Abstract, Dictionary<int, int> Overrides)> _nums = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Dictionary<int, (int Start, string Text)>> _abstracts = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int?[]> _counters = new(StringComparer.Ordinal);
+        private readonly HashSet<string> _usedNums = new(StringComparer.Ordinal);
+
+        public static WordNumbering Load(ZipArchiveEntry? entry)
+        {
+            var numbering = new WordNumbering();
+            if (entry is null || entry.Length > MaxXmlBytes)
+            {
+                return numbering;
+            }
+
+            var xml = DocxImageExtractor.Load(entry);
+            foreach (var a in xml.Descendants(W + "abstractNum"))
+            {
+                var levels = new Dictionary<int, (int Start, string Text)>();
+                foreach (var lvl in a.Elements(W + "lvl"))
+                {
+                    levels[Int(lvl.Attribute(W + "ilvl")) ?? 0] = (
+                        Int(lvl.Element(W + "start")?.Attribute(W + "val")) ?? 1,
+                        (string?)lvl.Element(W + "lvlText")?.Attribute(W + "val") ?? string.Empty);
+                }
+
+                numbering._abstracts[(string?)a.Attribute(W + "abstractNumId") ?? string.Empty] = levels;
+            }
+
+            foreach (var num in xml.Descendants(W + "num"))
+            {
+                var overrides = new Dictionary<int, int>();
+                foreach (var o in num.Elements(W + "lvlOverride"))
+                {
+                    if (Int(o.Element(W + "startOverride")?.Attribute(W + "val")) is { } start)
+                    {
+                        overrides[Int(o.Attribute(W + "ilvl")) ?? 0] = start;
+                    }
+                }
+
+                numbering._nums[(string?)num.Attribute(W + "numId") ?? string.Empty] =
+                    ((string?)num.Element(W + "abstractNumId")?.Attribute(W + "val") ?? string.Empty, overrides);
+            }
+
+            return numbering;
+        }
+
+        /// <summary>Số câu khi đoạn được Word tự đánh số kiểu "Câu %1:"; null nếu không. Gọi cho mọi đoạn, theo thứ tự.</summary>
+        public int? QuestionNumber(XElement p)
+        {
+            var numPr = p.Element(W + "pPr")?.Element(W + "numPr");
+            var numId = (string?)numPr?.Element(W + "numId")?.Attribute(W + "val");
+            if (numId is null || !_nums.TryGetValue(numId, out var num) || !_abstracts.TryGetValue(num.Abstract, out var levels))
+            {
+                return null;
+            }
+
+            var level = Math.Clamp(Int(numPr!.Element(W + "ilvl")?.Attribute(W + "val")) ?? 0, 0, Levels - 1);
+            if (!_counters.TryGetValue(num.Abstract, out var counters))
+            {
+                counters = _counters[num.Abstract] = new int?[Levels];
+            }
+
+            if (_usedNums.Add(numId))
+            {
+                foreach (var (overrideLevel, start) in num.Overrides.Where(o => o.Key is >= 0 and < Levels))
+                {
+                    counters[overrideLevel] = start - 1;
+                }
+            }
+
+            var definition = levels.GetValueOrDefault(level, (Start: 1, Text: string.Empty));
+            var value = (counters[level] ?? definition.Start - 1) + 1;
+            counters[level] = value;
+            for (var deeper = level + 1; deeper < Levels; deeper++)
+            {
+                counters[deeper] = null;
+            }
+
+            return NumberedQuestion().IsMatch(definition.Text) ? value : null;
+        }
+
+        private static int? Int(XAttribute? attribute) =>
+            int.TryParse((string?)attribute, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) ? n : null;
+    }
+
+    [GeneratedRegex(@"^\s*(?:CÂU|BÀI|QUESTION)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex NumberedQuestion();
 
     [GeneratedRegex(@"^[\s\*\-#]*PH[ẦẨA]N\s+(?<n>[IVX]+|\d+)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex PartHeading();

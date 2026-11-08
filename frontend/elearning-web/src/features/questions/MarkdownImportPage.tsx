@@ -29,11 +29,16 @@ function baseName(path: string): string {
   return (path.split(/[\\/]/).pop() ?? path).toLowerCase();
 }
 
+/** Tên bỏ đuôi: file .md ghi hinh-p1-c3.png nhưng hình trong Word có thể là .jpg / .gif. */
+export function imageStem(name: string): string {
+  return baseName(name).replace(/\.[a-z0-9]+$/, "");
+}
+
 type ImportImage = PendingImage & { name: string; fromDocx?: boolean };
 
-/** Tên file ảnh (chữ thường) mà file .md tham chiếu. */
+/** Tên file ảnh (chữ thường, bỏ đuôi) mà file .md tham chiếu. */
 function referencedNames(markdown: string): Set<string> {
-  return new Set([...markdown.matchAll(IMAGE_REF)].map((m) => baseName(m[2] ?? "")));
+  return new Set([...markdown.matchAll(IMAGE_REF)].map((m) => imageStem(m[2] ?? "")));
 }
 
 function fileFromBase64(name: string, type: string, base64: string): File {
@@ -49,14 +54,18 @@ function isDocx(file: File): boolean {
   return file.name.toLowerCase().endsWith(".docx");
 }
 
-/** Thay ![..](hinh-1.png) bằng ![..](media:pending-x) cho các ảnh đã chọn; tên chưa có ảnh giữ nguyên. */
-function attachImages(markdown: string, images: readonly ImportImage[]): string {
+/**
+ * Thay ![..](hinh-1.png) bằng ![..](media:pending-x) cho các ảnh đã chọn; tên chưa có ảnh giữ nguyên. Khớp đúng tên
+ * trước, không có thì khớp tên bỏ đuôi (hinh-p1-c3.png ↔ hinh-p1-c3.jpg lấy từ Word).
+ */
+export function attachImages(markdown: string, images: readonly Pick<ImportImage, "id" | "name">[]): string {
   const byName = new Map(images.map((i) => [i.name, i.id]));
+  const byStem = new Map(images.map((i) => [imageStem(i.name), i.id]));
   return markdown.replace(IMAGE_REF, (whole, open: string, target: string, close: string) => {
     if (target.toLowerCase().startsWith("media:")) {
       return whole;
     }
-    const id = byName.get(baseName(target));
+    const id = byName.get(baseName(target)) ?? byStem.get(imageStem(target));
     return id ? `${open}media:${id}${close}` : whole;
   });
 }
@@ -248,7 +257,7 @@ export function MarkdownImportPage() {
 
   const referenced = useMemo(() => referencedNames(markdown), [markdown]);
   const docxImages = images.filter((i) => i.fromDocx);
-  const unusedDocx = markdown ? docxImages.filter((i) => !referenced.has(i.name)) : [];
+  const unusedDocx = markdown ? docxImages.filter((i) => !referenced.has(imageStem(i.name))) : [];
 
   const counts = useMemo(() => {
     const map = new Map<string, number>();
@@ -360,7 +369,7 @@ export function MarkdownImportPage() {
             {docxImages.length > 0 && (
               <div className="d-flex flex-wrap gap-2 mb-2">
                 {docxImages.map((i) => (
-                  <figure key={i.id} className={`border rounded p-1 mb-0 text-center ${referenced.has(i.name) ? "border-success" : "border-warning"}`}>
+                  <figure key={i.id} className={`border rounded p-1 mb-0 text-center ${referenced.has(imageStem(i.name)) ? "border-success" : "border-warning"}`}>
                     <img src={i.previewUrl} alt={i.name} style={{ height: 64, maxWidth: 140, objectFit: "contain" }} />
                     <figcaption className="small"><code>{i.name}</code></figcaption>
                   </figure>

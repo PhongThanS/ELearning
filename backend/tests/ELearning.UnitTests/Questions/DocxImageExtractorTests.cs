@@ -72,6 +72,41 @@ public class DocxImageExtractorTests
     }
 
     [Fact]
+    public void Questions_numbered_automatically_by_word_get_the_printed_number_and_solution_pictures_follow()
+    {
+        // "Câu %1:" do Word tự đánh, đánh tiếp qua các phần như Word in ra; hình trong "Lời giải" đếm tiếp theo câu
+        var docx = Docx(
+            [
+                P("PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn."),
+                Numbered("[MĐ1] Cho tam giác ABC.", "1"),
+                P("Lời giải"),
+                P("Chọn C"),
+                Picture("rIdA"),
+                Numbered("[MĐ2] Cho hình vẽ.", "1") + Picture("rIdB"),
+                P("Lời giải") + Picture("rIdC"),
+                P("PHẦN II. Câu trắc nghiệm đúng sai."),
+                Numbered("[MĐ2] Cho bốn điểm.", "1") + Picture("rIdD"),
+                Numbered("Ý con không phải câu hỏi", "2"),
+            ],
+            new()
+            {
+                ["rIdA"] = ("media/a.png", Png),
+                ["rIdB"] = ("media/b.png", Png),
+                ["rIdC"] = ("media/c.png", Png),
+                ["rIdD"] = ("media/d.png", Png),
+            },
+            """
+            <w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:lvlText w:val="Câu %1:"/></w:lvl></w:abstractNum>
+            <w:abstractNum w:abstractNumId="1"><w:lvl w:ilvl="0"><w:start w:val="1"/><w:lvlText w:val="%1)"/></w:lvl></w:abstractNum>
+            <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+            <w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num>
+            """);
+
+        DocxImageExtractor.Extract(docx, 1024)!.Images.Select(i => i.Name).Should().Equal(
+            "hinh-p1-c1.png", "hinh-p1-c2.png", "hinh-p1-c2-2.png", "hinh-p2-c3.png");
+    }
+
+    [Fact]
     public void Not_a_docx_returns_null()
     {
         DocxImageExtractor.Extract(new MemoryStream(Encoding.UTF8.GetBytes("không phải zip")), 1024).Should().BeNull();
@@ -86,7 +121,10 @@ public class DocxImageExtractorTests
     private static string Formula(string relId) =>
         $"<w:p><w:r><w:object><v:shape><v:imagedata r:id=\"{relId}\"/></v:shape></w:object></w:r></w:p>";
 
-    private static MemoryStream Docx(string[] paragraphs, Dictionary<string, (string Target, byte[] Bytes)> media)
+    private static string Numbered(string text, string numId) =>
+        $"<w:p><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"{numId}\"/></w:numPr></w:pPr><w:r><w:t xml:space=\"preserve\">{text}</w:t></w:r></w:p>";
+
+    private static MemoryStream Docx(string[] paragraphs, Dictionary<string, (string Target, byte[] Bytes)> media, string? numbering = null)
     {
         var stream = new MemoryStream();
         using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
@@ -104,6 +142,12 @@ public class DocxImageExtractorTests
                 $"<Relationship Id=\"{m.Key}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"{m.Value.Target}\"/>"));
             Write(zip, "word/_rels/document.xml.rels",
                 $"<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">{rels}</Relationships>");
+            if (numbering is not null)
+            {
+                Write(zip, "word/numbering.xml",
+                    $"<?xml version=\"1.0\" encoding=\"UTF-8\"?><w:numbering xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">{numbering}</w:numbering>");
+            }
+
             foreach (var (target, bytes) in media.Values)
             {
                 using var entry = zip.CreateEntry("word/" + target).Open();

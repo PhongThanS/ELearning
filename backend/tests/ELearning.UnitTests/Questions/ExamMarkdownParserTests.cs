@@ -100,6 +100,39 @@ public class ExamMarkdownParserTests
     }
 
     [Fact]
+    public void True_false_answer_copied_from_the_answer_table_and_level_tags_are_understood()
+    {
+        var doc = ExamMarkdownParser.Parse(Header + """
+            @question: 1
+            @type: TRUE_FALSE
+            @score: 1
+            @difficulty: [MĐ2]
+            @content: Cho bốn điểm.
+            @statement a: Ý a
+            @statement b: Ý b
+            @statement c: Ý c
+            @statement d: Ý d
+            @answer: a) Đúng b) Đúng c) Sai d) Đúng
+            @question: 2
+            @type: NUMBER
+            @score: 0.5
+            @difficulty: MĐ4
+            @content: Tính.
+            @answer: 0,31
+            @question: 3
+            @type: NUMBER
+            @score: 0.5
+            @difficulty: NB
+            @content: Tính.
+            @answer: 2
+            """);
+
+        doc.Questions.SelectMany(q => q.Issues).Should().BeEmpty();
+        doc.Questions[0].Input!.Options!.Select(o => o.IsCorrect).Should().Equal(true, true, false, true);
+        doc.Questions.Select(q => q.Input!.Difficulty).Should().Equal(QuestionDifficulty.Medium, QuestionDifficulty.Hard, QuestionDifficulty.Easy);
+    }
+
+    [Fact]
     public void Number_and_text_answers()
     {
         var doc = ExamMarkdownParser.Parse(Header + """

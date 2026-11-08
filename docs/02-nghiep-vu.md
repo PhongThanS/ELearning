@@ -91,13 +91,20 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
   (D-27) khi bấm nhập, rồi tên file được thay bằng `media:<id>`. Thiếu ảnh hoặc ảnh từ trang ngoài (`http…`) thì không nhập được.
 - **Lấy hình từ file Word gốc (không AI):** người dùng chọn file `.docx` gốc ở bước chọn ảnh; server đọc file (không lưu),
   lấy các hình vẽ (ảnh DrawingML / VML, **bỏ** ảnh xem trước của công thức MathType) theo thứ tự trong đề và đặt tên theo
-  vị trí: phần từ dòng "PHẦN I/II/…" (I → 1; chưa có dòng phần → 1), câu từ dòng "Câu 3." / "Bài 3:" →
-  `hinh-p<phần>-c<câu>.png`, hình thứ hai trở đi của câu thêm `-2`, `-3`; hình trước câu đầu của phần →
-  `hinh-p<phần>-chung.png`. Dừng ở tiêu đề viết hoa "BẢNG ĐÁP ÁN" / "LỜI GIẢI" / "HƯỚNG DẪN GIẢI" để hình trong lời giải
-  không bị đặt nhầm tên; cùng một hình xuất hiện lại chỉ lấy một lần. Prompt yêu cầu AI đặt tên ảnh đúng quy ước này nên
-  hai bên khớp nhau. Hình WMF / EMF (trình duyệt không hiển thị) hoặc lớn hơn `Media:MaxBytes` được liệt kê để cắt tay.
-  Giao diện cảnh báo hình có trong Word mà file `.md` không dùng (câu có thể thiếu hình). Ảnh người dùng tự chọn cùng tên
-  được ưu tiên hơn ảnh lấy từ Word.
+  vị trí: phần từ dòng "PHẦN I/II/…" (I → 1; chưa có dòng phần → 1), câu từ dòng "Câu 3." / "Bài 3:" hoặc từ số Word
+  **tự đánh** có mẫu "Câu %1:" (đếm như Word in ra: đánh tiếp qua các phần, theo `startOverride` nếu có) →
+  `hinh-p<phần>-c<câu>.png`, hình thứ hai trở đi của câu thêm `-2`, `-3` — kể cả hình trong "Lời giải" ngay dưới câu,
+  đếm tiếp theo thứ tự xuất hiện; hình trước câu đầu của phần → `hinh-p<phần>-chung.png`. Dừng ở tiêu đề viết hoa
+  "BẢNG ĐÁP ÁN" / "LỜI GIẢI" / "HƯỚNG DẪN GIẢI" (phần lời giải gom cuối đề, đánh số lại từ câu 1) để hình không bị đặt
+  nhầm tên; cùng một hình xuất hiện lại chỉ lấy một lần. Prompt yêu cầu AI đặt tên ảnh đúng quy ước này nên hai bên
+  khớp nhau. Ảnh ghép theo tên **bỏ đuôi** (`.md` ghi `hinh-p1-c3.png`, hình trong Word là `.jpg` vẫn khớp). Hình WMF /
+  EMF (trình duyệt không hiển thị) hoặc lớn hơn `Media:MaxBytes` được liệt kê để cắt tay. Giao diện cảnh báo hình có
+  trong Word mà file `.md` không dùng (câu có thể thiếu hình). Ảnh người dùng tự chọn cùng tên được ưu tiên hơn ảnh
+  lấy từ Word.
+- **Cách trình bày đề hay gặp** (prompt mục 3.1): nhãn mức độ `[MĐ1]`–`[MĐ4]` / NB / TH / VD / VDC → `@difficulty`
+  (MĐ1 → EASY, MĐ2 → MEDIUM, MĐ3–MĐ4 → HARD; parser cũng nhận thẳng các nhãn này); "Lời giải … Chọn C" dưới từng câu →
+  `@answer` + `@explanation`; câu Đúng/Sai dạng bảng "Mệnh đề | Đúng | Sai" và bảng đáp án "a) Đúng b) Sai…" (parser
+  nhận cả `@answer: a) Đúng b) Sai …` chép nguyên từ đề); "Trả lời: 2,1" → câu `NUMBER`.
 - **Tạo sẵn đề thi nháp (tùy chọn):** sau khi nhập, giao diện tạo đề `ASSIGNED`, 1 lượt, thời lượng theo `@duration`
   (mặc định 60 phút), thêm các câu theo đúng thứ tự trong file với điểm `@score`; admin kiểm tra rồi publish như thường.
 - **Công thức toán:** nội dung Markdown hiển thị LaTeX trong `$...$` / `$$...$$` bằng KaTeX (mọi nơi dùng `MarkdownView`);

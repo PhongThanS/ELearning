@@ -106,8 +106,69 @@ Ví dụ câu `TEXT` có hai cách viết đúng:
 ```
 
 **Tìm đáp án theo thứ tự ưu tiên:** (1) bảng đáp án ("BẢNG ĐÁP ÁN", "ĐÁP ÁN") — ghép đúng theo **phần** và **số câu**;
-(2) phương án được đánh dấu trong đề (gạch chân, tô đỏ, in đậm khác các phương án còn lại, dấu `*`);
-(3) "Đáp số" / kết luận trong lời giải. Không có cả ba → `@answer: ?`.
+(2) dòng đáp án ngay dưới câu: "Chọn C", "Chọn đáp án C", "Đáp án: C", "Trả lời: 2,1", "Đáp số: 2,1", bảng
+"a) Đúng | b) Sai | …"; (3) phương án được đánh dấu trong đề (gạch chân, tô đỏ, in đậm khác các phương án còn lại,
+dấu `*`); (4) kết luận trong lời giải. Không có cả bốn → `@answer: ?`.
+
+### 3.1 Các cách trình bày đề hay gặp và cách chuyển
+
+**a) Mức độ ghi ở đầu câu** — `[MĐ1]`, `[MĐ2]`, `[MĐ3]`, `[MĐ4]`, `(NB)`, `[TH]`, `[VD]`, `[VDC]`, "Nhận biết"…: chuyển
+thành `@difficulty` và **bỏ** nhãn khỏi `@content`.
+
+| Nhãn trong đề | `@difficulty` |
+|---|---|
+| `MĐ1`, `NB`, Nhận biết | `EASY` |
+| `MĐ2`, `TH`, Thông hiểu | `MEDIUM` |
+| `MĐ3`, `MĐ4`, `VD`, `VDC`, Vận dụng (cao) | `HARD` |
+
+**b) Lời giải ngay dưới từng câu** (dòng "Lời giải" / "Hướng dẫn giải" / "Giải" sau các phương án):
+- Dòng "Chọn C" / "Chọn đáp án C" / "Đáp án C" → `@answer: C`, **không** chép dòng đó vào lời giải.
+- Toàn bộ phần còn lại của lời giải (kể cả hình vẽ, bảng) → `@explanation`. **Không** chép chữ "Lời giải".
+- Lời giải là của **câu ngay phía trên**; câu tiếp theo bắt đầu ở dòng "Câu …" kế tiếp.
+
+**c) Câu Đúng/Sai trình bày bằng bảng** "Mệnh đề | Đúng | Sai" với các dòng a), b), c), d):
+- Nội dung chung (dòng phía trên bảng) → `@content`; mỗi dòng của bảng → một `@statement` (bỏ "a)").
+- Cột Đúng / Sai có dấu `X` / `✓` → đáp án của ý đó.
+- Bảng hoặc dòng đáp án trong lời giải "a) Đúng | b) Đúng | c) Sai | d) Đúng" → `@answer: a=Đ, b=Đ, c=S, d=Đ`.
+- Lời giải từng ý ("a) … Chọn ĐÚNG.", "b) … Chọn SAI.") giữ nguyên trong `@explanation`, mỗi ý một đoạn.
+
+**d) Trả lời ngắn có dòng "Trả lời: 2,1"** (hoặc "Đáp số", "Đáp án") → `@type: NUMBER`, `@answer: 2,1`; chỉ ghi số,
+giữ dấu phẩy thập phân như đề. Đề ghi "làm tròn đến hàng phần mười / phần trăm" thì vẫn ghi đúng số đã làm tròn trong
+đáp án, **không** thêm `@tolerance` (trừ khi đề cho phép sai số).
+
+**e) Số câu.** Đề Word thường tự đánh số liên tục qua các phần (phần II bắt đầu từ "Câu 13" dù đề ghi "từ câu 1 đến
+câu 4"). `@question` đánh lại **từ 1 trong mỗi phần**; còn **tên ảnh** dùng **đúng số câu in trong đề** (xem mục 5).
+
+Ví dụ — đề gốc (câu đầu phần II, Word in "Câu 13"):
+
+```text
+Câu 13: [MĐ2] Cho bốn điểm A, B, C, D có I là trung điểm của AB.
+| Mệnh đề                          | Đúng | Sai |
+| a) IA + IB = 0 (vectơ)           |      |     |
+| b) CA + CB = 2CI (vectơ)         |      |     |
+Lời giải
+| a) Đúng | b) Đúng |
+a) I là trung điểm của AB nên IA + IB = 0. Chọn ĐÚNG.
+b) Theo quy tắc trung điểm, CA + CB = 2CI. Chọn ĐÚNG.
+```
+
+chuyển thành:
+
+```text
+@question: 1
+@type: TRUE_FALSE
+@score: 1
+@difficulty: MEDIUM
+@content:
+Cho bốn điểm $A, B, C, D$ có $I$ là trung điểm của $AB$.
+@statement a: $\overrightarrow{IA} + \overrightarrow{IB} = \overrightarrow{0}$
+@statement b: $\overrightarrow{CA} + \overrightarrow{CB} = 2\overrightarrow{CI}$
+@answer: a=Đ, b=Đ
+@explanation:
+a) $I$ là trung điểm của $AB$ nên $\overrightarrow{IA} + \overrightarrow{IB} = \overrightarrow{0}$. Chọn ĐÚNG.
+
+b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\overrightarrow{CI}$. Chọn ĐÚNG.
+```
 
 **Đề theo mẫu thi tốt nghiệp THPT (từ 2025):**
 
@@ -153,8 +214,12 @@ Ví dụ câu `TEXT` có hai cách viết đúng:
   trong nội dung: `![<mô tả ngắn>](<tên-file>.png)`. Phần mềm tự lấy hình từ file Word gốc theo **đúng tên**, nên
   đặt tên chính xác theo quy ước:
   - `hinh-p<số phần>-c<số câu>.png`: số phần theo thứ tự "PHẦN I, II, III" của đề (I → 1, II → 2…; đề không chia phần
-    thì là `p1`); số câu **đúng như in trong đề** ("Câu 3" → `c3`). Ví dụ `![Đồ thị hàm số y = f(x)](hinh-p1-c3.png)`.
+    thì là `p1`); số câu **đúng như in trong đề** ("Câu 3" → `c3`; phần II in "Câu 14" → `hinh-p2-c14`, dù đó là
+    `@question: 2` của phần). Ví dụ `![Đồ thị hàm số y = f(x)](hinh-p1-c3.png)`.
   - Một câu nhiều hình: hình đầu `hinh-p1-c4.png`, các hình sau `hinh-p1-c4-2.png`, `hinh-p1-c4-3.png` theo thứ tự.
+  - **Hình trong lời giải** ngay dưới câu đếm **tiếp** theo câu đó, theo thứ tự xuất hiện: câu 20 có một hình trong đề
+    và một hình trong lời giải → `hinh-p3-c20.png` (đặt trong `@content`) và `hinh-p3-c20-2.png` (đặt trong
+    `@explanation`). Câu chỉ có hình trong lời giải → hình đó là `hinh-p1-c1.png`, đặt trong `@explanation`.
   - Hình nằm trước câu đầu tiên của một phần (dùng chung cho nhiều câu): `hinh-p<số phần>-chung.png`.
   - Hình nằm trong phương án (A, B, C, D) thì đặt dòng ảnh trong `@option` tương ứng, vẫn đánh tên theo câu.
   Liệt kê mọi tên file ảnh trong mục "Ghi chú" kèm mô tả. Câu nói "như hình vẽ", "hình bên"… mà không có dòng ảnh sẽ bị
@@ -174,8 +239,10 @@ Ví dụ câu `TEXT` có hai cách viết đúng:
 - [ ] Đáp án khớp **bảng đáp án** theo đúng phần và đúng số câu; đáp án `NUMBER` chỉ là số.
 - [ ] Mọi công thức nằm trong `$...$` / `$$...$$`, đóng mở đủ cặp.
 - [ ] Mọi công thức, số liệu đọc từ đề, không có cái nào tự đặt ra; chỗ không đọc được ghi `[?]`.
-- [ ] Số dòng ảnh `![...](hinh-...)` bằng số hình trong phần câu hỏi của đề; tên ảnh đúng phần, đúng số câu.
-- [ ] Không còn chữ "Câu 1.", "A.", "a)" lặp lại bên trong nội dung; không còn tiêu đề hành chính.
+- [ ] Số dòng ảnh `![...](hinh-...)` bằng số hình của đề (cả hình trong lời giải); tên ảnh đúng phần, đúng số câu in
+      trong đề, đúng thứ tự.
+- [ ] Không còn chữ "Câu 1.", "A.", "a)", "Lời giải", "Chọn C", nhãn `[MĐ1]` lặp lại bên trong nội dung / lời giải;
+      không còn tiêu đề hành chính.
 - [ ] Không có dòng chữ nào nằm ngoài một trường; dòng bắt đầu bằng `@` đều là tên trường hợp lệ.
 
 ## 7. Ví dụ hoàn chỉnh

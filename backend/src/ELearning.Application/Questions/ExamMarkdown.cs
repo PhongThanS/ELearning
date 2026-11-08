@@ -573,7 +573,7 @@ public static partial class ExamMarkdownParser
         var truth = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         if (RequireAnswer(answer, block, issues) is { } value)
         {
-            foreach (var token in value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            foreach (var token in NormalizeTruthAnswer(value).Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 var pair = token.Split(['=', ':'], 2, StringSplitOptions.TrimEntries);
                 var flag = pair.Length == 2 ? ParseTruth(pair[1]) : null;
@@ -613,6 +613,23 @@ public static partial class ExamMarkdownParser
                 return new QuestionOptionInput(code, s.Value, truth.TryGetValue(code, out var t) && t);
             }).ToList(),
         };
+    }
+
+    /// <summary>
+    /// Đáp án Đúng/Sai chép nguyên từ bảng đáp án của đề ("a) Đúng b) Sai c) Sai d) Đúng", "a. Đ; b. S") → "a=Đúng, b=Sai, …".
+    /// Chuỗi không đúng dạng đó giữ nguyên để báo lỗi như cũ.
+    /// </summary>
+    private static string NormalizeTruthAnswer(string value)
+    {
+        var match = TruthAnswerList().Match(value);
+        if (!match.Success)
+        {
+            return value;
+        }
+
+        var keys = match.Groups["k"].Captures;
+        var values = match.Groups["v"].Captures;
+        return string.Join(", ", keys.Select((k, i) => $"{k.Value.ToLowerInvariant()}={values[i].Value}"));
     }
 
     private static QuestionInput BuildNumber(QuestionInput input, Directive? answer, Directive? tolerance, QuestionBlock block, List<MarkdownImportIssue> issues)
@@ -706,13 +723,16 @@ public static partial class ExamMarkdownParser
             return null;
         }
 
-        switch (field.Value.Trim().ToUpperInvariant())
+        // Nhận cả nhãn mức độ chép từ đề: "[MĐ2]", "MĐ 3", "NB", "TH", "VD", "VDC", "Mức độ 1"
+        var level = field.Value.Trim().Trim('[', ']', '(', ')').Trim().ToUpperInvariant();
+        level = level.Replace("MỨC ĐỘ", "MĐ", StringComparison.Ordinal).Replace("MD", "MĐ", StringComparison.Ordinal).Replace(" ", string.Empty, StringComparison.Ordinal);
+        switch (level)
         {
-            case "EASY" or "DỄ" or "NHẬN BIẾT":
+            case "EASY" or "DỄ" or "NHẬNBIẾT" or "NB" or "MĐ1":
                 return QuestionDifficulty.Easy;
-            case "MEDIUM" or "TRUNG BÌNH" or "THÔNG HIỂU":
+            case "MEDIUM" or "TRUNGBÌNH" or "THÔNGHIỂU" or "TH" or "MĐ2":
                 return QuestionDifficulty.Medium;
-            case "HARD" or "KHÓ" or "VẬN DỤNG" or "VẬN DỤNG CAO":
+            case "HARD" or "KHÓ" or "VẬNDỤNG" or "VẬNDỤNGCAO" or "VD" or "VDC" or "MĐ3" or "MĐ4":
                 return QuestionDifficulty.Hard;
             default:
                 issues.Add(new(field.Line, "difficulty", "DIFFICULTY_INVALID", $"Câu {block.Label}: @difficulty là EASY, MEDIUM hoặc HARD."));
@@ -780,4 +800,7 @@ public static partial class ExamMarkdownParser
 
     [GeneratedRegex(@"!\[(?<alt>[^\]]*)\]\((?<target>[^)\s]+)(?:\s+""[^""]*"")?\)", RegexOptions.CultureInvariant)]
     private static partial Regex ImageReference();
+
+    [GeneratedRegex(@"^\s*(?:(?<k>[a-f])\s*[\)\.=:]\s*(?<v>[^\s,;]+)[\s,;]*)+$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex TruthAnswerList();
 }
