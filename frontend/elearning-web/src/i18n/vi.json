@@ -63,6 +63,7 @@
   },
   "nav": {
     "dashboard": "Tổng quan",
+    "attendance": "Điểm danh",
     "users": "Người dùng",
     "groups": "Nhóm người dùng",
     "classList": "Danh sách lớp học",

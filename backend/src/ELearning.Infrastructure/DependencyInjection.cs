@@ -46,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<IAttemptLock, AttemptLock>();
         services.AddScoped<IReportQuery, ReportQuery>();
         services.AddSingleton<IResultExporter, ResultExporter>();
+        services.AddSingleton<ELearning.Application.Attendance.IAttendanceExporter, AttendanceExporter>();
         services.AddSingleton<IQuestionImportWorkbook, QuestionImportWorkbook>();
         services.AddSingleton<IMediaStore, FileSystemMediaStore>();
         services.AddHttpClient<IYoutubeMetadataClient, ELearning.Infrastructure.Videos.YoutubeOEmbedClient>(client =>

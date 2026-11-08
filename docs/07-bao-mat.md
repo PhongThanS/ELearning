@@ -57,7 +57,7 @@ Nhờ đó, vô hiệu hóa tài khoản hoặc đổi quyền có hiệu lực 
 - Frontend lấy danh sách permission từ `/api/auth/me`, chỉ để ẩn/hiện UI.
 - Policy `StudentOnly`: có role `STUDENT` và tài khoản đang hoạt động.
 - **Kiểm tra quyền sở hữu** (lượt thi thuộc về ai) nằm ở application service, không nằm ở attribute. Tài nguyên của người khác → 404.
-- Vai trò tương lai `TEACHER` (chỉ quản lý đề của mình): thêm kiểm tra theo tài nguyên (`CreatedBy`, hoặc bảng sở hữu). Thiết kế hiện tại không cản trở việc này.
+- Vai trò `TEACHER` (D-31): seed cấp `Attendance.Take` một lần khi permission được tạo; phạm vi lớp kiểm ở `AttendanceService` theo `Classrooms.HomeroomTeacherId` (lớp khác → 404). Quản lý đề của riêng giáo viên (theo `CreatedBy`) để sau; thiết kế hiện tại không cản trở việc này.
 
 ### 4.1 Danh sách permission
 
@@ -73,6 +73,8 @@ Attempt.View  Attempt.Manage  Attempt.Grade (chấm tay tự luận)
 Result.View  Result.Export
 Report.View
 Audit.View
+Video.View  Video.Manage
+Attendance.Take (lớp mình chủ nhiệm)  Attendance.ManageAll (mọi lớp, cần kèm Attendance.Take)
 ```
 
 So với spec gốc:
@@ -138,14 +140,14 @@ Audit được ghi **trong cùng transaction** với thao tác. `OldValue` / `Ne
 |---|---|
 | Xác thực | `USER_LOGIN`, `USER_LOGIN_FAILED`, `USER_LOCKED_OUT`, `USER_LOGOUT`, `USER_REGISTER`, `PASSWORD_CHANGED`, `PASSWORD_RESET_BY_ADMIN`, `REFRESH_TOKEN_REUSE` |
 | Người dùng | `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_ROLES_CHANGED`, `USER_ANONYMIZED` |
-| Nhóm / vai trò | `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_MEMBERS_CHANGED`, `CLASSROOM_CREATED`, `CLASSROOM_UPDATED`, `CLASSROOM_STUDENTS_CHANGED`, `CLASSROOM_DELETED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_PERMISSIONS_CHANGED` |
+| Nhóm / vai trò | `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_MEMBERS_CHANGED`, `CLASSROOM_CREATED`, `CLASSROOM_UPDATED`, `CLASSROOM_STUDENTS_CHANGED`, `CLASSROOM_DELETED`, `ATTENDANCE_SESSION_RESET`, `STUDENT_CONTACT_UPDATED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_PERMISSIONS_CHANGED` |
 | Ngân hàng câu hỏi | `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_STATUS_CHANGED`, `QUESTION_CREATED`, `QUESTION_UPDATED`, `QUESTION_STATUS_CHANGED` |
 | Đề thi | `EXAM_CREATED`, `EXAM_UPDATED`, `EXAM_DELETED`, `EXAM_VERSION_CREATED`, `EXAM_PUBLISHED`, `EXAM_CLOSED`, `EXAM_REOPENED`, `EXAM_ASSIGNMENTS_CHANGED` |
 | Đáp án | `ANSWER_KEY_CORRECTED`, `QUESTION_VOIDED`, `EXAM_REGRADED` |
 | Lượt thi | `ATTEMPT_STARTED`, `ATTEMPT_SUBMITTED`, `ATTEMPT_AUTO_SUBMITTED`, `ATTEMPT_EXTENDED`, `ATTEMPT_FORCE_SUBMITTED`, `ATTEMPT_CANCELLED`, `ATTEMPTS_GRANTED` |
 | Kết quả | `RESULT_CREATED`, `RESULTS_EXPORTED` |
 
-Không audit từng lần lưu đáp án, vì khối lượng quá lớn; dữ liệu đó đã nằm trong `AttemptAnswers.SaveCount` và `AnsweredAt`.
+Không audit từng lần lưu đáp án, vì khối lượng quá lớn; dữ liệu đó đã nằm trong `AttemptAnswers.SaveCount` và `AnsweredAt`. Tương tự, không audit từng lần lưu điểm danh (D-31); dòng `AttendanceRecords` giữ `UpdatedBy` / `UpdatedAt`.
 
 ## 10. Chống gian lận
 

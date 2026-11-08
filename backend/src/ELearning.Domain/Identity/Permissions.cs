@@ -49,6 +49,12 @@ public static class Permissions
     public const string VideoView = "Video.View";
     public const string VideoManage = "Video.Manage";
 
+    /// <summary>Điểm danh, chấm BTVN các lớp mình chủ nhiệm (D-31).</summary>
+    public const string AttendanceTake = "Attendance.Take";
+
+    /// <summary>Mở rộng Attendance.Take ra mọi lớp (không cần là giáo viên chủ nhiệm).</summary>
+    public const string AttendanceManageAll = "Attendance.ManageAll";
+
     /// <summary>Mã → tên hiển thị tiếng Việt, dùng khi seed.</summary>
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -86,5 +92,13 @@ public static class Permissions
         [AuditView] = "Xem audit log",
         [VideoView] = "Xem video bài giảng",
         [VideoManage] = "Quản lý video bài giảng",
+        [AttendanceTake] = "Điểm danh lớp mình chủ nhiệm",
+        [AttendanceManageAll] = "Điểm danh mọi lớp (cần kèm Attendance.Take)",
     };
+
+    /// <summary>
+    /// Quyền mặc định của vai trò TEACHER: chỉ được cấp đúng lúc permission được tạo lần đầu,
+    /// nên admin bỏ quyền khỏi vai trò thì lần seed sau không cấp lại.
+    /// </summary>
+    public static IReadOnlyList<string> TeacherDefaults { get; } = [AttendanceTake];
 }

@@ -301,6 +301,138 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Attendance.AttendanceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("HomeworkScore")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<string>("HomeworkStatus")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id")
+                        .HasName("PK_AttendanceRecords");
+
+                    b.HasIndex("StudentId")
+                        .HasDatabaseName("IX_AttendanceRecords_Student");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("SessionId", "StudentId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_AttendanceRecords_Session_Student");
+
+                    b.ToTable("AttendanceRecords", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_AttendanceRecords_HomeworkStatus", "\"HomeworkStatus\" IN ('EXCELLENT','DONE','PARTIAL','MISSING')");
+
+                            t.HasCheckConstraint("CK_AttendanceRecords_Score", "\"HomeworkScore\" IS NULL OR (\"HomeworkScore\" >= 0 AND \"HomeworkScore\" <= 10)");
+
+                            t.HasCheckConstraint("CK_AttendanceRecords_Status", "\"Status\" IN ('PRESENT','LATE','EXCUSED','UNEXCUSED')");
+                        });
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Attendance.AttendanceSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClassroomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("NextHomework")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateOnly>("SessionDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Topic")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id")
+                        .HasName("PK_AttendanceSessions");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.HasIndex("ClassroomId", "SessionDate")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_AttendanceSessions_Classroom_Date");
+
+                    b.ToTable("AttendanceSessions", (string)null);
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Attendance.StudentContact", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ParentName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ParentPhone")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("UserId")
+                        .HasName("PK_StudentContacts");
+
+                    b.HasIndex("UpdatedBy");
+
+                    b.ToTable("StudentContacts", (string)null);
+                });
+
             modelBuilder.Entity("ELearning.Domain.Audit.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -1990,6 +2122,68 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasConstraintName("FK_ExamAttempts_User");
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Attendance.AttendanceRecord", b =>
+                {
+                    b.HasOne("ELearning.Domain.Attendance.AttendanceSession", null)
+                        .WithMany("Records")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_AttendanceRecords_Session");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_AttendanceRecords_Student");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_AttendanceRecords_UpdatedBy");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Attendance.AttendanceSession", b =>
+                {
+                    b.HasOne("ELearning.Domain.Classes.Classroom", null)
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_AttendanceSessions_Classroom");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_AttendanceSessions_CreatedBy");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_AttendanceSessions_UpdatedBy");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Attendance.StudentContact", b =>
+                {
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_StudentContacts_UpdatedBy");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithOne()
+                        .HasForeignKey("ELearning.Domain.Attendance.StudentContact", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_StudentContacts_User");
+                });
+
             modelBuilder.Entity("ELearning.Domain.Classes.Classroom", b =>
                 {
                     b.HasOne("ELearning.Domain.Identity.User", null)
@@ -2464,6 +2658,11 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Attempts.ExamAttempt", b =>
                 {
                     b.Navigation("Questions");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Attendance.AttendanceSession", b =>
+                {
+                    b.Navigation("Records");
                 });
 
             modelBuilder.Entity("ELearning.Domain.Classes.Classroom", b =>

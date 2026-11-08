@@ -328,6 +328,9 @@ internal sealed class UserService(
                 .ExecuteUpdateAsync(s => s.SetProperty(e => e.IpAddress, (string?)null), ct);
             await db.AuditLogs.Where(a => a.UserId == id)
                 .ExecuteUpdateAsync(s => s.SetProperty(a => a.IpAddress, (string?)null).SetProperty(a => a.UserAgent, (string?)null), ct);
+            // Liên hệ phụ huynh là dữ liệu cá nhân (D-31)
+            await db.StudentContacts.Where(c => c.UserId == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ParentName, (string?)null).SetProperty(c => c.ParentPhone, (string?)null), ct);
 
             await tx.CommitAsync(ct);
         });

@@ -364,6 +364,20 @@ classrooms: [{ id, code, name }], durationMinutes, displayOrder, isActive, creat
 `documentUrl` (tài liệu PDF đi kèm, không bắt buộc) phải là link `https://drive.google.com` / `https://docs.google.com`,
 sai → 400 `INVALID_DOCUMENT_URL`; gửi rỗng là bỏ tài liệu.
 
+### 6.8b Điểm danh & BTVN (D-31)
+
+Mọi route cần `Attendance.Take`; lớp không do mình chủ nhiệm (và không có `Attendance.ManageAll`) → 404 `CLASSROOM_NOT_FOUND`. `{date}` dạng `yyyy-MM-dd`.
+
+| Method | Route | Ghi chú |
+|---|---|---|
+| GET | `/api/attendance/classes?keyword=` | Lớp đang hoạt động được điểm danh (tối đa 100): `{ id, code, name, schoolYear, isActive, studentCount, homeroomTeacherName }` |
+| GET | `/api/attendance/classes/{classId}/sessions/{date}` | `AttendanceSessionDto { classroomId, classroomCode, classroomName, sessionDate, saved, topic, nextHomework, updatedAt, updatedByName, students: [{ studentId, userName, fullName, parentName, parentPhone, status, homeworkStatus, homeworkScore, note, inClass }] }`. Ngày tương lai → 400 |
+| PUT | `/api/attendance/classes/{classId}/sessions/{date}` `{ topic, nextHomework, records: [{ studentId, status, homeworkStatus, homeworkScore, note }] }` | Lưu tự động: `topic` / `nextHomework` luôn ghi; `records` chỉ cần học sinh vừa đổi (≤ 500). → `{ updatedAt, savedRecords }`. Điểm sai → 400 `SCORE_INVALID`; học sinh không thuộc lớp → 400 (`records`) |
+| POST | `/api/attendance/classes/{classId}/sessions/{date}/reset` | Làm mới buổi → `AttendanceSessionDto` |
+| GET | `/api/attendance/classes/{classId}/sessions/{date}/export` | File .xlsx (buổi + tổng hợp tháng) |
+| PUT | `/api/attendance/classes/{classId}/students/{studentId}/contact` `{ parentName, parentPhone }` | → `{ studentId, parentName, parentPhone }`; SĐT sai → 400 `PHONE_INVALID`; học sinh không trong lớp → 404 |
+| GET | `/api/attendance/classes/{classId}/students/{studentId}/history?month=yyyy-MM` | `{ studentId, userName, fullName, parentName, parentPhone, classroomName, year, month, averageScore, classRank, rankedCount, items: [{ sessionDate, topic, status, homeworkStatus, homeworkScore, note }] }` |
+
 ### 6.9 Hệ thống
 | Method | Route | Quyền |
 |---|---|---|
@@ -387,6 +401,8 @@ Kiểm tra quyền luôn dựa trên **permission**. Bảng dưới chỉ thể 
 | Kết quả của chính mình | Không | Có (theo chính sách hiển thị) |
 | Tất cả kết quả, export, thao tác trên lượt thi | Có | Không |
 | Báo cáo, dashboard, audit log | Có | Không |
+
+Vai trò `TEACHER` (seed): chỉ `Attendance.Take` — điểm danh lớp mình chủ nhiệm (D-31). ADMIN có thêm `Attendance.ManageAll`.
 
 ADMIN không thi thay học viên. Muốn thử đề thì dùng `preview`.
 

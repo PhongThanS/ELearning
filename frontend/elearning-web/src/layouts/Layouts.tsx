@@ -425,6 +425,7 @@ const adminNav: {
   end?: boolean;
 }[] = [
   { to: "/admin/dashboard", label: "nav.dashboard", icon: "📊", permission: Permissions.ReportView },
+  { to: "/admin/attendance", label: "nav.attendance", icon: "✅", permission: Permissions.AttendanceTake },
   { to: "/admin/exams", label: "nav.exams", icon: "📝", permission: Permissions.ExamView },
   { to: "/admin/videos", label: "nav.videos", icon: "🎥", permission: Permissions.VideoView },
   { to: "/admin/questions", label: "nav.questions", icon: "❓", permission: Permissions.QuestionView, end: true },
@@ -448,6 +449,7 @@ export function AdminLayout() {
     queryKey: ["sidebar-categories"],
     queryFn: () => categoriesApi.list({ page: 1, pageSize: 50 }),
     staleTime: 60_000,
+    enabled: hasPermission(Permissions.CategoryView),
   });
 
   const classes = allClasses ?? [];

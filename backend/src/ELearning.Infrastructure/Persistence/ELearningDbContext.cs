@@ -1,5 +1,6 @@
 using ELearning.Application.Common.Abstractions;
 using ELearning.Domain.Attempts;
+using ELearning.Domain.Attendance;
 using ELearning.Domain.Audit;
 using ELearning.Domain.Classes;
 using ELearning.Domain.Enums;
@@ -26,6 +27,7 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
         typeof(ExamVersionStatus), typeof(AccessMode), typeof(RetakeScoringPolicy), typeof(ScoreVisibility),
         typeof(ReviewPolicy), typeof(AttemptStatus), typeof(SubmitReason), typeof(AttemptEventType),
         typeof(RefreshTokenRevokedReason), typeof(AnswerKeyCorrectionType), typeof(QuestionDifficulty),
+        typeof(AttendanceStatus), typeof(HomeworkStatus),
     ];
 
     public DbSet<User> Users => Set<User>();
@@ -85,6 +87,12 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
     public DbSet<VideoLessonClassroom> VideoLessonClassrooms => Set<VideoLessonClassroom>();
 
     public DbSet<ELearning.Domain.Settings.SystemSetting> SystemSettings => Set<ELearning.Domain.Settings.SystemSetting>();
+
+    public DbSet<AttendanceSession> AttendanceSessions => Set<AttendanceSession>();
+
+    public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
+
+    public DbSet<StudentContact> StudentContacts => Set<StudentContact>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

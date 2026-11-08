@@ -57,15 +57,27 @@ public sealed class DatabaseSeeder(
     private async Task SeedPermissionsAndRolesAsync(CancellationToken ct)
     {
         var existing = await db.Permissions.ToDictionaryAsync(p => p.Code, StringComparer.Ordinal, ct);
+        var created = new List<Permission>();
         foreach (var (code, name) in Permissions.All.Where(kv => !existing.ContainsKey(kv.Key)))
         {
-            db.Permissions.Add(new Permission(code, name));
+            var permission = new Permission(code, name);
+            db.Permissions.Add(permission);
+            created.Add(permission);
         }
 
         await EnsureRoleAsync(Role.AdminCode, "Quản trị viên", ct);
         await EnsureRoleAsync(Role.StudentCode, "Học viên", ct);
         await EnsureRoleAsync(Role.TeacherCode, "Giáo viên", ct);
         await db.SaveChangesAsync(ct);
+
+        // TEACHER nhận quyền mặc định khi permission vừa được tạo (D-31); admin bỏ đi thì lần seed sau không cấp lại
+        var teacherDefaults = created.Where(p => Permissions.TeacherDefaults.Contains(p.Code)).Select(p => p.Id).ToList();
+        if (teacherDefaults.Count > 0)
+        {
+            var teacherRole = await db.Roles.Include(r => r.Permissions).SingleAsync(r => r.Code == Role.TeacherCode, ct);
+            teacherRole.SetPermissions(teacherRole.Permissions.Select(p => p.PermissionId).Concat(teacherDefaults));
+            await db.SaveChangesAsync(ct);
+        }
 
         // ADMIN luôn có mọi permission (kể cả permission mới thêm)
         var adminRole = await db.Roles.Include(r => r.Permissions).SingleAsync(r => r.Code == Role.AdminCode, ct);

@@ -31,6 +31,7 @@ const player = () => import("../features/attempts/ExamPlayerPage");
 const videos = () => import("../features/videos/AdminVideoPages");
 const studentVideos = () => import("../features/videos/StudentVideoPages");
 const videoWatch = () => import("../features/videos/VideoWatchPage");
+const attendance = () => import("../features/attendance/AttendancePage");
 
 const guard = (permission: string, element: ReactNode) => <RequirePermission permission={permission}>{element}</RequirePermission>;
 
@@ -103,6 +104,7 @@ export const routes: RouteObject[] = [
           { path: "attempts/:attemptId", element: guard(Permissions.AttemptView, page(results, "AttemptAdminPage")) },
           { path: "audit-logs", element: guard(Permissions.AuditView, page(results, "AuditLogsPage")) },
           { path: "videos", element: guard(Permissions.VideoView, page(videos, "AdminVideoPages")) },
+          { path: "attendance", element: guard(Permissions.AttendanceTake, page(attendance, "AttendancePage")) },
         ],
       },
       {

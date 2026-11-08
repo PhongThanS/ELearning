@@ -190,6 +190,41 @@ CREATE INDEX IX_AuditLogs_Entity    ON AuditLogs(EntityName, EntityId);
 - Danh sách `Action` và quy tắc loại bỏ trường nhạy cảm: xem `07-bao-mat.md`.
 - **Lưu trữ:** giữ ít nhất 2 năm *(cần xác nhận)*; job dọn dẹp chuyển dữ liệu cũ sang bảng lưu trữ hoặc file.
 
+## 3a. Điểm danh (D-31)
+
+**AttendanceSessions** — một buổi học của lớp.
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| Id | uuid PK | |
+| ClassroomId | uuid FK → Classrooms | |
+| SessionDate | date | ngày học theo lịch Việt Nam |
+| Topic | varchar(500) NULL | nội dung bài học |
+| NextHomework | varchar(1000) NULL | BTVN giao cho buổi sau |
+| CreatedBy / CreatedAt | uuid FK → Users / timestamptz | |
+| UpdatedBy / UpdatedAt | uuid FK → Users NULL / timestamptz NULL | |
+
+Index: `UQ_AttendanceSessions_Classroom_Date` (ClassroomId, SessionDate) UNIQUE — vừa chặn trùng buổi vừa phục vụ tra theo tháng.
+
+**AttendanceRecords** — điểm danh + BTVN của một học sinh trong một buổi.
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| Id | uuid PK | |
+| SessionId | uuid FK → AttendanceSessions | |
+| StudentId | uuid FK → Users | |
+| Status | varchar(40) NULL | `PRESENT` / `LATE` / `EXCUSED` / `UNEXCUSED`; NULL = chưa điểm danh (CHECK) |
+| HomeworkStatus | varchar(40) NULL | `EXCELLENT` / `DONE` / `PARTIAL` / `MISSING` (CHECK) |
+| HomeworkScore | decimal(4,1) NULL | 0–10 (CHECK), bước 0,5 kiểm ở domain |
+| Note | varchar(1000) NULL | nhận xét |
+| UpdatedBy / UpdatedAt | uuid FK → Users NULL / timestamptz NULL | |
+
+Index: `UQ_AttendanceRecords_Session_Student` UNIQUE, `IX_AttendanceRecords_Student`.
+"Làm mới buổi" chỉ đặt các cột về NULL, không xóa dòng.
+
+**StudentContacts** — liên hệ phụ huynh, PK = `UserId` (FK → Users): `ParentName` varchar(200) NULL, `ParentPhone` varchar(20) NULL,
+`UpdatedBy`, `UpdatedAt`. Tách khỏi `Users` để không đụng luồng tài khoản; ẩn danh hóa user xóa trắng tên và số điện thoại phụ huynh.
+
 ## 4. Tổng hợp index
 
 | Index | Mục đích |
@@ -254,4 +289,5 @@ ExamAttempts ──< AttemptQuestions ──> ExamQuestions   (tham chiếu snap
 - **Bảng `AttemptQuestionOptions` của spec gốc bị bỏ**, thay bằng cột `OptionOrder`. Khi version bật `ShuffleOptions`, cột lưu thứ tự đã xáo của câu chọn một / chọn nhiều; còn lại là NULL.
 - **`AttemptEvents` được thêm vào MVP** vì chi phí thấp và rất hữu ích khi xử lý khiếu nại.
 - **Chấm lại chỉ giữ lịch sử điểm tổng** (`ExamResultHistory`). Lịch sử điểm từng câu có thể dựng lại từ `AnswerKeyCorrections` khi cần.
+- **(D-31) Điểm danh không có RowVersion:** lưu tự động ghi đè theo từng học sinh, lần lưu sau thắng; xung đột chỉ xảy ra khi tạo buổi mới cùng lúc (UNIQUE → 409, client lưu lại).
 - **Không đặt FK trên `AuditLogs.UserId`** để log không bị chặn hoặc bị mất khi dữ liệu user thay đổi.

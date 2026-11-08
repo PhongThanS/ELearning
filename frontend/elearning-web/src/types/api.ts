@@ -1096,3 +1096,90 @@ export interface MarkdownImportResult {
   fileIssues: MarkdownImportIssue[];
   missingImages: string[];
 }
+
+// ----- Điểm danh (D-31) -----
+
+export type AttendanceStatus = "PRESENT" | "LATE" | "EXCUSED" | "UNEXCUSED";
+
+export type HomeworkStatus = "EXCELLENT" | "DONE" | "PARTIAL" | "MISSING";
+
+export interface AttendanceClass {
+  id: string;
+  code: string;
+  name: string;
+  schoolYear: string | null;
+  isActive: boolean;
+  studentCount: number;
+  homeroomTeacherName: string | null;
+}
+
+export interface AttendanceEntry {
+  status: AttendanceStatus | null;
+  homeworkStatus: HomeworkStatus | null;
+  homeworkScore: number | null;
+  note: string | null;
+}
+
+export interface AttendanceStudent extends AttendanceEntry {
+  studentId: string;
+  userName: string;
+  fullName: string;
+  parentName: string | null;
+  parentPhone: string | null;
+  /** false: học sinh đã rời lớp nhưng còn dữ liệu ở buổi này. */
+  inClass: boolean;
+}
+
+export interface AttendanceSession {
+  classroomId: string;
+  classroomCode: string;
+  classroomName: string;
+  sessionDate: string;
+  saved: boolean;
+  topic: string | null;
+  nextHomework: string | null;
+  updatedAt: string | null;
+  updatedByName: string | null;
+  students: AttendanceStudent[];
+}
+
+export interface SaveAttendanceInput {
+  topic: string | null;
+  nextHomework: string | null;
+  records: (AttendanceEntry & { studentId: string })[];
+}
+
+export interface SaveAttendanceResult {
+  updatedAt: string;
+  savedRecords: number;
+}
+
+export interface StudentContact {
+  studentId: string;
+  parentName: string | null;
+  parentPhone: string | null;
+}
+
+export interface AttendanceHistoryItem {
+  sessionDate: string;
+  topic: string | null;
+  status: AttendanceStatus | null;
+  homeworkStatus: HomeworkStatus | null;
+  homeworkScore: number | null;
+  note: string | null;
+}
+
+export interface AttendanceStudentHistory {
+  studentId: string;
+  userName: string;
+  fullName: string;
+  parentName: string | null;
+  parentPhone: string | null;
+  classroomName: string;
+  year: number;
+  month: number;
+  averageScore: number | null;
+  classRank: number | null;
+  rankedCount: number;
+  items: AttendanceHistoryItem[];
+}

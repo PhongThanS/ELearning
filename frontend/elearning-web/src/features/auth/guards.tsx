@@ -58,6 +58,8 @@ export function AdminHome() {
     [Permissions.ExamView, "/admin/exams"],
     [Permissions.QuestionView, "/admin/questions"],
     [Permissions.UserView, "/admin/users"],
+    // Giáo viên chỉ có quyền điểm danh (D-31) vào thẳng trang điểm danh
+    [Permissions.AttendanceTake, "/admin/attendance"],
   ].find(([permission]) => hasPermission(permission!));
   return <Navigate to={first?.[1] ?? "/profile"} replace />;
 }

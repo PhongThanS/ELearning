@@ -76,6 +76,12 @@ public interface IAppDbContext
 
     DbSet<ELearning.Domain.Settings.SystemSetting> SystemSettings { get; }
 
+    DbSet<ELearning.Domain.Attendance.AttendanceSession> AttendanceSessions { get; }
+
+    DbSet<ELearning.Domain.Attendance.AttendanceRecord> AttendanceRecords { get; }
+
+    DbSet<ELearning.Domain.Attendance.StudentContact> StudentContacts { get; }
+
     DatabaseFacade Database { get; }
 
     ChangeTracker ChangeTracker { get; }

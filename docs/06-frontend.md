@@ -30,6 +30,7 @@ Quản trị  (/admin/*)
 /admin/classes /admin/classes/:id            menu "Danh sách lớp học" (Classrooms): lớp học, thêm / rút học viên (D-28);
                                               flyout ở menu liệt kê toàn bộ lớp, ô tìm theo mã hoặc tên
 /admin/videos/:id/watch                       xem bài giảng toàn màn hình (tab mới)
+/admin/attendance?class=&date=               menu "Điểm danh" (D-31); tài khoản chỉ có Attendance.Take vào thẳng trang này
 /admin/roles
 /admin/categories
 /admin/questions   /admin/questions/create   /admin/questions/:id/edit
@@ -241,6 +242,18 @@ type ExamPlayerState = {
 - Điểm, điểm tối đa, phần trăm, số câu đúng / tổng, thời gian làm bài, thời điểm nộp, Đạt / Không đạt (nếu có cấu hình).
 - Nếu điểm bị ẩn: "Đã nộp bài. Điểm sẽ được công bố lúc …" (dùng `reviewAvailableAt` hoặc `endAt`).
 - Nếu được xem lại: từng câu với lựa chọn của học viên, đáp án đúng, giải thích.
+
+### 4.9 Trang điểm danh (D-31)
+
+- Chọn lớp (ô tìm) và ngày (nút ‹ ›, không chọn ngày tương lai); lớp / ngày nằm trên URL để mở lại đúng buổi.
+- **Lưu tự động:** mỗi thay đổi đánh dấu học sinh "chờ lưu", gom lại gửi sau 0,8 giây (một request `PUT` cho nhiều thay đổi); đổi lớp / ngày hoặc xuất Excel thì gửi ngay; lỗi thì giữ lại để gửi lần sau và hiện "Thử lại". Đang chờ lưu mà đóng tab → trình duyệt hỏi lại.
+- Dữ liệu buổi không tải lại ngầm (`staleTime: Infinity`, không refetch khi focus) để không ghi đè thao tác đang làm.
+- Thẻ thống kê (sĩ số / có mặt / muộn / có phép / không phép) bấm để lọc; thêm lọc "chưa điểm danh", "BTVN cần lưu ý" (thiếu, không làm hoặc điểm < 5); sắp xếp theo STT hoặc điểm.
+- Điểm: nút − / +, gõ được dấu phẩy, tự làm tròn bước 0,5; `Enter` / `↓` / `↑` sang dòng khác; phím `/` tìm học sinh. Nhập điểm khi chưa chọn mức BTVN thì gợi ý mức (≥ 8,5 Xuất sắc, ≥ 5 Đạt, còn lại Làm thiếu).
+- "Tất cả có mặt" / "100% Đạt BTVN" chỉ áp cho học sinh chưa điểm danh / chưa chấm, không ghi đè lựa chọn đã có.
+- Nhận xét nhanh (chip) theo trạng thái và học lực; không thêm câu đã có.
+- Báo cáo Zalo, tổng kết tháng: soạn ở client (`attendanceLogic.ts`), giáo viên sao chép.
+- Biểu đồ tháng: SVG tự vẽ, dải màu ≥ 8 / 6,5 / 5 / < 5 (không thêm thư viện biểu đồ).
 
 ## 5. Quy tắc UX chung
 

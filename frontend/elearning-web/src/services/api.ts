@@ -1,5 +1,11 @@
 import { apiClient, http, toApiError } from "./apiClient";
 import type {
+  AttendanceClass,
+  AttendanceSession,
+  AttendanceStudentHistory,
+  SaveAttendanceInput,
+  SaveAttendanceResult,
+  StudentContact,
   DocxImageResult,
   YoutubeVideoInfo,
   VideoLesson,
@@ -312,6 +318,21 @@ export const videosApi = {
 
 
 /** Tải file qua Axios (có Authorization) rồi lưu bằng blob; tên file lấy từ Content-Disposition. */
+/** Điểm danh + BTVN theo buổi (D-31). Ngày dạng yyyy-MM-dd. */
+export const attendanceApi = {
+  classes: () => http.get<AttendanceClass[]>("/attendance/classes"),
+  session: (classId: string, date: string) => http.get<AttendanceSession>(`/attendance/classes/${classId}/sessions/${date}`),
+  save: (classId: string, date: string, data: SaveAttendanceInput) =>
+    http.put<SaveAttendanceResult>(`/attendance/classes/${classId}/sessions/${date}`, data),
+  reset: (classId: string, date: string) => http.post<AttendanceSession>(`/attendance/classes/${classId}/sessions/${date}/reset`),
+  export: (classId: string, date: string) =>
+    downloadFile(`/attendance/classes/${classId}/sessions/${date}/export`, undefined, `diem-danh-${date}.xlsx`),
+  updateContact: (classId: string, studentId: string, data: { parentName: string | null; parentPhone: string | null }) =>
+    http.put<StudentContact>(`/attendance/classes/${classId}/students/${studentId}/contact`, data),
+  history: (classId: string, studentId: string, month: string) =>
+    http.get<AttendanceStudentHistory>(`/attendance/classes/${classId}/students/${studentId}/history`, { month }),
+};
+
 async function downloadFile(url: string, params: object | undefined, fallbackName: string): Promise<void> {
   try {
     const response = await apiClient.get<Blob>(url, { params, responseType: "blob" });

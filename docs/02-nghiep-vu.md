@@ -317,6 +317,21 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 - **Xóa lớp** (xóa cứng lớp và các dòng `ClassroomStudents`, có audit `CLASSROOM_DELETED` lưu mã, tên và danh sách học viên): chỉ khi lớp không còn được gán cho đề thi nào; nếu còn → 409 `CLASSROOM_IN_USE`, admin bỏ gán lớp khỏi đề trước hoặc tắt lớp (`IsActive = 0`). Lớp không gắn với lượt thi / kết quả nên xóa không ảnh hưởng điểm hay snapshot (D-16 không áp dụng cho lớp).
 - Học viên chỉ thấy các lớp đang hoạt động trong "Lớp của tôi", và chỉ lọc được đề theo lớp mình thuộc về.
 - Quản lý lớp cần quyền `Class.View` / `Class.Manage`; gán đề cho lớp vẫn dùng `Exam.Assign`.
+- Lớp đã có buổi điểm danh (mục 5.2) không xóa được → 409 `CLASSROOM_IN_USE`; tắt lớp thay vì xóa.
+
+### 5.2 Điểm danh & BTVN theo buổi (D-31)
+
+- **Ai điểm danh:** người có `Attendance.Take` điểm danh các lớp mình là **giáo viên chủ nhiệm** (`HomeroomTeacherId`); thêm `Attendance.ManageAll` thì điểm danh mọi lớp. Lớp ngoài phạm vi → 404 `CLASSROOM_NOT_FOUND`. Danh sách lớp chỉ gồm lớp đang hoạt động (tối đa 100).
+- **Buổi học** = một lớp + một ngày (lịch Việt Nam). Mỗi lớp tối đa một buổi mỗi ngày; buổi được tạo ở lần lưu đầu tiên. Không điểm danh ngày tương lai (cho lệch 1 ngày vì múi giờ) → 400, trường `date`.
+- Mỗi buổi có **nội dung bài học** (≤ 500 ký tự) và **BTVN giao cho buổi sau** (≤ 1000).
+- Mỗi học sinh trong buổi: trạng thái `PRESENT` (có mặt) / `LATE` (đi muộn) / `EXCUSED` (vắng có phép) / `UNEXCUSED` (vắng không phép) hoặc chưa điểm danh (NULL); mức BTVN `EXCELLENT` / `DONE` / `PARTIAL` / `MISSING` hoặc chưa chấm; **điểm BTVN 0–10, bước 0,5** (`decimal`); nhận xét ≤ 1000 ký tự. Sai → 400 (`SCORE_INVALID`, …).
+- **Danh sách học sinh** của buổi = thành viên hiện tại của lớp + học sinh đã rời lớp nhưng còn dữ liệu ở buổi đó (`inClass = false`). Chỉ ghi được cho hai nhóm này; học sinh khác → 400, trường `records`. Thứ tự STT theo tên gọi (từ cuối của họ tên), rồi họ tên — theo collation `vi-VN`.
+- **Lưu tự động:** client gửi nội dung buổi + các học sinh vừa đổi; server ghi đè dòng của từng học sinh (lần lưu sau thắng). Hai người lưu buổi mới cùng lúc → 409, client lưu lại. Không audit từng lần lưu (giống lưu đáp án, docs/07 mục 9); mỗi dòng có `UpdatedBy` / `UpdatedAt`.
+- **Làm mới buổi học:** đưa mọi học sinh về chưa điểm danh, xóa nội dung buổi; giữ dòng dữ liệu (không xóa cứng), audit `ATTENDANCE_SESSION_RESET` lưu giá trị cũ.
+- **Liên hệ phụ huynh** (`StudentContacts`: tên, số điện thoại 8–20 ký tự gồm chữ số `+ . -` khoảng trắng) do giáo viên sửa cho học sinh **đang trong lớp** mình; audit `STUDENT_CONTACT_UPDATED`. Dùng cho nút gọi (`tel:`) và Zalo (`zalo.me/<số>`).
+- **Lịch sử tháng của học sinh:** mỗi buổi của lớp trong tháng một dòng; **ĐTB tháng** = trung bình điểm BTVN các buổi có điểm; **xếp hạng** trong lớp theo ĐTB tháng (bằng điểm thì cùng hạng; học sinh không có điểm nào không xếp hạng).
+- **Xuất Excel:** sheet buổi đang xem + sheet tổng hợp tháng (mỗi ô `C/M/P/K` / điểm).
+- **Báo cáo Zalo phụ huynh** (chi tiết / ngắn gọn, tuyên dương BTVN ≥ 8,5 hoặc Xuất sắc) và tổng kết tháng được soạn ở trình duyệt để giáo viên sao chép; hệ thống không gửi tin.
 - Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
 - Tự đăng ký được điều khiển bằng `Auth:AllowSelfRegistration`: mặc định `true` ở Development, `false` ở Production.
 

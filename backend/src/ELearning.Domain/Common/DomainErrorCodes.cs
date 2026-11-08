@@ -15,4 +15,5 @@ public static class DomainErrorCodes
     public const string InvalidAttempt = "INVALID_ATTEMPT";
     public const string AttemptNotInProgress = "ATTEMPT_NOT_IN_PROGRESS";
     public const string InvalidClassroom = "INVALID_CLASSROOM";
+    public const string InvalidAttendance = "INVALID_ATTENDANCE";
 }

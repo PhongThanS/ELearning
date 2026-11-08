@@ -741,3 +741,10 @@ body {
   flex: 1 1 auto;
   min-height: 0;
 }
+
+/* Điểm danh (D-31): tô nhạt dòng theo trạng thái */
+.attendance-table tr.table-row-present > td { background-color: rgba(var(--bs-success-rgb), 0.05); }
+.attendance-table tr.table-row-late > td { background-color: rgba(var(--bs-warning-rgb), 0.08); }
+.attendance-table tr.table-row-excused > td { background-color: rgba(var(--bs-info-rgb), 0.07); }
+.attendance-table tr.table-row-unexcused > td { background-color: rgba(var(--bs-danger-rgb), 0.07); }
+.attendance-table .btn-group > .btn { white-space: nowrap; }

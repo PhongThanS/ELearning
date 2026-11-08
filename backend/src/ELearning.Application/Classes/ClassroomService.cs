@@ -338,6 +338,12 @@ internal sealed class ClassroomService(
                 $"Lớp đang được gán cho {videoCount} video bài giảng. Bỏ lớp khỏi các video đó trước, hoặc tắt lớp thay vì xóa.");
         }
 
+        // Lớp đã có buổi điểm danh là lịch sử học tập (D-16, D-31) → chỉ tắt lớp, không xóa
+        if (await db.AttendanceSessions.AnyAsync(s => s.ClassroomId == id, ct))
+        {
+            return Error.Conflict(ErrorCodes.ClassroomInUse, "Lớp đã có dữ liệu điểm danh. Hãy tắt lớp thay vì xóa.");
+        }
+
         var students = await db.ClassroomStudents.Where(s => s.ClassroomId == id).ToListAsync(ct);
         db.ClassroomStudents.RemoveRange(students);
         db.Classrooms.Remove(classroom);
