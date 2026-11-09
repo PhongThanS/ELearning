@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, Row, Spinner, Table } from "react-bootstrap";
 import { Link, useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
-import { categoriesApi, examsApi, mediaApi, questionsApi } from "../../services/api";
+import { examsApi, mediaApi, questionsApi } from "../../services/api";
 import { PageHeader } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { useToast } from "../../components/common/toast";
@@ -11,8 +10,9 @@ import { formatNumber } from "../../utils/format";
 import type { DocxSkippedImage, MarkdownImportQuestion, MarkdownImportResult, MediaUrlMap } from "../../types/api";
 import { newPendingId, readAsDataUrl, referencedPending, replacePendingIds, validateImage, type PendingImage } from "./pendingImages";
 import { normalizeMarkdown, questionText, replaceQuestion, setQuestionDifficulty, type Difficulty } from "./markdownBlocks";
+import { MarkdownImportDialog, type ImportChoice } from "./MarkdownImportDialog";
 
-const DIFFICULTY_LABEL: Record<Difficulty, string> = { EASY: "Dễ", MEDIUM: "Trung bình", HARD: "Khó" };
+const DIFFICULTY_LABEL: Record<Difficulty, string> = { LEVEL1: "Mức 1", LEVEL2: "Mức 2", LEVEL3: "Mức 3", LEVEL4: "Mức 4" };
 
 const TYPE_LABEL: Record<string, string> = {
   SINGLE_CHOICE: "Chọn một",
@@ -81,27 +81,22 @@ export function MarkdownImportPage() {
   const [markdown, setMarkdown] = useState<string>("");
   const [images, setImages] = useState<ImportImage[]>([]);
   const [docx, setDocx] = useState<{ fileName: string; skipped: DocxSkippedImage[] } | null>(null);
-  const [categoryId, setCategoryId] = useState<string>("");
-  const [createExam, setCreateExam] = useState(true);
   const [result, setResult] = useState<MarkdownImportResult | null>(null);
   const [busy, setBusy] = useState<"check" | "import" | "docx" | null>(null);
   const [error, setError] = useState<unknown>(null);
-
-  const categories = useQuery({
-    queryKey: ["categories", "import-markdown"],
-    queryFn: () => categoriesApi.list({ page: 1, pageSize: 100, isActive: true, sortBy: "code" }),
-  });
+  // Bấm "Import" sau khi xem trước: chọn cách nhập và đúng một chuyên đề
+  const [importing, setImporting] = useState(false);
 
   const media = useMemo<MediaUrlMap>(() => Object.fromEntries(images.map((i) => [i.id, i.previewUrl])), [images]);
 
-  const check = async (text: string, imgs: typeof images, category: string) => {
+  const check = async (text: string, imgs: typeof images) => {
     if (!text) {
       return;
     }
     setBusy("check");
     setError(null);
     try {
-      setResult(await questionsApi.importMarkdown({ markdown: attachImages(text, imgs), categoryId: category || null, dryRun: true }));
+      setResult(await questionsApi.importMarkdown({ markdown: attachImages(text, imgs), categoryId: null, dryRun: true }));
     } catch (e) {
       setResult(null);
       setError(e);
@@ -118,7 +113,7 @@ export function MarkdownImportPage() {
     setFileName(file.name);
     setMarkdown(text);
     setEdited(false);
-    await check(text, images, categoryId);
+    await check(text, images);
   };
 
   // Sửa lúc xem trước: đổi thẳng nội dung file .md rồi cho server kiểm tra lại cả file
@@ -129,7 +124,7 @@ export function MarkdownImportPage() {
     }
     setMarkdown(next);
     setEdited(true);
-    await check(next, images, categoryId);
+    await check(next, images);
   };
 
   /** Đặt độ khó cho mọi câu; sửa từ câu cuối lên để số dòng của các câu phía trên không đổi. */
@@ -185,16 +180,17 @@ export function MarkdownImportPage() {
     const keep = images.filter((i) => !(word && i.fromDocx) && !added.some((a) => a.name === i.name));
     const next = [...keep, ...added];
     setImages(next);
-    await check(markdown, next, categoryId);
+    await check(markdown, next);
   };
 
   const canImport =
     !!result && result.fileIssues.length === 0 && result.missingImages.length === 0 && result.validQuestions === result.totalQuestions;
 
-  const doImport = async () => {
+  const doImport = async ({ categoryId, createExam }: ImportChoice) => {
     if (!result) {
       return;
     }
+    setImporting(false);
     setBusy("import");
     setError(null);
     try {
@@ -207,8 +203,9 @@ export function MarkdownImportPage() {
       }
       const imported = await questionsApi.importMarkdown({
         markdown: replacePendingIds(attached, replacements),
-        categoryId: categoryId || null,
+        categoryId,
         dryRun: false,
+        forExam: createExam,
       });
       setResult(imported);
       if (!imported.imported) {
@@ -304,32 +301,10 @@ export function MarkdownImportPage() {
                     </Form.Text>
                   </Form.Group>
                 </Col>
-                <Col md={6}>
-                  <Form.Group controlId="md-category">
-                    <Form.Label className="fw-semibold">Danh mục</Form.Label>
-                    <Form.Select
-                      value={categoryId}
-                      onChange={(e) => {
-                        setCategoryId(e.target.value);
-                        void check(markdown, images, e.target.value);
-                      }}
-                    >
-                      <option value="">Theo @category trong file (hoặc không gắn)</option>
-                      {categories.data?.items.map((c) => (
-                        <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-                      ))}
-                    </Form.Select>
-                  </Form.Group>
-                </Col>
-                <Col md={6} className="d-flex align-items-end">
-                  <Form.Check
-                    id="md-create-exam"
-                    checked={createExam}
-                    onChange={(e) => setCreateExam(e.target.checked)}
-                    label="Tạo sẵn đề thi nháp từ các câu này"
-                  />
-                </Col>
               </Row>
+              <Form.Text className="d-block mt-2">
+                Xem trước xong, bấm <strong>Import</strong> để chọn chuyên đề và cách nhập (chỉ câu hỏi, hoặc tạo cả đề thi).
+              </Form.Text>
             </Card.Body>
           </Card>
         </Col>
@@ -423,9 +398,9 @@ export function MarkdownImportPage() {
                 ) : (
                   <Badge bg="danger">Còn lỗi — hợp lệ {result.validQuestions}/{result.totalQuestions}</Badge>
                 )}
-                <Button onClick={() => void doImport()} disabled={!canImport || busy !== null || result.imported}>
+                <Button onClick={() => setImporting(true)} disabled={!canImport || busy !== null || result.imported}>
                   {busy === "import" ? <Spinner size="sm" className="me-1" /> : <i className="bi bi-cloud-upload me-1" aria-hidden="true" />}
-                  {result.imported ? "Đã nhập" : createExam ? "Nhập và tạo đề thi" : "Nhập vào ngân hàng câu hỏi"}
+                  {result.imported ? "Đã nhập" : "Import"}
                 </Button>
               </div>
             </Card.Body>
@@ -489,6 +464,14 @@ export function MarkdownImportPage() {
           </div>
         </>
       )}
+
+      <MarkdownImportDialog
+        show={importing}
+        questionCount={result?.totalQuestions ?? 0}
+        examTitle={result?.exam.title ?? null}
+        onHide={() => setImporting(false)}
+        onConfirm={(choice) => void doImport(choice)}
+      />
     </>
   );
 }
@@ -574,7 +557,7 @@ function PreviewQuestion({
               </Button>
               <Button size="sm" variant="outline-secondary" onClick={() => setDraft(null)}>Hủy</Button>
               <span className="small text-secondary">
-                Giữ đúng định dạng: <code>@content:</code>, <code>@option A:</code>, <code>@answer:</code>, <code>@difficulty: EASY | MEDIUM | HARD</code>…
+                Giữ đúng định dạng: <code>@content:</code>, <code>@option A:</code>, <code>@answer:</code>, <code>@difficulty: 1 | 2 | 3 | 4</code>…
               </span>
             </div>
           </div>

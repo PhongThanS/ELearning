@@ -100,6 +100,7 @@ function ExamCard({ exam }: { exam: StudentExamItem }) {
           <div className="min-w-0 flex-grow-1">
             <Card.Title as="h3" className="h6 mb-1">{exam.name}</Card.Title>
             <Badge bg={availabilityVariant[exam.availability]}>{t(`enums.availability.${exam.availability}`)}</Badge>
+            <ExamKindBadge kind={exam.kind} />
           </div>
         </div>
         <ul className="list-unstyled small text-secondary mb-3 d-grid gap-1">
@@ -122,12 +123,21 @@ function ExamCard({ exam }: { exam: StudentExamItem }) {
             </li>
           )}
         </ul>
-        <div className="small text-secondary mb-1">{t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}</div>
-        <ProgressBar
-          now={exam.maxAttempts > 0 ? (exam.usedAttempts / exam.maxAttempts) * 100 : 0}
-          className="mb-3"
-          aria-label={t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}
-        />
+        {exam.kind === "PRACTICE" ? (
+          <div className="small text-secondary mb-3">
+            <i className="bi bi-arrow-repeat me-1" aria-hidden="true" />
+            Đã làm {exam.usedAttempts} lần · làm lại không giới hạn
+          </div>
+        ) : (
+          <>
+            <div className="small text-secondary mb-1">{t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}</div>
+            <ProgressBar
+              now={exam.maxAttempts > 0 ? (exam.usedAttempts / exam.maxAttempts) * 100 : 0}
+              className="mb-3"
+              aria-label={t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}
+            />
+          </>
+        )}
         <Link to={`/student/exams/${exam.examId}`} className={`btn btn-sm mt-auto ${actionable ? "btn-primary" : "btn-outline-primary"}`}>
           {exam.availability === "IN_PROGRESS" ? t("student.continue") : actionable ? t("student.start") : t("common.detail")}
           <i className="bi bi-arrow-right ms-1" aria-hidden="true" />
@@ -272,7 +282,11 @@ export function StudentExamDetailPage() {
                 </ListGroup.Item>
                 <ListGroup.Item>{t("student.questions", { count: exam.questionCount })} · {formatNumber(exam.maxScore)} điểm</ListGroup.Item>
                 {exam.passPercentage != null && <ListGroup.Item>Điểm đạt: {formatNumber(exam.passPercentage)}%</ListGroup.Item>}
-                <ListGroup.Item>{t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}</ListGroup.Item>
+                <ListGroup.Item>
+                  {exam.kind === "PRACTICE"
+                    ? `Đề luyện: đã làm ${exam.usedAttempts} lần, làm lại không giới hạn`
+                    : t("student.attempts", { used: exam.usedAttempts, max: exam.maxAttempts })}
+                </ListGroup.Item>
                 <ListGroup.Item>
                   {t("student.window")}: {exam.startAt || exam.endAt ? `${formatDateTime(exam.startAt)} – ${formatDateTime(exam.endAt)}` : t("student.noWindow")}
                 </ListGroup.Item>
@@ -928,3 +942,16 @@ function SingleTrueFalseReview({
 }
 
 
+
+/** Nhãn loại đề cho học viên (D-33). */
+function ExamKindBadge({ kind }: { kind?: string }) {
+  return kind === "PRACTICE" ? (
+    <Badge bg="info" className="ms-1">
+      Đề luyện
+    </Badge>
+  ) : (
+    <Badge bg="primary" className="ms-1">
+      Tính điểm
+    </Badge>
+  );
+}

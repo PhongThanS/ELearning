@@ -65,6 +65,7 @@ public static class AuditActions
     public const string RefreshTokenReuse = "REFRESH_TOKEN_REUSE";
 
     public const string UserCreated = "USER_CREATED";
+    public const string UsersImported = "USERS_IMPORTED";
     public const string UserUpdated = "USER_UPDATED";
     public const string UserStatusChanged = "USER_STATUS_CHANGED";
     public const string UserRolesChanged = "USER_ROLES_CHANGED";

@@ -199,6 +199,37 @@ public class AttendanceTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Student_sees_only_own_monthly_history()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var (student, me, _) = await kit.CreateStudentAsync();
+        var (_, classmate, _) = await kit.CreateStudentAsync();
+        var (outsider, _, _) = await kit.CreateStudentAsync();
+        var classId = await CreateClassAsync(kit, homeroomTeacherId: null, me, classmate);
+        var (save, _) = await kit.Admin.SendJsonAsync<object>(HttpMethod.Put, $"/api/attendance/classes/{classId}/sessions/{Today}", new
+        {
+            records = new object[]
+            {
+                new { studentId = me, status = "PRESENT", homeworkScore = 8m },
+                new { studentId = classmate, status = "PRESENT", homeworkScore = 9m },
+            },
+        });
+        save.StatusCode.Should().Be(HttpStatusCode.OK);
+        var month = Today[..7];
+
+        var (mine, mineBody) = await student.GetJsonAsync<AttendanceHistoryView>($"/api/student/attendance/classes/{classId}/history?month={month}");
+        var (other, _) = await outsider.GetJsonAsync<AttendanceHistoryView>($"/api/student/attendance/classes/{classId}/history?month={month}");
+        var teacherApi = await student.GetAsync($"/api/attendance/classes/{classId}/students/{classmate}/history?month={month}");
+
+        mine.StatusCode.Should().Be(HttpStatusCode.OK);
+        mineBody.Data!.StudentId.Should().Be(me);
+        mineBody.Data.Items.Should().ContainSingle().Which.HomeworkScore.Should().Be(8m);
+        mineBody.Data.ClassRank.Should().Be(2);
+        other.StatusCode.Should().Be(HttpStatusCode.NotFound, "học sinh không thuộc lớp");
+        teacherApi.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Class_with_attendance_cannot_be_deleted()
     {
         var kit = await AttemptTestKit.CreateAsync(factory);

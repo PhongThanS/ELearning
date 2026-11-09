@@ -31,7 +31,8 @@ public sealed record StudentExamListItemDto(
     decimal? OfficialScore,
     ExamAvailability Availability,
     Guid? LatestAttemptId = null,
-    Guid? ExamVersionId = null);
+    Guid? ExamVersionId = null,
+    ExamKind Kind = ExamKind.Graded);
 
 public sealed record StudentAttemptSummaryDto(
     Guid AttemptId,
@@ -65,7 +66,8 @@ public sealed record StudentExamDetailDto(
     Guid? InProgressAttemptId,
     decimal? OfficialScore,
     ExamAvailability Availability,
-    IReadOnlyList<StudentAttemptSummaryDto> Attempts);
+    IReadOnlyList<StudentAttemptSummaryDto> Attempts,
+    ExamKind Kind = ExamKind.Graded);
 
 public sealed record AttemptAnswerStateDto(
     IReadOnlyList<string> SelectedOptions, string? AnswerText, bool IsMarkedForReview, long ClientSeq);
@@ -94,7 +96,8 @@ public sealed record AttemptDto(
     DateTime ExpiredAt,
     DateTime ServerTime,
     IReadOnlyList<AttemptQuestionDto> Questions,
-    IReadOnlyDictionary<string, string>? Media = null);
+    IReadOnlyDictionary<string, string>? Media = null,
+    ExamKind Kind = ExamKind.Graded);
 
 public sealed record SaveAnswerItem(
     Guid QuestionId,

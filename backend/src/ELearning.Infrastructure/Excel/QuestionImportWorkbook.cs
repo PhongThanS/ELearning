@@ -1,4 +1,3 @@
-using System.Globalization;
 using ClosedXML.Excel;
 using ELearning.Application.Questions;
 
@@ -12,67 +11,7 @@ internal sealed class QuestionImportWorkbook : IQuestionImportWorkbook
 {
     public const string DataSheetName = "CauHoi";
 
-    public QuestionImportSheet Read(Stream stream, int maxRows)
-    {
-        XLWorkbook workbook;
-        try
-        {
-            workbook = new XLWorkbook(stream);
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException)
-        {
-            throw new InvalidDataException("File không đúng định dạng Excel (.xlsx).", ex);
-        }
-
-        using (workbook)
-        {
-            var sheet = workbook.Worksheets.FirstOrDefault(s => s.Name.Equals(DataSheetName, StringComparison.OrdinalIgnoreCase))
-                ?? workbook.Worksheets.First();
-            var headerRow = sheet.FirstRowUsed();
-            if (headerRow is null)
-            {
-                return new QuestionImportSheet([], []);
-            }
-
-            var columns = new Dictionary<int, string>();
-            foreach (var cell in headerRow.CellsUsed())
-            {
-                var header = QuestionImportColumns.Normalize(Text(cell) ?? string.Empty);
-                if (header.Length > 0)
-                {
-                    columns.TryAdd(cell.Address.ColumnNumber, header);
-                }
-            }
-
-            var rows = new List<QuestionImportRawRow>();
-            var lastRow = sheet.LastRowUsed()?.RowNumber() ?? headerRow.RowNumber();
-            for (var r = headerRow.RowNumber() + 1; r <= lastRow; r++)
-            {
-                var cells = new Dictionary<string, string>(StringComparer.Ordinal);
-                foreach (var (column, header) in columns)
-                {
-                    if (Text(sheet.Cell(r, column)) is { } value)
-                    {
-                        cells[header] = value;
-                    }
-                }
-
-                if (cells.Count == 0)
-                {
-                    continue; // dòng trống
-                }
-
-                if (rows.Count == maxRows)
-                {
-                    throw new InvalidDataException($"Mỗi lần import tối đa {maxRows} câu hỏi. Hãy tách file.");
-                }
-
-                rows.Add(new QuestionImportRawRow(r, cells));
-            }
-
-            return new QuestionImportSheet(rows, columns.Values.ToList());
-        }
-    }
+    public QuestionImportSheet Read(Stream stream, int maxRows) => ExcelSheetReader.Read(stream, DataSheetName, maxRows, "câu hỏi");
 
     public byte[] CreateTemplate(IReadOnlyList<(string Code, string Name)> categories)
     {
@@ -93,9 +32,9 @@ internal sealed class QuestionImportWorkbook : IQuestionImportWorkbook
         string?[][] examples =
         [
             ["", category, "SINGLE_CHOICE", "MARKDOWN", "Kiểu dữ liệu nào phù hợp để lưu tiền tệ trong C#?", "1",
-                "float", "double", "decimal", "int", "", "", "C", "", "", "", "", "", "", "decimal có độ chính xác thập phân cao.", "Dễ", "kiểu dữ liệu, c#"],
+                "float", "double", "decimal", "int", "", "", "C", "", "", "", "", "", "", "decimal có độ chính xác thập phân cao.", "1", "kiểu dữ liệu, c#"],
             ["", category, "MULTIPLE_CHOICE", "MARKDOWN", "Những từ khóa nào là **access modifier**?", "2",
-                "public", "static", "private", "void", "", "", "A, C", "", "", "", "", "", "", "", "Trung bình", "oop"],
+                "public", "static", "private", "void", "", "", "A, C", "", "", "", "", "", "", "", "2", "oop"],
             ["", category, "TRUE_FALSE", "PLAIN", "string trong C# là kiểu tham chiếu.", "1",
                 "", "", "", "", "", "", "Đúng", "", "", "", "", "", "", ""],
             ["", category, "FILL_IN", "PLAIN", "Thủ đô của Việt Nam là gì?", "1",
@@ -136,7 +75,7 @@ internal sealed class QuestionImportWorkbook : IQuestionImportWorkbook
             [QuestionImportColumns.CaseSensitive, "Có / Không (mặc định Không)."],
             [QuestionImportColumns.IgnoreAccent, "Có / Không (mặc định Không). Có: \"ha noi\" được tính đúng với \"Hà Nội\"."],
             [QuestionImportColumns.Explanation, "Không bắt buộc. Hiển thị khi học viên xem lại bài (nếu chính sách cho phép)."],
-            [QuestionImportColumns.Difficulty, "Không bắt buộc: Dễ, Trung bình, Khó (EASY / MEDIUM / HARD). Dùng để lập pool ngẫu nhiên."],
+            [QuestionImportColumns.Difficulty, "Không bắt buộc: số 1, 2, 3 hoặc 4 (Mức 1 … Mức 4; MĐ1 … MĐ4 cũng được). Dùng để lập ma trận / pool ngẫu nhiên."],
             [QuestionImportColumns.Tags, "Không bắt buộc: tối đa 10 tag, cách nhau bởi dấu phẩy. Không phân biệt hoa thường."],
             ["", ""],
             ["Lưu ý", $"Tối đa {QuestionImportColumns.MaxRows} câu mỗi lần. Có dòng lỗi thì không câu nào được tạo; sửa theo báo lỗi rồi import lại."],
@@ -167,20 +106,5 @@ internal sealed class QuestionImportWorkbook : IQuestionImportWorkbook
         using var output = new MemoryStream();
         workbook.SaveAs(output);
         return output.ToArray();
-    }
-
-    /// <summary>Giá trị ô dạng chuỗi; ô số ghi theo dấu chấm (không phụ thuộc culture), ô trống → null.</summary>
-    private static string? Text(IXLCell cell)
-    {
-        var value = cell.Value;
-        var text = value.Type switch
-        {
-            XLDataType.Blank => null,
-            XLDataType.Text => value.GetText(),
-            XLDataType.Number => value.GetNumber().ToString("0.##########", CultureInfo.InvariantCulture),
-            XLDataType.Boolean => value.GetBoolean() ? "TRUE" : "FALSE",
-            _ => cell.GetFormattedString(),
-        };
-        return string.IsNullOrWhiteSpace(text) ? null : text.Trim();
     }
 }

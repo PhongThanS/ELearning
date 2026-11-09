@@ -392,7 +392,8 @@ public sealed class ExamVersion : Entity, IHasRowVersion
                 "END_AT_REQUIRED", "Chính sách hiển thị \"sau khi đề đóng\" cần có thời điểm kết thúc.", "endAt"));
         }
 
-        if (ReviewPolicy == ReviewPolicy.AfterSubmit && exam.MaxAttempts > 1)
+        // Đề luyện cho làm lại không giới hạn và được xem đáp án ngay sau khi nộp (D-33)
+        if (ReviewPolicy == ReviewPolicy.AfterSubmit && exam.MaxAttempts > 1 && !exam.IsPractice)
         {
             issues.Add(new PublishIssue(
                 "REVIEW_AFTER_SUBMIT_WITH_RETAKES",

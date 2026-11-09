@@ -11,7 +11,7 @@ Thời gian làm bài **90 phút**. Không sử dụng tài liệu.
 @score: 0.25
 
 @question: 1
-@difficulty: EASY
+@difficulty: 1
 @tags: tiem-can
 @content:
 Đường tiệm cận đứng của đồ thị hàm số $y = \dfrac{2x - 1}{x + 3}$ có phương trình là
@@ -24,7 +24,7 @@ Thời gian làm bài **90 phút**. Không sử dụng tài liệu.
 Mẫu số bằng $0$ khi $x = -3$, tử số khác $0$ tại đó nên tiệm cận đứng là $x = -3$.
 
 @question: 2
-@difficulty: MEDIUM
+@difficulty: 2
 @content:
 Cho hàm số $y = f(x)$ có đồ thị như hình vẽ. Giá trị cực đại của hàm số bằng
 

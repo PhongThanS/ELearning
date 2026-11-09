@@ -33,6 +33,13 @@ public interface IQuestionService
 public interface ICodeGenerator
 {
     Task<string> NextQuestionCodeAsync(CancellationToken ct);
+
+    /// <summary>
+    /// Mã câu hỏi theo chuyên đề: <c>&lt;mã chuyên đề&gt;-&lt;mức độ 2 số&gt;-&lt;số thứ tự 6 số&gt;</c>, ví dụ "12.HS-01-000001".
+    /// Số thứ tự đếm chung cả chuyên đề (tiếp sau số lớn nhất đã có), mức độ trống ghi "00". Phải gọi trong transaction.
+    /// </summary>
+    Task<IReadOnlyList<string>> NextCategoryQuestionCodesAsync(
+        string categoryCode, IReadOnlyList<QuestionDifficulty?> difficulties, CancellationToken ct);
 }
 
 /// <summary>Ngân hàng câu hỏi (docs/02-nghiep-vu.md mục 1, docs/05-api.md mục 6.3). Không có xóa cứng (D-16).</summary>
@@ -57,7 +64,9 @@ internal sealed class QuestionService(
         var questions = db.Questions.AsNoTracking();
         if (query.CategoryId is { } categoryId)
         {
-            questions = questions.Where(q => q.CategoryId == categoryId);
+            // Chuyên đề cha gồm cả câu của các chuyên đề con
+            var family = await db.CategoryFamilyIdsAsync(categoryId, ct);
+            questions = questions.Where(q => q.CategoryId != null && family.Contains(q.CategoryId.Value));
         }
 
         if (query.QuestionType is { } type)
@@ -326,10 +335,22 @@ internal sealed class QuestionService(
             input.QuestionType == QuestionType.MultipleChoice && input.PartialScoring);
     }
 
-    private async Task<Error?> ValidateCategoryAsync(Guid? categoryId, CancellationToken ct) =>
-        categoryId is { } id && !await db.QuestionCategories.AnyAsync(c => c.Id == id && c.IsActive, ct)
-            ? Error.Validation("CATEGORY_INVALID", "Danh mục không tồn tại hoặc đã bị tắt.", "categoryId")
+    private async Task<Error?> ValidateCategoryAsync(Guid? categoryId, CancellationToken ct)
+    {
+        if (categoryId is not { } id)
+        {
+            return null;
+        }
+
+        if (!await db.QuestionCategories.AnyAsync(c => c.Id == id && c.IsActive, ct))
+        {
+            return Error.Validation("CATEGORY_INVALID", "Danh mục không tồn tại hoặc đã bị tắt.", "categoryId");
+        }
+
+        return await db.CategoryHasChildrenAsync(id, ct)
+            ? Error.Validation("CATEGORY_HAS_CHILDREN", CategoryFamily.HasChildrenMessage, "categoryId")
             : null;
+    }
 
     private Task<Question?> LoadAsync(Guid id, bool tracking, CancellationToken ct)
     {

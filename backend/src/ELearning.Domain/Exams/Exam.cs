@@ -13,7 +13,8 @@ public sealed record ExamDetails(
     int MaxAttempts,
     AccessMode AccessMode,
     RetakeScoringPolicy RetakeScoringPolicy,
-    Guid? CategoryId = null);
+    Guid? CategoryId = null,
+    ExamKind Kind = ExamKind.Graded);
 
 /// <summary>
 /// Đề thi: metadata, lịch thi, số lượt, quyền dự thi (docs/02-nghiep-vu.md mục 4).
@@ -44,6 +45,11 @@ public sealed class Exam : Entity, IHasRowVersion
     /// thuộc chuyên đề này; trống thì không giới hạn. Ứng dụng kiểm tra khi thêm câu và khi đổi chuyên đề.
     /// </summary>
     public Guid? CategoryId { get; private set; }
+
+    /// <summary>Đề tính điểm hoặc đề luyện (D-33). Đề luyện: làm lại không giới hạn (bỏ qua MaxAttempts), không tính giờ.</summary>
+    public ExamKind Kind { get; private set; }
+
+    public bool IsPractice => Kind == ExamKind.Practice;
 
     public ExamStatus Status { get; private set; }
 
@@ -189,6 +195,7 @@ public sealed class Exam : Entity, IHasRowVersion
         AccessMode = details.AccessMode;
         RetakeScoringPolicy = details.RetakeScoringPolicy;
         CategoryId = details.CategoryId;
+        Kind = details.Kind;
     }
 
     private void EnsureStatus(ExamStatus expected, string message)

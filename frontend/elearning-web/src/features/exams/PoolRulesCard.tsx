@@ -7,7 +7,7 @@ import { formatNumber } from "../../utils/format";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { PoolRuleInput, QuestionDifficulty, QuestionType, VersionDetail } from "../../types/api";
 
-const DIFFICULTIES: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
+const DIFFICULTIES: QuestionDifficulty[] = ["LEVEL1", "LEVEL2", "LEVEL3", "LEVEL4"];
 const TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN"];
 const emptyRule = (): PoolRuleInput => ({ categoryId: null, difficulty: null, tag: null, questionType: null, drawCount: 5, scorePerQuestion: 1 });
 

@@ -1,6 +1,7 @@
 using ELearning.Api.Common;
 using ELearning.Api.Security;
 using ELearning.Application.Attempts;
+using ELearning.Application.Attendance;
 using ELearning.Application.Classes;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Questions;
@@ -23,6 +24,7 @@ public sealed class StudentController(
     IClassroomService classrooms,
     ICategoryService categories,
     IVideoService videos,
+    IAttendanceService attendance,
     ICurrentUser currentUser) : ApiControllerBase
 {
     private Guid UserId => currentUser.RequiredUserId;
@@ -38,6 +40,12 @@ public sealed class StudentController(
     [ProducesResponseType<ApiResponse<IReadOnlyList<MyClassroomDto>>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> MyClasses(CancellationToken ct) =>
         Ok(ApiResponse.Ok(await classrooms.ListMineAsync(UserId, ct), TraceId));
+
+    /// <summary>Điểm danh + điểm BTVN theo tháng của chính học viên trong một lớp mình học; lớp khác → 404.</summary>
+    [HttpGet("attendance/classes/{classId:guid}/history")]
+    [ProducesResponseType<ApiResponse<AttendanceStudentHistoryDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> MyAttendance(Guid classId, [FromQuery] AttendanceHistoryQuery query, CancellationToken ct) =>
+        ToResponse(await attendance.GetMyHistoryAsync(classId, query, ct));
 
     [HttpGet("exams")]
     [ProducesResponseType<ApiResponse<PagedResult<StudentExamListItemDto>>>(StatusCodes.Status200OK)]

@@ -75,7 +75,8 @@ internal sealed class AttemptTestKit(ApiFactory factory, HttpClient admin)
         DateTime? endAt = null,
         decimal passPercentage = 60,
         Guid[]? assignClassroomIds = null,
-        IReadOnlyList<object>? extraQuestions = null)
+        IReadOnlyList<object>? extraQuestions = null,
+        string kind = "GRADED")
     {
         var questionIds = new List<Guid>
         {
@@ -132,6 +133,7 @@ internal sealed class AttemptTestKit(ApiFactory factory, HttpClient admin)
             reviewPolicy,
             scoreVisibility,
             endAt,
+            kind,
         });
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
         var versionUrl = $"/api/exams/{exam.Data!.Id}/versions/{exam.Data.DraftVersionId}";

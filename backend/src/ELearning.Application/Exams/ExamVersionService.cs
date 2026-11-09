@@ -2,6 +2,7 @@ using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Media;
+using ELearning.Application.Questions;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
 using ELearning.Domain.Questions;
@@ -203,7 +204,8 @@ internal sealed class ExamVersionService(
             return Error.Validation("QUESTION_INACTIVE", "Không thêm được câu hỏi đã bị tắt.", "questionIds");
         }
 
-        if (await ExamCategoryAsync(examId, ct) is { } examCategory && questions.Count(q => q.CategoryId != examCategory) is var outside and > 0)
+        if (await ExamFamilyAsync(examId, ct) is { } examFamily
+            && questions.Count(q => q.CategoryId is not { } c || !examFamily.Contains(c)) is var outside and > 0)
         {
             return Error.Business(
                 ErrorCodes.QuestionCategoryMismatch,
@@ -339,7 +341,8 @@ internal sealed class ExamVersionService(
 
         // Đề có chuyên đề (D-30): quy tắc không chọn chuyên đề thì lấy chuyên đề của đề; chọn chuyên đề khác là lỗi
         var examCategory = await ExamCategoryAsync(examId, ct);
-        if (examCategory is not null && request.CategoryId is not null && request.CategoryId != examCategory)
+        if (examCategory is { } examCategoryId && request.CategoryId is { } ruleCategory
+            && !(await db.CategoryFamilyIdsAsync(examCategoryId, ct)).Contains(ruleCategory))
         {
             return Error.Business(ErrorCodes.QuestionCategoryMismatch, "Đề thuộc một chuyên đề: quy tắc chỉ được lấy câu của chuyên đề đó.");
         }
@@ -419,7 +422,8 @@ internal sealed class ExamVersionService(
 
         if (query.CategoryId.HasValue)
         {
-            baseQuery = baseQuery.Where(q => q.CategoryId == query.CategoryId.Value);
+            var family = await db.CategoryFamilyIdsAsync(query.CategoryId.Value, ct);
+            baseQuery = baseQuery.Where(q => q.CategoryId != null && family.Contains(q.CategoryId.Value));
         }
 
         if (query.QuestionType.HasValue)
@@ -438,11 +442,8 @@ internal sealed class ExamVersionService(
             .Select(g => new { Difficulty = g.Key, Count = g.Count() })
             .ToListAsync(ct);
 
-        var easy = stats.FirstOrDefault(s => s.Difficulty == QuestionDifficulty.Easy)?.Count ?? 0;
-        var medium = stats.FirstOrDefault(s => s.Difficulty == QuestionDifficulty.Medium)?.Count ?? 0;
-        var hard = stats.FirstOrDefault(s => s.Difficulty == QuestionDifficulty.Hard)?.Count ?? 0;
-        var unspecified = stats.FirstOrDefault(s => s.Difficulty == null)?.Count ?? 0;
-        var total = easy + medium + hard + unspecified;
+        int Count(QuestionDifficulty? difficulty) => stats.FirstOrDefault(s => s.Difficulty == difficulty)?.Count ?? 0;
+        var total = stats.Sum(s => s.Count);
 
         var categoryGrouped = await baseQuery
             .GroupBy(q => new { q.CategoryId, q.Difficulty })
@@ -453,16 +454,26 @@ internal sealed class ExamVersionService(
             .GroupBy(x => x.CategoryId)
             .Select(cg =>
             {
-                var catEasy = cg.FirstOrDefault(x => x.Difficulty == QuestionDifficulty.Easy)?.Count ?? 0;
-                var catMedium = cg.FirstOrDefault(x => x.Difficulty == QuestionDifficulty.Medium)?.Count ?? 0;
-                var catHard = cg.FirstOrDefault(x => x.Difficulty == QuestionDifficulty.Hard)?.Count ?? 0;
-                var catUnspecified = cg.FirstOrDefault(x => x.Difficulty == null)?.Count ?? 0;
-                var catTotal = catEasy + catMedium + catHard + catUnspecified;
-                return new CategoryMatrixStatsDto(cg.Key, catTotal, catEasy, catMedium, catHard, catUnspecified);
+                int CatCount(QuestionDifficulty? difficulty) => cg.FirstOrDefault(x => x.Difficulty == difficulty)?.Count ?? 0;
+                return new CategoryMatrixStatsDto(
+                    cg.Key,
+                    cg.Sum(x => x.Count),
+                    CatCount(QuestionDifficulty.Level1),
+                    CatCount(QuestionDifficulty.Level2),
+                    CatCount(QuestionDifficulty.Level3),
+                    CatCount(QuestionDifficulty.Level4),
+                    CatCount(null));
             })
             .ToList();
 
-        return Result<MatrixStatsDto>.Success(new MatrixStatsDto(total, easy, medium, hard, unspecified, byCategory));
+        return Result<MatrixStatsDto>.Success(new MatrixStatsDto(
+            total,
+            Count(QuestionDifficulty.Level1),
+            Count(QuestionDifficulty.Level2),
+            Count(QuestionDifficulty.Level3),
+            Count(QuestionDifficulty.Level4),
+            Count(null),
+            byCategory));
     }
 
     public async Task<Result<VersionDetailDto>> MatrixDrawAsync(
@@ -483,21 +494,23 @@ internal sealed class ExamVersionService(
         version.EnsureDraft();
 
         var topics = request.Topics != null && request.Topics.Count > 0
-            ? request.Topics.Where(t => t.EasyCount > 0 || t.MediumCount > 0 || t.HardCount > 0).ToList()
-            : [new MatrixTopicItem(request.CategoryId, request.EasyCount, request.MediumCount, request.HardCount, request.ScorePerQuestion)];
+            ? request.Topics.Where(t => t.TotalCount > 0).ToList()
+            : [new MatrixTopicItem(
+                request.CategoryId, request.Level1Count, request.Level2Count, request.Level3Count, request.Level4Count, request.ScorePerQuestion)];
 
         // Đề có chuyên đề (D-30): mục ma trận không chọn chuyên đề thì lấy chuyên đề của đề; chuyên đề khác là lỗi
         if (await ExamCategoryAsync(examId, ct) is { } examCategory)
         {
-            if (topics.Exists(t => t.CategoryId is not null && t.CategoryId != examCategory))
+            var examFamily = await db.CategoryFamilyIdsAsync(examCategory, ct);
+            if (topics.Exists(t => t.CategoryId is { } c && !examFamily.Contains(c)))
             {
                 return Error.Business(ErrorCodes.QuestionCategoryMismatch, "Đề thuộc một chuyên đề: ma trận chỉ được lấy câu của chuyên đề đó.");
             }
 
-            topics = topics.Select(t => t with { CategoryId = examCategory }).ToList();
+            topics = topics.Select(t => t with { CategoryId = t.CategoryId ?? examCategory }).ToList();
         }
 
-        var totalRequested = topics.Sum(t => t.EasyCount + t.MediumCount + t.HardCount);
+        var totalRequested = topics.Sum(t => t.TotalCount);
         if (totalRequested <= 0)
         {
             return Error.Validation("TOTAL_COUNT_ZERO", "Vui lòng chọn ít nhất 1 câu hỏi.", "totalCount");
@@ -547,86 +560,40 @@ internal sealed class ExamVersionService(
                 var topicQuery = baseQuery.Where(q => !chosenIds.Contains(q.Id));
                 if (topic.CategoryId.HasValue)
                 {
-                    topicQuery = topicQuery.Where(q => q.CategoryId == topic.CategoryId.Value);
+                    var family = await db.CategoryFamilyIdsAsync(topic.CategoryId.Value, ct);
+                    topicQuery = topicQuery.Where(q => q.CategoryId != null && family.Contains(q.CategoryId.Value));
                 }
 
                 var topicName = topic.CategoryId.HasValue && categoryNames.TryGetValue(topic.CategoryId.Value, out var cName)
                     ? $"Chuyên đề \"{cName}\""
                     : "Ngân hàng câu hỏi";
 
-                var easyCandidates = topic.EasyCount > 0
-                    ? await topicQuery.Where(q => q.Difficulty == QuestionDifficulty.Easy)
-                        .Include(q => q.Options).Include(q => q.AcceptedAnswers)
-                        .ToListAsync(ct)
-                    : [];
-
-                var mediumCandidates = topic.MediumCount > 0
-                    ? await topicQuery.Where(q => q.Difficulty == QuestionDifficulty.Medium)
-                        .Include(q => q.Options).Include(q => q.AcceptedAnswers)
-                        .ToListAsync(ct)
-                    : [];
-
-                var hardCandidates = topic.HardCount > 0
-                    ? await topicQuery.Where(q => q.Difficulty == QuestionDifficulty.Hard)
-                        .Include(q => q.Options).Include(q => q.AcceptedAnswers)
-                        .ToListAsync(ct)
-                    : [];
-
-                if (easyCandidates.Count < topic.EasyCount)
+                // Kiểm tra đủ câu cho mọi mức độ của mục này trước, rồi mới bốc
+                var levels = new List<(QuestionDifficulty Difficulty, int Count, List<Question> Candidates)>();
+                foreach (var (difficulty, count) in LevelCounts(topic))
                 {
-                    return Error.Validation(
-                        "INSUFFICIENT_EASY_QUESTIONS",
-                        $"{topicName} chỉ còn {easyCandidates.Count} câu Dễ khả dụng, không đủ {topic.EasyCount} câu yêu cầu.",
-                        "easyCount");
-                }
+                    var candidates = await topicQuery.Where(q => q.Difficulty == difficulty)
+                        .Include(q => q.Options).Include(q => q.AcceptedAnswers)
+                        .ToListAsync(ct);
+                    if (candidates.Count < count)
+                    {
+                        var level = (int)difficulty;
+                        return Error.Validation(
+                            $"INSUFFICIENT_LEVEL{level}_QUESTIONS",
+                            $"{topicName} chỉ còn {candidates.Count} câu Mức {level} khả dụng, không đủ {count} câu yêu cầu.",
+                            $"level{level}Count");
+                    }
 
-                if (mediumCandidates.Count < topic.MediumCount)
-                {
-                    return Error.Validation(
-                        "INSUFFICIENT_MEDIUM_QUESTIONS",
-                        $"{topicName} chỉ còn {mediumCandidates.Count} câu Trung bình khả dụng, không đủ {topic.MediumCount} câu yêu cầu.",
-                        "mediumCount");
-                }
-
-                if (hardCandidates.Count < topic.HardCount)
-                {
-                    return Error.Validation(
-                        "INSUFFICIENT_HARD_QUESTIONS",
-                        $"{topicName} chỉ còn {hardCandidates.Count} câu Khó khả dụng, không đủ {topic.HardCount} câu yêu cầu.",
-                        "hardCount");
+                    levels.Add((difficulty, count, candidates));
                 }
 
                 var score = topic.ScorePerQuestion ?? request.ScorePerQuestion;
 
-                if (topic.EasyCount > 0)
+                foreach (var (_, count, candidates) in levels)
                 {
-                    var arr = easyCandidates.ToArray();
+                    var arr = candidates.ToArray();
                     Random.Shared.Shuffle(arr);
-                    var picked = arr.Take(topic.EasyCount).ToList();
-                    chosen.AddRange(picked);
-                    foreach (var q in picked)
-                    {
-                        chosenIds.Add(q.Id);
-                        version.AddQuestion(q, score, Now);
-                    }
-                }
-                if (topic.MediumCount > 0)
-                {
-                    var arr = mediumCandidates.ToArray();
-                    Random.Shared.Shuffle(arr);
-                    var picked = arr.Take(topic.MediumCount).ToList();
-                    chosen.AddRange(picked);
-                    foreach (var q in picked)
-                    {
-                        chosenIds.Add(q.Id);
-                        version.AddQuestion(q, score, Now);
-                    }
-                }
-                if (topic.HardCount > 0)
-                {
-                    var arr = hardCandidates.ToArray();
-                    Random.Shared.Shuffle(arr);
-                    var picked = arr.Take(topic.HardCount).ToList();
+                    var picked = arr.Take(count).ToList();
                     chosen.AddRange(picked);
                     foreach (var q in picked)
                     {
@@ -640,9 +607,10 @@ internal sealed class ExamVersionService(
             {
                 MatrixDrawMode = "STATIC",
                 request.CategoryId,
-                request.EasyCount,
-                request.MediumCount,
-                request.HardCount,
+                request.Level1Count,
+                request.Level2Count,
+                request.Level3Count,
+                request.Level4Count,
                 request.ScorePerQuestion,
                 TopicCount = topics.Count,
                 AddedCount = chosen.Count,
@@ -658,16 +626,9 @@ internal sealed class ExamVersionService(
 
             foreach (var topic in topics)
             {
-                var diffItems = new (QuestionDifficulty Difficulty, int Count)[]
-                {
-                    (QuestionDifficulty.Easy, topic.EasyCount),
-                    (QuestionDifficulty.Medium, topic.MediumCount),
-                    (QuestionDifficulty.Hard, topic.HardCount)
-                }.Where(x => x.Count > 0).ToList();
-
                 var score = topic.ScorePerQuestion ?? request.ScorePerQuestion ?? 1m;
 
-                foreach (var item in diffItems)
+                foreach (var item in LevelCounts(topic).Select(x => (x.Difficulty, x.Count)))
                 {
                     var criteria = new PoolRuleCriteria(topic.CategoryId, item.Difficulty, request.Tag, request.QuestionType);
                     var candidates = await LoadPoolCandidatesAsync(version, criteria, excludeRuleId: null, ct);
@@ -680,7 +641,7 @@ internal sealed class ExamVersionService(
                     {
                         return Error.Validation(
                             "INSUFFICIENT_POOL_CANDIDATES",
-                            $"Số câu ứng viên ({candidates.Value.Count}) cho mức độ {item.Difficulty} không đủ số câu bốc {item.Count}.",
+                            $"Số câu ứng viên ({candidates.Value.Count}) cho Mức {(int)item.Difficulty} không đủ số câu bốc {item.Count}.",
                             "drawCount");
                     }
 
@@ -693,9 +654,10 @@ internal sealed class ExamVersionService(
             {
                 MatrixDrawMode = "POOL",
                 request.CategoryId,
-                request.EasyCount,
-                request.MediumCount,
-                request.HardCount,
+                request.Level1Count,
+                request.Level2Count,
+                request.Level3Count,
+                request.Level4Count,
                 TopicCount = topics.Count,
                 PoolRuleIds = addedRuleIds
             });
@@ -704,6 +666,16 @@ internal sealed class ExamVersionService(
             return await ToDetailAsync(version, ct);
         }
     }
+
+    /// <summary>Số câu cần bốc theo từng mức độ (Mức 1 … Mức 4) của một mục ma trận; bỏ mức 0 câu.</summary>
+    private static IEnumerable<(QuestionDifficulty Difficulty, int Count)> LevelCounts(MatrixTopicItem topic) =>
+        new (QuestionDifficulty Difficulty, int Count)[]
+        {
+            (QuestionDifficulty.Level1, topic.Level1Count),
+            (QuestionDifficulty.Level2, topic.Level2Count),
+            (QuestionDifficulty.Level3, topic.Level3Count),
+            (QuestionDifficulty.Level4, topic.Level4Count),
+        }.Where(x => x.Count > 0);
 
     /// <summary>
     /// Câu ứng viên: đang hoạt động, khớp mọi tiêu chí, chưa có trong version (trừ câu của chính quy tắc đang làm mới).
@@ -719,7 +691,8 @@ internal sealed class ExamVersionService(
         var query = db.Questions.AsNoTracking().Where(q => q.IsActive && !existing.Contains(q.Id));
         if (criteria.CategoryId is { } categoryId)
         {
-            query = query.Where(q => q.CategoryId == categoryId);
+            var family = await db.CategoryFamilyIdsAsync(categoryId, ct);
+            query = query.Where(q => q.CategoryId != null && family.Contains(q.CategoryId.Value));
         }
 
         if (criteria.Difficulty is { } difficulty)
@@ -897,6 +870,10 @@ internal sealed class ExamVersionService(
 
     private Task<Guid?> ExamCategoryAsync(Guid examId, CancellationToken ct) =>
         db.Exams.AsNoTracking().Where(e => e.Id == examId).Select(e => e.CategoryId).SingleOrDefaultAsync(ct);
+
+    /// <summary>Chuyên đề của đề kèm các chuyên đề con; null nếu đề không thuộc chuyên đề nào.</summary>
+    private async Task<List<Guid>?> ExamFamilyAsync(Guid examId, CancellationToken ct) =>
+        await ExamCategoryAsync(examId, ct) is { } categoryId ? await db.CategoryFamilyIdsAsync(categoryId, ct) : null;
 
     private Task<ExamVersion?> LoadVersionAsync(Guid examId, Guid versionId, bool tracking, CancellationToken ct)
     {

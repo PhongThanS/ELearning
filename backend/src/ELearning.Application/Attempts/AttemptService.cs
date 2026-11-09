@@ -89,10 +89,11 @@ internal sealed class AttemptService(
         var items = page.Select(e =>
         {
             var state = states[e.Id];
+            // Đề luyện (D-33): không tính giờ (0 phút) và không giới hạn lượt (MaxAttempts = 0)
             return new StudentExamListItemDto(
-                e.Id, e.Code, e.Name, e.StartAt, e.EndAt, state.Version.DurationMinutes, state.Version.QuestionCount ?? 0,
-                state.Allowed, state.Used, Math.Max(0, state.Allowed - state.Used), state.InProgressId,
-                state.OfficialScore, state.Availability, state.LatestAttemptId, state.Version.Id);
+                e.Id, e.Code, e.Name, e.StartAt, e.EndAt, e.IsPractice ? 0 : state.Version.DurationMinutes, state.Version.QuestionCount ?? 0,
+                e.IsPractice ? 0 : state.Allowed, state.Used, Math.Max(0, state.Allowed - state.Used), state.InProgressId,
+                state.OfficialScore, state.Availability, state.LatestAttemptId, state.Version.Id, e.Kind);
         }).ToList();
 
         return new PagedResult<StudentExamListItemDto>(items, query.Page, query.PageSize, total);
@@ -133,9 +134,9 @@ internal sealed class AttemptService(
 
         return new StudentExamDetailDto(
             exam.Id, exam.Code, exam.Name, exam.Description, exam.Instructions, exam.StartAt, exam.EndAt,
-            state.Version.DurationMinutes, state.Version.QuestionCount ?? 0, state.Version.MaxScore ?? 0, state.Version.PassPercentage,
-            state.Allowed, state.Used, Math.Max(0, state.Allowed - state.Used), state.InProgressId, state.OfficialScore,
-            state.Availability, summaries);
+            exam.IsPractice ? 0 : state.Version.DurationMinutes, state.Version.QuestionCount ?? 0, state.Version.MaxScore ?? 0, state.Version.PassPercentage,
+            exam.IsPractice ? 0 : state.Allowed, state.Used, Math.Max(0, state.Allowed - state.Used), state.InProgressId, state.OfficialScore,
+            state.Availability, summaries, exam.Kind);
     }
 
     // ----- Bắt đầu -----
@@ -503,7 +504,8 @@ internal sealed class AttemptService(
             var mine = attempts.Where(a => a.ExamId == exam.Id).ToList();
             // Đếm số lượt đã làm trên phiên bản hiện tại đang được xuất bản (Publish)
             var used = mine.Count(a => a.ExamVersionId == version.Id && a.Status != AttemptStatus.Cancelled);
-            var allowed = exam.MaxAttempts + extras.GetValueOrDefault(exam.Id);
+            // Đề luyện làm lại không giới hạn (D-33): luôn còn một lượt
+            var allowed = exam.IsPractice ? used + 1 : exam.MaxAttempts + extras.GetValueOrDefault(exam.Id);
             var inProgress = mine.FirstOrDefault(a => a.ExamVersionId == version.Id && a.Status == AttemptStatus.InProgress)?.Id;
             var latestAttemptId = mine
                 .Where(a => a.Status == AttemptStatus.Submitted)
@@ -542,7 +544,7 @@ internal sealed class AttemptService(
             return AttemptNotFound;
         }
 
-        var examName = await db.Exams.Where(e => e.Id == attempt.ExamId).Select(e => e.Name).SingleAsync(ct);
+        var exam = await db.Exams.Where(e => e.Id == attempt.ExamId).Select(e => new { e.Name, e.Kind }).SingleAsync(ct);
         var snapshot = await db.ExamQuestions.AsNoTracking().Include(q => q.Options)
             .Where(q => q.ExamVersionId == attempt.ExamVersionId)
             .ToDictionaryAsync(q => q.Id, ct);
@@ -569,9 +571,10 @@ internal sealed class AttemptService(
         }).ToList();
 
         return new AttemptDto(
-            attempt.Id, attempt.ExamId, examName, attempt.AttemptNumber, attempt.Status, resumed,
+            attempt.Id, attempt.ExamId, exam.Name, attempt.AttemptNumber, attempt.Status, resumed,
             attempt.StartedAt, attempt.ExpiredAt, Now, questions,
-            mediaLinks.For(questions.SelectMany(q => (IEnumerable<string?>)[q.Content, .. q.Options.Select(o => o.Content)])));
+            mediaLinks.For(questions.SelectMany(q => (IEnumerable<string?>)[q.Content, .. q.Options.Select(o => o.Content)])),
+            exam.Kind);
     }
 
     /// <summary>Kiểm tra dạng câu trả lời theo loại câu (INVALID_OPTION / INVALID_ANSWER_SHAPE / INVALID_NUMBER_FORMAT).</summary>

@@ -724,20 +724,13 @@ public static partial class ExamMarkdownParser
         }
 
         // Nhận cả nhãn mức độ chép từ đề: "[MĐ2]", "MĐ 3", "NB", "TH", "VD", "VDC", "Mức độ 1"
-        var level = field.Value.Trim().Trim('[', ']', '(', ')').Trim().ToUpperInvariant();
-        level = level.Replace("MỨC ĐỘ", "MĐ", StringComparison.Ordinal).Replace("MD", "MĐ", StringComparison.Ordinal).Replace(" ", string.Empty, StringComparison.Ordinal);
-        switch (level)
+        if (DifficultyLevels.TryParse(field.Value, out var difficulty))
         {
-            case "EASY" or "DỄ" or "NHẬNBIẾT" or "NB" or "MĐ1":
-                return QuestionDifficulty.Easy;
-            case "MEDIUM" or "TRUNGBÌNH" or "THÔNGHIỂU" or "TH" or "MĐ2":
-                return QuestionDifficulty.Medium;
-            case "HARD" or "KHÓ" or "VẬNDỤNG" or "VẬNDỤNGCAO" or "VD" or "VDC" or "MĐ3" or "MĐ4":
-                return QuestionDifficulty.Hard;
-            default:
-                issues.Add(new(field.Line, "difficulty", "DIFFICULTY_INVALID", $"Câu {block.Label}: @difficulty là EASY, MEDIUM hoặc HARD."));
-                return null;
+            return difficulty;
         }
+
+        issues.Add(new(field.Line, "difficulty", "DIFFICULTY_INVALID", $"Câu {block.Label}: @difficulty ghi số 1, 2, 3 hoặc 4."));
+        return null;
     }
 
     private static bool ParseFlag(Directive? field, QuestionBlock block, List<MarkdownImportIssue> issues)

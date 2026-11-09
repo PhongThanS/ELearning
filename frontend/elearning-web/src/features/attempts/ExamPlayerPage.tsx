@@ -95,6 +95,7 @@ function Player({ attempt }: { attempt: Attempt }) {
   }, [attempt.attemptId, autosave, finish]);
 
   const isUntimed =
+    attempt.kind === "PRACTICE" ||
     (attempt.durationMinutes ?? 0) === 0 ||
     new Date(attempt.expiredAt).getTime() - new Date(attempt.startedAt).getTime() > 30 * 24 * 3600 * 1000;
 

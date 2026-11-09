@@ -171,13 +171,18 @@ internal sealed class QuestionImportService(
         var codes = withCategory.Select(r => r.CategoryCode!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var found = await db.QuestionCategories.AsNoTracking()
             .Where(c => codes.Contains(c.Code) && c.IsActive)
-            .Select(c => new { c.Id, c.Code })
+            .Select(c => new { c.Id, c.Code, HasChildren = db.QuestionCategories.Any(ch => ch.ParentId == c.Id) })
             .ToListAsync(ct);
         var byCode = found.ToDictionary(c => c.Code, c => c.Id, StringComparer.OrdinalIgnoreCase);
+        var parents = found.Where(c => c.HasChildren).Select(c => c.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         foreach (var row in withCategory)
         {
-            if (byCode.TryGetValue(row.CategoryCode!, out var id))
+            if (parents.Contains(row.CategoryCode!))
+            {
+                row.Issues.Add(new QuestionImportIssue(QuestionImportColumns.Category, "CATEGORY_HAS_CHILDREN", CategoryFamily.HasChildrenMessage));
+            }
+            else if (byCode.TryGetValue(row.CategoryCode!, out var id))
             {
                 row.Input = row.Input! with { CategoryId = id };
             }

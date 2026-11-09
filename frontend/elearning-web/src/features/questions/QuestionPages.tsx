@@ -28,6 +28,12 @@ const PROPOSITION_CODES = ["a", "b", "c", "d", "e", "f"];
 
 // ======================= Danh mục =======================
 
+type CategoryEdit = { id?: string; code: string; name: string; rowVersion?: string; isActive?: boolean; parentId: string | null; childCount?: number };
+
+/**
+ * Chuyên đề 2 cấp: chuyên đề gốc có chuyên đề con, chuyên đề gốc không có chuyên đề con, và chuyên đề con.
+ * Không tìm kiếm: liệt kê chuyên đề gốc (phân trang), chuyên đề con nằm ngay dưới cha. Có từ khóa: danh sách phẳng.
+ */
 export function CategoriesPage() {
   const { t } = useTranslation();
   const toast = useToast();
@@ -35,31 +41,68 @@ export function CategoriesPage() {
   const { hasPermission } = useAuth();
   const canManage = hasPermission(Permissions.CategoryManage);
   const list = useListQuery({ sortBy: "name", sortDir: "asc" });
-  const query = useQuery({ queryKey: ["categories", list.params], queryFn: () => categoriesApi.list(list.params) });
-  const [editing, setEditing] = useState<{ id?: string; code: string; name: string; rowVersion?: string; isActive?: boolean } | null>(null);
+  const searching = !!list.state.keyword;
+  const query = useQuery({
+    queryKey: ["categories", list.params, searching],
+    queryFn: () => categoriesApi.list(searching ? list.params : { ...list.params, rootOnly: true }),
+  });
+  // Toàn bộ chuyên đề (cả đang tắt) để gắn chuyên đề con dưới cha và chọn chuyên đề cha
+  const all = useQuery({ queryKey: ["categories", "all-tree"], queryFn: () => categoriesApi.list({ pageSize: 100, sortBy: "name" }) });
+  const [editing, setEditing] = useState<CategoryEdit | null>(null);
   const [deleting, setDeleting] = useState<Category | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // Chuyên đề cha mặc định thu gọn; bấm mũi tên để mở / thu các chuyên đề con
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpanded = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const roots = useMemo(() => (all.data?.items ?? []).filter((c) => c.parentId === null), [all.data]);
+  const rows = useMemo(() => {
+    if (!query.data) return undefined;
+    if (searching) return query.data;
+    const children = (all.data?.items ?? []).filter((c) => c.parentId !== null);
+    const items = query.data.items.flatMap((root) => [
+      root,
+      ...(expanded.has(root.id) ? children.filter((c) => c.parentId === root.id).sort((a, b) => a.name.localeCompare(b.name, "vi")) : []),
+    ]);
+    return { ...query.data, items };
+  }, [query.data, all.data, searching, expanded]);
 
   useEffect(() => {
     setSelectedIds(new Set());
   }, [query.data]);
 
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ["categories"] });
+    void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
+  };
+
+  // Xóa chuyên đề con trước rồi mới tới chuyên đề cha (cha còn con thì không xóa được)
   const removeMany = useMutation({
     mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map((id) => categoriesApi.remove(id, true)));
+      const items = rows?.items.filter((c) => ids.includes(c.id)) ?? [];
+      await Promise.all(items.filter((c) => c.parentId !== null).map((c) => categoriesApi.remove(c.id, true)));
+      await Promise.all(items.filter((c) => c.parentId === null).map((c) => categoriesApi.remove(c.id, true)));
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["categories"] });
-      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
+      invalidate();
       toast.success(`Đã xóa thành công ${selectedIds.size} chuyên đề.`);
       setSelectedIds(new Set());
     },
-    onError: (e) => toast.error(e),
+    onError: (e) => {
+      invalidate();
+      toast.error(e);
+    },
   });
 
   const handleBulkDelete = () => {
-    if (!query.data) return;
-    const selectedCategories = query.data.items.filter(c => selectedIds.has(c.id));
+    if (!rows) return;
+    const selectedCategories = rows.items.filter((c) => selectedIds.has(c.id));
     const totalQuestions = selectedCategories.reduce((sum, c) => sum + c.questionCount, 0);
 
     let confirmMsg = `Bạn có chắc chắn muốn xóa ${selectedIds.size} chuyên đề đã chọn?`;
@@ -75,11 +118,15 @@ export function CategoriesPage() {
   const save = useMutation({
     mutationFn: () =>
       editing!.id
-        ? categoriesApi.update(editing!.id, { name: editing!.name, isActive: editing!.isActive ?? true, rowVersion: editing!.rowVersion! })
-        : categoriesApi.create({ code: editing!.code, name: editing!.name }),
+        ? categoriesApi.update(editing!.id, {
+            name: editing!.name,
+            isActive: editing!.isActive ?? true,
+            rowVersion: editing!.rowVersion!,
+            parentId: editing!.parentId,
+          })
+        : categoriesApi.create({ code: editing!.code, name: editing!.name, parentId: editing!.parentId }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["categories"] });
-      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
+      invalidate();
       setEditing(null);
       toast.success(t("common.saved"));
     },
@@ -87,25 +134,23 @@ export function CategoriesPage() {
 
   const toggle = useMutation({
     mutationFn: (c: Category) => categoriesApi.setStatus(c.id, !c.isActive),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["categories"] });
-      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
-    },
+    onSuccess: invalidate,
     onError: (e) => toast.error(e),
   });
 
   const remove = useMutation({
     mutationFn: (c: Category) => categoriesApi.remove(c.id, true),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["categories"] });
-      void queryClient.invalidateQueries({ queryKey: ["sidebar-categories"] });
+      invalidate();
       setDeleting(null);
       toast.success("Đã xóa chuyên đề thành công.");
     },
     onError: (e) => toast.error(e),
   });
 
-  const isAllSelected = query.data?.items.length && query.data?.items.every((c) => selectedIds.has(c.id));
+  const isAllSelected = rows?.items.length && rows.items.every((c) => selectedIds.has(c.id));
+  const edit = (c: Category) =>
+    setEditing({ id: c.id, code: c.code, name: c.name, rowVersion: c.rowVersion, isActive: c.isActive, parentId: c.parentId, childCount: c.childCount });
 
   const columns: Column<Category>[] = [
     {
@@ -115,8 +160,8 @@ export function CategoriesPage() {
           type="checkbox"
           checked={!!isAllSelected}
           onChange={(e) => {
-            if (e.target.checked && query.data) {
-              setSelectedIds(new Set(query.data.items.map((c) => c.id)));
+            if (e.target.checked && rows) {
+              setSelectedIds(new Set(rows.items.map((c) => c.id)));
             } else {
               setSelectedIds(new Set());
             }
@@ -136,9 +181,78 @@ export function CategoriesPage() {
         />
       ),
     },
-    { key: "code", header: t("common.code"), sortKey: "code", render: (c) => <code>{c.code}</code> },
-    { key: "name", header: t("common.name"), sortKey: "name", render: (c) => c.name },
-    { key: "count", header: "Số câu hỏi", render: (c) => <Link to={`/admin/questions?categoryId=${c.id}`}>{c.questionCount}</Link> },
+    {
+      key: "code",
+      header: t("common.code"),
+      sortKey: "code",
+      render: (c) => (
+        <span className={c.parentId && !searching ? "ps-4 d-inline-flex align-items-center" : "d-inline-flex align-items-center"}>
+          {c.parentId && !searching && <span className="text-secondary me-1">↳</span>}
+          {!c.parentId && !searching && (
+            <Button
+              size="sm"
+              variant="link"
+              className="p-0 me-1 text-secondary"
+              style={{ width: 18, visibility: c.childCount > 0 ? "visible" : "hidden" }}
+              onClick={() => toggleExpanded(c.id)}
+              aria-expanded={expanded.has(c.id)}
+              aria-label={`${expanded.has(c.id) ? "Thu gọn" : "Mở"} chuyên đề con của ${c.name}`}
+              title={expanded.has(c.id) ? "Thu gọn chuyên đề con" : "Xem chuyên đề con"}
+            >
+              <i className={`bi ${expanded.has(c.id) ? "bi-chevron-down" : "bi-chevron-right"}`} aria-hidden="true" />
+            </Button>
+          )}
+          <code>{c.code}</code>
+        </span>
+      ),
+    },
+    {
+      key: "name",
+      header: t("common.name"),
+      sortKey: "name",
+      render: (c) => (
+        <span className={c.parentId ? "" : "fw-semibold"}>
+          {searching && c.parentName && <span className="text-secondary">{c.parentName} › </span>}
+          {c.name}
+        </span>
+      ),
+    },
+    {
+      key: "kind",
+      header: "Loại",
+      render: (c) =>
+        c.parentId ? (
+          <Badge bg="light" text="dark" className="border">
+            Chuyên đề con
+          </Badge>
+        ) : c.childCount > 0 ? (
+          <Badge
+            as="button"
+            type="button"
+            bg="primary-subtle"
+            text="primary"
+            className="border border-primary-subtle"
+            onClick={() => toggleExpanded(c.id)}
+            title={expanded.has(c.id) ? "Thu gọn chuyên đề con" : "Xem chuyên đề con"}
+          >
+            Có {c.childCount} chuyên đề con <i className={`bi ${expanded.has(c.id) ? "bi-chevron-up" : "bi-chevron-down"} ms-1`} aria-hidden="true" />
+          </Badge>
+        ) : (
+          <Badge bg="secondary-subtle" text="secondary" className="border">
+            Không có chuyên đề con
+          </Badge>
+        ),
+    },
+    {
+      key: "count",
+      header: "Số câu hỏi",
+      render: (c) => (
+        <Link to={`/admin/questions?categoryId=${c.id}`} title={c.childCount > 0 ? "Gồm cả câu của các chuyên đề con" : undefined}>
+          {c.childCount > 0 ? c.totalQuestionCount : c.questionCount}
+          {c.childCount > 0 && c.questionCount > 0 && <span className="small text-secondary ms-1">({c.questionCount} câu trực thuộc)</span>}
+        </Link>
+      ),
+    },
     { key: "status", header: t("common.status"), render: (c) => <ActiveBadge active={c.isActive} /> },
     {
       key: "actions",
@@ -147,7 +261,22 @@ export function CategoriesPage() {
       render: (c) =>
         canManage && (
           <div className="d-inline-flex gap-2">
-            <Button size="sm" variant="link" className="p-0" onClick={() => setEditing({ id: c.id, code: c.code, name: c.name, rowVersion: c.rowVersion, isActive: c.isActive })}>
+            {c.parentId === null && (
+              <Button
+                size="sm"
+                variant="link"
+                className="p-0"
+                disabled={c.questionCount > 0}
+                title={c.questionCount > 0 ? "Chuyên đề đang có câu hỏi: chuyển câu hỏi sang chuyên đề khác trước khi tạo chuyên đề con" : undefined}
+                onClick={() => {
+                  setExpanded((prev) => new Set(prev).add(c.id));
+                  setEditing({ code: `${c.code}.`, name: "", parentId: c.id });
+                }}
+              >
+                + Chuyên đề con
+              </Button>
+            )}
+            <Button size="sm" variant="link" className="p-0" onClick={() => edit(c)}>
               {t("common.edit")}
             </Button>
             <Button size="sm" variant="link" className="p-0" onClick={() => toggle.mutate(c)}>
@@ -161,6 +290,9 @@ export function CategoriesPage() {
     },
   ];
 
+  // Chuyên đề cha chỉ gom nhóm nên không được đang chứa câu hỏi (D-32)
+  const parentOptions = roots.filter((r) => r.id !== editing?.id && (r.questionCount === 0 || r.id === editing?.parentId));
+
   return (
     <>
       <PageHeader
@@ -173,16 +305,30 @@ export function CategoriesPage() {
                   {removeMany.isPending ? "Đang xóa..." : `Xóa đã chọn (${selectedIds.size})`}
                 </Button>
               )}
-              <Button onClick={() => setEditing({ code: "", name: "" })}>{t("common.create")}</Button>
+              <Button onClick={() => setEditing({ code: "", name: "", parentId: null })}>{t("common.create")}</Button>
             </div>
           )
         }
-      />
+      >
+        <div className="small text-secondary">
+          Chuyên đề có 2 cấp: chuyên đề gốc có thể có hoặc không có chuyên đề con. Chuyên đề có chuyên đề con chỉ để gom nhóm, câu hỏi nằm ở các
+          chuyên đề con.
+        </div>
+      </PageHeader>
       <div className="mb-3" style={{ maxWidth: 400 }}>
         <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã hoặc tên danh mục..." />
       </div>
-      <DataTable data={query.data} columns={columns} rowKey={(c) => c.id} isLoading={query.isLoading} error={query.error} sort={list.state} onSort={list.toggleSort} onPage={list.setPage} />
-      
+      <DataTable
+        data={rows}
+        columns={columns}
+        rowKey={(c) => c.id}
+        isLoading={query.isLoading}
+        error={query.error}
+        sort={list.state}
+        onSort={list.toggleSort}
+        onPage={list.setPage}
+      />
+
       {/* Modal Sửa / Thêm */}
       <Modal show={!!editing} onHide={() => setEditing(null)} centered>
         <Form
@@ -192,12 +338,34 @@ export function CategoriesPage() {
           }}
         >
           <Modal.Header closeButton>
-            <Modal.Title as="h2" className="h5">{editing?.id ? t("common.edit") : t("common.create")} chuyên đề</Modal.Title>
+            <Modal.Title as="h2" className="h5">
+              {editing?.id ? t("common.edit") : t("common.create")} {editing?.parentId ? "chuyên đề con" : "chuyên đề"}
+            </Modal.Title>
           </Modal.Header>
           <Modal.Body>
             {save.error && <Alert variant="danger">{describeError(save.error)}</Alert>}
             {editing && (
               <>
+                <Form.Group className="mb-3" controlId="cat-parent">
+                  <Form.Label>Thuộc chuyên đề</Form.Label>
+                  <Form.Select
+                    value={editing.parentId ?? ""}
+                    disabled={(editing.childCount ?? 0) > 0}
+                    onChange={(e) => setEditing({ ...editing, parentId: e.target.value || null })}
+                  >
+                    <option value="">— Chuyên đề gốc (không có cha) —</option>
+                    {parentOptions.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.code})
+                      </option>
+                    ))}
+                  </Form.Select>
+                  <Form.Text className="text-secondary">
+                    {(editing.childCount ?? 0) > 0
+                      ? "Chuyên đề này đang có chuyên đề con nên luôn là chuyên đề gốc."
+                      : "Chọn chuyên đề cha để tạo chuyên đề con. Chỉ có 2 cấp: chuyên đề con không có con."}
+                  </Form.Text>
+                </Form.Group>
                 <Form.Group className="mb-3" controlId="cat-code">
                   <Form.Label>{t("common.code")} *</Form.Label>
                   <Form.Control
@@ -221,8 +389,12 @@ export function CategoriesPage() {
             )}
           </Modal.Body>
           <Modal.Footer>
-            <Button variant="secondary" onClick={() => setEditing(null)}>{t("common.cancel")}</Button>
-            <Button type="submit" disabled={save.isPending}>{t("common.save")}</Button>
+            <Button variant="secondary" onClick={() => setEditing(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" disabled={save.isPending}>
+              {t("common.save")}
+            </Button>
           </Modal.Footer>
         </Form>
       </Modal>
@@ -230,7 +402,9 @@ export function CategoriesPage() {
       {/* Modal Xác nhận xóa */}
       <Modal show={!!deleting} onHide={() => setDeleting(null)} centered>
         <Modal.Header closeButton>
-          <Modal.Title as="h2" className="h5">Xác nhận xóa chuyên đề</Modal.Title>
+          <Modal.Title as="h2" className="h5">
+            Xác nhận xóa chuyên đề
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {deleting && (
@@ -238,9 +412,15 @@ export function CategoriesPage() {
               <p>
                 Bạn có chắc chắn muốn xóa chuyên đề <strong>{deleting.name}</strong> (<code>{deleting.code}</code>)?
               </p>
-              {deleting.questionCount > 0 ? (
+              {deleting.childCount > 0 ? (
+                <Alert variant="danger" className="mb-0">
+                  Chuyên đề này đang có <strong>{deleting.childCount}</strong> chuyên đề con. Hãy xóa hoặc chuyển các chuyên đề con sang chuyên đề khác
+                  trước.
+                </Alert>
+              ) : deleting.questionCount > 0 ? (
                 <Alert variant="warning" className="mb-0">
-                  ⚠️ Chuyên đề này đang chứa <strong>{deleting.questionCount}</strong> câu hỏi. Thao tác này sẽ xóa chuyên đề và giải phóng các câu hỏi liên quan.
+                  ⚠️ Chuyên đề này đang chứa <strong>{deleting.questionCount}</strong> câu hỏi. Thao tác này sẽ xóa chuyên đề và giải phóng các câu hỏi
+                  liên quan.
                 </Alert>
               ) : (
                 <p className="text-secondary small mb-0">Hành động này không thể hoàn tác.</p>
@@ -252,11 +432,7 @@ export function CategoriesPage() {
           <Button variant="secondary" onClick={() => setDeleting(null)} disabled={remove.isPending}>
             {t("common.cancel")}
           </Button>
-          <Button
-            variant="danger"
-            onClick={() => deleting && remove.mutate(deleting)}
-            disabled={remove.isPending}
-          >
+          <Button variant="danger" onClick={() => deleting && remove.mutate(deleting)} disabled={remove.isPending || (deleting?.childCount ?? 0) > 0}>
             {remove.isPending ? "Đang xóa..." : t("common.delete")}
           </Button>
         </Modal.Footer>
@@ -685,12 +861,15 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   const categories = useActiveCategories();
   const categoryOptions = useMemo(() => {
     return (
-      categories.data?.items.map((c) => ({
-        value: c.id,
-        label: c.name,
-        code: c.code,
-        sublabel: c.questionCount ? `${c.questionCount} câu` : undefined,
-      })) ?? []
+      // Chuyên đề có chuyên đề con chỉ gom nhóm, không chứa câu hỏi: chỉ chọn chuyên đề con hoặc chuyên đề không có con (D-32)
+      categories.data?.items
+        .filter((c) => !c.childCount)
+        .map((c) => ({
+          value: c.id,
+          label: c.name,
+          code: c.code,
+          sublabel: c.questionCount ? `${c.questionCount} câu` : undefined,
+        })) ?? []
     );
   }, [categories.data]);
   const [form, setForm] = useState<EditorState>(() => (existing ? toEditorState(existing) : emptyQuestion()));
@@ -1406,7 +1585,7 @@ function TryNumber({ value, answer, tolerance }: { value: string; answer: number
   return ok ? <Badge bg="success">Đúng</Badge> : <Badge bg="danger">Sai</Badge>;
 }
 
-const DIFFICULTIES: QuestionDifficulty[] = ["EASY", "MEDIUM", "HARD"];
+const DIFFICULTIES: QuestionDifficulty[] = ["LEVEL1", "LEVEL2", "LEVEL3", "LEVEL4"];
 
 function parseTags(text: string): string[] {
   return [...new Set(text.split(/[,;]/).map((t) => t.trim().toLowerCase()).filter(Boolean))];

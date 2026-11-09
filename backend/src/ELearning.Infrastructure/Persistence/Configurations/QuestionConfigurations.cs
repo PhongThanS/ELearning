@@ -14,6 +14,9 @@ internal sealed class QuestionCategoryConfiguration : IEntityTypeConfiguration<Q
         builder.Property(c => c.Name).HasMaxLength(200).IsRequired();
         builder.HasIndex(c => c.Code).IsUnique().HasDatabaseName("UQ_QuestionCategories_Code");
         builder.HasUserReference(c => c.CreatedBy, "FK_QuestionCategories_CreatedBy");
+        builder.HasOne<QuestionCategory>().WithMany().HasForeignKey(c => c.ParentId)
+            .HasConstraintName("FK_QuestionCategories_Parent").OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(c => c.ParentId).HasDatabaseName("IX_QuestionCategories_ParentId");
     }
 }
 

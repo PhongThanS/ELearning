@@ -30,6 +30,7 @@ const student = () => import("../features/attempts/StudentPages");
 const player = () => import("../features/attempts/ExamPlayerPage");
 const videos = () => import("../features/videos/AdminVideoPages");
 const studentVideos = () => import("../features/videos/StudentVideoPages");
+const studentAttendance = () => import("../features/attendance/StudentAttendancePage");
 const videoWatch = () => import("../features/videos/VideoWatchPage");
 const attendance = () => import("../features/attendance/AttendancePage");
 
@@ -63,7 +64,8 @@ export const routes: RouteObject[] = [
           {
             element: <StudentLayout />,
             children: [
-              { index: true, element: <Navigate to="/student/exams" replace /> },
+              { index: true, element: <Navigate to="/student/attendance" replace /> },
+              { path: "attendance", element: page(studentAttendance, "StudentAttendancePage") },
               { path: "exams", element: page(student, "StudentExamsPage") },
               { path: "exams/:examId", element: page(student, "StudentExamDetailPage") },
               { path: "results/:attemptId", element: page(student, "ResultPage") },

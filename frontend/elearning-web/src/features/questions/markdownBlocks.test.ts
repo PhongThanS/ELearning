@@ -14,7 +14,7 @@ const FILE = [
   "@answer: A", // 10
   "", // 11
   "@question: 2", // 12
-  "@difficulty: HARD", // 13
+  "@difficulty: 3", // 13
   "@content:", // 14
   "Viết @@ trong nội dung", // 15
   "@option A: x", // 16
@@ -41,11 +41,11 @@ describe("markdownBlocks", () => {
   });
 
   it("đặt, đổi và bỏ độ khó riêng của câu", () => {
-    const added = setQuestionDifficulty(FILE, 6, "EASY");
-    expect(added.split("\n")[6]).toBe("@difficulty: EASY");
+    const added = setQuestionDifficulty(FILE, 6, "LEVEL1");
+    expect(added.split("\n")[6]).toBe("@difficulty: 1");
 
-    const changed = setQuestionDifficulty(FILE, 12, "MEDIUM");
-    expect(changed.split("\n")[12]).toBe("@difficulty: MEDIUM");
+    const changed = setQuestionDifficulty(FILE, 12, "LEVEL4");
+    expect(changed.split("\n")[12]).toBe("@difficulty: 4");
     expect(changed.split("\n")).toHaveLength(FILE.split("\n").length);
 
     const removed = setQuestionDifficulty(FILE, 12, null);
@@ -57,6 +57,6 @@ describe("markdownBlocks", () => {
     const fenced = normalizeMarkdown("﻿```markdown\r\n@format: elearning-exam/1\r\n@question: 1\r\n@type: ESSAY\r\n@content: Viết.\r\n```\r\n");
 
     expect(questionText(fenced, 3)).toBe("@question: 1\n@type: ESSAY\n@content: Viết.");
-    expect(setQuestionDifficulty(fenced, 3, "HARD").split("\n").slice(-2)).toEqual(["```", ""]);
+    expect(setQuestionDifficulty(fenced, 3, "LEVEL3").split("\n").slice(-2)).toEqual(["```", ""]);
   });
 });

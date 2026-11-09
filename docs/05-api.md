@@ -144,6 +144,8 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | GET | `/api/users` (lọc `keyword`, `roleCode`, `groupId`, `isActive`) | `User.View` |
 | GET | `/api/users/{id}` | `User.View` |
 | POST | `/api/users` | `User.Create` |
+| GET | `/api/users/import/template` → file `.xlsx` (sheet `TaiKhoan`, `HuongDan`, `VaiTro`, `Lop`) | `User.Create` |
+| POST | `/api/users/import?dryRun=` (multipart, trường `file`) → `UserImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, userName, fullName, roles, classes, temporaryPassword, issues[{ field, code, message }] }] }`. `temporaryPassword` chỉ có sau import thật, với dòng để trống mật khẩu. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY`. Quy tắc: `02` mục 5.2 | `User.Create` (+ `Class.Manage` nếu xếp lớp) |
 | PUT | `/api/users/{id}` | `User.Update` |
 | PATCH | `/api/users/{id}/status` `{ isActive, reason }` | `User.Update` |
 | PUT | `/api/users/{id}/roles` `{ roleIds }` | `Role.Assign` |
@@ -169,8 +171,8 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 ### 6.3 Danh mục và câu hỏi
 | Method | Route | Quyền |
 |---|---|---|
-| GET | `/api/question-categories` (có `isActive`, phân trang) | `Category.View` |
-| GET/POST/PUT | `/api/question-categories[/{id}]` | `Category.View` / `Category.Manage` |
+| GET | `/api/question-categories` (có `isActive`, `parentId`, `rootOnly`, phân trang; DTO có `parentId`, `parentName`, `childCount`, `totalQuestionCount` — D-32) | `Category.View` |
+| GET/POST/PUT | `/api/question-categories[/{id}]` (POST/PUT nhận `parentId`; PUT bỏ trống `parentId` = chuyển thành chuyên đề gốc; lỗi `PARENT_INVALID`) | `Category.View` / `Category.Manage` |
 | PATCH | `/api/question-categories/{id}/status` | `Category.Manage` |
 | GET | `/api/questions` (lọc `categoryId`, `questionType`, `keyword`, `isActive`; sort `code`, `createdAt`, `updatedAt`) | `Question.View` |
 | GET | `/api/questions/{id}` | `Question.View` |
@@ -181,7 +183,7 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | GET | `/api/questions/import/template` → file `.xlsx` | `Question.Create` |
 | POST | `/api/media` (multipart, trường `file`) → 201 `{ id, contentType, sizeBytes, url, markdown }`. PNG / JPEG / GIF / WebP nhận diện theo nội dung file, tối đa `Media:MaxBytes` (2 MB); cùng nội dung trả lại ảnh cũ. Lỗi 400 `MEDIA_FILE_REQUIRED` / `MEDIA_TOO_LARGE` / `MEDIA_TYPE_NOT_ALLOWED` | `Question.Create` |
 | GET | `/api/media/{id}?exp=&sig=` → file ảnh. URL do server ký (HMAC, hết hạn sau 6–12 giờ), không cần đăng nhập, không rate limit; sai chữ ký / hết hạn / không có → 404 `MEDIA_NOT_FOUND` | — |
-| POST | `/api/questions/import-markdown` `{ markdown, categoryId?, dryRun }` → `ExamMarkdownImportResult { dryRun, imported, exam{ title, code, durationMinutes, categoryCode, description, instructions }, categoryId, totalQuestions, validQuestions, totalScore, questions[{ index, line, label, part, questionId, code, question (body tạo câu hỏi, có đáp án), issues[{ line, field, code, message }] }], fileIssues[], missingImages[] }`. Định dạng file: `02` mục 1.5 (D-29) | `Question.Create` |
+| POST | `/api/questions/import-markdown` `{ markdown, categoryId (bắt buộc khi dryRun = false; thiếu → 400 CATEGORY_REQUIRED), dryRun }` (mã câu hỏi sinh dạng `<mã chuyên đề>-<mức 2 số>-<6 số>`, `02` mục 1.5) → `ExamMarkdownImportResult { dryRun, imported, exam{ title, code, durationMinutes, categoryCode, description, instructions }, categoryId, totalQuestions, validQuestions, totalScore, questions[{ index, line, label, part, questionId, code, question (body tạo câu hỏi, có đáp án), issues[{ line, field, code, message }] }], fileIssues[], missingImages[] }`. Định dạng file: `02` mục 1.5 (D-29) | `Question.Create` |
 | POST | `/api/questions/import-markdown/docx-images` (multipart `file`, `.docx` ≤ 30 MB) → `DocxImageResult { images[{ name, contentType, dataBase64, part, question, bytes }], skipped[{ name, part, question, reason }] }`: lấy hình từ file đề Word gốc, đặt tên `hinh-p<phần>-c<câu>.png` (`02` mục 1.5). Không lưu gì; file hỏng → 400 `IMPORT_FILE_INVALID` | `Question.Create` |
 | POST | `/api/questions/import?dryRun=` (multipart, trường `file`) → `QuestionImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, code, questionType, contentPreview, issues[{ field, code, message }] }] }`. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY` | `Question.Create` |
 
@@ -214,7 +216,7 @@ Ví dụ tạo câu hỏi:
 |---|---|---|
 | GET | `/api/exams` (lọc `status`, `keyword`, `categoryId`; mỗi dòng có `categoryId`, `categoryName`) | `Exam.View` |
 | GET | `/api/exams/{id}` (gồm version PUBLISHED / DRAFT hiện tại) | `Exam.View` |
-| POST | `/api/exams` (tạo đề DRAFT kèm version 1 DRAFT; `categoryId?` = chuyên đề của đề, D-30, phải đang hoạt động) | `Exam.Create` |
+| POST | `/api/exams` (tạo đề DRAFT kèm version 1 DRAFT; `categoryId?` = chuyên đề của đề, D-30, phải đang hoạt động; `kind?` = `GRADED` mặc định / `PRACTICE` đề luyện, D-33 — PUT cũng nhận `kind`; DTO đề, đề của học viên và lượt thi có `kind`) | `Exam.Create` |
 | PUT | `/api/exams/{id}` (các trường của `Exams`, kèm `rowVersion`) | `Exam.Update` |
 | DELETE | `/api/exams/{id}` (chỉ khi chưa từng publish) | `Exam.Delete` |
 | POST | `/api/exams/{id}/clone` (**clone thành một đề mới**, lấy version mới nhất) | `Exam.Create` |
@@ -263,6 +265,7 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 | Method | Route | Quyền |
 |---|---|---|
 | GET | `/api/student/classes` (lớp đang hoạt động của tôi, D-28) | Student |
+| GET | `/api/student/attendance/classes/{classId}/history?month=yyyy-MM` (điểm danh + điểm BTVN tháng của chính tôi, thứ hạng ĐTB trong lớp; lớp tôi không học → 404; không trả SĐT phụ huynh). Là trang mặc định của học viên sau khi đăng nhập | Student |
 | GET | `/api/student/exams` (`classroomId` tùy chọn: chỉ đề gán cho lớp đó, học viên phải thuộc lớp) | Student |
 | GET | `/api/student/exams/{examId}` | Student |
 | POST | `/api/student/exams/{examId}/start` | Student |

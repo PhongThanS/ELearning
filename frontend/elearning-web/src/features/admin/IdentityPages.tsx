@@ -13,6 +13,7 @@ import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
+import { UserImportDialog } from "./UserImportDialog";
 import type { Group, GroupMember, UserListItem, UserWithPassword } from "../../types/api";
 
 // ======================= Người dùng =======================
@@ -23,6 +24,9 @@ export function UsersPage() {
   const list = useListQuery({ sortBy: "userName", sortDir: "asc" });
   const query = useQuery({ queryKey: ["users", list.params], queryFn: () => usersApi.list(list.params) });
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const toast = useToast();
+  const template = useMutation({ mutationFn: usersApi.importTemplate, onError: (e) => toast.error(e) });
   const [created, setCreated] = useState<UserWithPassword | null>(null);
 
   const columns: Column<UserListItem>[] = [
@@ -46,8 +50,23 @@ export function UsersPage() {
     <>
       <PageHeader
         title={t("nav.users")}
-        actions={hasPermission(Permissions.UserCreate) && <Button onClick={() => setCreating(true)}>{t("common.create")}</Button>}
+        actions={
+          hasPermission(Permissions.UserCreate) && (
+            <>
+              <Button variant="outline-success" disabled={template.isPending} onClick={() => template.mutate()}>
+                <i className="bi bi-file-earmark-arrow-down me-1" aria-hidden="true" />
+                Tải file Excel mẫu
+              </Button>
+              <Button variant="outline-primary" onClick={() => setImporting(true)}>
+                <i className="bi bi-file-earmark-excel me-1" aria-hidden="true" />
+                Import Excel
+              </Button>
+              <Button onClick={() => setCreating(true)}>{t("common.create")}</Button>
+            </>
+          )
+        }
       />
+      <UserImportDialog show={importing} onHide={() => setImporting(false)} />
       <RegistrationSettingCard />
       <Row className="g-2 mb-3">
         <Col md={5}>

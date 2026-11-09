@@ -129,7 +129,7 @@ public class ExamMarkdownParserTests
 
         doc.Questions.SelectMany(q => q.Issues).Should().BeEmpty();
         doc.Questions[0].Input!.Options!.Select(o => o.IsCorrect).Should().Equal(true, true, false, true);
-        doc.Questions.Select(q => q.Input!.Difficulty).Should().Equal(QuestionDifficulty.Medium, QuestionDifficulty.Hard, QuestionDifficulty.Easy);
+        doc.Questions.Select(q => q.Input!.Difficulty).Should().Equal(QuestionDifficulty.Level2, QuestionDifficulty.Level4, QuestionDifficulty.Level1);
     }
 
     [Fact]

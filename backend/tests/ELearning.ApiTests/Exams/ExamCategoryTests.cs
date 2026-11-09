@@ -6,6 +6,8 @@ namespace ELearning.ApiTests.Exams;
 
 public sealed record ExamCategoryDetail(Guid Id, Guid? CategoryId, string? CategoryName, Guid? DraftVersionId, string RowVersion);
 
+public sealed record SubCategoryItem(Guid Id, Guid? ParentId, string? ParentName, int ChildCount, int QuestionCount, int TotalQuestionCount);
+
 public sealed record ExamCategoryListItem(Guid Id, Guid? CategoryId, string? CategoryName);
 
 /// <summary>Chuyên đề của đề thi (D-30): mọi câu trong đề thuộc chuyên đề đã chọn; để trống thì không giới hạn.</summary>
@@ -72,6 +74,61 @@ public class ExamCategoryTests(ApiFactory factory)
         clearedBody.Data!.CategoryId.Should().BeNull();
     }
 
+    [Fact]
+    public async Task Parent_category_includes_questions_of_its_subcategories()
+    {
+        var admin = await AdminAsync();
+        var parent = await CreateCategoryAsync(admin);
+        var child = await CreateCategoryAsync(admin, parent.Id);
+        var child2 = await CreateCategoryAsync(admin, parent.Id);
+        var leaf = await CreateCategoryAsync(admin);
+        var inChild2 = await CreateQuestionAsync(admin, child2.Id);
+        var inChild = await CreateQuestionAsync(admin, child.Id);
+        await CreateQuestionAsync(admin, leaf.Id);
+
+        // Chuyên đề có con chỉ gom nhóm: không thêm câu trực tiếp; chuyên đề đang có câu không nhận chuyên đề con
+        var (inParent, inParentBody) = await admin.PostJsonAsync<object>("/api/questions", new
+        {
+            content = "1 + 1 = ?",
+            questionType = "FILL_IN",
+            answerDataType = "NUMBER",
+            correctAnswerNumber = 2,
+            categoryId = parent.Id,
+        });
+        var (childOfLeaf, childOfLeafBody) = await admin.PostJsonAsync<object>(
+            "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Con", parentId = leaf.Id });
+        inParent.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        inParentBody.Errors.Should().Contain(e => e.Code == "CATEGORY_HAS_CHILDREN");
+        childOfLeaf.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        childOfLeafBody.Errors.Should().Contain(e => e.Code == "PARENT_HAS_QUESTIONS");
+
+        var (grandChild, grandChildBody) = await admin.PostJsonAsync<object>(
+            "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Cháu", parentId = child.Id });
+        var (_, parentInfo) = await admin.GetJsonAsync<SubCategoryItem>($"/api/question-categories/{parent.Id}");
+        var (_, childInfo) = await admin.GetJsonAsync<SubCategoryItem>($"/api/question-categories/{child.Id}");
+        var (_, questions) = await admin.GetJsonAsync<Paged<QuestionDetail>>($"/api/questions?categoryId={parent.Id}");
+        var (_, childQuestions) = await admin.GetJsonAsync<Paged<QuestionDetail>>($"/api/questions?categoryId={child.Id}");
+
+        var exam = await CreateExamAsync(admin, parent.Id);
+        var versionUrl = $"/api/exams/{exam.Id}/versions/{exam.DraftVersionId}";
+        var (add, addBody) = await admin.PostJsonAsync<VersionDetail>($"{versionUrl}/questions", new { questionIds = new[] { inChild2.Id, inChild.Id } });
+        var (rule, ruleBody) = await admin.PostJsonAsync<object>($"{versionUrl}/pool-rules", new { categoryId = leaf.Id, drawCount = 1, scorePerQuestion = 1 });
+        var (deleteParent, deleteParentBody) = await admin.SendJsonAsync<object>(HttpMethod.Delete, $"/api/question-categories/{parent.Id}?force=true");
+
+        grandChild.StatusCode.Should().Be(HttpStatusCode.BadRequest, "chỉ có 2 cấp");
+        grandChildBody.Errors.Should().Contain(e => e.Code == "PARENT_INVALID");
+        parentInfo.Data!.Should().Match<SubCategoryItem>(c => c.ParentId == null && c.ChildCount == 2 && c.QuestionCount == 0 && c.TotalQuestionCount == 2);
+        childInfo.Data!.Should().Match<SubCategoryItem>(c => c.ParentId == parent.Id && c.ParentName == parent.Name && c.ChildCount == 0);
+        questions.Data!.TotalCount.Should().Be(2, "lọc chuyên đề cha gồm cả câu của chuyên đề con");
+        childQuestions.Data!.TotalCount.Should().Be(1);
+        add.StatusCode.Should().Be(HttpStatusCode.OK, string.Join(",", addBody.Errors.Select(e => e.Code)));
+        addBody.Data!.Questions.Should().HaveCount(2, "đề thuộc chuyên đề cha nhận câu của chuyên đề con");
+        rule.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        ruleBody.Errors.Should().Contain(e => e.Code == "QUESTION_CATEGORY_MISMATCH");
+        deleteParent.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        deleteParentBody.Errors.Should().Contain(e => e.Code == "CATEGORY_HAS_CHILDREN");
+    }
+
     private static async Task<(HttpResponseMessage, Envelope<ExamCategoryDetail>)> UpdateAsync(HttpClient admin, Guid examId, Guid? categoryId)
     {
         var (_, current) = await admin.GetJsonAsync<ExamCategoryDetail>($"/api/exams/{examId}");
@@ -99,10 +156,10 @@ public class ExamCategoryTests(ApiFactory factory)
         return body.Data!;
     }
 
-    private static async Task<CategoryItem> CreateCategoryAsync(HttpClient admin)
+    private static async Task<CategoryItem> CreateCategoryAsync(HttpClient admin, Guid? parentId = null)
     {
         var code = ApiClientExtensions.UniqueName("CD");
-        var (response, body) = await admin.PostJsonAsync<CategoryItem>("/api/question-categories", new { code, name = $"Chuyên đề {code}" });
+        var (response, body) = await admin.PostJsonAsync<CategoryItem>("/api/question-categories", new { code, name = $"Chuyên đề {code}", parentId });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return body.Data!;
     }

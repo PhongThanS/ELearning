@@ -80,7 +80,7 @@ export function VersionBuilderPage() {
                   🎲 Tạo nhanh
                 </span>
                 <span className="small text-secondary">
-                  Tự động lấy số lượng câu hỏi theo chuyên đề và ma trận độ khó (Dễ, Trung bình, Khó)
+                  Tự động lấy số lượng câu hỏi theo chuyên đề và ma trận mức độ (Mức 1 – Mức 4)
                 </span>
               </div>
               <Button
@@ -112,7 +112,7 @@ export function VersionBuilderPage() {
           </Row>
         </Tab>
         <Tab eventKey="settings" title="Cấu hình">
-          <SettingsTab examId={id} version={v} canEdit={canEdit} onSaved={setVersion} />
+          <SettingsTab examId={id} version={v} canEdit={canEdit} onSaved={setVersion} practice={exam.data.kind === "PRACTICE"} />
         </Tab>
         <Tab eventKey="preview" title={t("common.preview")}>
           <PreviewTab examId={id} versionId={versionId} />
@@ -350,9 +350,10 @@ function QuestionPicker({
                   onChange={(e) => list.setFilter({ difficulty: e.target.value })}
                 >
                   <option value="">Tất cả độ khó</option>
-                  <option value="EASY">Dễ</option>
-                  <option value="MEDIUM">Trung bình</option>
-                  <option value="HARD">Khó</option>
+                  <option value="LEVEL1">Mức 1</option>
+                  <option value="LEVEL2">Mức 2</option>
+                  <option value="LEVEL3">Mức 3</option>
+                  <option value="LEVEL4">Mức 4</option>
                 </Form.Select>
               </Col>
             </Row>
@@ -681,7 +682,19 @@ function VoidDialog({ examId, version, question, onHide }: { examId: string; ver
   );
 }
 
-function SettingsTab({ examId, version, canEdit, onSaved }: { examId: string; version: VersionDetail; canEdit: boolean; onSaved: (v: VersionDetail) => void }) {
+function SettingsTab({
+  examId,
+  version,
+  canEdit,
+  onSaved,
+  practice,
+}: {
+  examId: string;
+  version: VersionDetail;
+  canEdit: boolean;
+  onSaved: (v: VersionDetail) => void;
+  practice?: boolean;
+}) {
   const { t } = useTranslation();
   const toast = useToast();
   const [value, setValue] = useState({
@@ -703,7 +716,7 @@ function SettingsTab({ examId, version, canEdit, onSaved }: { examId: string; ve
   return (
     <Card>
       <Card.Body>
-        <VersionSettingsFields value={value} onChange={setValue} disabled={!canEdit} />
+        <VersionSettingsFields value={value} onChange={setValue} disabled={!canEdit} practice={practice} />
         <p className="small text-secondary mt-2 mb-0">
           “Xem lại bài ngay sau khi nộp” chỉ dùng được khi đề có 1 lượt thi; “sau khi đề đóng” cần đặt thời điểm đóng.
         </p>

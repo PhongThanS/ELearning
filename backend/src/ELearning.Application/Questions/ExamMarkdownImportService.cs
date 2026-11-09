@@ -12,8 +12,12 @@ using Microsoft.Extensions.Options;
 
 namespace ELearning.Application.Questions;
 
-/// <summary>Nhập đề từ file "elearning-exam/1". Ảnh trong file phải được thay bằng <c>media:&lt;id&gt;</c> trước khi nhập thật.</summary>
-public sealed record ExamMarkdownImportRequest(string? Markdown, Guid? CategoryId, bool DryRun);
+/// <summary>
+/// Nhập đề từ file "elearning-exam/1". Ảnh trong file phải được thay bằng <c>media:&lt;id&gt;</c> trước khi nhập thật.
+/// Nhập theo chuyên đề bắt buộc chọn đúng một chuyên đề (<see cref="CategoryId"/>); nhập để tạo đề thi
+/// (<see cref="ForExam"/>) thì chuyên đề không bắt buộc. Bản kiểm tra (dryRun) không cần chuyên đề.
+/// </summary>
+public sealed record ExamMarkdownImportRequest(string? Markdown, Guid? CategoryId, bool DryRun, bool ForExam = false);
 
 public sealed record ExamMarkdownQuestionResult(
     int Index,
@@ -86,6 +90,11 @@ internal sealed class ExamMarkdownImportService(
             return Error.Validation("IMPORT_FILE_INVALID", "File đề quá lớn (tối đa khoảng 2 MB văn bản).", "markdown");
         }
 
+        if (!request.DryRun && !request.ForExam && request.CategoryId is null)
+        {
+            return Error.Validation("CATEGORY_REQUIRED", "Chọn một chuyên đề để nhập câu hỏi.", "categoryId");
+        }
+
         var doc = ExamMarkdownParser.Parse(request.Markdown);
         var fileIssues = doc.FileIssues.ToList();
         var categoryId = await ResolveCategoryAsync(request.CategoryId, doc.Header.CategoryCode, fileIssues, ct);
@@ -93,11 +102,11 @@ internal sealed class ExamMarkdownImportService(
 
         foreach (var q in doc.Questions.Where(q => q.Input is not null))
         {
-            q.Input = q.Input! with { CategoryId = categoryId };
+            // Mã câu hỏi luôn sinh theo chuyên đề lúc nhập (mã chuyên đề-mức độ-số thứ tự): bỏ @code của từng câu trong file
+            q.Input = q.Input! with { CategoryId = categoryId, Code = null };
             CheckImages(q, request.DryRun, missingImages);
         }
 
-        await CheckCodesAsync(doc.Questions, ct);
         foreach (var q in doc.Questions.Where(q => q.Input is not null && q.Issues.Count == 0))
         {
             await ValidateAsync(q, ct);
@@ -114,11 +123,12 @@ internal sealed class ExamMarkdownImportService(
         var created = await db.InTransactionAsync(
             async () =>
             {
+                var inputs = doc.Questions.Select(q => q.Input!).ToList();
+                var codes = await QuestionCodesAsync(categoryId, inputs, ct);
                 var questions = new List<Question>();
-                foreach (var input in doc.Questions.Select(q => q.Input!))
+                for (var i = 0; i < inputs.Count; i++)
                 {
-                    var code = string.IsNullOrWhiteSpace(input.Code) ? await codeGenerator.NextQuestionCodeAsync(ct) : input.Code.Trim();
-                    var question = Question.Create(code, QuestionService.ToData(input), currentUser.RequiredUserId, now);
+                    var question = Question.Create(codes[i], QuestionService.ToData(inputs[i]), currentUser.RequiredUserId, now);
                     db.Questions.Add(question);
                     questions.Add(question);
                 }
@@ -168,6 +178,12 @@ internal sealed class ExamMarkdownImportService(
         {
             if (await db.QuestionCategories.AnyAsync(c => c.Id == id && c.IsActive, ct))
             {
+                if (await db.CategoryHasChildrenAsync(id, ct))
+                {
+                    issues.Add(new(null, "categoryId", "CATEGORY_HAS_CHILDREN", CategoryFamily.HasChildrenMessage));
+                    return null;
+                }
+
                 return id;
             }
 
@@ -188,6 +204,11 @@ internal sealed class ExamMarkdownImportService(
         if (found is null)
         {
             issues.Add(new(null, "category", "CATEGORY_NOT_FOUND", $"Không có danh mục đang hoạt động với mã \"{trimmed}\" (@category). Chọn danh mục khi nhập hoặc sửa mã."));
+        }
+        else if (await db.CategoryHasChildrenAsync(found.Value, ct))
+        {
+            issues.Add(new(null, "category", "CATEGORY_HAS_CHILDREN", CategoryFamily.HasChildrenMessage));
+            return null;
         }
 
         return found;
@@ -223,30 +244,25 @@ internal sealed class ExamMarkdownImportService(
         }
     }
 
-    private async Task CheckCodesAsync(IReadOnlyList<ExamMarkdownQuestion> questions, CancellationToken ct)
+    /// <summary>
+    /// Có chuyên đề: mã theo chuyên đề ("12.HS-01-000001"). Nhập để tạo đề thi mà không chọn chuyên đề: mã tự sinh thường
+    /// ("Q000123") vì không có mã chuyên đề làm đầu mã.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> QuestionCodesAsync(Guid? categoryId, List<QuestionInput> inputs, CancellationToken ct)
     {
-        var withCode = questions.Where(q => !string.IsNullOrWhiteSpace(q.Input?.Code)).ToList();
-        if (withCode.Count == 0)
+        if (categoryId is { } id)
         {
-            return;
+            var categoryCode = await db.QuestionCategories.Where(c => c.Id == id).Select(c => c.Code).SingleAsync(ct);
+            return await codeGenerator.NextCategoryQuestionCodesAsync(categoryCode, inputs.Select(i => i.Difficulty).ToList(), ct);
         }
 
-        var codes = withCode.Select(q => q.Input!.Code!.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var existing = (await db.Questions.AsNoTracking().Where(q => codes.Contains(q.Code)).Select(q => q.Code).ToListAsync(ct))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var q in withCode)
+        var codes = new List<string>(inputs.Count);
+        foreach (var _ in inputs)
         {
-            var code = q.Input!.Code!.Trim();
-            if (existing.Contains(code))
-            {
-                q.Issues.Add(new(q.Line, "code", "DUPLICATE_CODE", $"Câu {q.Label}: mã câu hỏi \"{code}\" đã tồn tại."));
-            }
-            else if (!seen.Add(code))
-            {
-                q.Issues.Add(new(q.Line, "code", "DUPLICATE_CODE_IN_FILE", $"Câu {q.Label}: mã câu hỏi \"{code}\" bị trùng trong file."));
-            }
+            codes.Add(await codeGenerator.NextQuestionCodeAsync(ct));
         }
+
+        return codes;
     }
 
     private async Task ValidateAsync(ExamMarkdownQuestion q, CancellationToken ct)

@@ -81,7 +81,9 @@
     "admin": "Quản trị",
     "student": "Học viên",
     "classes": "Lớp học",
-    "myClasses": "Lớp của tôi"
+    "myClasses": "Lớp của tôi",
+    "myAttendance": "Điểm danh & BTVN",
+    "systemSettings": "Cấu hình hệ thống"
   },
   "auth": {
     "login": "Đăng nhập",
@@ -115,9 +117,10 @@
       "ESSAY": "Tự luận"
     },
     "difficulty": {
-      "EASY": "Dễ",
-      "MEDIUM": "Trung bình",
-      "HARD": "Khó"
+      "LEVEL1": "Mức 1",
+      "LEVEL2": "Mức 2",
+      "LEVEL3": "Mức 3",
+      "LEVEL4": "Mức 4"
     },
     "answerDataType": {
       "TEXT": "Chữ",

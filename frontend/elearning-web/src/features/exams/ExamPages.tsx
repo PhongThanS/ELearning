@@ -16,7 +16,7 @@ import { useActiveCategories } from "../../hooks/useCategories";
 import { formatDateTime, formatNumber, markdownExcerpt, utcIsoToVnLocal, vnLocalToUtcIso } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
-import type { AccessMode, ExamDetail, ExamListItem, RetakeScoringPolicy, ReviewPolicy, ScoreVisibility } from "../../types/api";
+import type { AccessMode, ExamDetail, ExamKind, ExamListItem, RetakeScoringPolicy, ReviewPolicy, ScoreVisibility } from "../../types/api";
 
 export function ExamsPage() {
   const { t } = useTranslation();
@@ -35,7 +35,14 @@ export function ExamsPage() {
       className: "cell-content",
       render: (e) => (
         <>
-          <div className="cell-clamp-2" title={e.name}>{e.name}</div>
+          <div className="cell-clamp-2" title={e.name}>
+            {e.kind === "PRACTICE" && (
+              <Badge bg="info" className="me-1">
+                Đề luyện
+              </Badge>
+            )}
+            {e.name}
+          </div>
           {/* Màn hẹp: chuyên đề và người thi hiện dưới tên thay cho cột riêng */}
           <div className="small text-secondary d-xxl-none">
             {e.categoryName && <span className="me-2"><i className="bi bi-folder2 me-1" aria-hidden="true" />{e.categoryName}</span>}
@@ -121,6 +128,7 @@ interface ExamForm {
   retakeScoringPolicy: RetakeScoringPolicy;
   /** "" = không gắn chuyên đề. */
   categoryId: string;
+  kind: ExamKind;
 }
 
 const toBody = (f: ExamForm): ExamDetailsBody => ({
@@ -134,13 +142,43 @@ const toBody = (f: ExamForm): ExamDetailsBody => ({
   accessMode: f.accessMode,
   retakeScoringPolicy: f.retakeScoringPolicy,
   categoryId: f.categoryId || null,
+  kind: f.kind,
 });
 
 function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: (p: Partial<ExamForm>) => void; errors: Record<string, string>; codeEditable: boolean }) {
   const { t } = useTranslation();
   const categories = useActiveCategories();
+  const practice = form.kind === "PRACTICE";
   return (
     <Row className="g-2">
+      <Col md={12}>
+        <Form.Label className="mb-1">Loại đề *</Form.Label>
+        <div className="d-flex flex-wrap gap-2">
+          {(
+            [
+              ["GRADED", "📝 Đề tính điểm", "Giới hạn số lượt và thời gian làm bài như hiện tại."],
+              ["PRACTICE", "🔁 Đề luyện", "Làm đi làm lại không giới hạn, không tính giờ."],
+            ] as const
+          ).map(([value, title, detail]) => (
+            <label
+              key={value}
+              htmlFor={`exam-kind-${value}`}
+              className={`border rounded p-2 flex-grow-1 ${form.kind === value ? "border-primary bg-primary-subtle" : ""}`}
+              style={{ cursor: "pointer", minWidth: 220 }}
+            >
+              <Form.Check
+                type="radio"
+                id={`exam-kind-${value}`}
+                name="exam-kind"
+                checked={form.kind === value}
+                onChange={() => set({ kind: value })}
+                label={<span className="fw-semibold">{title}</span>}
+              />
+              <div className="small text-secondary ms-4">{detail}</div>
+            </label>
+          ))}
+        </div>
+      </Col>
       <Col md={4}>
         <Form.Group controlId="exam-code">
           <Form.Label>{t("common.code")} *</Form.Label>
@@ -210,7 +248,11 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
       <Col md={4}>
         <Form.Group controlId="exam-attempts">
           <Form.Label>Số lượt thi</Form.Label>
-          <Form.Control type="number" min={1} max={50} value={form.maxAttempts} isInvalid={!!errors.maxAttempts} onChange={(e) => set({ maxAttempts: Number(e.target.value) })} />
+          {practice ? (
+            <Form.Control value="Không giới hạn" disabled readOnly />
+          ) : (
+            <Form.Control type="number" min={1} max={50} value={form.maxAttempts} isInvalid={!!errors.maxAttempts} onChange={(e) => set({ maxAttempts: Number(e.target.value) })} />
+          )}
           <Form.Control.Feedback type="invalid">{errors.maxAttempts}</Form.Control.Feedback>
         </Form.Group>
       </Col>
@@ -251,10 +293,13 @@ export function VersionSettingsFields({
   value,
   onChange,
   disabled,
+  practice,
 }: {
   value: VersionSettingsValue;
   onChange: (v: typeof value) => void;
   disabled?: boolean;
+  /** Đề luyện (D-33): không tính giờ, thời lượng không áp dụng. */
+  practice?: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -262,6 +307,13 @@ export function VersionSettingsFields({
       <Col md={3}>
         <Form.Group controlId="v-duration">
           <Form.Label>Thời lượng (phút)</Form.Label>
+          {practice ? (
+            <>
+              <Form.Control value="Không tính giờ" disabled readOnly />
+              <Form.Text>Đề luyện không giới hạn thời gian làm bài.</Form.Text>
+            </>
+          ) : (
+            <>
           <Form.Control
             type="number"
             min={0}
@@ -279,6 +331,8 @@ export function VersionSettingsFields({
             disabled={disabled}
             onChange={(e) => onChange({ ...value, durationMinutes: e.target.checked ? 0 : 60 })}
           />
+            </>
+          )}
         </Form.Group>
       </Col>
       <Col md={3}>
@@ -342,6 +396,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
     accessMode: "ASSIGNED",
     retakeScoringPolicy: "HIGHEST",
     categoryId: "",
+    kind: "GRADED",
   });
   const [settings, setSettings] = useState<VersionSettingsValue>({
     durationMinutes: 60, passPercentage: 50, scoreVisibility: "IMMEDIATE", reviewPolicy: "NEVER", shuffleQuestions: false, shuffleOptions: false,
@@ -414,7 +469,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                 codeEditable
               />
               <hr />
-              <VersionSettingsFields value={settings} onChange={setSettings} />
+              <VersionSettingsFields value={settings} onChange={setSettings} practice={form.kind === "PRACTICE"} />
             </Tab>
 
             <Tab
@@ -480,9 +535,10 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                       onChange={(e) => qList.setFilter({ difficulty: e.target.value })}
                     >
                       <option value="">Tất cả độ khó</option>
-                      <option value="EASY">Dễ</option>
-                      <option value="MEDIUM">Trung bình</option>
-                      <option value="HARD">Khó</option>
+                      <option value="LEVEL1">Mức 1</option>
+                      <option value="LEVEL2">Mức 2</option>
+                      <option value="LEVEL3">Mức 3</option>
+                      <option value="LEVEL4">Mức 4</option>
                     </Form.Select>
                   </Col>
                 </Row>
@@ -835,6 +891,7 @@ function ExamInfoForm({ exam, onSaved }: { exam: ExamDetail; onSaved: (exam: Exa
     accessMode: exam.accessMode,
     retakeScoringPolicy: exam.retakeScoringPolicy,
     categoryId: exam.categoryId ?? "",
+    kind: exam.kind ?? "GRADED",
   }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = useMutation({

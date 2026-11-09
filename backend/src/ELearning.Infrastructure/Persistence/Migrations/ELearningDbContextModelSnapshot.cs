@@ -685,6 +685,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.Property<string>("Instructions")
                         .HasColumnType("text");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
                     b.Property<int>("MaxAttempts")
                         .HasColumnType("integer");
 
@@ -741,6 +747,8 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.ToTable("Exams", null, t =>
                         {
                             t.HasCheckConstraint("CK_Exams_AccessMode", "\"AccessMode\" IN ('PUBLIC','ASSIGNED')");
+
+                            t.HasCheckConstraint("CK_Exams_Kind", "\"Kind\" IN ('GRADED','PRACTICE')");
 
                             t.HasCheckConstraint("CK_Exams_MaxAttempts", "\"MaxAttempts\" BETWEEN 1 AND 50");
 
@@ -860,7 +868,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ExamPoolRules", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamPoolRules_Difficulty", "\"Difficulty\" IN ('EASY','MEDIUM','HARD')");
+                            t.HasCheckConstraint("CK_ExamPoolRules_Difficulty", "\"Difficulty\" IN ('LEVEL1','LEVEL2','LEVEL3','LEVEL4')");
 
                             t.HasCheckConstraint("CK_ExamPoolRules_DrawCount", "\"DrawCount\" BETWEEN 1 AND 500");
 
@@ -1642,7 +1650,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_Questions_ContentFormat", "\"ContentFormat\" IN ('PLAIN','MARKDOWN')");
 
-                            t.HasCheckConstraint("CK_Questions_Difficulty", "\"Difficulty\" IN ('EASY','MEDIUM','HARD')");
+                            t.HasCheckConstraint("CK_Questions_Difficulty", "\"Difficulty\" IN ('LEVEL1','LEVEL2','LEVEL3','LEVEL4')");
 
                             t.HasCheckConstraint("CK_Questions_FillIn", "(\"QuestionType\" = 'FILL_IN' AND \"AnswerDataType\" IS NOT NULL) OR (\"QuestionType\" <> 'FILL_IN' AND \"AnswerDataType\" IS NULL)");
 
@@ -1707,6 +1715,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<Guid?>("ParentId")
+                        .HasColumnType("uuid");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -1723,6 +1734,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UQ_QuestionCategories_Code");
 
                     b.HasIndex("CreatedBy");
+
+                    b.HasIndex("ParentId")
+                        .HasDatabaseName("IX_QuestionCategories_ParentId");
 
                     b.ToTable("QuestionCategories", (string)null);
                 });
@@ -2533,6 +2547,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_QuestionCategories_CreatedBy");
+
+                    b.HasOne("ELearning.Domain.Questions.QuestionCategory", null)
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_QuestionCategories_Parent");
                 });
 
             modelBuilder.Entity("ELearning.Domain.Questions.QuestionOption", b =>

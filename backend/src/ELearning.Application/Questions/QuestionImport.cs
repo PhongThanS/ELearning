@@ -265,20 +265,13 @@ internal static class QuestionImportMapper
 
     private static QuestionDifficulty? ParseDifficulty(string? text, List<QuestionImportIssue> issues)
     {
-        switch (Compact(text))
+        if (DifficultyLevels.TryParse(text, out var difficulty))
         {
-            case null:
-                return null;
-            case "EASY" or "DỄ":
-                return QuestionDifficulty.Easy;
-            case "MEDIUM" or "TRUNGBÌNH" or "VỪA":
-                return QuestionDifficulty.Medium;
-            case "HARD" or "KHÓ":
-                return QuestionDifficulty.Hard;
-            default:
-                issues.Add(new(QuestionImportColumns.Difficulty, "DIFFICULTY_INVALID", "Độ khó phải là Dễ, Trung bình hoặc Khó (EASY / MEDIUM / HARD)."));
-                return null;
+            return difficulty;
         }
+
+        issues.Add(new(QuestionImportColumns.Difficulty, "DIFFICULTY_INVALID", DifficultyLevels.Hint));
+        return null;
     }
 
     private static bool ParseBool(string? text, string column, List<QuestionImportIssue> issues)

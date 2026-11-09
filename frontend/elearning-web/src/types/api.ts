@@ -208,7 +208,8 @@ export interface Permission {
 
 export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "FILL_IN" | "ESSAY";
 export type AnswerDataType = "TEXT" | "NUMBER";
-export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
+/** Mức độ (độ khó) 1–4: Mức 1 nhận biết … Mức 4 vận dụng cao. */
+export type QuestionDifficulty = "LEVEL1" | "LEVEL2" | "LEVEL3" | "LEVEL4";
 export type ContentFormat = "PLAIN" | "MARKDOWN";
 
 export interface Category {
@@ -216,10 +217,17 @@ export interface Category {
   code: string;
   name: string;
   isActive: boolean;
+  /** Câu trực thuộc chính chuyên đề. */
   questionCount: number;
   createdAt: string;
   updatedAt: string | null;
   rowVersion: string;
+  /** Chuyên đề cha; null = chuyên đề gốc (2 cấp). */
+  parentId: string | null;
+  parentName: string | null;
+  childCount: number;
+  /** Gồm cả câu của các chuyên đề con. */
+  totalQuestionCount: number;
 }
 
 export interface QuestionListItem {
@@ -304,7 +312,11 @@ export type RetakeScoringPolicy = "HIGHEST" | "LATEST";
 export type ScoreVisibility = "IMMEDIATE" | "AFTER_EXAM_END" | "HIDDEN";
 export type ReviewPolicy = "NEVER" | "AFTER_SUBMIT" | "AFTER_EXAM_END" | "AFTER_LAST_ATTEMPT";
 
+/** Loại đề (D-33): GRADED = đề tính điểm; PRACTICE = đề luyện, làm lại không giới hạn, không tính giờ. */
+export type ExamKind = "GRADED" | "PRACTICE";
+
 export interface ExamListItem {
+  kind?: ExamKind;
   id: string;
   code: string;
   name: string;
@@ -336,6 +348,7 @@ export interface VersionSummary {
 }
 
 export interface ExamDetail {
+  kind?: ExamKind;
   id: string;
   code: string;
   name: string;
@@ -426,26 +439,29 @@ export interface MatrixStatsQuery {
 export interface CategoryMatrixStats {
   categoryId: string | null;
   totalCandidates: number;
-  easyCandidates: number;
-  mediumCandidates: number;
-  hardCandidates: number;
+  level1Candidates: number;
+  level2Candidates: number;
+  level3Candidates: number;
+  level4Candidates: number;
   unspecifiedCandidates: number;
 }
 
 export interface MatrixStats {
   totalCandidates: number;
-  easyCandidates: number;
-  mediumCandidates: number;
-  hardCandidates: number;
+  level1Candidates: number;
+  level2Candidates: number;
+  level3Candidates: number;
+  level4Candidates: number;
   unspecifiedCandidates: number;
   byCategory?: CategoryMatrixStats[];
 }
 
 export interface MatrixTopicItem {
   categoryId: string | null;
-  easyCount: number;
-  mediumCount: number;
-  hardCount: number;
+  level1Count: number;
+  level2Count: number;
+  level3Count: number;
+  level4Count: number;
   scorePerQuestion?: number | null;
 }
 
@@ -453,9 +469,10 @@ export interface MatrixDrawInput {
   categoryId?: string | null;
   tag?: string | null;
   questionType?: QuestionType | null;
-  easyCount?: number;
-  mediumCount?: number;
-  hardCount?: number;
+  level1Count?: number;
+  level2Count?: number;
+  level3Count?: number;
+  level4Count?: number;
   scorePerQuestion?: number | null;
   mode: MatrixDrawMode;
   topics?: MatrixTopicItem[];
@@ -549,6 +566,7 @@ export type AttemptEventType =
   | "PASTE";
 
 export interface StudentExamItem {
+  kind?: ExamKind;
   examId: string;
   code: string;
   name: string;
@@ -601,6 +619,7 @@ export interface AttemptQuestion extends PlayerQuestion {
 }
 
 export interface Attempt {
+  kind?: ExamKind;
   attemptId: string;
   examId: string;
   examName: string;
@@ -892,6 +911,27 @@ export interface QuestionImportRow {
   questionType: QuestionType | null;
   contentPreview: string;
   issues: QuestionImportIssue[];
+}
+
+export interface UserImportRow {
+  rowNumber: number;
+  userName: string | null;
+  fullName: string | null;
+  roles: string[];
+  classes: string[];
+  /** Chỉ có sau khi import thật, với dòng để trống mật khẩu (hiện một lần). */
+  temporaryPassword: string | null;
+  issues: QuestionImportIssue[];
+}
+
+/** Kết quả import tài khoản từ Excel; imported = false thì không tài khoản nào được tạo. */
+export interface UserImportResult {
+  dryRun: boolean;
+  imported: boolean;
+  totalRows: number;
+  validRows: number;
+  importedCount: number;
+  rows: UserImportRow[];
 }
 
 /** Kết quả import câu hỏi từ Excel; imported = false thì không câu nào được tạo. */

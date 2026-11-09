@@ -76,5 +76,5 @@ export function HomeRedirect() {
   if (user.permissions.length > 0) {
     return <Navigate to="/admin" replace />;
   }
-  return <Navigate to={hasRole(StudentRole) ? "/student/exams" : "/profile"} replace />;
+  return <Navigate to={hasRole(StudentRole) ? "/student/attendance" : "/profile"} replace />;
 }

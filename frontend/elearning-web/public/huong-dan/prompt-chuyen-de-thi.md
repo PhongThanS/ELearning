@@ -73,7 +73,7 @@ Mỗi câu bắt đầu bằng `@question: <số thứ tự trong phần>` rồi
 |---|---|---|
 | `@type:` | Có (hoặc lấy từ mặc định của phần) | Một trong: `SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`, `NUMBER`, `TEXT`, `ESSAY` |
 | `@score:` | Có (hoặc mặc định của phần) | Điểm của câu, số > 0, dùng dấu chấm thập phân: `0.25`, `0.5`, `1` |
-| `@difficulty:` | Không | `EASY` (nhận biết), `MEDIUM` (thông hiểu), `HARD` (vận dụng / vận dụng cao) |
+| `@difficulty:` | Không | Mức độ, ghi số: `1` (nhận biết), `2` (thông hiểu), `3` (vận dụng), `4` (vận dụng cao) |
 | `@tags:` | Không | Từ khóa, cách nhau bằng dấu phẩy, viết thường không dấu: `ham-so, tiem-can` |
 | `@content:` | **Có** | Nội dung câu hỏi (nhiều dòng). **Không** ghi lại chữ "Câu 1." |
 | `@option A:` … | Với `SINGLE_CHOICE`, `MULTIPLE_CHOICE` | Mỗi lựa chọn một trường, liên tục `A`, `B`, `C`, `D`… (tối đa J). **Không** ghi lại chữ "A." trong nội dung |
@@ -117,9 +117,10 @@ thành `@difficulty` và **bỏ** nhãn khỏi `@content`.
 
 | Nhãn trong đề | `@difficulty` |
 |---|---|
-| `MĐ1`, `NB`, Nhận biết | `EASY` |
-| `MĐ2`, `TH`, Thông hiểu | `MEDIUM` |
-| `MĐ3`, `MĐ4`, `VD`, `VDC`, Vận dụng (cao) | `HARD` |
+| `MĐ1`, `NB`, Nhận biết | `1` |
+| `MĐ2`, `TH`, Thông hiểu | `2` |
+| `MĐ3`, `VD`, Vận dụng | `3` |
+| `MĐ4`, `VDC`, Vận dụng cao | `4` |
 
 **b) Lời giải ngay dưới từng câu** (dòng "Lời giải" / "Hướng dẫn giải" / "Giải" sau các phương án):
 - Dòng "Chọn C" / "Chọn đáp án C" / "Đáp án C" → `@answer: C`, **không** chép dòng đó vào lời giải.
@@ -158,7 +159,7 @@ chuyển thành:
 @question: 1
 @type: TRUE_FALSE
 @score: 1
-@difficulty: MEDIUM
+@difficulty: 2
 @content:
 Cho bốn điểm $A, B, C, D$ có $I$ là trung điểm của $AB$.
 @statement a: $\overrightarrow{IA} + \overrightarrow{IB} = \overrightarrow{0}$
@@ -260,7 +261,7 @@ Thời gian làm bài **90 phút**, không kể thời gian phát đề.
 @score: 0.25
 
 @question: 1
-@difficulty: EASY
+@difficulty: 1
 @content:
 Đường tiệm cận đứng của đồ thị hàm số $y = \dfrac{2x - 1}{x + 3}$ có phương trình là
 @option A: $x = 3$

@@ -14,6 +14,7 @@ import { formatDateRange, formatDateTime } from "../../utils/format";
 import { Permissions, StudentRole } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { Classroom, ClassroomStudent } from "../../types/api";
+import { StudentHistoryModal } from "../attendance/StudentHistoryModal";
 
 interface ClassForm {
   code: string;
@@ -297,6 +298,11 @@ export function ClassDetailPage() {
   });
 
   const [inspectingStudent, setInspectingStudent] = useState<ClassroomStudent | null>(null);
+  // Bấm tên học sinh: xem điểm danh + điểm BTVN theo tháng (cần quyền điểm danh); không có quyền thì xem bài tập như cũ
+  const canViewAttendance = hasPermission(Permissions.AttendanceTake);
+  const [historyStudent, setHistoryStudent] = useState<ClassroomStudent | null>(null);
+  const openStudent = (s: ClassroomStudent) => (canViewAttendance ? setHistoryStudent(s) : setInspectingStudent(s));
+  const nameTitle = canViewAttendance ? "Bấm để xem điểm danh & điểm BTVN theo tháng" : "Bấm để xem bài tập đã làm & chưa làm";
 
   const columns: Column<ClassroomStudent>[] = [
     {
@@ -307,8 +313,8 @@ export function ClassDetailPage() {
           <button
             type="button"
             className="btn btn-link p-0 text-start fw-semibold text-decoration-none text-primary"
-            onClick={() => setInspectingStudent(s)}
-            title="Bấm để xem bài tập đã làm & chưa làm"
+            onClick={() => openStudent(s)}
+            title={nameTitle}
           >
             {s.userName}
           </button>
@@ -330,8 +336,8 @@ export function ClassDetailPage() {
         <button
           type="button"
           className="btn btn-link p-0 text-start fw-semibold text-decoration-none text-primary"
-          onClick={() => setInspectingStudent(s)}
-          title="Bấm để xem danh sách bài tập đã làm & chưa làm"
+          onClick={() => openStudent(s)}
+          title={nameTitle}
         >
           <i className="bi bi-person-lines-fill me-1" />
           {s.fullName}
@@ -517,6 +523,7 @@ export function ClassDetailPage() {
           onSubmit={(f) => update.mutate(f)}
         />
       )}
+      <StudentHistoryModal classId={id} student={historyStudent} onHide={() => setHistoryStudent(null)} />
       <StudentProgressModal
         classroomId={id}
         student={inspectingStudent}

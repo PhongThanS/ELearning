@@ -10,15 +10,33 @@ import type { MatrixDrawInput, MatrixDrawMode, MatrixTopicItem, QuestionType, Ve
 
 const TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
 
+type LevelField = "level1Count" | "level2Count" | "level3Count" | "level4Count";
+
+/** 4 mức độ của ma trận (Mức 1 … Mức 4), theo thứ tự cột. */
+const LEVELS: { field: LevelField; label: string; header: string; text: string }[] = [
+  { field: "level1Count", label: "Mức 1", header: "bg-success-subtle", text: "text-success" },
+  { field: "level2Count", label: "Mức 2", header: "bg-info-subtle", text: "text-info-emphasis" },
+  { field: "level3Count", label: "Mức 3", header: "bg-warning-subtle", text: "text-warning-emphasis" },
+  { field: "level4Count", label: "Mức 4", header: "bg-danger-subtle", text: "text-danger" },
+];
+
+/** Số câu mặc định khi thêm một chuyên đề vào ma trận (Mức 1 … Mức 4). */
+const DEFAULT_COUNTS = [2, 1, 1, 0];
+
 interface TopicRow {
   key: string;
   categoryId: string | null;
   categoryName: string;
   categoryCode?: string;
-  easyCount: number;
-  mediumCount: number;
-  hardCount: number;
+  level1Count: number;
+  level2Count: number;
+  level3Count: number;
+  level4Count: number;
 }
+
+const counts = (row: TopicRow) => LEVELS.map((l) => row[l.field]);
+const withCounts = (values: number[]) =>
+  Object.fromEntries(LEVELS.map((l, i) => [l.field, values[i] ?? 0])) as Record<LevelField, number>;
 
 interface RandomMatrixModalProps {
   show: boolean;
@@ -35,7 +53,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
   const toast = useToast();
   const categories = useActiveCategories();
   const categoryItems = useMemo(
-    () => (categories.data?.items ?? []).filter((c) => !lockedCategoryId || c.id === lockedCategoryId),
+    () => (categories.data?.items ?? []).filter((c) => !lockedCategoryId || c.id === lockedCategoryId || c.parentId === lockedCategoryId),
     [categories.data, lockedCategoryId],
   );
 
@@ -65,14 +83,12 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
 
   // Bản đồ thống kê khả dụng theo CategoryId
   const categoryStatsMap = useMemo(() => {
-    const map = new Map<string, { easy: number; medium: number; hard: number; total: number }>();
+    const map = new Map<string, { levels: number[]; total: number }>();
     if (stats?.byCategory) {
       for (const item of stats.byCategory) {
         const key = item.categoryId ?? "uncategorized";
         map.set(key, {
-          easy: item.easyCandidates,
-          medium: item.mediumCandidates,
-          hard: item.hardCandidates,
+          levels: [item.level1Candidates, item.level2Candidates, item.level3Candidates, item.level4Candidates],
           total: item.totalCandidates,
         });
       }
@@ -93,9 +109,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
           categoryId: null,
           categoryName: "Chưa phân loại chuyên đề",
           categoryCode: "UNSET",
-          easyCount: 2,
-          mediumCount: 1,
-          hardCount: 1,
+          ...withCounts(DEFAULT_COUNTS),
         },
       ]);
       return;
@@ -112,9 +126,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
         categoryId: catId,
         categoryName: found.name,
         categoryCode: found.code,
-        easyCount: 2,
-        mediumCount: 1,
-        hardCount: 1,
+        ...withCounts(DEFAULT_COUNTS),
       },
     ]);
   };
@@ -132,9 +144,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
           categoryId: cat.id,
           categoryName: cat.name,
           categoryCode: cat.code,
-          easyCount: Math.min(2, cStat.easy),
-          mediumCount: Math.min(1, cStat.medium),
-          hardCount: Math.min(1, cStat.hard),
+          ...withCounts(DEFAULT_COUNTS.map((n, i) => Math.min(n, cStat.levels[i] ?? 0))),
         });
         addedIds.add(cat.id);
       }
@@ -148,9 +158,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
         categoryId: null,
         categoryName: "Chưa phân loại chuyên đề",
         categoryCode: "UNSET",
-        easyCount: Math.min(2, uncatStat.easy),
-        mediumCount: Math.min(1, uncatStat.medium),
-        hardCount: Math.min(1, uncatStat.hard),
+        ...withCounts(DEFAULT_COUNTS.map((n, i) => Math.min(n, uncatStat.levels[i] ?? 0))),
       });
     }
 
@@ -164,11 +172,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
   };
 
   // Cập nhật số câu của một chuyên đề
-  const handleUpdateCount = (
-    key: string,
-    field: "easyCount" | "mediumCount" | "hardCount",
-    val: number
-  ) => {
+  const handleUpdateCount = (key: string, field: LevelField, val: number) => {
     setTopicRows((prev) =>
       prev.map((r) => (r.key === key ? { ...r, [field]: Math.max(0, val) } : r))
     );
@@ -180,56 +184,35 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
   };
 
   // Điền nhanh cho tất cả chuyên đề trong ma trận
-  const handleBulkPreset = (easy: number, medium: number, hard: number) => {
-    setTopicRows((prev) =>
-      prev.map((r) => ({
-        ...r,
-        easyCount: easy,
-        mediumCount: medium,
-        hardCount: hard,
-      }))
-    );
+  const handleBulkPreset = (values: number[]) => {
+    setTopicRows((prev) => prev.map((r) => ({ ...r, ...withCounts(values) })));
   };
 
-  // Tính toán tổng số lượng và kiểm tra vượt quá
+  // Tính toán tổng số lượng và kiểm tra vượt quá (theo từng mức độ)
   const rowEvaluations = useMemo(() => {
     return topicRows.map((row) => {
       const catKey = row.categoryId ?? "uncategorized";
-      const catStat = categoryStatsMap.get(catKey) ?? { easy: 0, medium: 0, hard: 0, total: 0 };
-
-      const easyExceeded = row.easyCount > catStat.easy;
-      const mediumExceeded = row.mediumCount > catStat.medium;
-      const hardExceeded = row.hardCount > catStat.hard;
-      const rowTotal = row.easyCount + row.mediumCount + row.hardCount;
+      const catStat = categoryStatsMap.get(catKey) ?? { levels: [0, 0, 0, 0], total: 0 };
+      const wanted = counts(row);
+      const available = LEVELS.map((_, i) => catStat.levels[i] ?? 0);
+      const exceeded = wanted.map((n, i) => n > (available[i] ?? 0));
 
       return {
         ...row,
-        availEasy: catStat.easy,
-        availMedium: catStat.medium,
-        availHard: catStat.hard,
+        available,
         availTotal: catStat.total,
-        easyExceeded,
-        mediumExceeded,
-        hardExceeded,
-        hasExceeded: easyExceeded || mediumExceeded || hardExceeded,
-        rowTotal,
+        exceeded,
+        hasExceeded: exceeded.some(Boolean),
+        rowTotal: wanted.reduce((sum, n) => sum + n, 0),
       };
     });
   }, [topicRows, categoryStatsMap]);
 
-  const totalEasyWanted = useMemo(
-    () => rowEvaluations.reduce((sum, r) => sum + r.easyCount, 0),
+  const levelTotals = useMemo(
+    () => LEVELS.map((l) => rowEvaluations.reduce((sum, r) => sum + r[l.field], 0)),
     [rowEvaluations]
   );
-  const totalMediumWanted = useMemo(
-    () => rowEvaluations.reduce((sum, r) => sum + r.mediumCount, 0),
-    [rowEvaluations]
-  );
-  const totalHardWanted = useMemo(
-    () => rowEvaluations.reduce((sum, r) => sum + r.hardCount, 0),
-    [rowEvaluations]
-  );
-  const totalQuestionsWanted = totalEasyWanted + totalMediumWanted + totalHardWanted;
+  const totalQuestionsWanted = levelTotals.reduce((sum, n) => sum + n, 0);
 
   const anyExceeded = rowEvaluations.some((r) => r.hasExceeded);
   const exceededRows = rowEvaluations.filter((r) => r.hasExceeded);
@@ -265,12 +248,10 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
     }
 
     const topicsPayload: MatrixTopicItem[] = topicRows
-      .filter((r) => r.easyCount > 0 || r.mediumCount > 0 || r.hardCount > 0)
+      .filter((r) => counts(r).some((n) => n > 0))
       .map((r) => ({
         categoryId: r.categoryId,
-        easyCount: r.easyCount,
-        mediumCount: r.mediumCount,
-        hardCount: r.hardCount,
+        ...withCounts(counts(r)),
         scorePerQuestion: scoreNum,
       }));
 
@@ -342,7 +323,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
             <div className="d-flex align-items-center gap-2">
               <i className="bi bi-info-circle-fill fs-5 text-primary" />
               <div>
-                <strong>Ma trận đa chuyên đề:</strong> Cho phép chọn nhiều chuyên đề cùng lúc và định lượng chi tiết số câu theo từng mức độ nhận thức (<strong>Dễ</strong>, <strong>Trung bình</strong>, <strong>Khó</strong>). Hệ thống kiểm tra trực tiếp số câu sẵn có trong ngân hàng để đảm bảo đề thi đủ câu và không bị trùng lặp.
+                <strong>Ma trận đa chuyên đề:</strong> Cho phép chọn nhiều chuyên đề cùng lúc và định lượng chi tiết số câu theo từng mức độ (<strong>Mức 1</strong>, <strong>Mức 2</strong>, <strong>Mức 3</strong>, <strong>Mức 4</strong>). Hệ thống kiểm tra trực tiếp số câu sẵn có trong ngân hàng để đảm bảo đề thi đủ câu và không bị trùng lặp.
               </div>
             </div>
           </Alert>
@@ -461,32 +442,16 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                       Điền nhanh số câu cho tất cả chuyên đề:
                     </span>
                     <div className="btn-group btn-group-sm">
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => handleBulkPreset(1, 1, 1)}
-                      >
-                        1 Dễ · 1 TB · 1 Khó
-                      </Button>
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => handleBulkPreset(2, 1, 1)}
-                      >
-                        2 Dễ · 1 TB · 1 Khó
-                      </Button>
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => handleBulkPreset(3, 2, 1)}
-                      >
-                        3 Dễ · 2 TB · 1 Khó
-                      </Button>
-                      <Button
-                        variant="outline-secondary"
-                        size="sm"
-                        onClick={() => handleBulkPreset(0, 0, 0)}
-                      >
+                      {[
+                        [1, 1, 1, 1],
+                        [2, 1, 1, 0],
+                        [4, 3, 2, 1],
+                      ].map((preset) => (
+                        <Button key={preset.join("-")} variant="outline-secondary" size="sm" onClick={() => handleBulkPreset(preset)}>
+                          {preset.map((n, i) => `${n} M${i + 1}`).join(" · ")}
+                        </Button>
+                      ))}
+                      <Button variant="outline-secondary" size="sm" onClick={() => handleBulkPreset([0, 0, 0, 0])}>
                         Đặt lại về 0
                       </Button>
                     </div>
@@ -500,15 +465,11 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                             #
                           </th>
                           <th style={{ minWidth: 220 }}>Chuyên đề / Danh mục</th>
-                          <th style={{ width: 170 }} className="text-center bg-success-subtle bg-opacity-25">
-                            <span className="text-success fw-bold">Dễ</span> (Nhận biết)
-                          </th>
-                          <th style={{ width: 170 }} className="text-center bg-warning-subtle bg-opacity-25">
-                            <span className="text-warning-emphasis fw-bold">Trung bình</span> (Thông hiểu)
-                          </th>
-                          <th style={{ width: 170 }} className="text-center bg-danger-subtle bg-opacity-25">
-                            <span className="text-danger fw-bold">Khó</span> (Vận dụng)
-                          </th>
+                          {LEVELS.map((level) => (
+                            <th key={level.field} style={{ width: 140 }} className={`text-center ${level.header} bg-opacity-25`}>
+                              <span className={`${level.text} fw-bold`}>{level.label}</span>
+                            </th>
+                          ))}
                           <th style={{ width: 100 }} className="text-center">
                             Tổng câu
                           </th>
@@ -535,95 +496,30 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                               </div>
                             </td>
 
-                            {/* Cột Dễ */}
-                            <td className="text-center">
-                              <div className="d-flex flex-column align-items-center gap-1">
-                                <Form.Control
-                                  type="number"
-                                  size="sm"
-                                  min={0}
-                                  max={200}
-                                  value={row.easyCount}
-                                  className={`text-center fw-bold ${row.easyExceeded ? "is-invalid border-danger text-danger" : ""}`}
-                                  style={{ width: "90px" }}
-                                  onChange={(e) =>
-                                    handleUpdateCount(
-                                      row.key,
-                                      "easyCount",
-                                      parseInt(e.target.value) || 0
-                                    )
-                                  }
-                                />
-                                <span
-                                  className={`badge ${row.easyExceeded ? "bg-danger text-white" : "bg-light text-secondary border"}`}
-                                  style={{ fontSize: "0.75rem" }}
-                                >
-                                  {row.easyExceeded
-                                    ? `Vượt quá (Có: ${row.availEasy})`
-                                    : `Có sẵn: ${row.availEasy}`}
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* Cột Trung bình */}
-                            <td className="text-center">
-                              <div className="d-flex flex-column align-items-center gap-1">
-                                <Form.Control
-                                  type="number"
-                                  size="sm"
-                                  min={0}
-                                  max={200}
-                                  value={row.mediumCount}
-                                  className={`text-center fw-bold ${row.mediumExceeded ? "is-invalid border-danger text-danger" : ""}`}
-                                  style={{ width: "90px" }}
-                                  onChange={(e) =>
-                                    handleUpdateCount(
-                                      row.key,
-                                      "mediumCount",
-                                      parseInt(e.target.value) || 0
-                                    )
-                                  }
-                                />
-                                <span
-                                  className={`badge ${row.mediumExceeded ? "bg-danger text-white" : "bg-light text-secondary border"}`}
-                                  style={{ fontSize: "0.75rem" }}
-                                >
-                                  {row.mediumExceeded
-                                    ? `Vượt quá (Có: ${row.availMedium})`
-                                    : `Có sẵn: ${row.availMedium}`}
-                                </span>
-                              </div>
-                            </td>
-
-                            {/* Cột Khó */}
-                            <td className="text-center">
-                              <div className="d-flex flex-column align-items-center gap-1">
-                                <Form.Control
-                                  type="number"
-                                  size="sm"
-                                  min={0}
-                                  max={200}
-                                  value={row.hardCount}
-                                  className={`text-center fw-bold ${row.hardExceeded ? "is-invalid border-danger text-danger" : ""}`}
-                                  style={{ width: "90px" }}
-                                  onChange={(e) =>
-                                    handleUpdateCount(
-                                      row.key,
-                                      "hardCount",
-                                      parseInt(e.target.value) || 0
-                                    )
-                                  }
-                                />
-                                <span
-                                  className={`badge ${row.hardExceeded ? "bg-danger text-white" : "bg-light text-secondary border"}`}
-                                  style={{ fontSize: "0.75rem" }}
-                                >
-                                  {row.hardExceeded
-                                    ? `Vượt quá (Có: ${row.availHard})`
-                                    : `Có sẵn: ${row.availHard}`}
-                                </span>
-                              </div>
-                            </td>
+                            {/* Cột Mức 1 … Mức 4 */}
+                            {LEVELS.map((level, i) => (
+                              <td key={level.field} className="text-center">
+                                <div className="d-flex flex-column align-items-center gap-1">
+                                  <Form.Control
+                                    type="number"
+                                    size="sm"
+                                    min={0}
+                                    max={200}
+                                    aria-label={`Số câu ${level.label}`}
+                                    value={row[level.field]}
+                                    className={`text-center fw-bold ${row.exceeded[i] ? "is-invalid border-danger text-danger" : ""}`}
+                                    style={{ width: "80px" }}
+                                    onChange={(e) => handleUpdateCount(row.key, level.field, parseInt(e.target.value) || 0)}
+                                  />
+                                  <span
+                                    className={`badge ${row.exceeded[i] ? "bg-danger text-white" : "bg-light text-secondary border"}`}
+                                    style={{ fontSize: "0.75rem" }}
+                                  >
+                                    {row.exceeded[i] ? `Vượt quá (Có: ${row.available[i]})` : `Có sẵn: ${row.available[i]}`}
+                                  </span>
+                                </div>
+                              </td>
+                            ))}
 
                             {/* Tổng câu của chuyên đề */}
                             <td className="text-center">
@@ -656,15 +552,11 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                           <td colSpan={2} className="text-end pe-3">
                             TỔNG CỘNG ({topicRows.length} chuyên đề):
                           </td>
-                          <td className="text-center text-success fs-6">
-                            {totalEasyWanted} câu Dễ
-                          </td>
-                          <td className="text-center text-warning-emphasis fs-6">
-                            {totalMediumWanted} câu TB
-                          </td>
-                          <td className="text-center text-danger fs-6">
-                            {totalHardWanted} câu Khó
-                          </td>
+                          {LEVELS.map((level, i) => (
+                            <td key={level.field} className={`text-center ${level.text} fs-6`}>
+                              {levelTotals[i]} câu {level.label}
+                            </td>
+                          ))}
                           <td className="text-center text-primary fs-5">
                             {totalQuestionsWanted} câu
                           </td>
@@ -782,7 +674,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
             {totalQuestionsWanted > 0 && (
               <span>
                 Đang cấu hình: <strong>{topicRows.length}</strong> chuyên đề · <strong>{totalQuestionsWanted}</strong> câu hỏi
-                ({totalEasyWanted} Dễ, {totalMediumWanted} TB, {totalHardWanted} Khó)
+                ({LEVELS.map((level, i) => `${levelTotals[i]} ${level.label}`).join(", ")})
               </span>
             )}
           </div>

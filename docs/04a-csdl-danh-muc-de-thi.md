@@ -144,6 +144,7 @@ CREATE TABLE QuestionCategories (
     Id         UNIQUEIDENTIFIER NOT NULL CONSTRAINT PK_QuestionCategories PRIMARY KEY DEFAULT NEWSEQUENTIALID(),
     Code       VARCHAR(100)   NOT NULL CONSTRAINT UQ_QuestionCategories_Code UNIQUE,
     Name       NVARCHAR(200)  NOT NULL,
+    ParentId   UNIQUEIDENTIFIER NULL CONSTRAINT FK_QuestionCategories_Parent REFERENCES QuestionCategories(Id), -- D-32: chuyên đề cha, chỉ 2 cấp; INDEX IX_QuestionCategories_ParentId
     IsActive   BIT            NOT NULL CONSTRAINT DF_QuestionCategories_IsActive DEFAULT 1,
     CreatedBy  UNIQUEIDENTIFIER NOT NULL CONSTRAINT FK_QuestionCategories_CreatedBy REFERENCES Users(Id),
     CreatedAt  DATETIME2(3)   NOT NULL CONSTRAINT DF_QuestionCategories_CreatedAt DEFAULT SYSUTCDATETIME(),
@@ -185,7 +186,7 @@ CREATE TABLE Questions (
 CREATE INDEX IX_Questions_Category_Type ON Questions(CategoryId, QuestionType) INCLUDE (IsActive);
 
 -- (sau MVP) Questions có thêm cột:
---   Difficulty VARCHAR(40) NULL  -- EASY | MEDIUM | HARD, CHECK CK_Questions_Difficulty
+--   Difficulty VARCHAR(40) NULL  -- LEVEL1 | LEVEL2 | LEVEL3 | LEVEL4 (Mức 1–4), CHECK CK_Questions_Difficulty
 --   PartialScoring BIT NOT NULL  -- chấm từng phần (chỉ MULTIPLE_CHOICE); ExamQuestions cũng có cột này (snapshot)
 --   QuestionType thêm giá trị ESSAY (Questions, ExamQuestions, ExamPoolRules)
 
@@ -287,6 +288,7 @@ CREATE TABLE Exams (
     Description         NVARCHAR(MAX)  NULL,
     Instructions        NVARCHAR(MAX)  NULL,          -- Markdown, hiển thị trước khi bắt đầu
     CategoryId          UNIQUEIDENTIFIER NULL CONSTRAINT FK_Exams_Category REFERENCES QuestionCategories(Id), -- D-30, index IX_Exams_CategoryId
+    Kind                VARCHAR(40)    NOT NULL DEFAULT 'GRADED' CONSTRAINT CK_Exams_Kind CHECK (Kind IN ('GRADED','PRACTICE')), -- D-33: đề tính điểm / đề luyện
     Status              VARCHAR(30)    NOT NULL CONSTRAINT DF_Exams_Status DEFAULT 'DRAFT'
         CONSTRAINT CK_Exams_Status CHECK (Status IN ('DRAFT','PUBLISHED','CLOSED')),
     StartAt             DATETIME2(3)   NULL,
@@ -371,7 +373,7 @@ CREATE TABLE ExamPoolRules (                       -- pool ngẫu nhiên (02-ngh
     ExamVersionId    UNIQUEIDENTIFIER NOT NULL REFERENCES ExamVersions(Id),
     RuleOrder        INT              NOT NULL,
     CategoryId       UNIQUEIDENTIFIER NULL REFERENCES QuestionCategories(Id),
-    Difficulty       VARCHAR(40)      NULL,           -- EASY | MEDIUM | HARD
+    Difficulty       VARCHAR(40)      NULL,           -- LEVEL1 | LEVEL2 | LEVEL3 | LEVEL4
     Tag              NVARCHAR(50)     NULL,
     QuestionType     VARCHAR(40)      NULL,
     DrawCount        INT              NOT NULL CHECK (DrawCount BETWEEN 1 AND 500),

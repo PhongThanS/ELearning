@@ -26,8 +26,21 @@ public class ExamMarkdownImportTests(ApiFactory factory)
 
         var (preview, previewBody) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, dryRun = true });
         var (_, before) = await admin.GetJsonAsync<Paged<object>>($"/api/questions?categoryId={category.Id}");
-        var (imported, importedBody) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, dryRun = false });
+        var (noCategory, noCategoryBody) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, dryRun = false });
+        var (imported, importedBody) = await admin.PostJsonAsync<MdResult>(
+            "/api/questions/import-markdown", new { markdown, categoryId = category.Id, dryRun = false });
         var (_, after) = await admin.GetJsonAsync<Paged<object>>($"/api/questions?categoryId={category.Id}");
+        var (_, again) = await admin.PostJsonAsync<MdResult>(
+            "/api/questions/import-markdown", new { markdown, categoryId = category.Id, dryRun = false });
+
+        noCategory.StatusCode.Should().Be(HttpStatusCode.BadRequest, "nhập thật phải chọn đúng một chuyên đề");
+        noCategoryBody.Errors.Should().Contain(e => e.Code == "CATEGORY_REQUIRED");
+
+        // Mã = mã chuyên đề-mức độ (00 nếu trống)-số thứ tự 6 số, đếm chung cả chuyên đề và nối tiếp lần nhập trước
+        importedBody.Data!.Questions.Select(q => q.Code).Should().Equal(
+            $"{category.Code}-01-000001", $"{category.Code}-00-000002", $"{category.Code}-04-000003");
+        again.Data!.Questions.Select(q => q.Code).Should().Equal(
+            $"{category.Code}-01-000004", $"{category.Code}-00-000005", $"{category.Code}-04-000006");
 
         preview.StatusCode.Should().Be(HttpStatusCode.OK);
         previewBody.Data!.Imported.Should().BeFalse();
@@ -49,6 +62,20 @@ public class ExamMarkdownImportTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Import_for_an_exam_does_not_need_a_category()
+    {
+        var admin = await AdminAsync();
+        var markdown = Exam("KHONG-CO-DANH-MUC").Replace("@category: KHONG-CO-DANH-MUC\n", string.Empty, StringComparison.Ordinal);
+
+        var (response, body) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, forExam = true, dryRun = false });
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK, string.Join(",", body.Errors.Select(e => e.Code)));
+        body.Data!.Imported.Should().BeTrue();
+        body.Data.CategoryId.Should().BeNull();
+        body.Data.Questions.Should().OnlyContain(q => q.Code != null && q.Code.StartsWith('Q'), "không có chuyên đề thì dùng mã tự sinh thường");
+    }
+
+    [Fact]
     public async Task Import_is_all_or_nothing_and_requires_uploaded_images()
     {
         var admin = await AdminAsync();
@@ -57,10 +84,11 @@ public class ExamMarkdownImportTests(ApiFactory factory)
         var pending = Exam(category.Code).Replace("@content: Cho hàm số $y = x^3$.", "@content: Cho hình ![](media:pending-abc123)");
         var broken = Exam(category.Code).Replace("@answer: 3", "@answer: ba");
 
-        var (_, missing) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown = withImage, dryRun = false });
-        var (_, notUploaded) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown = pending, dryRun = false });
+        var categoryId = category.Id;
+        var (_, missing) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown = withImage, categoryId, dryRun = false });
+        var (_, notUploaded) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown = pending, categoryId, dryRun = false });
         var (_, pendingPreview) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown = pending, dryRun = true });
-        var (_, invalid) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown = broken, dryRun = false });
+        var (_, invalid) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown = broken, categoryId, dryRun = false });
         var (_, list) = await admin.GetJsonAsync<Paged<object>>($"/api/questions?categoryId={category.Id}");
 
         missing.Data!.Imported.Should().BeFalse();
@@ -122,6 +150,8 @@ public class ExamMarkdownImportTests(ApiFactory factory)
         @question: 1
         @type: SINGLE_CHOICE
         @score: 0.25
+        @difficulty: 1
+        @code: MA-TRONG-FILE-BI-BO-QUA
         @content: Một cộng một bằng
         @option A: $1$
         @option B: $2$
@@ -138,6 +168,7 @@ public class ExamMarkdownImportTests(ApiFactory factory)
         @question: 3
         @type: NUMBER
         @score: 0.5
+        @difficulty: [MĐ4]
         @content: $1 + 2 = ?$
         @answer: 3
         """.Replace("CATEGORY_CODE", categoryCode, StringComparison.Ordinal);

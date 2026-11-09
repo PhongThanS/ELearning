@@ -1,6 +1,7 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Questions;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
 using ELearning.Shared;
@@ -82,7 +83,8 @@ internal sealed class ExamService(
 
         if (query.CategoryId is { } categoryId)
         {
-            exams = exams.Where(e => e.CategoryId == categoryId);
+            var family = await db.CategoryFamilyIdsAsync(categoryId, ct);
+            exams = exams.Where(e => e.CategoryId != null && family.Contains(e.CategoryId.Value));
         }
 
         exams = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch
@@ -114,7 +116,8 @@ internal sealed class ExamService(
                 e.CreatedAt,
                 e.UpdatedAt,
                 e.CategoryId,
-                db.QuestionCategories.Where(c => c.Id == e.CategoryId).Select(c => c.Name).FirstOrDefault()))
+                db.QuestionCategories.Where(c => c.Id == e.CategoryId).Select(c => c.Name).FirstOrDefault(),
+                e.Kind))
             .ToListAsync(ct);
 
         return new PagedResult<ExamListItemDto>(items, query.Page, query.PageSize, total);
@@ -294,7 +297,8 @@ internal sealed class ExamService(
             source.MaxAttempts,
             source.AccessMode,
             source.RetakeScoringPolicy,
-            source.CategoryId);
+            source.CategoryId,
+            source.Kind);
         var clone = Exam.Create(code, details, sourceVersion.Settings, currentUser.RequiredUserId, Now);
         clone.Versions.Single().CopyFrom(sourceVersion, Now);
         db.Exams.Add(clone);
@@ -517,6 +521,7 @@ internal sealed class ExamService(
         e.AccessMode,
         e.RetakeScoringPolicy,
         e.CategoryId,
+        e.Kind,
     };
 
     /// <summary>
@@ -526,14 +531,15 @@ internal sealed class ExamService(
     private async Task<Error?> CategoryMismatchAsync(Exam exam, Guid categoryId, CancellationToken ct)
     {
         var versionIds = exam.Versions.Where(v => v.Status != ExamVersionStatus.Archived).Select(v => v.Id).ToList();
+        var family = await db.CategoryFamilyIdsAsync(categoryId, ct);
         var outside = await db.ExamQuestions.AsNoTracking()
             .Where(q => versionIds.Contains(q.ExamVersionId) && q.PoolRuleId == null && q.SourceQuestionId != null)
             .Join(db.Questions, eq => eq.SourceQuestionId, q => q.Id, (eq, q) => q.CategoryId)
-            .CountAsync(c => c != categoryId, ct);
+            .CountAsync(c => c == null || !family.Contains(c.Value), ct);
         var rules = await db.ExamVersions.AsNoTracking()
             .Where(v => versionIds.Contains(v.Id))
             .SelectMany(v => v.PoolRules)
-            .CountAsync(r => r.CategoryId != categoryId, ct);
+            .CountAsync(r => r.CategoryId == null || !family.Contains(r.CategoryId.Value), ct);
         if (outside == 0 && rules == 0)
         {
             return null;
@@ -614,6 +620,7 @@ internal sealed class ExamService(
             exam.CategoryId,
             exam.CategoryId is { } categoryId
                 ? await db.QuestionCategories.AsNoTracking().Where(c => c.Id == categoryId).Select(c => c.Name).SingleOrDefaultAsync(ct)
-                : null);
+                : null,
+            exam.Kind);
     }
 }

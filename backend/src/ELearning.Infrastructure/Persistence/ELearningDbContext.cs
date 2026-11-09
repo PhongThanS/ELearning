@@ -24,7 +24,7 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
     internal static readonly Type[] DomainEnums =
     [
         typeof(QuestionType), typeof(AnswerDataType), typeof(ContentFormat), typeof(ExamStatus),
-        typeof(ExamVersionStatus), typeof(AccessMode), typeof(RetakeScoringPolicy), typeof(ScoreVisibility),
+        typeof(ExamVersionStatus), typeof(AccessMode), typeof(ExamKind), typeof(RetakeScoringPolicy), typeof(ScoreVisibility),
         typeof(ReviewPolicy), typeof(AttemptStatus), typeof(SubmitReason), typeof(AttemptEventType),
         typeof(RefreshTokenRevokedReason), typeof(AnswerKeyCorrectionType), typeof(QuestionDifficulty),
         typeof(AttendanceStatus), typeof(HomeworkStatus),

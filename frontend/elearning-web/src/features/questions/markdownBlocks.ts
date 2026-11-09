@@ -4,7 +4,10 @@
  * diện thay đúng khối đó rồi cho server kiểm tra lại cả file — vẫn chỉ một nguồn sự thật là file .md.
  */
 
-export type Difficulty = "EASY" | "MEDIUM" | "HARD";
+export type Difficulty = "LEVEL1" | "LEVEL2" | "LEVEL3" | "LEVEL4";
+
+/** Ghi vào file .md dạng số như đề thi: "LEVEL3" → "3". */
+const difficultyText = (difficulty: Difficulty) => difficulty.replace("LEVEL", "");
 
 const BLOCK_START = /^@(question|part|end)\b/i;
 const DIFFICULTY_LINE = /^@difficulty\s*:/i;
@@ -77,12 +80,12 @@ export function setQuestionDifficulty(markdown: string, line: number, difficulty
   const next = [...lines];
   if (own >= 0) {
     if (difficulty) {
-      next[block.start + own] = `@difficulty: ${difficulty}`;
+      next[block.start + own] = `@difficulty: ${difficultyText(difficulty)}`;
     } else {
       next.splice(block.start + own, 1);
     }
   } else if (difficulty) {
-    next.splice(block.start + 1, 0, `@difficulty: ${difficulty}`);
+    next.splice(block.start + 1, 0, `@difficulty: ${difficultyText(difficulty)}`);
   }
   return next.join("\n");
 }

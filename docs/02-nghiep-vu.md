@@ -80,13 +80,20 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
   - `FIGURE_MISSING`: nội dung câu nói "như hình", "hình vẽ", "hình bên"… mà câu không có dòng ảnh.
   - `AI_NOTES_INCLUDED`: mục "Ghi chú", dòng `eof` của AI bị chép vào file (nếu không chặn sẽ nối vào lời giải câu cuối);
     `AI_RESPONSE_INCOMPLETE`: còn dòng "TIẾP TỤC Ở PHẦN SAU" (đề chưa chuyển hết).
-- **Kiểm tra giống import Excel (mục 1.3):** mỗi câu qua đúng validator và domain của chức năng tạo câu hỏi; mã câu không
-  trùng; **tất cả hoặc không**; audit `QUESTIONS_IMPORTED` (`Source = MARKDOWN`). Tối đa 500 câu, khoảng 2 MB văn bản.
-- **Sửa lúc xem trước:** mỗi câu có ô **độ khó** (Dễ / Trung bình / Khó / chưa đặt) và nút **sửa** mở đúng đoạn văn bản
+- **Kiểm tra giống import Excel (mục 1.3):** mỗi câu qua đúng validator và domain của chức năng tạo câu hỏi; **tất cả hoặc không**; audit `QUESTIONS_IMPORTED` (`Source = MARKDOWN`). Tối đa 500 câu, khoảng 2 MB văn bản.
+- **Sửa lúc xem trước:** mỗi câu có ô **mức độ** (Mức 1 / 2 / 3 / 4 / chưa đặt; ghi vào file là `@difficulty: 1` … `4`) và nút **sửa** mở đúng đoạn văn bản
   của câu trong file `.md`; có thêm "đặt độ khó cho tất cả câu". Mọi thay đổi sửa thẳng vào nội dung file (dòng
   `@difficulty` riêng của câu, hoặc thay cả khối câu) rồi server kiểm tra lại cả file như lúc mới chọn — không có
   đường nhập nào bỏ qua kiểm tra. Bỏ độ khó riêng thì câu theo mặc định của `@part` (nếu có). Tải được file `.md` đã sửa.
-- **Danh mục:** chọn trên màn hình được ưu tiên; không chọn thì dùng `@category` (phải là danh mục đang hoạt động).
+- **Chuyên đề và cách nhập:** trang không chọn chuyên đề trước. Xem trước xong bấm **Import** → hộp thoại chọn **đúng một
+  chuyên đề** (bắt buộc; API nhập thật thiếu `categoryId` → 400 `CATEGORY_REQUIRED`) và một trong hai cách:
+  **Import theo chuyên đề** (chỉ tạo câu hỏi trong ngân hàng) hoặc **Import theo đề thi** (tạo câu hỏi trong ngân hàng và
+  tạo luôn đề thi nháp). Import theo đề thi **không bắt buộc** chuyên đề (API gửi `forExam: true`): bỏ trống thì đề và
+  câu hỏi không gắn chuyên đề, mã câu hỏi tự sinh dạng `Q000123`; chọn chuyên đề thì đề thuộc chuyên đề đó (D-30). Bản kiểm tra (dryRun) không cần chuyên đề (dùng `@category` nếu có để xem trước).
+- **Mã câu hỏi sinh theo chuyên đề:** `<mã chuyên đề>-<mức độ 2 số>-<số thứ tự 6 số>`, ví dụ chuyên đề `12.HS` →
+  `12.HS-01-000001`. Mức độ trống → `00`. Số thứ tự **đếm chung cả chuyên đề**, nối tiếp số lớn nhất đã có (không trùng;
+  khóa `pg_advisory_xact_lock` theo chuyên đề khi nhập song song). Ký tự ngoài `A-Z a-z 0-9 . _ -` trong mã chuyên đề (`#`, `+`)
+  đổi thành `_`. `@code` của từng câu trong file bị bỏ qua.
 - **Ảnh:** đề ghi `![mô tả](ten-file.png)`; người dùng chọn các file ảnh cùng tên ở màn hình nhập. Ảnh chỉ được tải lên
   (D-27) khi bấm nhập, rồi tên file được thay bằng `media:<id>`. Thiếu ảnh hoặc ảnh từ trang ngoài (`http…`) thì không nhập được.
 - **Lấy hình từ file Word gốc (không AI):** người dùng chọn file `.docx` gốc ở bước chọn ảnh; server đọc file (không lưu),
@@ -102,10 +109,10 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
   trong Word mà file `.md` không dùng (câu có thể thiếu hình). Ảnh người dùng tự chọn cùng tên được ưu tiên hơn ảnh
   lấy từ Word.
 - **Cách trình bày đề hay gặp** (prompt mục 3.1): nhãn mức độ `[MĐ1]`–`[MĐ4]` / NB / TH / VD / VDC → `@difficulty`
-  (MĐ1 → EASY, MĐ2 → MEDIUM, MĐ3–MĐ4 → HARD; parser cũng nhận thẳng các nhãn này); "Lời giải … Chọn C" dưới từng câu →
+  (MĐ1 → 1, MĐ2 → 2, MĐ3 → 3, MĐ4 → 4; parser cũng nhận thẳng các nhãn này, NB / TH / VD / VDC, và giá trị cũ EASY / MEDIUM / HARD = 1 / 2 / 3); "Lời giải … Chọn C" dưới từng câu →
   `@answer` + `@explanation`; câu Đúng/Sai dạng bảng "Mệnh đề | Đúng | Sai" và bảng đáp án "a) Đúng b) Sai…" (parser
   nhận cả `@answer: a) Đúng b) Sai …` chép nguyên từ đề); "Trả lời: 2,1" → câu `NUMBER`.
-- **Tạo sẵn đề thi nháp (tùy chọn):** sau khi nhập, giao diện tạo đề `ASSIGNED`, 1 lượt, thời lượng theo `@duration`
+- **Import theo đề thi:** sau khi nhập câu hỏi, giao diện tạo đề `ASSIGNED`, 1 lượt, thời lượng theo `@duration`
   (mặc định 60 phút), thêm các câu theo đúng thứ tự trong file với điểm `@score`; admin kiểm tra rồi publish như thường.
 - **Công thức toán:** nội dung Markdown hiển thị LaTeX trong `$...$` / `$$...$$` bằng KaTeX (mọi nơi dùng `MarkdownView`);
   LaTeX sai cú pháp hiện chữ đỏ, không làm hỏng trang. KaTeX tự sinh phần tử, vẫn không nhận HTML thô (D-17).
@@ -299,7 +306,7 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 
 ### 4.8 Pool câu hỏi ngẫu nhiên (sau MVP, đã làm)
 
-- Câu hỏi có thêm **độ khó** (`EASY` / `MEDIUM` / `HARD`, có thể để trống) và tối đa 10 **tag** (chuẩn hóa chữ thường, tối đa 50 ký tự). Ngân hàng lọc được theo độ khó và tag; import Excel có cột `Độ khó`, `Tag`.
+- Câu hỏi có thêm **độ khó** 4 mức `LEVEL1` … `LEVEL4` (hiển thị Mức 1 … Mức 4 = nhận biết, thông hiểu, vận dụng, vận dụng cao; có thể để trống; migration `QuestionDifficultyFourLevels` chuyển dữ liệu cũ Dễ / Trung bình / Khó → Mức 1 / 2 / 3). File Excel / `.md` ghi số 1–4. Ma trận đề ngẫu nhiên nhập số câu theo 4 mức (`level1Count` … `level4Count`) và tối đa 10 **tag** (chuẩn hóa chữ thường, tối đa 50 ký tự). Ngân hàng lọc được theo độ khó và tag; import Excel có cột `Độ khó`, `Tag`.
 - Một version gồm **câu cố định** (lượt thi nào cũng có) và các **quy tắc pool** (`ExamPoolRules`): tiêu chí danh mục / độ khó / tag / loại câu (để trống = không lọc), `DrawCount` câu bốc mỗi lượt, `ScorePerQuestion`.
 - **Giữ D-01:** khi thêm quy tắc (hoặc bấm "Làm mới"), các câu **đang hoạt động** khớp tiêu chí được **snapshot** vào `ExamQuestions` với `PoolRuleId` (câu ứng viên). Chấm điểm, sửa đáp án, hủy câu, thống kê vẫn chỉ đọc snapshot.
 - Câu đã có trong version (cố định hoặc thuộc quy tắc khác) bị loại khỏi ứng viên → một lượt thi không gặp trùng câu. Tối đa **500** câu ứng viên mỗi quy tắc; vượt thì báo `POOL_TOO_LARGE` để admin lọc thêm.
@@ -341,6 +348,26 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 - **Báo cáo Zalo phụ huynh** (chi tiết / ngắn gọn, tuyên dương BTVN ≥ 8,5 hoặc Xuất sắc) và tổng kết tháng được soạn ở trình duyệt để giáo viên sao chép; hệ thống không gửi tin.
 - Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
 - Tự đăng ký được điều khiển bằng `Auth:AllowSelfRegistration`: mặc định `true` ở Development, `false` ở Production.
+
+### 5.2 Import tài khoản từ Excel
+
+- File `.xlsx` (≤ 5 MB, tối đa **500** tài khoản): dòng đầu tiên có dữ liệu là tiêu đề, mỗi dòng bên dưới là một tài khoản.
+  Cột nhận theo tiêu đề (không phân biệt hoa thường), thứ tự cột tùy ý. File mẫu có sheet `TaiKhoan`, `HuongDan`,
+  `VaiTro` (bảng số vai trò) và `Lop` (lớp đang hoạt động). Sheet `TaiKhoan` chỉ có tiêu đề; ví dụ ở cuối sheet `HuongDan`.
+- Cột: **Tên đăng nhập** (bắt buộc), **Mật khẩu**, **Họ tên** (bắt buộc), **Email**, **Vai trò**, **Lớp**.
+  - Mỗi dòng đi qua đúng validator của chức năng tạo user (tên đăng nhập, email, họ tên, chính sách mật khẩu).
+  - Mật khẩu trống → sinh mật khẩu tạm 12 ký tự, trả về **một lần** trong kết quả import.
+  - **Không bắt đổi mật khẩu** (`MustChangePassword = false` cho mọi tài khoản import, kể cả mật khẩu tạm): người dùng
+    đăng nhập rồi tự đổi ở trang hồ sơ. Khác với admin tạo lẻ / đặt lại mật khẩu (vẫn bắt đổi).
+  - Email trống → `<tên đăng nhập>@elearning.local` (email là bắt buộc và duy nhất trong hệ thống).
+  - Vai trò ghi **số**: `0` = `ADMIN` (Quản trị viên), `1` = `TEACHER` (Giáo viên), `2` = `STUDENT` (Học viên); trống → `2`.
+    Số khác → `ROLE_NOT_FOUND`. File mẫu có danh sách chọn 0 / 1 / 2 ở cột này.
+  - Lớp ghi **mã lớp** đang hoạt động (không phân biệt hoa thường), nhiều lớp cách nhau dấu phẩy. Chỉ xếp lớp cho tài khoản
+    có vai trò `STUDENT` (như mục 5.1); người import phải có thêm quyền `Class.Manage`.
+- Trùng tên đăng nhập / email với tài khoản đã có (`USERNAME_TAKEN`, `EMAIL_TAKEN`) hoặc trùng nhau trong file
+  (`DUPLICATE_IN_FILE`) đều là lỗi dòng.
+- **Tất cả hoặc không** (như import câu hỏi): kiểm tra trước (`dryRun`), có dòng lỗi thì không tạo tài khoản nào. Import thật
+  tạo user, vai trò và xếp lớp trong **một transaction**, ghi một audit `USERS_IMPORTED`. Quyền: `User.Create`.
 
 ## 6. Lượt thi
 

@@ -77,8 +77,10 @@ public sealed class ExamAttempt : Entity, IHasRowVersion
             throw new DomainException(DomainErrorCodes.InvalidStateTransition, "Chỉ bắt đầu được trên phiên bản đang publish.");
         }
 
-        var expiredAt = version.DurationMinutes > 0
-            ? now.AddMinutes(version.DurationMinutes)
+        // Đề luyện không tính giờ (D-33): như thời lượng 0, chỉ bị chặn bởi thời điểm đóng đề
+        var duration = exam.IsPractice ? 0 : version.DurationMinutes;
+        var expiredAt = duration > 0
+            ? now.AddMinutes(duration)
             : (exam.EndAt ?? now.AddYears(1));
         if (exam.EndAt is { } endAt && endAt < expiredAt)
         {

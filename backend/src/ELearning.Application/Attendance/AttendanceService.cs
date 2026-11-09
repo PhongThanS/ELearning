@@ -110,6 +110,9 @@ public interface IAttendanceService
 
     Task<Result<AttendanceStudentHistoryDto>> GetStudentHistoryAsync(Guid classroomId, Guid studentId, AttendanceHistoryQuery query, CancellationToken ct);
 
+    /// <summary>Học sinh đang đăng nhập xem lịch sử tháng của chính mình trong một lớp mình học; lớp khác → 404.</summary>
+    Task<Result<AttendanceStudentHistoryDto>> GetMyHistoryAsync(Guid classroomId, AttendanceHistoryQuery query, CancellationToken ct);
+
     Task<Result<ExportFile>> ExportAsync(Guid classroomId, DateOnly date, CancellationToken ct);
 }
 
@@ -323,11 +326,31 @@ internal sealed class AttendanceService(
         Guid classroomId, Guid studentId, AttendanceHistoryQuery query, CancellationToken ct)
     {
         var classroom = await FindClassAsync(classroomId, ct);
+        return classroom is null ? ClassroomNotFound : await BuildHistoryAsync(classroom, studentId, query, ct);
+    }
+
+    public async Task<Result<AttendanceStudentHistoryDto>> GetMyHistoryAsync(Guid classroomId, AttendanceHistoryQuery query, CancellationToken ct)
+    {
+        var classroom = await db.Classrooms.AsNoTracking().SingleOrDefaultAsync(c => c.Id == classroomId, ct);
         if (classroom is null)
         {
             return ClassroomNotFound;
         }
 
+        // Học sinh chỉ xem được của chính mình; không gửi thông tin liên hệ phụ huynh (chỉ giáo viên dùng)
+        var result = await BuildHistoryAsync(classroom, currentUser.RequiredUserId, query, ct);
+        if (result.IsFailure)
+        {
+            return result.FirstError.Code == ErrorCodes.UserNotFound ? ClassroomNotFound : result.FirstError;
+        }
+
+        return result.Value with { ParentName = null, ParentPhone = null };
+    }
+
+    private async Task<Result<AttendanceStudentHistoryDto>> BuildHistoryAsync(
+        Classroom classroom, Guid studentId, AttendanceHistoryQuery query, CancellationToken ct)
+    {
+        var classroomId = classroom.Id;
         if (!TryParseMonth(query.Month, out var year, out var month))
         {
             return Error.Validation(ErrorCodes.ValidationFailed, "Tháng phải có dạng yyyy-MM.", "month");

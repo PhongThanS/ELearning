@@ -1,12 +1,13 @@
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Container, Nav, Navbar, NavDropdown, Spinner } from "react-bootstrap";
-import { NavLink, Outlet, useNavigate } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Permissions, StudentRole } from "../constants/permissions";
 import { useAuth } from "../features/auth/useAuth";
 import { categoriesApi } from "../services/api";
 import { matchClassroom, useAllClassrooms } from "../hooks/useClassrooms";
+import { orderCategories } from "../utils/categoryTree";
 import type { Category, Classroom } from "../types/api";
 
 export function SClassLogo({
@@ -113,7 +114,7 @@ function UserMenu() {
         </NavDropdown.Item>
       )}
       {hasRole(StudentRole) && (
-        <NavDropdown.Item as={NavLink} to="/student/exams">
+        <NavDropdown.Item as={NavLink} to="/student/attendance">
           🎓 {t("nav.student")}
         </NavDropdown.Item>
       )}
@@ -297,7 +298,8 @@ function SidebarCategoriesHoverItem({ label }: { label: string }) {
     staleTime: 60_000,
   });
 
-  const categories: Category[] = categoriesData?.items ?? [];
+  // Chuyên đề con nằm ngay dưới chuyên đề cha
+  const categories: Category[] = orderCategories(categoriesData?.items ?? []);
 
   const handleMouseEnter = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -370,6 +372,7 @@ function SidebarCategoriesHoverItem({ label }: { label: string }) {
             <NavLink
               key={c.id}
               to={`/admin/questions?categoryId=${c.id}`}
+              style={c.parentId ? { marginLeft: 24 } : undefined}
               className={({ isActive }) =>
                 `class-card-item d-flex align-items-center ${isActive ? "active" : ""}`
               }
@@ -387,7 +390,7 @@ function SidebarCategoriesHoverItem({ label }: { label: string }) {
                 </div>
                 <div className="class-card-meta d-flex align-items-center gap-2">
                   <span className="class-card-students">
-                    ❓ {c.questionCount} câu hỏi
+                    ❓ {c.childCount > 0 ? `${c.totalQuestionCount} câu · ${c.childCount} chuyên đề con` : `${c.questionCount} câu hỏi`}
                   </span>
                   <span className="class-card-code">
                     {c.code}
@@ -414,34 +417,123 @@ function SidebarCategoriesHoverItem({ label }: { label: string }) {
   );
 }
 
-const adminNav: {
+interface AdminNavLeaf {
   to: string;
   label: string;
   icon: string;
   permission: string;
-  isClassesDropdown?: boolean;
-  isCategoriesDropdown?: boolean;
   /** Chỉ sáng khi đúng đường dẫn (không sáng ở trang con có mục menu riêng). */
   end?: boolean;
-}[] = [
+}
+
+interface AdminNavItem extends Omit<AdminNavLeaf, "to" | "permission"> {
+  /** Trống: mục chỉ để gom nhóm (bấm để mở / thu các mục con). */
+  to?: string;
+  /** Trống: hiện khi người dùng có quyền với ít nhất một mục con. */
+  permission?: string;
+  isClassesDropdown?: boolean;
+  isCategoriesDropdown?: boolean;
+  /** Mục con xổ xuống bằng mũi tên. */
+  children?: AdminNavLeaf[];
+}
+
+const adminNav: AdminNavItem[] = [
   { to: "/admin/dashboard", label: "nav.dashboard", icon: "📊", permission: Permissions.ReportView },
   { to: "/admin/attendance", label: "nav.attendance", icon: "✅", permission: Permissions.AttendanceTake },
   { to: "/admin/exams", label: "nav.exams", icon: "📝", permission: Permissions.ExamView },
   { to: "/admin/videos", label: "nav.videos", icon: "🎥", permission: Permissions.VideoView },
-  { to: "/admin/questions", label: "nav.questions", icon: "❓", permission: Permissions.QuestionView, end: true },
-  { to: "/admin/questions/import-markdown", label: "nav.importExam", icon: "📥", permission: Permissions.QuestionCreate },
+  {
+    to: "/admin/questions",
+    label: "nav.questions",
+    icon: "❓",
+    permission: Permissions.QuestionView,
+    end: true,
+    children: [{ to: "/admin/questions/import-markdown", label: "nav.importExam", icon: "📥", permission: Permissions.QuestionCreate }],
+  },
   { to: "/admin/categories", label: "nav.categories", icon: "📁", permission: Permissions.CategoryView, isCategoriesDropdown: true },
-  { to: "/admin/users", label: "nav.users", icon: "👤", permission: Permissions.UserView },
-  { to: "/admin/roles", label: "nav.roles", icon: "🛡️", permission: Permissions.RoleView },
-  { to: "/admin/audit-logs", label: "nav.auditLogs", icon: "📜", permission: Permissions.AuditView },
   { to: "/admin/groups", label: "nav.groups", icon: "👥", permission: Permissions.GroupView },
   { to: "/admin/classes", label: "nav.classList", icon: "🏫", permission: Permissions.ClassView, isClassesDropdown: true },
+  {
+    label: "nav.systemSettings",
+    icon: "⚙️",
+    children: [
+      { to: "/admin/users", label: "nav.users", icon: "👤", permission: Permissions.UserView },
+      { to: "/admin/roles", label: "nav.roles", icon: "🛡️", permission: Permissions.RoleView },
+      { to: "/admin/audit-logs", label: "nav.auditLogs", icon: "📜", permission: Permissions.AuditView },
+    ],
+  },
 ];
+
+/**
+ * Mục menu bên có mục con: mũi tên để mở / thu (tự mở khi đang ở trang của một mục con).
+ * Mục có trang riêng (Ngân hàng câu hỏi) bấm tên để mở trang, bấm mũi tên để xổ mục con;
+ * mục chỉ gom nhóm (Cấu hình hệ thống) bấm cả dòng để mở / thu.
+ */
+function SidebarGroupItem({ item, leaves }: { item: AdminNavItem; leaves: AdminNavLeaf[] }) {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const inChild = leaves.some((c) => pathname.startsWith(c.to));
+  const [open, setOpen] = useState(inChild);
+  useEffect(() => {
+    if (inChild) setOpen(true);
+  }, [inChild]);
+  const id = `nav-group-${item.label.replace(/\W/g, "-")}`;
+  const chevron = <i className={`bi ${open ? "bi-chevron-down" : "bi-chevron-right"} small`} aria-hidden="true" />;
+
+  return (
+    <>
+      {item.to ? (
+        <div className="d-flex align-items-center">
+          <Nav.Link as={NavLink} to={item.to} end={item.end} className="d-flex align-items-center gap-2 flex-grow-1">
+            <span className="nav-item-icon">{item.icon}</span>
+            <span className="nav-item-label">{t(item.label)}</span>
+          </Nav.Link>
+          <button
+            type="button"
+            className="btn btn-link btn-sm text-secondary px-2"
+            aria-expanded={open}
+            aria-controls={id}
+            aria-label={`${open ? "Thu gọn" : "Mở"} ${t(item.label)}`}
+            onClick={() => setOpen(!open)}
+          >
+            {chevron}
+          </button>
+        </div>
+      ) : (
+        <Nav.Link
+          as="button"
+          type="button"
+          className="d-flex align-items-center gap-2 w-100 text-start border-0 bg-transparent"
+          aria-expanded={open}
+          aria-controls={id}
+          onClick={() => setOpen(!open)}
+        >
+          <span className="nav-item-icon">{item.icon}</span>
+          <span className="nav-item-label flex-grow-1">{t(item.label)}</span>
+          {chevron}
+        </Nav.Link>
+      )}
+      {open && (
+        <div id={id} className="ms-3 border-start ps-1">
+          {leaves.map((c) => (
+            <Nav.Link key={c.to} as={NavLink} to={c.to} end={c.end} className="d-flex align-items-center gap-2 py-1 small">
+              <span className="nav-item-icon">{c.icon}</span>
+              <span className="nav-item-label">{t(c.label)}</span>
+            </Nav.Link>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
 
 export function AdminLayout() {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
-  const items = adminNav.filter((item) => hasPermission(item.permission));
+  // Mục con lọc theo quyền; mục chỉ gom nhóm hiện khi còn ít nhất một mục con
+  const items = adminNav
+    .map((item) => ({ item, leaves: (item.children ?? []).filter((c) => hasPermission(c.permission)) }))
+    .filter(({ item, leaves }) => (item.permission ? hasPermission(item.permission) : leaves.length > 0));
 
   // Lấy dữ liệu cho menu di động từ API backend
   const { data: allClasses } = useAllClassrooms(hasPermission(Permissions.ClassView));
@@ -453,7 +545,7 @@ export function AdminLayout() {
   });
 
   const classes = allClasses ?? [];
-  const categories = categoriesData?.items ?? [];
+  const categories = orderCategories(categoriesData?.items ?? []);
 
   return (
     <>
@@ -466,7 +558,23 @@ export function AdminLayout() {
           <Navbar.Toggle aria-controls="admin-nav" />
           <Navbar.Collapse id="admin-nav">
             <Nav className="me-auto d-lg-none py-2">
-              {items.map((item) => {
+              {items.map(({ item, leaves }) => {
+                if (leaves.length > 0) {
+                  return (
+                    <NavDropdown key={item.label} title={`${item.icon} ${t(item.label)}`} id={`mobile-${item.label}`}>
+                      {item.to && (
+                        <NavDropdown.Item as={NavLink} to={item.to} end={item.end}>
+                          {item.icon} {t(item.label)}
+                        </NavDropdown.Item>
+                      )}
+                      {leaves.map((c) => (
+                        <NavDropdown.Item key={c.to} as={NavLink} to={c.to}>
+                          {c.icon} {t(c.label)}
+                        </NavDropdown.Item>
+                      ))}
+                    </NavDropdown>
+                  );
+                }
                 if (item.isClassesDropdown) {
                   return (
                     <NavDropdown key={item.to} title={`🏫 ${t(item.label)}`} id="mobile-classes-nav">
@@ -491,14 +599,15 @@ export function AdminLayout() {
                       <NavDropdown.Divider />
                       {categories.map((c) => (
                         <NavDropdown.Item key={c.id} as={NavLink} to={`/admin/questions?categoryId=${c.id}`}>
-                          📁 {c.name}
+                          {c.parentId ? "   ↳ " : "📁 "}
+                          {c.name}
                         </NavDropdown.Item>
                       ))}
                     </NavDropdown>
                   );
                 }
                 return (
-                  <Nav.Link key={item.to} as={NavLink} to={item.to} end={item.end} className="d-flex align-items-center gap-2">
+                  <Nav.Link key={item.to} as={NavLink} to={item.to!} end={item.end} className="d-flex align-items-center gap-2">
                     <span>{item.icon}</span>
                     <span>{t(item.label)}</span>
                   </Nav.Link>
@@ -514,7 +623,10 @@ export function AdminLayout() {
       <div className="d-flex">
         <nav className="admin-sidebar d-none d-lg-block border-end p-2.5" aria-label="Menu quản trị">
           <Nav className="flex-column" variant="pills">
-            {items.map((item) => {
+            {items.map(({ item, leaves }) => {
+              if (leaves.length > 0) {
+                return <SidebarGroupItem key={item.label} item={item} leaves={leaves} />;
+              }
               if (item.isClassesDropdown) {
                 return (
                   <SidebarClassesHoverItem
@@ -532,7 +644,7 @@ export function AdminLayout() {
                 );
               }
               return (
-                <Nav.Link key={item.to} as={NavLink} to={item.to} end={item.end} className="d-flex align-items-center gap-2">
+                <Nav.Link key={item.to} as={NavLink} to={item.to!} end={item.end} className="d-flex align-items-center gap-2">
                   <span className="nav-item-icon">{item.icon}</span>
                   <span className="nav-item-label">{t(item.label)}</span>
                 </Nav.Link>
@@ -552,25 +664,28 @@ export function StudentLayout() {
   const { t } = useTranslation();
   return (
     <>
-      <Navbar bg="primary" data-bs-theme="dark" expand="md" className="sclass-navbar shadow-sm">
+      <Navbar bg="primary" data-bs-theme="dark" expand="xl" className="sclass-navbar shadow-sm">
         <Container>
-          <Navbar.Brand as={NavLink} to="/student/exams" className="sclass-brand d-flex align-items-center">
+          <Navbar.Brand as={NavLink} to="/student/attendance" className="sclass-brand d-flex align-items-center">
             <SClassLogo size={36} showTagline={true} lightText={true} />
             <span className="sclass-portal-tag ms-2">{t("nav.student")}</span>
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="student-nav" />
           <Navbar.Collapse id="student-nav">
             <Nav className="me-auto">
-              <Nav.Link as={NavLink} to="/student/exams" className="d-flex align-items-center gap-1.5">
+              <Nav.Link as={NavLink} to="/student/attendance" className="d-flex align-items-center gap-1.5 text-nowrap">
+                <span>📈</span> {t("nav.myAttendance")}
+              </Nav.Link>
+              <Nav.Link as={NavLink} to="/student/exams" className="d-flex align-items-center gap-1.5 text-nowrap">
                 <span>📝</span> {t("nav.studentExams")}
               </Nav.Link>
-              <Nav.Link as={NavLink} to="/student/classes" className="d-flex align-items-center gap-1.5">
+              <Nav.Link as={NavLink} to="/student/classes" className="d-flex align-items-center gap-1.5 text-nowrap">
                 <span>🏫</span> {t("nav.myClasses")}
               </Nav.Link>
-              <Nav.Link as={NavLink} to="/student/videos" className="d-flex align-items-center gap-1.5">
+              <Nav.Link as={NavLink} to="/student/videos" className="d-flex align-items-center gap-1.5 text-nowrap">
                 <span>🎥</span> {t("nav.videos", "Video bài giảng")}
               </Nav.Link>
-              <Nav.Link as={NavLink} to="/student/history" className="d-flex align-items-center gap-1.5">
+              <Nav.Link as={NavLink} to="/student/history" className="d-flex align-items-center gap-1.5 text-nowrap">
                 <span>📊</span> {t("nav.history")}
               </Nav.Link>
             </Nav>

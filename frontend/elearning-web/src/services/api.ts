@@ -20,6 +20,7 @@ import type {
   MatrixStats,
   MatrixStatsQuery,
   QuestionImportResult,
+  UserImportResult,
   MarkdownImportResult,
   AnswerKeyCorrection,
   UserOverride,
@@ -96,6 +97,13 @@ export const usersApi = {
   anonymize: (id: string, reason: string) => http.post<UserDetail>(`/users/${id}/anonymize`, { reason }),
   exams: (id: string, q?: Query) => http.get<Paged<StudentExamItem>>(`/users/${id}/exams`, q),
   history: (id: string, q?: Query) => http.get<Paged<StudentHistoryItem>>(`/users/${id}/history`, q),
+  importTemplate: () => downloadFile("/users/import/template", undefined, "mau-import-tai-khoan.xlsx"),
+  /** Import tài khoản từ .xlsx; dryRun = true chỉ kiểm tra, không tạo tài khoản. */
+  import: (file: File, dryRun: boolean) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<UserImportResult>(`/users/import?dryRun=${dryRun}`, form);
+  },
 };
 
 export const groupsApi = {
@@ -152,8 +160,9 @@ export const rolesApi = {
 
 export const categoriesApi = {
   list: (q: Query) => http.get<Paged<Category>>("/question-categories", q),
-  create: (body: { code: string; name: string }) => http.post<Category>("/question-categories", body),
-  update: (id: string, body: { name: string; isActive: boolean; rowVersion: string }) =>
+  create: (body: { code: string; name: string; parentId?: string | null }) => http.post<Category>("/question-categories", body),
+  /** Luôn gửi parentId: bỏ trống (null) nghĩa là chuyên đề gốc. */
+  update: (id: string, body: { name: string; isActive: boolean; rowVersion: string; parentId: string | null }) =>
     http.put<Category>(`/question-categories/${id}`, body),
   setStatus: (id: string, isActive: boolean) => http.patch<Category>(`/question-categories/${id}/status`, { isActive }),
   remove: (id: string, force = false) => http.delete<void>(`/question-categories/${id}${force ? "?force=true" : ""}`),
@@ -174,7 +183,7 @@ export const questionsApi = {
     form.append("file", file);
     return http.post<QuestionImportResult>(`/questions/import?dryRun=${dryRun}`, form);
   },
-  importMarkdown: (body: { markdown: string; categoryId: string | null; dryRun: boolean }) =>
+  importMarkdown: (body: { markdown: string; categoryId: string | null; dryRun: boolean; forExam?: boolean }) =>
     http.post<MarkdownImportResult>("/questions/import-markdown", body),
   /** Ảnh trong file đề Word gốc, đã đặt tên theo phần / câu (hinh-p1-c3.png). Không lưu gì trên server. */
   docxImages: (file: File) => {
@@ -205,6 +214,8 @@ export interface ExamDetailsBody {
   retakeScoringPolicy: string;
   /** Chuyên đề của đề (D-30); null = không gắn. */
   categoryId?: string | null;
+  /** GRADED (mặc định) / PRACTICE (D-33). */
+  kind?: string;
 }
 
 export const examsApi = {
@@ -274,6 +285,8 @@ export const studentApi = {
   submit: (id: string) => http.post<StudentResult>(`/student/attempts/${id}/submit`),
   result: (id: string) => http.get<StudentResult>(`/student/attempts/${id}/result`),
   history: (q: Query) => http.get<Paged<StudentHistoryItem>>("/student/history", q),
+  attendance: (classId: string, month: string) =>
+    http.get<AttendanceStudentHistory>(`/student/attendance/classes/${classId}/history`, { month }),
 };
 
 export const adminApi = {

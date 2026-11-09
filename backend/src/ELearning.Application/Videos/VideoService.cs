@@ -1,6 +1,7 @@
 using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Application.Questions;
 using ELearning.Domain.Videos;
 using ELearning.Shared;
 using ELearning.Shared.Paging;
@@ -43,7 +44,8 @@ internal sealed class VideoService(
 
         if (query.CategoryId is { } categoryId)
         {
-            videos = videos.Where(v => v.CategoryId == categoryId);
+            var family = await db.CategoryFamilyIdsAsync(categoryId, ct);
+            videos = videos.Where(v => v.CategoryId != null && family.Contains(v.CategoryId.Value));
         }
 
         if (query.ClassroomId is { } classroomId)
@@ -225,7 +227,8 @@ internal sealed class VideoService(
 
         if (query.CategoryId is { } categoryId)
         {
-            videos = videos.Where(v => v.CategoryId == categoryId);
+            var family = await db.CategoryFamilyIdsAsync(categoryId, ct);
+            videos = videos.Where(v => v.CategoryId != null && family.Contains(v.CategoryId.Value));
         }
 
         if (query.ClassroomId is { } classroomId)

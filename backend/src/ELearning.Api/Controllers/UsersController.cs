@@ -6,6 +6,7 @@ using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Users;
 using ELearning.Domain.Identity;
 using ELearning.Shared.Paging;
+using ELearning.Shared.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ELearning.Api.Controllers;
@@ -16,8 +17,12 @@ public sealed class UsersController(
     IUserService users,
     IRegistrationSettingService registrationSetting,
     ICurrentUser currentUser,
-    IAttemptService attempts) : ApiControllerBase
+    IAttemptService attempts,
+    IUserImportService imports) : ApiControllerBase
 {
+    private const long MaxImportBytes = 5 * 1024 * 1024;
+    private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
     [HttpGet("registration-setting")]
     [HasPermission(Permissions.UserView)]
     [ProducesResponseType<ApiResponse<RegistrationStatusDto>>(StatusCodes.Status200OK)]
@@ -43,6 +48,38 @@ public sealed class UsersController(
     [HasPermission(Permissions.UserView)]
     [ProducesResponseType<ApiResponse<UserDetailDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> Get(Guid id, CancellationToken ct) => ToResponse(await users.GetAsync(id, ct));
+
+    /// <summary>File mẫu import tài khoản (kèm hướng dẫn, danh sách vai trò và mã lớp).</summary>
+    [HttpGet("import/template")]
+    [HasPermission(Permissions.UserCreate)]
+    [ProducesResponseType<FileContentResult>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ImportTemplate(CancellationToken ct) =>
+        File(await imports.CreateTemplateAsync(ct), XlsxContentType, "mau-import-tai-khoan.xlsx");
+
+    /// <summary>
+    /// Import tài khoản từ .xlsx (tối đa 5 MB, 500 tài khoản). dryRun=true chỉ kiểm tra. Tất cả hoặc không:
+    /// có dòng lỗi thì không tạo tài khoản nào, kết quả trả về lỗi theo từng dòng.
+    /// </summary>
+    [HttpPost("import")]
+    [HasPermission(Permissions.UserCreate)]
+    [RequestSizeLimit(MaxImportBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxImportBytes + 64 * 1024)]
+    [ProducesResponseType<ApiResponse<UserImportResult>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> Import(IFormFile? file, [FromQuery] bool dryRun, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_REQUIRED", "Vui lòng chọn file Excel.", "file")));
+        }
+
+        if (file.Length > MaxImportBytes || !file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_INVALID", "Chỉ nhận file .xlsx, tối đa 5 MB.", "file")));
+        }
+
+        await using var stream = file.OpenReadStream();
+        return ToResponse(await imports.ImportAsync(stream, dryRun, ct));
+    }
 
     [HttpPost]
     [HasPermission(Permissions.UserCreate)]

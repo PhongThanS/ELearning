@@ -15,9 +15,9 @@ public class MatrixDrawValidatorTests
             CategoryId: Guid.NewGuid(),
             Tag: null,
             QuestionType: QuestionType.SingleChoice,
-            EasyCount: 2,
-            MediumCount: 1,
-            HardCount: 1,
+            Level1Count: 2,
+            Level2Count: 1,
+            Level3Count: 1,
             ScorePerQuestion: 2.5m,
             Mode: MatrixDrawMode.Static
         );
@@ -33,9 +33,9 @@ public class MatrixDrawValidatorTests
             CategoryId: Guid.NewGuid(),
             Tag: null,
             QuestionType: null,
-            EasyCount: 0,
-            MediumCount: 0,
-            HardCount: 0,
+            Level1Count: 0,
+            Level2Count: 0,
+            Level3Count: 0,
             ScorePerQuestion: 1m,
             Mode: MatrixDrawMode.Static
         );
@@ -51,15 +51,25 @@ public class MatrixDrawValidatorTests
             CategoryId: null,
             Tag: null,
             QuestionType: null,
-            EasyCount: -1,
-            MediumCount: 2,
-            HardCount: 0,
+            Level1Count: -1,
+            Level2Count: 2,
+            Level3Count: 0,
             ScorePerQuestion: 1m,
             Mode: MatrixDrawMode.Static
         );
 
         var result = _validator.TestValidate(request);
-        result.ShouldHaveValidationErrorFor(r => r.EasyCount);
+        result.ShouldHaveValidationErrorFor(r => r.Level1Count);
+    }
+
+    [Fact]
+    public void Level4_counts_toward_total_and_cannot_be_negative()
+    {
+        var onlyLevel4 = new MatrixDrawRequest(null, null, null, 0, 0, 0, 1m, MatrixDrawMode.Static, Level4Count: 2);
+        var negative = onlyLevel4 with { Level4Count = -1 };
+
+        _validator.TestValidate(onlyLevel4).ShouldNotHaveAnyValidationErrors();
+        _validator.TestValidate(negative).ShouldHaveValidationErrorFor(r => r.Level4Count);
     }
 
     [Fact]
@@ -69,9 +79,9 @@ public class MatrixDrawValidatorTests
             CategoryId: Guid.NewGuid(),
             Tag: null,
             QuestionType: null,
-            EasyCount: 2,
-            MediumCount: 1,
-            HardCount: 1,
+            Level1Count: 2,
+            Level2Count: 1,
+            Level3Count: 1,
             ScorePerQuestion: null,
             Mode: MatrixDrawMode.Pool
         );
@@ -87,9 +97,9 @@ public class MatrixDrawValidatorTests
             CategoryId: Guid.NewGuid(),
             Tag: null,
             QuestionType: null,
-            EasyCount: 2,
-            MediumCount: 1,
-            HardCount: 1,
+            Level1Count: 2,
+            Level2Count: 1,
+            Level3Count: 1,
             ScorePerQuestion: 1.33m,
             Mode: MatrixDrawMode.Static
         );
@@ -105,15 +115,15 @@ public class MatrixDrawValidatorTests
             CategoryId: null,
             Tag: null,
             QuestionType: null,
-            EasyCount: 0,
-            MediumCount: 0,
-            HardCount: 0,
+            Level1Count: 0,
+            Level2Count: 0,
+            Level3Count: 0,
             ScorePerQuestion: 0.5m,
             Mode: MatrixDrawMode.Static,
             Topics:
             [
-                new MatrixTopicItem(Guid.NewGuid(), EasyCount: 3, MediumCount: 2, HardCount: 1),
-                new MatrixTopicItem(Guid.NewGuid(), EasyCount: 2, MediumCount: 1, HardCount: 1)
+                new MatrixTopicItem(Guid.NewGuid(), Level1Count: 3, Level2Count: 2, Level3Count: 1),
+                new MatrixTopicItem(Guid.NewGuid(), Level1Count: 2, Level2Count: 1, Level3Count: 1)
             ]
         );
 
@@ -128,14 +138,14 @@ public class MatrixDrawValidatorTests
             CategoryId: null,
             Tag: null,
             QuestionType: null,
-            EasyCount: 0,
-            MediumCount: 0,
-            HardCount: 0,
+            Level1Count: 0,
+            Level2Count: 0,
+            Level3Count: 0,
             ScorePerQuestion: 1m,
             Mode: MatrixDrawMode.Static,
             Topics:
             [
-                new MatrixTopicItem(Guid.NewGuid(), EasyCount: 0, MediumCount: 0, HardCount: 0)
+                new MatrixTopicItem(Guid.NewGuid(), Level1Count: 0, Level2Count: 0, Level3Count: 0)
             ]
         );
 

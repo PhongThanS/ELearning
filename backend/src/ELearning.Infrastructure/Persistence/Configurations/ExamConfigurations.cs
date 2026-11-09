@@ -36,6 +36,7 @@ internal sealed class ExamConfiguration : IEntityTypeConfiguration<Exam>
             t.HasEnumCheck<ExamStatus>("CK_Exams_Status", "Status");
             t.HasEnumCheck<AccessMode>("CK_Exams_AccessMode", "AccessMode");
             t.HasEnumCheck<RetakeScoringPolicy>("CK_Exams_RetakeScoring", "RetakeScoringPolicy");
+            t.HasEnumCheck<ExamKind>("CK_Exams_Kind", "Kind");
             t.HasCheckConstraint(
                 "CK_Exams_MaxAttempts", $"\"MaxAttempts\" BETWEEN {Exam.MinAttempts} AND {Exam.MaxAttemptsLimit}");
             t.HasCheckConstraint("CK_Exams_Window", "\"StartAt\" IS NULL OR \"EndAt\" IS NULL OR \"StartAt\" < \"EndAt\"");

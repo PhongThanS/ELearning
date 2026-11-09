@@ -31,7 +31,8 @@ public sealed record ExamListItemDto(
     DateTime CreatedAt,
     DateTime? UpdatedAt,
     Guid? CategoryId = null,
-    string? CategoryName = null);
+    string? CategoryName = null,
+    ExamKind Kind = ExamKind.Graded);
 
 public sealed record VersionSummaryDto(
     Guid Id,
@@ -67,7 +68,8 @@ public sealed record ExamDetailDto(
     string RowVersion,
     ReviewPolicy? PublishedReviewPolicy = null,
     Guid? CategoryId = null,
-    string? CategoryName = null);
+    string? CategoryName = null,
+    ExamKind Kind = ExamKind.Graded);
 
 public sealed record VersionOptionDto(string OptionCode, string Content, bool IsCorrect, int DisplayOrder);
 
@@ -128,36 +130,47 @@ public sealed record MatrixStatsQuery(
 public sealed record CategoryMatrixStatsDto(
     Guid? CategoryId,
     int TotalCandidates,
-    int EasyCandidates,
-    int MediumCandidates,
-    int HardCandidates,
+    int Level1Candidates,
+    int Level2Candidates,
+    int Level3Candidates,
+    int Level4Candidates,
     int UnspecifiedCandidates);
 
 public sealed record MatrixStatsDto(
     int TotalCandidates,
-    int EasyCandidates,
-    int MediumCandidates,
-    int HardCandidates,
+    int Level1Candidates,
+    int Level2Candidates,
+    int Level3Candidates,
+    int Level4Candidates,
     int UnspecifiedCandidates,
     IReadOnlyList<CategoryMatrixStatsDto>? ByCategory = null);
 
+/// <summary>Số câu bốc theo từng mức độ (Mức 1 … Mức 4) của một chuyên đề.</summary>
 public sealed record MatrixTopicItem(
     Guid? CategoryId,
-    int EasyCount,
-    int MediumCount,
-    int HardCount,
-    decimal? ScorePerQuestion = null);
+    int Level1Count,
+    int Level2Count,
+    int Level3Count,
+    int Level4Count = 0,
+    decimal? ScorePerQuestion = null)
+{
+    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count;
+}
 
 public sealed record MatrixDrawRequest(
     Guid? CategoryId,
     string? Tag,
     QuestionType? QuestionType,
-    int EasyCount,
-    int MediumCount,
-    int HardCount,
+    int Level1Count,
+    int Level2Count,
+    int Level3Count,
     decimal? ScorePerQuestion,
     MatrixDrawMode Mode,
-    IReadOnlyList<MatrixTopicItem>? Topics = null);
+    IReadOnlyList<MatrixTopicItem>? Topics = null,
+    int Level4Count = 0)
+{
+    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count;
+}
 
 public sealed record VersionDetailDto(
     Guid Id,
@@ -242,8 +255,11 @@ public record ExamDetailsInput
     /// <summary>Chuyên đề của đề (D-30); null = không gắn chuyên đề.</summary>
     public Guid? CategoryId { get; init; }
 
+    /// <summary>GRADED (mặc định): đề tính điểm; PRACTICE: đề luyện, làm lại không giới hạn, không tính giờ (D-33).</summary>
+    public ExamKind Kind { get; init; } = ExamKind.Graded;
+
     internal ExamDetails ToDetails() =>
-        new(Name, Description, Instructions, ToUtc(StartAt), ToUtc(EndAt), MaxAttempts, AccessMode, RetakeScoringPolicy, CategoryId);
+        new(Name, Description, Instructions, ToUtc(StartAt), ToUtc(EndAt), MaxAttempts, AccessMode, RetakeScoringPolicy, CategoryId, Kind);
 
     private static DateTime? ToUtc(DateTime? value) => value?.Kind switch
     {
@@ -322,6 +338,7 @@ internal static class ExamRules
             .WithErrorCode("MAX_ATTEMPTS_INVALID").WithMessage($"Số lượt thi phải từ {Exam.MinAttempts} đến {Exam.MaxAttemptsLimit}.");
         validator.RuleFor(r => r.AccessMode).IsInEnum();
         validator.RuleFor(r => r.RetakeScoringPolicy).IsInEnum();
+        validator.RuleFor(r => r.Kind).IsInEnum();
         validator.RuleFor(r => r.EndAt).GreaterThan(r => r.StartAt).When(r => r.StartAt is not null && r.EndAt is not null)
             .WithErrorCode("SCHEDULE_INVALID").WithMessage("Thời điểm kết thúc phải sau thời điểm bắt đầu.");
     }
@@ -398,37 +415,41 @@ public sealed class MatrixDrawRequestValidator : AbstractValidator<MatrixDrawReq
         {
             RuleForEach(r => r.Topics!).ChildRules(topic =>
             {
-                topic.RuleFor(t => t.EasyCount).GreaterThanOrEqualTo(0)
-                    .WithErrorCode("EASY_COUNT_INVALID").WithMessage("Số câu Dễ không được âm.");
-                topic.RuleFor(t => t.MediumCount).GreaterThanOrEqualTo(0)
-                    .WithErrorCode("MEDIUM_COUNT_INVALID").WithMessage("Số câu Trung bình không được âm.");
-                topic.RuleFor(t => t.HardCount).GreaterThanOrEqualTo(0)
-                    .WithErrorCode("HARD_COUNT_INVALID").WithMessage("Số câu Khó không được âm.");
+                topic.RuleFor(t => t.Level1Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL1_COUNT_INVALID").WithMessage("Số câu Mức 1 không được âm.");
+                topic.RuleFor(t => t.Level2Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL2_COUNT_INVALID").WithMessage("Số câu Mức 2 không được âm.");
+                topic.RuleFor(t => t.Level3Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL3_COUNT_INVALID").WithMessage("Số câu Mức 3 không được âm.");
+                topic.RuleFor(t => t.Level4Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL4_COUNT_INVALID").WithMessage("Số câu Mức 4 không được âm.");
             });
 
-            RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.EasyCount + t.MediumCount + t.HardCount) > 0)
+            RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.TotalCount) > 0)
                 .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")
                 .WithName("totalCount");
 
-            RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.EasyCount + t.MediumCount + t.HardCount) <= ExamVersion.MaxQuestions)
+            RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.TotalCount) <= ExamVersion.MaxQuestions)
                 .WithErrorCode("TOTAL_COUNT_EXCEEDED").WithMessage($"Tổng số câu bốc tối đa {ExamVersion.MaxQuestions}.")
                 .WithName("totalCount");
         });
 
         When(r => r.Topics == null || r.Topics.Count == 0, () =>
         {
-            RuleFor(r => r.EasyCount).GreaterThanOrEqualTo(0)
-                .WithErrorCode("EASY_COUNT_INVALID").WithMessage("Số câu Dễ không được âm.");
-            RuleFor(r => r.MediumCount).GreaterThanOrEqualTo(0)
-                .WithErrorCode("MEDIUM_COUNT_INVALID").WithMessage("Số câu Trung bình không được âm.");
-            RuleFor(r => r.HardCount).GreaterThanOrEqualTo(0)
-                .WithErrorCode("HARD_COUNT_INVALID").WithMessage("Số câu Khó không được âm.");
+            RuleFor(r => r.Level1Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL1_COUNT_INVALID").WithMessage("Số câu Mức 1 không được âm.");
+            RuleFor(r => r.Level2Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL2_COUNT_INVALID").WithMessage("Số câu Mức 2 không được âm.");
+            RuleFor(r => r.Level3Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL3_COUNT_INVALID").WithMessage("Số câu Mức 3 không được âm.");
+            RuleFor(r => r.Level4Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL4_COUNT_INVALID").WithMessage("Số câu Mức 4 không được âm.");
 
-            RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount > 0)
+            RuleFor(r => r).Must(r => r.TotalCount > 0)
                 .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")
                 .WithName("totalCount");
 
-            RuleFor(r => r).Must(r => r.EasyCount + r.MediumCount + r.HardCount <= ExamVersion.MaxQuestions)
+            RuleFor(r => r).Must(r => r.TotalCount <= ExamVersion.MaxQuestions)
                 .WithErrorCode("TOTAL_COUNT_EXCEEDED").WithMessage($"Tổng số câu bốc tối đa {ExamVersion.MaxQuestions}.")
                 .WithName("totalCount");
         });
