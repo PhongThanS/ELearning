@@ -163,7 +163,7 @@ export function MarkdownImportPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [markdown, setMarkdown] = useState<string>("");
   const [images, setImages] = useState<ImportImage[]>([]);
-  const [docx, setDocx] = useState<{ fileName: string; skipped: DocxSkippedImage[] } | null>(null);
+  const [docx, setDocx] = useState<{ fileName: string; skipped: DocxSkippedImage[]; mathTypeFormulas: number } | null>(null);
   const [result, setResult] = useState<MarkdownImportResult | null>(null);
   const [busy, setBusy] = useState<"check" | "import" | "docx" | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -244,7 +244,7 @@ export function MarkdownImportPage() {
             added.push({ id: newPendingId(), file, previewUrl: `data:${img.contentType};base64,${img.dataBase64}`, name, fromDocx: true });
           }
         }
-        setDocx({ fileName: word.name, skipped: extracted.skipped });
+        setDocx({ fileName: word.name, skipped: extracted.skipped, mathTypeFormulas: extracted.mathTypeFormulas });
       } catch (e) {
         toast.error(`${word.name}: ${describeError(e)}`);
       } finally {
@@ -430,6 +430,17 @@ export function MarkdownImportPage() {
       {docx && (
         <Card className="mb-3">
           <Card.Body>
+            {docx.mathTypeFormulas > 0 && (
+              <Alert variant="danger" className="small py-2" data-testid="mathtype-warning">
+                <div className="fw-semibold">
+                  ⚠️ File Word này có {docx.mathTypeFormulas} công thức MathType — hãy đối chiếu kỹ với đề gốc trước khi nhập.
+                </div>
+                AI <strong>không đọc được</strong> công thức MathType nếu bạn gửi thẳng file <code>.docx</code>, và thường{" "}
+                <strong>tự nghĩ ra</strong> công thức, phương án sao cho khớp đáp án: file vẫn hợp lệ, không báo lỗi, nhưng đề đã
+                khác đề gốc. So <strong>từng công thức, từng phương án</strong> ở phần xem trước (ít nhất câu đầu, câu cuối và vài
+                câu giữa mỗi phần). Thấy khác thì làm lại: lưu đề thành <strong>PDF</strong> rồi gửi bản PDF cho AI.
+              </Alert>
+            )}
             <div className="fw-semibold mb-2">
               Hình lấy từ <span className="text-primary">{docx.fileName}</span>: {docxImages.length} ảnh
             </div>

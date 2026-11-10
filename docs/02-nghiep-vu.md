@@ -107,7 +107,10 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
   khớp nhau. Ảnh ghép theo tên **bỏ đuôi** (`.md` ghi `hinh-p1-c3.png`, hình trong Word là `.jpg` vẫn khớp). AI hay
   lệch số câu (đánh lại từ 1 mỗi phần: `hinh-p2-c2` trong khi Word in "Câu 14", hoặc ngược lại) hay lệch số thứ tự hình
   (`-2`), nên dòng ảnh không khớp tên được ghép tiếp theo **vị trí câu** trong file (thứ tự câu trong phần / trong cả
-  file) rồi theo ảnh chưa dùng **của đúng câu đó**; không bao giờ lấy ảnh của câu khác. Hình WMF /
+  file) rồi theo ảnh chưa dùng **của đúng câu đó**; không bao giờ lấy ảnh của câu khác. File Word có công thức
+  **MathType** (đối tượng OLE "Equation.DSMT…" / "Equation.3") → bước 2 hiện **cảnh báo đỏ** kèm số công thức: gửi
+  `.docx` loại này, AI không thấy công thức và hay tự bịa công thức / phương án khớp đáp án (file vẫn hợp lệ), nên giáo
+  viên phải đối chiếu từng công thức hoặc làm lại bằng bản PDF. Hình WMF /
   EMF (trình duyệt không hiển thị) hoặc lớn hơn `Media:MaxBytes` được liệt kê để cắt tay. Giao diện cảnh báo hình có
   trong Word mà file `.md` không dùng (câu có thể thiếu hình). Ảnh người dùng tự chọn cùng tên được ưu tiên hơn ảnh
   lấy từ Word.

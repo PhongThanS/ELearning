@@ -38,6 +38,7 @@ public class ExamMarkdownParserTests
         var used = ExamMarkdownParser.ImageRefs(markdown).Select(r => Stem(r.Target)).ToList();
         used.Should().HaveCount(20).And.BeEquivalentTo(extracted.Images.Select(i => Stem(i.Name)));
         extracted.Skipped.Should().BeEmpty();
+        extracted.MathTypeFormulas.Should().Be(363, "đề mẫu gõ công thức bằng MathType — giao diện phải cảnh báo");
 
         // Nút "Tải đề mẫu" tải file nén: phải đúng hai file hiện tại
         using var zip = System.IO.Compression.ZipFile.OpenRead(PublicFile("de-thi-mau.zip"));

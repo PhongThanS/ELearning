@@ -14,7 +14,13 @@ public sealed record DocxImage(string Name, string ContentType, string DataBase6
 /// <summary>Ảnh có trong đề nhưng không lấy được (định dạng WMF/EMF, quá lớn…), để người dùng cắt tay.</summary>
 public sealed record DocxSkippedImage(string? Name, int Part, int? Question, string Reason);
 
-public sealed record DocxImageResult(IReadOnlyList<DocxImage> Images, IReadOnlyList<DocxSkippedImage> Skipped);
+/// <param name="Images">Hình đã lấy được.</param>
+/// <param name="Skipped">Hình không lấy được.</param>
+/// <param name="MathTypeFormulas">
+/// Số công thức dạng đối tượng OLE (MathType "Equation.DSMT…", Microsoft Equation 3.0) trong cả file. AI không đọc được
+/// các công thức này trong .docx và hay tự bịa ra, nên giao diện cảnh báo đối chiếu kỹ (docs/02-nghiep-vu.md mục 1.5).
+/// </param>
+public sealed record DocxImageResult(IReadOnlyList<DocxImage> Images, IReadOnlyList<DocxSkippedImage> Skipped, int MathTypeFormulas = 0);
 
 /// <summary>
 /// Lấy ảnh (hình vẽ, đồ thị) từ file đề .docx gốc và đặt tên theo vị trí trong đề, đúng quy ước mà prompt yêu cầu AI
@@ -51,13 +57,19 @@ public static partial class DocxImageExtractor
             var xml = Load(document);
             var targets = LoadRelationships(zip.GetEntry("word/_rels/document.xml.rels"));
             var numbering = WordNumbering.Load(zip.GetEntry("word/numbering.xml"));
-            return Collect(zip, xml, targets, numbering, maxImageBytes);
+            return Collect(zip, xml, targets, numbering, maxImageBytes) with { MathTypeFormulas = CountOleFormulas(xml) };
         }
         catch (Exception ex) when (ex is InvalidDataException or XmlException or IOException)
         {
             return null;
         }
     }
+
+    /// <summary>Công thức OLE: <c>&lt;o:OLEObject ProgID="Equation.DSMT4"&gt;</c> (MathType) hoặc "Equation.3".</summary>
+    private static int CountOleFormulas(XDocument xml) =>
+        xml.Descendants()
+            .Count(e => e.Name.LocalName == "OLEObject"
+                && ((string?)e.Attribute("ProgID"))?.StartsWith("Equation.", StringComparison.OrdinalIgnoreCase) == true);
 
     private static DocxImageResult Collect(
         ZipArchive zip, XDocument xml, Dictionary<string, string> targets, WordNumbering numbering, int maxImageBytes)

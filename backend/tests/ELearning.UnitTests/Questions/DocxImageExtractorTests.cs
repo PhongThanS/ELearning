@@ -46,6 +46,7 @@ public class DocxImageExtractorTests
         result.Images[1].ContentType.Should().Be("image/jpeg");
         Convert.FromBase64String(result.Images[0].DataBase64).Should().Equal(Png);
         result.Skipped.Should().ContainSingle(s => s.Name == "hinh-p2-c1" && s.Reason.Contains("WMF"));
+        result.MathTypeFormulas.Should().Be(1);
     }
 
     [Fact]
@@ -119,7 +120,7 @@ public class DocxImageExtractorTests
 
     /// <summary>Công thức MathType: đối tượng OLE kèm ảnh xem trước VML — không phải hình vẽ.</summary>
     private static string Formula(string relId) =>
-        $"<w:p><w:r><w:object><v:shape><v:imagedata r:id=\"{relId}\"/></v:shape></w:object></w:r></w:p>";
+        $"<w:p><w:r><w:object><v:shape><v:imagedata r:id=\"{relId}\"/></v:shape><o:OLEObject ProgID=\"Equation.DSMT4\" r:id=\"{relId}Ole\"/></w:object></w:r></w:p>";
 
     private static string Numbered(string text, string numId) =>
         $"<w:p><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"{numId}\"/></w:numPr></w:pPr><w:r><w:t xml:space=\"preserve\">{text}</w:t></w:r></w:p>";
@@ -136,7 +137,7 @@ public class DocxImageExtractorTests
                   xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
                   xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
                   xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
-                  xmlns:v="urn:schemas-microsoft-com:vml"><w:body>{string.Concat(paragraphs)}</w:body></w:document>
+                  xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><w:body>{string.Concat(paragraphs)}</w:body></w:document>
                 """);
             var rels = string.Concat(media.Select(m =>
                 $"<Relationship Id=\"{m.Key}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"{m.Value.Target}\"/>"));

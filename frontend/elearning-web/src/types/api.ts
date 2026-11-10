@@ -1115,6 +1115,8 @@ export interface DocxSkippedImage {
 export interface DocxImageResult {
   images: DocxImage[];
   skipped: DocxSkippedImage[];
+  /** Số công thức MathType / Equation 3.0 (đối tượng OLE) trong file Word — AI không đọc được trong .docx. */
+  mathTypeFormulas: number;
 }
 
 export interface MarkdownImportResult {
