@@ -128,6 +128,32 @@ public sealed class QuestionsController(IQuestionService questions, IQuestionImp
         return ToResponse(await markdownImports.ExtractDocxImagesAsync(stream, ct));
     }
 
+    /// <summary>
+    /// Chuyển đề Word thành văn bản cho AI đọc: công thức MathType / Word đổi sang LaTeX, hình đặt tên sẵn như
+    /// <c>docx-images</c>. AI không đọc được MathType trong .docx (hay tự bịa), nên giáo viên gửi văn bản này cho AI.
+    /// Không lưu gì.
+    /// </summary>
+    [HttpPost("import-markdown/docx-for-ai")]
+    [HasPermission(Permissions.QuestionCreate)]
+    [RequestSizeLimit(MaxDocxBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxDocxBytes + 64 * 1024)]
+    [ProducesResponseType<ApiResponse<DocxAiTextResult>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> DocxForAi(IFormFile? file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_REQUIRED", "Vui lòng chọn file Word (.docx).", "file")));
+        }
+
+        if (file.Length > MaxDocxBytes || !file.FileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_INVALID", "Chỉ nhận file .docx, tối đa 30 MB.", "file")));
+        }
+
+        await using var stream = file.OpenReadStream();
+        return ToResponse(await markdownImports.ConvertDocxForAiAsync(stream, file.FileName, ct));
+    }
+
     [HttpGet]
     [HasPermission(Permissions.QuestionView)]
     [ProducesResponseType<ApiResponse<PagedResult<QuestionListItemDto>>>(StatusCodes.Status200OK)]

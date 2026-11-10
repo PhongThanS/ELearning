@@ -71,8 +71,19 @@ public static partial class DocxImageExtractor
             .Count(e => e.Name.LocalName == "OLEObject"
                 && ((string?)e.Attribute("ProgID"))?.StartsWith("Equation.", StringComparison.OrdinalIgnoreCase) == true);
 
+    /// <param name="zip">Gói .docx.</param>
+    /// <param name="xml">word/document.xml.</param>
+    /// <param name="targets">Quan hệ rId → đường dẫn trong gói.</param>
+    /// <param name="numbering">Đánh số tự động của Word.</param>
+    /// <param name="maxImageBytes">Ảnh lớn hơn thì bỏ qua.</param>
+    /// <param name="names">Nếu có: ghi tên đã đặt cho từng file ảnh trong gói (đường dẫn → tên không đuôi).</param>
     private static DocxImageResult Collect(
-        ZipArchive zip, XDocument xml, Dictionary<string, string> targets, WordNumbering numbering, int maxImageBytes)
+        ZipArchive zip,
+        XDocument xml,
+        Dictionary<string, string> targets,
+        WordNumbering numbering,
+        int maxImageBytes,
+        Dictionary<string, string>? names = null)
     {
         var images = new List<DocxImage>();
         var skipped = new List<DocxSkippedImage>();
@@ -119,6 +130,7 @@ public static partial class DocxImageExtractor
                 var stem = question is { } n ? $"hinh-p{part}-c{n}" : $"hinh-p{part}-chung";
                 var index = counts[stem] = counts.GetValueOrDefault(stem) + 1;
                 var baseName = index == 1 ? stem : $"{stem}-{index}";
+                names?.TryAdd(target, baseName);
                 if (images.Count >= MaxImages)
                 {
                     skipped.Add(new(null, part, question, $"Đề có hơn {MaxImages} ảnh, chỉ lấy {MaxImages} ảnh đầu."));
@@ -271,7 +283,7 @@ public static partial class DocxImageExtractor
         private const int Levels = 9;
 
         private readonly Dictionary<string, (string Abstract, Dictionary<int, int> Overrides)> _nums = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, Dictionary<int, (int Start, string Text)>> _abstracts = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, Dictionary<int, (int Start, string Text, string Format)>> _abstracts = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int?[]> _counters = new(StringComparer.Ordinal);
         private readonly HashSet<string> _usedNums = new(StringComparer.Ordinal);
 
@@ -286,12 +298,13 @@ public static partial class DocxImageExtractor
             var xml = DocxImageExtractor.Load(entry);
             foreach (var a in xml.Descendants(W + "abstractNum"))
             {
-                var levels = new Dictionary<int, (int Start, string Text)>();
+                var levels = new Dictionary<int, (int Start, string Text, string Format)>();
                 foreach (var lvl in a.Elements(W + "lvl"))
                 {
                     levels[Int(lvl.Attribute(W + "ilvl")) ?? 0] = (
                         Int(lvl.Element(W + "start")?.Attribute(W + "val")) ?? 1,
-                        (string?)lvl.Element(W + "lvlText")?.Attribute(W + "val") ?? string.Empty);
+                        (string?)lvl.Element(W + "lvlText")?.Attribute(W + "val") ?? string.Empty,
+                        (string?)lvl.Element(W + "numFmt")?.Attribute(W + "val") ?? "decimal");
                 }
 
                 numbering._abstracts[(string?)a.Attribute(W + "abstractNumId") ?? string.Empty] = levels;
@@ -316,7 +329,65 @@ public static partial class DocxImageExtractor
         }
 
         /// <summary>Số câu khi đoạn được Word tự đánh số kiểu "Câu %1:"; null nếu không. Gọi cho mọi đoạn, theo thứ tự.</summary>
-        public int? QuestionNumber(XElement p)
+        public int? QuestionNumber(XElement p) =>
+            Next(p) is { } n && NumberedQuestion().IsMatch(n.Text) ? n.Value : null;
+
+        /// <summary>
+        /// Nhãn Word tự in trước đoạn ("Câu 13:", "A.", "a)"); null nếu đoạn không được đánh số. Gọi cho mọi đoạn, theo thứ
+        /// tự, thay cho <see cref="QuestionNumber"/>.
+        /// </summary>
+        public string? Label(XElement p)
+        {
+            if (Next(p) is not { } n)
+            {
+                return null;
+            }
+
+            if (n.Format == "bullet")
+            {
+                return "-";
+            }
+
+            var value = n.Format switch
+            {
+                "upperLetter" => Letters(n.Value).ToUpperInvariant(),
+                "lowerLetter" => Letters(n.Value),
+                "upperRoman" => Roman(n.Value),
+                "lowerRoman" => Roman(n.Value).ToLowerInvariant(),
+                "none" => string.Empty,
+                _ => n.Value.ToString(CultureInfo.InvariantCulture),
+            };
+            var own = (n.Level + 1).ToString(CultureInfo.InvariantCulture);
+            var label = LevelPlaceholder().Replace(n.Text, m => m.Groups["l"].Value == own ? value : string.Empty).Trim();
+            return label.Length == 0 ? null : label;
+        }
+
+        private static string Letters(int value)
+        {
+            var sb = new StringBuilder();
+            for (var v = Math.Max(value, 1); v > 0; v = (v - 1) / 26)
+            {
+                sb.Insert(0, (char)('a' + ((v - 1) % 26)));
+            }
+
+            return sb.ToString();
+        }
+
+        private static string Roman(int value)
+        {
+            var sb = new StringBuilder();
+            foreach (var (n, s) in new[] { (1000, "M"), (900, "CM"), (500, "D"), (400, "CD"), (100, "C"), (90, "XC"), (50, "L"), (40, "XL"), (10, "X"), (9, "IX"), (5, "V"), (4, "IV"), (1, "I") })
+            {
+                for (; value >= n; value -= n)
+                {
+                    sb.Append(s);
+                }
+            }
+
+            return sb.ToString();
+        }
+
+        private (int Value, string Text, string Format, int Level)? Next(XElement p)
         {
             var numPr = p.Element(W + "pPr")?.Element(W + "numPr");
             var numId = (string?)numPr?.Element(W + "numId")?.Attribute(W + "val");
@@ -339,7 +410,7 @@ public static partial class DocxImageExtractor
                 }
             }
 
-            var definition = levels.GetValueOrDefault(level, (Start: 1, Text: string.Empty));
+            var definition = levels.GetValueOrDefault(level, (Start: 1, Text: string.Empty, Format: "decimal"));
             var value = (counters[level] ?? definition.Start - 1) + 1;
             counters[level] = value;
             for (var deeper = level + 1; deeper < Levels; deeper++)
@@ -347,7 +418,7 @@ public static partial class DocxImageExtractor
                 counters[deeper] = null;
             }
 
-            return NumberedQuestion().IsMatch(definition.Text) ? value : null;
+            return (value, definition.Text, definition.Format, level);
         }
 
         private static int? Int(XAttribute? attribute) =>
@@ -356,6 +427,10 @@ public static partial class DocxImageExtractor
 
     [GeneratedRegex(@"^\s*(?:CÂU|BÀI|QUESTION)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex NumberedQuestion();
+
+    /// <summary>Chỗ điền số trong lvlText của Word: "%1", "%2"…</summary>
+    [GeneratedRegex(@"%(?<l>\d)", RegexOptions.CultureInvariant)]
+    private static partial Regex LevelPlaceholder();
 
     [GeneratedRegex(@"^[\s\*\-#]*PH[ẦẨA]N\s+(?<n>[IVX]+|\d+)\b", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex PartHeading();

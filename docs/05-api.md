@@ -185,6 +185,193 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | GET | `/api/media/{id}?exp=&sig=` → file ảnh. URL do server ký (HMAC, hết hạn sau 6–12 giờ), không cần đăng nhập, không rate limit; sai chữ ký / hết hạn / không có → 404 `MEDIA_NOT_FOUND` | — |
 | POST | `/api/questions/import-markdown` `{ markdown, categoryId (bắt buộc khi dryRun = false; thiếu → 400 CATEGORY_REQUIRED), dryRun }` (mã câu hỏi sinh dạng `<mã chuyên đề>-<mức 2 số>-<6 số>`, `02` mục 1.5) → `ExamMarkdownImportResult { dryRun, imported, exam{ title, code, durationMinutes, categoryCode, description, instructions }, categoryId, totalQuestions, validQuestions, totalScore, questions[{ index, line, label, part, questionId, code, question (body tạo câu hỏi, có đáp án), issues[{ line, field, code, message }] }], fileIssues[], missingImages[] }`. Định dạng file: `02` mục 1.5 (D-29) | `Question.Create` |
 | POST | `/api/questions/import-markdown/docx-images` (multipart `file`, `.docx` ≤ 30 MB) → `DocxImageResult { images[{ name, contentType, dataBase64, part, question, bytes }], skipped[{ name, part, question, reason }], mathTypeFormulas }`: lấy hình từ file đề Word gốc, đặt tên `hinh-p<phần>-c<câu>.png` (`02` mục 1.5); `mathTypeFormulas` = số công thức OLE (MathType / Equation 3.0) trong file, > 0 thì giao diện cảnh báo AI có thể đã bịa công thức. Không lưu gì; file hỏng → 400 `IMPORT_FILE_INVALID` | `Question.Create` |
+| POST | `/api/questions/import-markdown/docx-for-ai` (multipart `file`, `.docx` ≤ 30 MB) → `DocxAiTextResult { text, formulas, unreadFormulas, pictures }`: chuyển đề Word thành văn bản cho AI đọc — chữ theo thứ tự, nhãn Word tự đánh ("Câu 13:") in ra, công thức MathType (OLE Equation.*) / công thức Word (OMML) đổi sang LaTeX `$…# 05 — API
+
+## 1. Quy ước chung
+
+- **Base path:** `/api`. Chưa đánh version trên URL. Khi phá vỡ tương thích thì thêm `/api/v2`.
+- **JSON:** thuộc tính dạng `camelCase`. Enum dạng `UPPER_SNAKE_CASE` (`JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseUpper)`).
+- **Thời gian:** ISO 8601 UTC, **luôn có hậu tố `Z`**, ví dụ `"2026-09-26T03:00:00.000Z"`.
+- **Số điểm:** `decimal`, trả về dạng JSON number với tối đa 2 chữ số thập phân.
+- **URL dùng danh từ.** Endpoint hành động chỉ dùng cho chuyển trạng thái (`/publish`, `/close`, `/start`, `/submit`…).
+- **Mọi endpoint phải định nghĩa:** method, route, yêu cầu xác thực, permission, request, response, lỗi validation, lỗi nghiệp vụ. OpenAPI được sinh từ backend.
+
+## 2. Hợp đồng response (D-13)
+
+**Mọi** response, kể cả lỗi validation mặc định của ASP.NET Core, đều dùng wrapper sau. Cấu hình `InvalidModelStateResponseFactory` và middleware xử lý exception để đảm bảo điều này.
+
+```json
+{ "success": true, "data": { }, "message": null, "errors": [], "traceId": "00-4bf9..." }
+```
+
+Lỗi validation (400):
+```json
+{
+  "success": false, "data": null, "message": "Dữ liệu không hợp lệ.",
+  "errors": [ { "field": "options", "code": "SINGLE_CHOICE_REQUIRES_ONE_CORRECT", "message": "Câu chọn một phải có đúng 1 đáp án đúng." } ],
+  "traceId": "00-..."
+}
+```
+
+Lỗi nghiệp vụ (422):
+```json
+{
+  "success": false, "data": null, "message": "Lượt thi đã hết giờ.",
+  "errors": [ { "field": null, "code": "ATTEMPT_EXPIRED", "message": "Lượt thi đã hết giờ." } ],
+  "traceId": "00-..."
+}
+```
+
+- `message` là tiếng Việt, **chỉ dùng để hiển thị**. Frontend quyết định hành vi dựa trên `errors[].code`.
+- **204** không có body, chỉ dùng cho `logout`.
+
+## 3. HTTP status
+
+| Status | Khi nào |
+|---|---|
+| 200 | Thành công, kể cả khi `start` trả về lượt đang làm (`resumed: true`) và khi `submit` gọi lại (idempotent) |
+| 201 | Tạo mới tài nguyên (kèm header `Location`) |
+| 204 | Thành công, không có body |
+| 400 | Request sai định dạng, hoặc vi phạm quy tắc của một trường (FluentValidation) |
+| 401 | Chưa xác thực, hoặc token hết hạn / không hợp lệ |
+| 403 | Đã xác thực nhưng thiếu permission |
+| 404 | Không tồn tại, **hoặc tồn tại nhưng thuộc người khác / không có quyền xem** (không để lộ sự tồn tại) |
+| 409 | Xung đột trạng thái hoặc dữ liệu: `RowVersion` cũ, trùng `Code`, trạng thái không cho phép thao tác |
+| 422 | Vi phạm quy tắc nghiệp vụ (đề chưa mở, hết lượt, hết giờ, publish không hợp lệ…) |
+| 429 | Vượt rate limit (kèm header `Retry-After`) |
+| 500 | Lỗi không lường trước. Trả `INTERNAL_ERROR` và `traceId`, **không có stack trace** |
+
+**Quy tắc phân biệt 400 và 422:** lỗi có thể xác định chỉ bằng cách nhìn request (thiếu trường, sai độ dài, số option đúng sai) → 400. Lỗi cần trạng thái hệ thống để xác định → 422.
+
+## 4. Danh mục mã lỗi
+
+| Code | HTTP | Ý nghĩa |
+|---|---|---|
+| `VALIDATION_FAILED` | 400 | Lỗi validation chung (chi tiết nằm trong `errors[]`) |
+| `INVALID_VALUE` | 400 | Giá trị không đọc được khi binding (sai kiểu, JSON hỏng) |
+| `MEDIA_FILE_REQUIRED` / `MEDIA_TOO_LARGE` / `MEDIA_TYPE_NOT_ALLOWED` | 400 | Upload ảnh: thiếu file, quá `Media:MaxBytes`, không phải PNG / JPEG / GIF / WebP |
+| `MEDIA_NOT_FOUND` | 400 / 404 | Nội dung câu hỏi tham chiếu ảnh không tồn tại (400); URL ảnh sai chữ ký, hết hạn hoặc không có ảnh (404) |
+| `METHOD_NOT_ALLOWED` | 405 | Phương thức HTTP không được hỗ trợ trên route |
+| `UNAUTHENTICATED` | 401 | Thiếu token hoặc chưa đăng nhập |
+| `INVALID_CREDENTIALS` | 401 | Sai tài khoản hoặc mật khẩu (thông báo chung, không nói sai phần nào) |
+| `ACCOUNT_LOCKED` | 401 | Tài khoản tạm khóa do đăng nhập sai nhiều lần |
+| `ACCOUNT_DISABLED` | 401 | Tài khoản đã bị vô hiệu hóa |
+| `TOKEN_INVALID` | 401 | Access / refresh token không hợp lệ hoặc hết hạn |
+| `REGISTRATION_DISABLED` | 403 | Đang tắt chức năng tự đăng ký |
+| `FORBIDDEN` | 403 | Thiếu permission |
+| `NOT_FOUND` | 404 | Chung. Có thêm biến thể `EXAM_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `QUESTION_NOT_FOUND`, `CLASSROOM_NOT_FOUND` |
+| `CONCURRENCY_CONFLICT` | 409 | Dữ liệu đã bị người khác sửa |
+| `DUPLICATE_CODE` | 409 | Trùng `Code` |
+| `ATTEMPT_NOT_IN_PROGRESS` | 409 | Lượt thi đã nộp hoặc đã hủy |
+| `VERSION_IMMUTABLE` | 409 | Sửa version không còn ở DRAFT |
+| `EXAM_NOT_DRAFT` | 409 | Thao tác chỉ cho phép khi đề ở DRAFT (ví dụ xóa đề) |
+| `DRAFT_VERSION_EXISTS` | 409 | Đã có version DRAFT |
+| `RETAKE_POLICY_LOCKED` | 409 | Đổi `RetakeScoringPolicy` khi đề đã có lượt thi |
+| `EXAM_NOT_AVAILABLE` | 422 | Đề chưa mở, đã đóng hoặc ngoài khung giờ |
+| `MAX_ATTEMPTS_EXCEEDED` | 422 | Hết lượt |
+| `ATTEMPT_EXPIRED` | 422 | Hết giờ (đã qua ân hạn); lượt thi đã được tự nộp |
+| `INVALID_OPTION` | 422 | Mã option không thuộc câu hỏi |
+| `INVALID_ANSWER_SHAPE` | 422 | Câu trả lời không khớp loại câu hỏi |
+| `INVALID_NUMBER_FORMAT` | 422 | Câu điền số sai định dạng |
+| `PUBLISH_VALIDATION_FAILED` | 422 | Không publish được; `errors[]` liệt kê toàn bộ lỗi |
+| `INVALID_STATE_TRANSITION` | 422 | Chuyển trạng thái không hợp lệ |
+| `RESULT_NOT_AVAILABLE` | 422 | Chưa đến lúc được xem điểm / xem lại bài |
+| `USERNAME_TAKEN` / `EMAIL_TAKEN` | 409 | Tên đăng nhập / email đã được dùng |
+| `SYSTEM_ROLE_IMMUTABLE` | 409 | Sửa quyền của vai trò ADMIN hoặc vô hiệu hóa vai trò hệ thống |
+| `QUESTION_CATEGORY_MISMATCH` | 422 | Đề có chuyên đề: thêm câu / quy tắc ngẫu nhiên / ma trận của chuyên đề khác (D-30) |
+| `EXAM_CATEGORY_MISMATCH` | 422 | Đổi chuyên đề của đề khi đề còn câu / quy tắc thuộc chuyên đề khác (D-30) |
+| `INVALID_CURRENT_PASSWORD` | 422 | Mật khẩu hiện tại không đúng khi đổi mật khẩu |
+| `CANNOT_MODIFY_SELF` | 422 | Tự vô hiệu hóa / tự gỡ ADMIN / tự ẩn danh hóa |
+| `USER_ANONYMIZED` | 422 | Thao tác trên user đã bị ẩn danh hóa |
+| `PASSWORD_CHANGE_REQUIRED` | 403 | Tài khoản phải đổi mật khẩu trước khi dùng chức năng khác |
+| `CSRF_CHECK_FAILED` | 403 | Refresh/logout thiếu header `X-Requested-With` hoặc sai `Origin` |
+| `RATE_LIMITED` | 429 | Gửi quá nhiều request |
+| `INTERNAL_ERROR` | 500 | Lỗi hệ thống |
+
+Mã lỗi là hằng số trong `ELearning.Shared.ErrorCodes`. Frontend có file map tương ứng sang thông điệp i18n.
+
+## 5. Phân trang, sắp xếp, lọc
+
+- Request: `?page=1&pageSize=20&sortBy=createdAt&sortDir=desc&keyword=...`
+- `page ≥ 1`. `pageSize` từ 1 đến **100**; giá trị lớn hơn bị ép về 100.
+- `sortBy` chỉ nhận các giá trị trong **whitelist** của từng endpoint; giá trị lạ → 400.
+- Response:
+```json
+{ "items": [], "page": 1, "pageSize": 20, "totalCount": 150, "totalPages": 8 }
+```
+- Không endpoint nào được trả danh sách không giới hạn.
+- Tìm kiếm dùng tham số hóa (`LIKE @kw` với ký tự `%`, `_`, `[` đã được escape).
+
+## 6. Endpoint
+
+Ký hiệu cột "Quyền": `—` = không cần đăng nhập; `Auth` = đã đăng nhập; `Student` = policy `StudentOnly`; còn lại là permission code.
+
+### 6.1 Xác thực
+| Method | Route | Quyền | Ghi chú |
+|---|---|---|---|
+| POST | `/api/auth/register` | — | Chỉ khi `AllowSelfRegistration = true`; gán role `STUDENT` |
+| POST | `/api/auth/login` | — | Trả access token; set cookie refresh token |
+| POST | `/api/auth/refresh` | cookie | Xoay vòng refresh token; yêu cầu header `X-Requested-With: XMLHttpRequest` |
+| POST | `/api/auth/logout` | cookie | Thu hồi refresh token hiện tại; 204 |
+| GET | `/api/auth/me` | Auth | User, roles, **permissions**, `mustChangePassword` |
+| POST | `/api/auth/change-password` | Auth | Thu hồi mọi refresh token khác |
+| POST | `/api/auth/forgot-password` | — | Luôn trả 200 (không để lộ email có tồn tại). Gửi email là tính năng sau MVP; MVP: admin đặt lại mật khẩu |
+
+Response của login và refresh:
+```json
+{ "accessToken": "eyJ...", "expiresAt": "2026-09-26T03:15:00.000Z",
+  "user": { "id": "...", "userName": "student01", "fullName": "Nguyễn Văn A",
+            "roles": ["STUDENT"], "permissions": [], "mustChangePassword": false } }
+```
+Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xem `07-bao-mat.md`).
+
+### 6.2 Người dùng, nhóm, vai trò
+| Method | Route | Quyền |
+|---|---|---|
+| GET | `/api/users` (lọc `keyword`, `roleCode`, `groupId`, `isActive`) | `User.View` |
+| GET | `/api/users/{id}` | `User.View` |
+| POST | `/api/users` | `User.Create` |
+| GET | `/api/users/import/template` → file `.xlsx` (sheet `TaiKhoan`, `HuongDan`, `VaiTro`, `Lop`) | `User.Create` |
+| POST | `/api/users/import?dryRun=` (multipart, trường `file`) → `UserImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, userName, fullName, roles, classes, temporaryPassword, issues[{ field, code, message }] }] }`. `temporaryPassword` chỉ có sau import thật, với dòng để trống mật khẩu. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY`. Quy tắc: `02` mục 5.2 | `User.Create` (+ `Class.Manage` nếu xếp lớp) |
+| PUT | `/api/users/{id}` | `User.Update` |
+| PATCH | `/api/users/{id}/status` `{ isActive, reason }` | `User.Update` |
+| PUT | `/api/users/{id}/roles` `{ roleIds }` | `Role.Assign` |
+| POST | `/api/users/{id}/reset-password` → trả mật khẩu tạm, bật `MustChangePassword` | `User.ResetPassword` |
+| POST | `/api/users/{id}/anonymize` `{ reason }` | `User.Anonymize` |
+| GET/POST | `/api/groups` | `Group.View` / `Group.Manage` |
+| GET/PUT | `/api/groups/{id}` | `Group.View` / `Group.Manage` |
+| PATCH | `/api/groups/{id}/status` | `Group.Manage` |
+| GET | `/api/groups/{id}/members` | `Group.View` |
+| POST | `/api/groups/{id}/members` `{ userIds }` | `Group.Manage` |
+| DELETE | `/api/groups/{id}/members/{userId}` | `Group.Manage` |
+| GET/POST | `/api/classes` (lọc `keyword`, `schoolYear`, `isActive`; sort `code`, `name`, `schoolYear`, `createdAt`) | `Class.View` / `Class.Manage` |
+| GET/PUT | `/api/classes/{id}` (PUT kèm `rowVersion`; mã lớp không đổi) | `Class.View` / `Class.Manage` |
+| PATCH | `/api/classes/{id}/status` `{ isActive }` | `Class.Manage` |
+| DELETE | `/api/classes/{id}` → 204; còn gán cho đề → 409 `CLASSROOM_IN_USE` | `Class.Manage` |
+| GET | `/api/classes/{id}/students` | `Class.View` |
+| POST | `/api/classes/{id}/students` `{ userIds }` (chỉ role `STUDENT`, tối đa 500) | `Class.Manage` |
+| DELETE | `/api/classes/{id}/students/{userId}` | `Class.Manage` |
+| GET | `/api/roles`, `/api/permissions` | `Role.View` |
+| POST/PUT | `/api/roles`, `/api/roles/{id}` | `Role.Manage` (không sửa được role `IsSystem`) |
+| PUT | `/api/roles/{id}/permissions` `{ permissionIds }` | `Role.Manage` |
+
+### 6.3 Danh mục và câu hỏi
+| Method | Route | Quyền |
+|---|---|---|
+| GET | `/api/question-categories` (có `isActive`, `parentId`, `rootOnly`, phân trang; DTO có `parentId`, `parentName`, `childCount`, `totalQuestionCount` — D-32) | `Category.View` |
+| GET/POST/PUT | `/api/question-categories[/{id}]` (POST/PUT nhận `parentId`; PUT bỏ trống `parentId` = chuyển thành chuyên đề gốc; lỗi `PARENT_INVALID`) | `Category.View` / `Category.Manage` |
+| PATCH | `/api/question-categories/{id}/status` | `Category.Manage` |
+| GET | `/api/questions` (lọc `categoryId`, `questionType`, `keyword`, `isActive`; sort `code`, `createdAt`, `updatedAt`) | `Question.View` |
+| GET | `/api/questions/{id}` | `Question.View` |
+| POST | `/api/questions` | `Question.Create` |
+| PUT | `/api/questions/{id}` (kèm `rowVersion`) | `Question.Update` |
+| PATCH | `/api/questions/{id}/status` | `Question.Update` |
+| POST | `/api/questions/{id}/clone` | `Question.Create` |
+| GET | `/api/questions/import/template` → file `.xlsx` | `Question.Create` |
+| POST | `/api/media` (multipart, trường `file`) → 201 `{ id, contentType, sizeBytes, url, markdown }`. PNG / JPEG / GIF / WebP nhận diện theo nội dung file, tối đa `Media:MaxBytes` (2 MB); cùng nội dung trả lại ảnh cũ. Lỗi 400 `MEDIA_FILE_REQUIRED` / `MEDIA_TOO_LARGE` / `MEDIA_TYPE_NOT_ALLOWED` | `Question.Create` |
+| GET | `/api/media/{id}?exp=&sig=` → file ảnh. URL do server ký (HMAC, hết hạn sau 6–12 giờ), không cần đăng nhập, không rate limit; sai chữ ký / hết hạn / không có → 404 `MEDIA_NOT_FOUND` | — |
+| POST | `/api/questions/import-markdown` `{ markdown, categoryId (bắt buộc khi dryRun = false; thiếu → 400 CATEGORY_REQUIRED), dryRun }` (mã câu hỏi sinh dạng `<mã chuyên đề>-<mức 2 số>-<6 số>`, `02` mục 1.5) → `ExamMarkdownImportResult { dryRun, imported, exam{ title, code, durationMinutes, categoryCode, description, instructions }, categoryId, totalQuestions, validQuestions, totalScore, questions[{ index, line, label, part, questionId, code, question (body tạo câu hỏi, có đáp án), issues[{ line, field, code, message }] }], fileIssues[], missingImages[] }`. Định dạng file: `02` mục 1.5 (D-29) | `Question.Create` |
+ (không đọc được → `[?]`), bảng thành dòng `| … |`, hình thành `![hình](hinh-p<phần>-c<câu>.png)` đúng tên như `docx-images`. Giao diện tải về `<tên>-cho-AI.md`. Không lưu gì; file hỏng → 400 `IMPORT_FILE_INVALID` | `Question.Create` |
 | POST | `/api/questions/import?dryRun=` (multipart, trường `file`) → `QuestionImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, code, questionType, contentPreview, issues[{ field, code, message }] }] }`. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY` | `Question.Create` |
 
 Không có `DELETE` cho câu hỏi, danh mục và ảnh (D-16).

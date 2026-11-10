@@ -108,6 +108,41 @@ public class DocxImageExtractorTests
     }
 
     [Fact]
+    public void Text_for_ai_prints_word_numbers_converts_word_equations_keeps_tables_and_names_pictures_like_the_import()
+    {
+        const string fraction =
+            "<w:p><w:r><w:t xml:space=\"preserve\">Tính </w:t></w:r><m:oMath><m:f><m:num><m:r><m:t>1</m:t></m:r></m:num><m:den><m:r><m:t>2</m:t></m:r></m:den></m:f></m:oMath><w:r><w:t>.</w:t></w:r></w:p>";
+        const string table =
+            "<w:tbl><w:tr><w:tc><w:p><w:r><w:t>a)</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>Mệnh đề đúng</w:t></w:r></w:p></w:tc></w:tr></w:tbl>";
+        var docx = Docx(
+            [
+                P("PHẦN II. Đúng sai"),
+                Numbered("Cho hình vẽ", "1") + Picture("rIdA"),
+                fraction,
+                table,
+                // Công thức MathType hỏng (không có file OLE) → [?], không bịa
+                Formula("rIdEq"),
+            ],
+            new() { ["rIdA"] = ("media/a.png", Png) },
+            """
+            <w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:start w:val="13"/><w:lvlText w:val="Câu %1:"/></w:lvl></w:abstractNum>
+            <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+            """);
+
+        var result = DocxImageExtractor.ExtractForAi(docx, "de.docx", 1024)!;
+
+        result.Text.Should().Contain("Câu 13: Cho hình vẽ")
+            .And.Contain("![hình](hinh-p2-c13.png)")
+            .And.Contain(@"frac{1}{2}$.")
+            .And.Contain("| a) | Mệnh đề đúng |")
+            .And.EndWith("[?]\n");
+        result.Formulas.Should().Be(2);
+        result.UnreadFormulas.Should().Be(1);
+        result.Pictures.Should().Be(1);
+        DocxImageExtractor.ExtractForAi(new MemoryStream(Encoding.UTF8.GetBytes("không phải zip")), "x.docx", 1024).Should().BeNull();
+    }
+
+    [Fact]
     public void Not_a_docx_returns_null()
     {
         DocxImageExtractor.Extract(new MemoryStream(Encoding.UTF8.GetBytes("không phải zip")), 1024).Should().BeNull();
@@ -137,7 +172,7 @@ public class DocxImageExtractorTests
                   xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
                   xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
                   xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"
-                  xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><w:body>{string.Concat(paragraphs)}</w:body></w:document>
+                  xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><w:body>{string.Concat(paragraphs)}</w:body></w:document>
                 """);
             var rels = string.Concat(media.Select(m =>
                 $"<Relationship Id=\"{m.Key}\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/image\" Target=\"{m.Value.Target}\"/>"));

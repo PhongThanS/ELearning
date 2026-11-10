@@ -6,6 +6,7 @@ import type {
   SaveAttendanceInput,
   SaveAttendanceResult,
   StudentContact,
+  DocxAiTextResult,
   DocxImageResult,
   YoutubeVideoInfo,
   VideoLesson,
@@ -190,6 +191,11 @@ export const questionsApi = {
     const form = new FormData();
     form.append("file", file);
     return http.post<DocxImageResult>("/questions/import-markdown/docx-images", form);
+  },
+  docxForAi: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<DocxAiTextResult>("/questions/import-markdown/docx-for-ai", form);
   },
 };
 

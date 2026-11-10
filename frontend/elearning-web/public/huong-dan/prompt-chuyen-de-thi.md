@@ -7,16 +7,18 @@
 
 ## PHẦN A — HƯỚNG DẪN CHI TIẾT CHO GIÁO VIÊN
 
-> ⚠️ **QUAN TRỌNG NHẤT — đề Word có công thức MathType (Toán, Lý, Hóa): LƯU THÀNH PDF RỒI MỚI GỬI AI.**
-> Gửi thẳng `.docx`, AI **không thấy** công thức nhưng thường **không báo**: nó tự "nghĩ ra" công thức và phương án
-> sao cho khớp với đáp án, lời giải. File vẫn nhập được, không báo lỗi nào, nhưng **đề đã bị đổi**. Đã gặp thật với
-> Gemini: 22/22 câu đúng đáp án nhưng gần như mọi công thức khác đề gốc.
+> ⚠️ **QUAN TRỌNG NHẤT — đề Word (.docx): KHÔNG gửi thẳng file Word cho AI.** Trên trang *Nhập đề từ file* bấm
+> **"Chuyển đề Word cho AI"**, chọn file Word: SClass đổi **mọi công thức (kể cả MathType)** sang dạng AI đọc được,
+> đặt tên hình sẵn, tải về file `<tên đề>-cho-AI.md` — gửi **file này** cho AI. (Hoặc lưu đề thành PDF rồi gửi PDF.)
+> Gửi thẳng `.docx` có MathType, AI **không thấy** công thức nhưng thường **không báo**: nó tự "nghĩ ra" công thức và
+> phương án sao cho khớp đáp án. File vẫn nhập được, không báo lỗi nào, nhưng **đề đã bị đổi** (đã gặp thật với Gemini).
 
 ### A1. Quy trình 3 bước
 
 ```text
-Đề gốc (.docx / .pdf / ảnh / .tex …)  ──►  AI (Claude, ChatGPT, Gemini, Copilot…)  ──►  file .md  ──►  SClass: Nhập đề từ file
-                                            + file prompt này                              (+ file Word gốc để lấy hình)
+Đề Word (.docx) ──► SClass "Chuyển đề Word cho AI" ──► …-cho-AI.md ──┐
+Đề PDF / ảnh / .tex ─────────────────────────────────────────────────┴──► AI (+ file prompt này) ──► file .md
+file .md (+ file Word gốc để lấy hình) ──► SClass: Nhập đề từ file
 ```
 
 1. **Chuẩn bị file đề** cho AI đọc được (mục A2).
@@ -31,9 +33,8 @@ Muốn thử trước: bấm **"Tải đề mẫu"** ở trang Nhập đề, gi�
 
 | Đề gốc của bạn | Gửi cho AI | Ghi chú |
 |---|---|---|
-| Word có công thức **MathType** (đề Toán, Lý, Hóa thường gặp) | **Lưu thành PDF** rồi gửi PDF | AI **không đọc được** MathType trong `.docx` (sẽ bỏ trống hoặc tự bịa). Word → *File → Save As → PDF* |
-| Word không có công thức, hoặc công thức gõ bằng *Equation* của Word | Gửi thẳng `.docx` | Nếu AI trả lời không đọc được công thức → làm như dòng trên |
-| **Không chắc** đề dùng MathType hay Equation | **Gửi PDF** | PDF luôn an toàn. Cách xem: bấm đúp vào một công thức; mở ra cửa sổ *MathType* là MathType |
+| **Mọi file Word `.docx`** (có MathType, Equation hay không có công thức) | File **`…-cho-AI.md`** do SClass tạo: trang *Nhập đề từ file* → **"Chuyển đề Word cho AI"** | **Khuyên dùng.** Công thức đã là LaTeX (AI chép nguyên), số câu Word tự đánh được in ra, hình đã đặt tên đúng như lúc nhập. Công thức nào SClass không đọc được ghi `[?]` (điền tay khi xem trước) |
+| Word có công thức **MathType**, không dùng được cách trên | **Lưu thành PDF** rồi gửi PDF | **Không** gửi thẳng `.docx`: AI không đọc được MathType (bỏ trống hoặc tự bịa). Word → *File → Save As → PDF* |
 | PDF xuất từ Word | Gửi thẳng | Tốt nhất |
 | PDF scan, ảnh chụp đề | Gửi thẳng | Chụp thẳng, đủ sáng, rõ chữ; mỗi trang một ảnh; đề dài nên gửi PDF |
 | File `.doc` (Word cũ) | Mở bằng Word, lưu thành `.docx` hoặc PDF | |
@@ -49,7 +50,9 @@ Muốn thử trước: bấm **"Tải đề mẫu"** ở trang Nhập đề, gi�
 1. Mở AI, chọn mô hình **mạnh nhất** có thể, bật chế độ **suy luận / Thinking** nếu có (đề dài, nhiều công thức sẽ
    chính xác hơn rõ rệt). **Gemini:** chọn mô hình **Pro** / chế độ **Tư duy (Thinking)**, không dùng bản *Flash /
    Nhanh*. **ChatGPT:** chọn mô hình có suy luận. **Mỗi đề một cuộc trò chuyện mới** (để AI không lẫn với đề trước).
-2. Đính kèm **file prompt này** (`prompt-chuyen-de-thi.md`) và **file đề**.
+2. Đính kèm **file prompt này** (`prompt-chuyen-de-thi.md`) và **file đề** (`…-cho-AI.md`, PDF hoặc ảnh). Trước khi
+   bấm gửi, nhìn ô file đính kèm: thấy biểu tượng **DOCX / W** là đang gửi nhầm file Word — xóa đi, gửi file
+   `…-cho-AI.md` thay vào.
 3. Gõ:
 
 ```text
@@ -85,7 +88,7 @@ một khối code mới. Chép **nối tiếp** các khối vào cùng một fil
    chọn ảnh tự cắt có tên trùng tên ghi trong file `.md`.
 3. Xem trước: đề hiển thị đúng như học sinh thấy. **Bắt buộc đối chiếu với đề gốc**: ít nhất câu đầu, câu cuối và
    2–3 câu giữa mỗi phần, so **từng công thức, từng phương án** (đáp án khớp chưa đủ: AI bịa công thức vẫn giữ đúng
-   đáp án). Thấy câu khác đề → đừng sửa tay từng câu, làm lại từ bước A2 bằng bản **PDF**. Đặt độ khó (Mức 1–4) từng
+   đáp án). Thấy câu khác đề → đừng sửa tay từng câu, làm lại từ bước A2 bằng file **`…-cho-AI.md`** (hoặc PDF). Đặt độ khó (Mức 1–4) từng
    câu hoặc cả đề nếu cần.
 4. Bấm **Import**: chọn chuyên đề và cách nhập (chỉ câu hỏi, hoặc tạo cả đề thi).
 
@@ -148,6 +151,13 @@ quy tắc cố định, nên phải theo **chính xác** định dạng.
 
 ### B2. Đọc đầu vào theo loại file
 
+- **File do SClass chuyển từ Word** (dòng đầu `<!-- SClass: đề chuyển từ file Word …`, tên thường là `…-cho-AI.md`):
+  đây là cách tốt nhất. Chữ giữ đúng thứ tự trong đề; **công thức đã là LaTeX** trong `$…$` / `$$…$$` — **chép
+  nguyên**, không viết lại; số câu ("Câu 13:") và nhãn Word tự đánh đã được in ra; bảng là các dòng `| … | … |` (bảng
+  Đúng/Sai: cột ý a), b)…; dòng "a) Đúng | b) Sai…" là đáp án); mỗi hình là một dòng `![hình](hinh-p2-c14.png)` **đã
+  đặt đúng tên và đúng chỗ** — giữ nguyên tên, chỉ đổi phần mô tả trong `[...]`, và đặt vào `@content` hay
+  `@explanation` theo vị trí (sau "Lời giải" / "Chọn C" là hình lời giải). `[?]` là công thức SClass không đọc được:
+  giữ nguyên `[?]`. Bỏ dòng chú thích `<!-- … -->` đầu file.
 - **PDF, ảnh chụp:** đọc như người đọc đề: chữ, công thức, bảng, vị trí hình.
 - **`.docx`:** đọc được chữ và công thức *Equation* của Word. Công thức **MathType** (đối tượng "Equation.DSMT…",
   thường chỉ hiện như ảnh hoặc ô trống) thì bạn **không đọc được nội dung**. Nếu thấy chỗ trống / ảnh nhỏ nằm giữa câu
@@ -161,8 +171,8 @@ quy tắc cố định, nên phải theo **chính xác** định dạng.
 - **`.tex`:** giữ nguyên công thức LaTeX, chỉ đổi môi trường không hỗ trợ (mục B6).
 - **Đề và đáp án ở hai file:** ghép đáp án vào đúng câu theo **phần** và **số câu**.
 - Nếu **phần lớn** công thức không đọc được chắc chắn: **không tạo file**, chỉ trả lời đúng một câu:
-  "Tôi không đọc được công thức trong file này. Hãy lưu đề thành PDF (Word → Lưu thành → PDF) hoặc chụp ảnh từng
-  trang rồi gửi lại."
+  "Tôi không đọc được công thức trong file này. Hãy dùng nút "Chuyển đề Word cho AI" trên trang Nhập đề của SClass
+  rồi gửi file …-cho-AI.md, hoặc lưu đề thành PDF và gửi lại."
 - Chỉ vài chỗ không đọc được: ghi đúng ký hiệu `[?]` tại chỗ đó (phần mềm sẽ không cho nhập tới khi người dùng điền).
   **Không bịa** số liệu, tọa độ, hàm số cho "hợp lý" hay cho khớp đáp án.
 - **Không "hiệu chỉnh" đề.** Chép đúng như đề, kể cả khi bạn nghĩ đề in sai hoặc lời giải mâu thuẫn; chỗ nghi sai
@@ -469,8 +479,10 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
 1. Trả về **toàn bộ file trong đúng một khối code** ```` ```markdown ````, bắt đầu bằng `@format: elearning-exam/1`.
    Không viết gì khác bên trong khối. Nếu bạn tạo được **file tải về**, tạo thêm file `de-thi.md` có nội dung y hệt.
 2. Sau khối code, viết mục **"Ghi chú"** (ngoài khối code). Dòng đầu tiên của Ghi chú ghi đúng mẫu:
-   `Đầu vào: <PDF | ảnh | .docx | …>. Công thức: đọc trực tiếp từ đề, không tự suy ra.` (nếu không ghi được câu này
-   một cách trung thực thì bạn chưa được tạo file — xem mục B2). Sau đó liệt kê: (a) các tên ảnh và hình tương ứng ở câu nào;
+   `Đầu vào: <tên file đề đúng như được gửi, kèm đuôi, ví dụ de-thi.pdf>. Công thức: đọc trực tiếp từ đề, không tự suy ra.`
+   Loại file xét theo **đuôi tên file được gửi**: file tên `….docx` là `.docx`, kể cả khi hệ thống của bạn đã tự trích
+   xuất / chuyển nó sang chữ hay PDF để bạn đọc — khi đó **không** được ghi "PDF" (và đề có MathType thì phải dừng như
+   mục B2). Nếu không ghi được câu này một cách trung thực thì bạn chưa được tạo file — xem mục B2. Sau đó liệt kê: (a) các tên ảnh và hình tương ứng ở câu nào;
    (b) chỗ nào trong đề bị mờ / không chắc chắn, đã ghi `[?]`; (c) câu nào không tìm thấy đáp án (`@answer: ?`);
    (d) điểm đã tự chia nếu đề không ghi điểm.
 3. **Đề dài:** nếu không đủ chỗ, dừng ở **ranh giới giữa hai câu** (không cắt ngang câu) và viết dòng

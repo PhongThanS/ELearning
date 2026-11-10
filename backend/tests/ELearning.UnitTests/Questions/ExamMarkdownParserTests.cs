@@ -26,6 +26,33 @@ public class ExamMarkdownParserTests
     }
 
     [Fact]
+    public void Sample_word_file_becomes_ai_text_with_every_mathtype_formula_in_latex_and_the_picture_names_of_the_import()
+    {
+        var word = File.ReadAllBytes(PublicFile("de-goc-mau.docx"));
+        var result = DocxImageExtractor.ExtractForAi(new MemoryStream(word), "de-goc-mau.docx", 2 * 1024 * 1024)!;
+        if (Environment.GetEnvironmentVariable("ELEARNING_DUMP_AI_TEXT") is { Length: > 0 } dump)
+        {
+            File.WriteAllText(dump, result.Text);
+        }
+
+        result.Formulas.Should().Be(363);
+        result.UnreadFormulas.Should().Be(0);
+        result.Pictures.Should().Be(20);
+        result.Text.Should().StartWith("<!-- SClass: đề chuyển từ file Word \"de-goc-mau.docx\"");
+
+        // Hình đặt tên giống hệt bước nhập lấy từ Word, kể cả phần II đánh số tiếp (Câu 14)
+        static string Stem(string name) => Path.GetFileNameWithoutExtension(name).ToLowerInvariant();
+        var extracted = DocxImageExtractor.Extract(new MemoryStream(word), 2 * 1024 * 1024)!;
+        ExamMarkdownParser.ImageRefs(result.Text).Select(r => Stem(r.Target))
+            .Should().BeEquivalentTo(extracted.Images.Select(i => Stem(i.Name)));
+
+        // Số câu Word tự đánh được in ra; công thức MathType thành LaTeX
+        result.Text.Should().Contain("Câu 1:").And.Contain("Câu 14:").And.Contain("Câu 22:");
+        result.Text.Should().Contain(@"\overrightarrow{GA}");
+        result.Text[result.Text.IndexOf("-->", StringComparison.Ordinal)..].Should().NotContain("[?]");
+    }
+
+    [Fact]
     public void Sample_word_file_provides_every_picture_the_sample_md_uses_and_zip_matches_both_files()
     {
         var markdown = File.ReadAllText(PublicFile("mau-de-thi.md"));

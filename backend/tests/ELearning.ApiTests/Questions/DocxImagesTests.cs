@@ -12,6 +12,8 @@ public sealed record DocxSkippedView(string? Name, string Reason);
 
 public sealed record DocxImagesView(List<DocxImageView> Images, List<DocxSkippedView> Skipped);
 
+public sealed record DocxAiTextView(string Text, int Formulas, int UnreadFormulas, int Pictures);
+
 /// <summary>Lấy hình từ file đề Word gốc để ghép với file .md (docs/05-api.md, D-29).</summary>
 [Collection(ApiCollection.Name)]
 public class DocxImagesTests(ApiFactory factory)
@@ -40,13 +42,32 @@ public class DocxImagesTests(ApiFactory factory)
         anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    private static async Task<(HttpResponseMessage Response, Envelope<T> Body)> PostAsync<T>(HttpClient client, byte[] bytes, string fileName)
+    [Fact]
+    public async Task Word_file_becomes_text_for_ai_with_the_same_picture_names()
+    {
+        var admin = factory.CreateHttpsClient();
+        await admin.LoginAsync(ApiFactory.AdminUserName, ApiFactory.AdminPassword);
+
+        var (ok, okBody) = await PostAsync<DocxAiTextView>(admin, Docx(), "de-thi.docx", AiUrl);
+        var (wrongType, _) = await PostAsync<object>(admin, Docx(), "de-thi.pdf", AiUrl);
+        var (anonymous, _) = await PostAsync<object>(factory.CreateHttpsClient(), Docx(), "de-thi.docx", AiUrl);
+
+        ok.StatusCode.Should().Be(HttpStatusCode.OK);
+        okBody.Data!.Text.Should().Contain("Câu 3. Cho hình vẽ").And.Contain("![hình](hinh-p2-c3.png)");
+        okBody.Data.Pictures.Should().Be(1);
+        wrongType.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    private const string AiUrl = "/api/questions/import-markdown/docx-for-ai";
+
+    private static async Task<(HttpResponseMessage Response, Envelope<T> Body)> PostAsync<T>(HttpClient client, byte[] bytes, string fileName, string url = Url)
     {
         using var form = new MultipartFormDataContent();
         var file = new ByteArrayContent(bytes);
         file.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         form.Add(file, "file", fileName);
-        var response = await client.PostAsync(new Uri(Url, UriKind.Relative), form);
+        var response = await client.PostAsync(new Uri(url, UriKind.Relative), form);
         var text = await response.Content.ReadAsStringAsync();
         var body = string.IsNullOrEmpty(text)
             ? new Envelope<T>(response.IsSuccessStatusCode, default, null, [], null)

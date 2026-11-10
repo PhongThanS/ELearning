@@ -47,6 +47,9 @@ public interface IExamMarkdownImportService
 
     /// <summary>Lấy ảnh từ file đề Word gốc, đặt tên theo phần / câu để ghép với file .md. Không lưu gì.</summary>
     Task<Result<DocxImageResult>> ExtractDocxImagesAsync(Stream docx, CancellationToken ct);
+
+    /// <summary>Chuyển đề Word (kể cả công thức MathType) thành văn bản cho AI đọc. Không lưu gì.</summary>
+    Task<Result<DocxAiTextResult>> ConvertDocxForAiAsync(Stream docx, string fileName, CancellationToken ct);
 }
 
 /// <summary>
@@ -73,6 +76,17 @@ internal sealed class ExamMarkdownImportService(
         await docx.CopyToAsync(buffer, ct);
         buffer.Position = 0;
         var result = DocxImageExtractor.Extract(buffer, mediaOptions.Value.MaxBytes);
+        return result is null
+            ? Error.Validation("IMPORT_FILE_INVALID", "File không phải file Word .docx hợp lệ (file .doc cũ: mở bằng Word và lưu lại thành .docx).", "file")
+            : result;
+    }
+
+    public async Task<Result<DocxAiTextResult>> ConvertDocxForAiAsync(Stream docx, string fileName, CancellationToken ct)
+    {
+        using var buffer = new MemoryStream();
+        await docx.CopyToAsync(buffer, ct);
+        buffer.Position = 0;
+        var result = DocxImageExtractor.ExtractForAi(buffer, Path.GetFileName(fileName), mediaOptions.Value.MaxBytes);
         return result is null
             ? Error.Validation("IMPORT_FILE_INVALID", "File không phải file Word .docx hợp lệ (file .doc cũ: mở bằng Word và lưu lại thành .docx).", "file")
             : result;

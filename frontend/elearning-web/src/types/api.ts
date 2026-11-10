@@ -1119,6 +1119,14 @@ export interface DocxImageResult {
   mathTypeFormulas: number;
 }
 
+/** Đề Word đã chuyển thành văn bản cho AI đọc: công thức (cả MathType) thành LaTeX, hình đặt tên sẵn. */
+export interface DocxAiTextResult {
+  text: string;
+  formulas: number;
+  unreadFormulas: number;
+  pictures: number;
+}
+
 export interface MarkdownImportResult {
   dryRun: boolean;
   imported: boolean;

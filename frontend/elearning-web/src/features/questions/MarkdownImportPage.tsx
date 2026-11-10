@@ -183,7 +183,35 @@ export function MarkdownImportPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [markdown, setMarkdown] = useState<string>("");
   const [images, setImages] = useState<ImportImage[]>([]);
-  const [docx, setDocx] = useState<{ fileName: string; skipped: DocxSkippedImage[]; mathTypeFormulas: number } | null>(null);
+  const [docx, setDocx] = useState<{ file: File; fileName: string; skipped: DocxSkippedImage[]; mathTypeFormulas: number } | null>(null);
+  const [converting, setConverting] = useState(false);
+
+  /** Đề Word → file .md cho AI đọc (công thức MathType đã thành LaTeX, hình đặt tên sẵn), tải về máy. */
+  const downloadForAi = async (word: File | undefined) => {
+    if (!word) {
+      return;
+    }
+    setConverting(true);
+    try {
+      const converted = await questionsApi.docxForAi(word);
+      const url = URL.createObjectURL(new Blob([converted.text], { type: "text/markdown;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = word.name.replace(/\.docx$/i, "") + "-cho-AI.md";
+      link.click();
+      URL.revokeObjectURL(url);
+      const summary = `${converted.formulas} công thức, ${converted.pictures} hình`;
+      if (converted.unreadFormulas > 0) {
+        toast.error(`Đã tạo file cho AI (${summary}); ${converted.unreadFormulas} công thức không đọc được, ghi [?] — điền tay sau khi nhập.`);
+      } else {
+        toast.success(`Đã tạo file cho AI (${summary}). Gửi file này kèm prompt cho AI.`);
+      }
+    } catch (e) {
+      toast.error(`${word.name}: ${describeError(e)}`);
+    } finally {
+      setConverting(false);
+    }
+  };
   const [result, setResult] = useState<MarkdownImportResult | null>(null);
   const [busy, setBusy] = useState<"check" | "import" | "docx" | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -264,7 +292,7 @@ export function MarkdownImportPage() {
             added.push({ id: newPendingId(), file, previewUrl: `data:${img.contentType};base64,${img.dataBase64}`, name, fromDocx: true });
           }
         }
-        setDocx({ fileName: word.name, skipped: extracted.skipped, mathTypeFormulas: extracted.mathTypeFormulas });
+        setDocx({ file: word, fileName: word.name, skipped: extracted.skipped, mathTypeFormulas: extracted.mathTypeFormulas });
       } catch (e) {
         toast.error(`${word.name}: ${describeError(e)}`);
       } finally {
@@ -425,13 +453,36 @@ export function MarkdownImportPage() {
               <ol className="small ps-3 mb-3">
                 <li>Tải <strong>prompt & hướng dẫn chi tiết</strong> bên dưới (phần A dành cho thầy cô, phần B cho AI).</li>
                 <li>
-                  Mở AI bất kỳ (Claude, ChatGPT, Gemini…), <strong>đính kèm file prompt và file đề</strong>, nhắn "Làm đúng theo PHẦN B".
-                  Đề Word có công thức <strong>MathType</strong>: lưu thành <strong>PDF</strong> rồi gửi PDF.
+                  Đề <strong>Word (.docx)</strong>: bấm <strong>"Chuyển đề Word cho AI"</strong> bên dưới, SClass đổi mọi công thức
+                  (kể cả MathType) sang dạng AI đọc được → file <code>…-cho-AI.md</code>. Đề <strong>PDF</strong> / ảnh: dùng thẳng.
+                </li>
+                <li>
+                  Mở AI bất kỳ (Claude, ChatGPT, Gemini…), <strong>đính kèm file prompt và file đề</strong> (file{" "}
+                  <code>-cho-AI.md</code> hoặc PDF — <strong>không</strong> gửi thẳng file Word), nhắn "Làm đúng theo PHẦN B".
                 </li>
                 <li>Lưu phần <strong>bên trong khối code</strong> AI trả về thành file <code>.md</code>, chọn ở bước 1.</li>
                 <li>Ở bước 2 chọn file Word gốc để hệ thống tự lấy hình cho từng câu.</li>
               </ol>
               <div className="d-grid gap-2">
+                <Form.Label
+                  className={`btn btn-sm btn-success mb-0 ${converting ? "disabled" : ""}`}
+                  title="Chọn file đề Word (.docx): SClass đổi công thức MathType / Word sang LaTeX, đặt tên hình sẵn, tải về file .md để gửi cho AI"
+                >
+                  {converting ? <Spinner size="sm" className="me-1" /> : <i className="bi bi-filetype-docx me-1" aria-hidden="true" />}
+                  Chuyển đề Word cho AI (.docx → .md)
+                  <Form.Control
+                    type="file"
+                    accept=".docx"
+                    hidden
+                    aria-label="Chọn đề Word để chuyển cho AI"
+                    disabled={converting}
+                    onChange={(e) => {
+                      const input = e.target as HTMLInputElement;
+                      void downloadForAi(input.files?.[0]);
+                      input.value = "";
+                    }}
+                  />
+                </Form.Label>
                 <a className="btn btn-sm btn-primary" href="/huong-dan/prompt-chuyen-de-thi.md" download>
                   <i className="bi bi-download me-1" aria-hidden="true" />Tải prompt & hướng dẫn chi tiết
                 </a>
@@ -464,7 +515,14 @@ export function MarkdownImportPage() {
                 AI <strong>không đọc được</strong> công thức MathType nếu bạn gửi thẳng file <code>.docx</code>, và thường{" "}
                 <strong>tự nghĩ ra</strong> công thức, phương án sao cho khớp đáp án: file vẫn hợp lệ, không báo lỗi, nhưng đề đã
                 khác đề gốc. So <strong>từng công thức, từng phương án</strong> ở phần xem trước (ít nhất câu đầu, câu cuối và vài
-                câu giữa mỗi phần). Thấy khác thì làm lại: lưu đề thành <strong>PDF</strong> rồi gửi bản PDF cho AI.
+                câu giữa mỗi phần). Thấy khác thì làm lại: gửi cho AI file SClass chuyển sẵn (nút dưới) hoặc bản{" "}
+                <strong>PDF</strong>.
+                <div className="mt-2">
+                  <Button size="sm" variant="danger" disabled={converting} onClick={() => void downloadForAi(docx.file)}>
+                    {converting ? <Spinner size="sm" className="me-1" /> : <i className="bi bi-download me-1" aria-hidden="true" />}
+                    Tải file cho AI từ {docx.fileName}
+                  </Button>
+                </div>
               </Alert>
             )}
             <div className="fw-semibold mb-2">
