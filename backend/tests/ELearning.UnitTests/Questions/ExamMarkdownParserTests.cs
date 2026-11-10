@@ -11,19 +11,48 @@ public class ExamMarkdownParserTests
     [Fact]
     public void Sample_file_shipped_to_users_parses_without_issues()
     {
-        // Đề mẫu có lời giải dưới từng câu, đủ 4 mức độ (chuyển từ đề Word thật)
+        // Đề mẫu chuyển đủ từ đề Word gốc de-goc-mau.docx: 12 trắc nghiệm, 4 Đúng/Sai, 6 trả lời ngắn, đủ 4 mức độ
         var doc = ExamMarkdownParser.Parse(File.ReadAllText(PublicFile("mau-de-thi.md")));
 
         doc.FileIssues.Should().BeEmpty();
         doc.Questions.SelectMany(q => q.Issues).Should().BeEmpty();
-        doc.Header.DurationMinutes.Should().Be(45);
-        doc.Questions.Sum(q => q.Input!.DefaultScore).Should().Be(2.25m);
-        doc.Questions.Select(q => q.Input!.Difficulty).Should().Equal(
-            QuestionDifficulty.Level1, QuestionDifficulty.Level2, QuestionDifficulty.Level3, QuestionDifficulty.Level4);
-        doc.Questions.Select(q => q.Input!.QuestionType).Should().Equal(
-            QuestionType.SingleChoice, QuestionType.TrueFalse, QuestionType.FillIn, QuestionType.FillIn);
-        doc.Questions[1].Input!.Options!.Select(o => o.IsCorrect).Should().Equal(true, true, false, true);
-        doc.Questions[3].Input!.CorrectAnswerNumber.Should().Be(0.31m);
+        doc.Questions.Should().HaveCount(22);
+        doc.Questions.Sum(q => q.Input!.DefaultScore).Should().Be(10m);
+        doc.Questions.Select(q => q.Input!.Difficulty).Distinct().Should().BeEquivalentTo(
+            [QuestionDifficulty.Level1, QuestionDifficulty.Level2, QuestionDifficulty.Level3, QuestionDifficulty.Level4]);
+        doc.Questions.Count(q => q.Input!.QuestionType == QuestionType.TrueFalse).Should().Be(4);
+        doc.Questions[12].Input!.Options!.Select(o => o.IsCorrect).Should().Equal(true, true, false, true);
+        doc.Questions[^1].Input!.CorrectAnswerNumber.Should().Be(0.31m);
+    }
+
+    [Fact]
+    public void Sample_word_file_provides_every_picture_the_sample_md_uses_and_zip_matches_both_files()
+    {
+        var markdown = File.ReadAllText(PublicFile("mau-de-thi.md"));
+        var word = File.ReadAllBytes(PublicFile("de-goc-mau.docx"));
+        using var stream = new MemoryStream(word);
+        var extracted = DocxImageExtractor.Extract(stream, 2 * 1024 * 1024)!;
+
+        // Tên trong .md ghi .png, hình trong Word là .jpg: giao diện ghép theo tên bỏ đuôi
+        static string Stem(string name) => Path.GetFileNameWithoutExtension(name).ToLowerInvariant();
+        var used = ExamMarkdownParser.ImageRefs(markdown).Select(r => Stem(r.Target)).ToList();
+        used.Should().HaveCount(20).And.BeEquivalentTo(extracted.Images.Select(i => Stem(i.Name)));
+        extracted.Skipped.Should().BeEmpty();
+
+        // Nút "Tải đề mẫu" tải file nén: phải đúng hai file hiện tại
+        using var zip = System.IO.Compression.ZipFile.OpenRead(PublicFile("de-thi-mau.zip"));
+        zip.Entries.Select(e => e.FullName).Should().BeEquivalentTo("mau-de-thi.md", "de-goc-mau.docx");
+        foreach (var entry in zip.Entries)
+        {
+            using var content = new MemoryStream();
+            using (var s = entry.Open())
+            {
+                s.CopyTo(content);
+            }
+
+            content.ToArray().Should().Equal(File.ReadAllBytes(PublicFile(entry.FullName)),
+                "de-thi-mau.zip phải được tạo lại mỗi khi sửa {0}", entry.FullName);
+        }
     }
 
     [Fact]

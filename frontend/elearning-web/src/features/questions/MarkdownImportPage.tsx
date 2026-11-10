@@ -327,12 +327,15 @@ export function MarkdownImportPage() {
                 </a>
                 <a
                   className="btn btn-sm btn-outline-primary"
-                  href="/huong-dan/mau-de-thi.md"
+                  href="/huong-dan/de-thi-mau.zip"
                   download
-                  title="Đề có lời giải dưới từng câu, đủ 4 mức độ: trắc nghiệm, Đúng/Sai, trả lời ngắn, hình trong đề và lời giải"
+                  title="File nén gồm đề Word gốc (de-goc-mau.docx) và file đã chuyển (mau-de-thi.md): thử nhập 2 bước, có hình vẽ"
                 >
-                  <i className="bi bi-file-earmark-text me-1" aria-hidden="true" />Tải file đề mẫu (.md)
+                  <i className="bi bi-file-earmark-zip me-1" aria-hidden="true" />Tải đề mẫu (Word gốc + .md)
                 </a>
+                <span className="small text-secondary">
+                  Giải nén, chọn <code>mau-de-thi.md</code> ở bước 1 và <code>de-goc-mau.docx</code> ở bước 2 để thử.
+                </span>
               </div>
             </Card.Body>
           </Card>
