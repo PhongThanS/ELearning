@@ -62,17 +62,19 @@ public class ExamMarkdownImportTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Import_for_an_exam_does_not_need_a_category()
+    public async Task Import_always_needs_a_category_even_when_creating_an_exam()
     {
         var admin = await AdminAsync();
         var markdown = Exam("KHONG-CO-DANH-MUC").Replace("@category: KHONG-CO-DANH-MUC\n", string.Empty, StringComparison.Ordinal);
 
-        var (response, body) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, forExam = true, dryRun = false });
+        var (forExam, forExamBody) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, forExam = true, dryRun = false });
+        var (bankOnly, _) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, dryRun = false });
+        var (preview, _) = await admin.PostJsonAsync<MdResult>("/api/questions/import-markdown", new { markdown, dryRun = true });
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK, string.Join(",", body.Errors.Select(e => e.Code)));
-        body.Data!.Imported.Should().BeTrue();
-        body.Data.CategoryId.Should().BeNull();
-        body.Data.Questions.Should().OnlyContain(q => q.Code != null && q.Code.StartsWith('Q'), "không có chuyên đề thì dùng mã tự sinh thường");
+        forExam.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        forExamBody.Errors.Single().Code.Should().Be("CATEGORY_REQUIRED");
+        bankOnly.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        preview.StatusCode.Should().Be(HttpStatusCode.OK, "xem trước không cần chuyên đề");
     }
 
     [Fact]

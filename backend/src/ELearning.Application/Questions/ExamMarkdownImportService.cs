@@ -14,8 +14,8 @@ namespace ELearning.Application.Questions;
 
 /// <summary>
 /// Nhập đề từ file "elearning-exam/1". Ảnh trong file phải được thay bằng <c>media:&lt;id&gt;</c> trước khi nhập thật.
-/// Nhập theo chuyên đề bắt buộc chọn đúng một chuyên đề (<see cref="CategoryId"/>); nhập để tạo đề thi
-/// (<see cref="ForExam"/>) thì chuyên đề không bắt buộc. Bản kiểm tra (dryRun) không cần chuyên đề.
+/// Nhập thật luôn bắt buộc chọn đúng một chuyên đề (<see cref="CategoryId"/>) cho cả bộ câu hỏi, kể cả khi tạo đề thi
+/// (<see cref="ForExam"/>: đề thi nháp thuộc chuyên đề đó). Bản kiểm tra (dryRun) không cần chuyên đề.
 /// </summary>
 public sealed record ExamMarkdownImportRequest(string? Markdown, Guid? CategoryId, bool DryRun, bool ForExam = false);
 
@@ -90,7 +90,7 @@ internal sealed class ExamMarkdownImportService(
             return Error.Validation("IMPORT_FILE_INVALID", "File đề quá lớn (tối đa khoảng 2 MB văn bản).", "markdown");
         }
 
-        if (!request.DryRun && !request.ForExam && request.CategoryId is null)
+        if (!request.DryRun && request.CategoryId is null)
         {
             return Error.Validation("CATEGORY_REQUIRED", "Chọn một chuyên đề để nhập câu hỏi.", "categoryId");
         }
