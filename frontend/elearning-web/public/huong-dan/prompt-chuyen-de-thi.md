@@ -7,6 +7,11 @@
 
 ## PHẦN A — HƯỚNG DẪN CHI TIẾT CHO GIÁO VIÊN
 
+> ⚠️ **QUAN TRỌNG NHẤT — đề Word có công thức MathType (Toán, Lý, Hóa): LƯU THÀNH PDF RỒI MỚI GỬI AI.**
+> Gửi thẳng `.docx`, AI **không thấy** công thức nhưng thường **không báo**: nó tự "nghĩ ra" công thức và phương án
+> sao cho khớp với đáp án, lời giải. File vẫn nhập được, không báo lỗi nào, nhưng **đề đã bị đổi**. Đã gặp thật với
+> Gemini: 22/22 câu đúng đáp án nhưng gần như mọi công thức khác đề gốc.
+
 ### A1. Quy trình 3 bước
 
 ```text
@@ -28,6 +33,7 @@ Muốn thử trước: bấm **"Tải đề mẫu"** ở trang Nhập đề, gi�
 |---|---|---|
 | Word có công thức **MathType** (đề Toán, Lý, Hóa thường gặp) | **Lưu thành PDF** rồi gửi PDF | AI **không đọc được** MathType trong `.docx` (sẽ bỏ trống hoặc tự bịa). Word → *File → Save As → PDF* |
 | Word không có công thức, hoặc công thức gõ bằng *Equation* của Word | Gửi thẳng `.docx` | Nếu AI trả lời không đọc được công thức → làm như dòng trên |
+| **Không chắc** đề dùng MathType hay Equation | **Gửi PDF** | PDF luôn an toàn. Cách xem: bấm đúp vào một công thức; mở ra cửa sổ *MathType* là MathType |
 | PDF xuất từ Word | Gửi thẳng | Tốt nhất |
 | PDF scan, ảnh chụp đề | Gửi thẳng | Chụp thẳng, đủ sáng, rõ chữ; mỗi trang một ảnh; đề dài nên gửi PDF |
 | File `.doc` (Word cũ) | Mở bằng Word, lưu thành `.docx` hoặc PDF | |
@@ -41,7 +47,8 @@ Muốn thử trước: bấm **"Tải đề mẫu"** ở trang Nhập đề, gi�
 **Cách 1 — đính kèm file (khuyên dùng, AI nào cũng làm được):**
 
 1. Mở AI, chọn mô hình **mạnh nhất** có thể, bật chế độ **suy luận / Thinking** nếu có (đề dài, nhiều công thức sẽ
-   chính xác hơn rõ rệt).
+   chính xác hơn rõ rệt). **Gemini:** chọn mô hình **Pro** / chế độ **Tư duy (Thinking)**, không dùng bản *Flash /
+   Nhanh*. **ChatGPT:** chọn mô hình có suy luận. **Mỗi đề một cuộc trò chuyện mới** (để AI không lẫn với đề trước).
 2. Đính kèm **file prompt này** (`prompt-chuyen-de-thi.md`) và **file đề**.
 3. Gõ:
 
@@ -76,8 +83,10 @@ một khối code mới. Chép **nối tiếp** các khối vào cùng một fil
 1. *Ngân hàng câu hỏi → Nhập đề từ file*.
 2. **Bước 1:** chọn file `.md`. **Bước 2:** chọn **file Word gốc** (tự lấy hình theo tên `hinh-p1-c3.png`…) hoặc
    chọn ảnh tự cắt có tên trùng tên ghi trong file `.md`.
-3. Xem trước: đề hiển thị đúng như học sinh thấy. Đối chiếu nhanh với đề gốc, nhất là **đáp án** và **công thức**.
-   Đặt độ khó (Mức 1–4) từng câu hoặc cả đề nếu cần.
+3. Xem trước: đề hiển thị đúng như học sinh thấy. **Bắt buộc đối chiếu với đề gốc**: ít nhất câu đầu, câu cuối và
+   2–3 câu giữa mỗi phần, so **từng công thức, từng phương án** (đáp án khớp chưa đủ: AI bịa công thức vẫn giữ đúng
+   đáp án). Thấy câu khác đề → đừng sửa tay từng câu, làm lại từ bước A2 bằng bản **PDF**. Đặt độ khó (Mức 1–4) từng
+   câu hoặc cả đề nếu cần.
 4. Bấm **Import**: chọn chuyên đề và cách nhập (chỉ câu hỏi, hoặc tạo cả đề thi).
 
 ### A7. Lỗi thường gặp và cách sửa
@@ -101,6 +110,7 @@ và câu đó, nhắn "sửa câu này theo đúng định dạng elearning-exam
 | Lựa chọn / ý không liên tục | Thiếu hoặc nhảy chữ cái | Sửa thành `A, B, C, D` / `a, b, c, d` liên tục |
 | Thiếu `@score` / `@type` | AI quên mặc định của phần | Thêm `@type:` và `@score:` ngay dưới `@part`, hoặc vào câu |
 | Công thức hiện **chữ đỏ** khi xem trước | LaTeX sai cú pháp | Sửa công thức (thường thiếu `}` hoặc lệnh lạ) |
+| *(không báo lỗi)* Câu hỏi / phương án **khác đề gốc**, hai phương án giống nhau | Gửi `.docx` có MathType, hoặc mô hình yếu (Flash) | Lưu đề thành **PDF**, mở cuộc trò chuyện mới, chọn mô hình Pro / Thinking, gửi lại |
 
 SClass **tự sửa sẵn** các lệch nhỏ hay gặp, không báo lỗi: công thức viết `\( … \)` / `\[ … \]`, dòng trường bị thụt
 lề, chữ "Câu 1." hoặc nhãn `[MĐ2]` còn sót đầu nội dung (nhãn được dùng làm độ khó), "A." / "a)" chép lại trong phương
@@ -120,11 +130,18 @@ Bạn là chuyên viên số hóa đề thi. Nhiệm vụ: đọc đề thi đư
 sang **đúng một file văn bản** theo định dạng `elearning-exam/1` mô tả dưới đây. File được phần mềm đọc tự động bằng
 quy tắc cố định, nên phải theo **chính xác** định dạng.
 
+> **QUY TẮC SỐ 1 — CHÉP, KHÔNG SÁNG TÁC.** Bạn là người **đánh máy lại** đề, không phải người ra đề. Mọi chữ, số,
+> công thức, phương án trong file phải **nhìn thấy được** trong đề gửi kèm. Tuyệt đối không tự nghĩ ra, suy ra từ
+> lời giải / bảng đáp án, "sửa cho đúng" hay "làm cho hợp lý" bất cứ công thức hoặc phương án nào. Một file thiếu
+> chỗ (`[?]`) hoặc một lời từ chối đều **tốt hơn** một file trông hoàn chỉnh nhưng sai đề: giáo viên sẽ cho cả lớp
+> thi một đề khác đề gốc mà không biết.
+
 ### B1. Cách làm (làm lần lượt, không bỏ bước)
 
 1. **Đọc hết đề trước khi viết.** Xác định: tiêu đề, thời gian, các PHẦN, **số câu mỗi phần**, câu nào có hình, đáp
    án nằm ở đâu (dưới từng câu, bảng đáp án cuối đề, file đáp án riêng, hay không có).
-2. **Kiểm tra đọc được công thức** (mục B2). Không đọc được → dừng như mục B2 hướng dẫn.
+2. **Kiểm tra đọc được công thức** (mục B2), **trước khi viết bất cứ gì**. Không đọc được → dừng như mục B2 hướng
+   dẫn, không tạo file.
 3. **Viết file** theo mục B3–B7 (tránh các lỗi ở bảng B9), giữ đúng thứ tự câu như đề.
 4. **Tự kiểm tra** theo mục B8 và sửa trước khi trả lời.
 5. **Trả lời** theo mục B10.
@@ -135,6 +152,12 @@ quy tắc cố định, nên phải theo **chính xác** định dạng.
 - **`.docx`:** đọc được chữ và công thức *Equation* của Word. Công thức **MathType** (đối tượng "Equation.DSMT…",
   thường chỉ hiện như ảnh hoặc ô trống) thì bạn **không đọc được nội dung**. Nếu thấy chỗ trống / ảnh nhỏ nằm giữa câu
   ở chỗ lẽ ra là công thức, hoặc câu chữ bị thiếu số liệu, thì **đừng đoán**.
+  **Dấu hiệu công thức đã bị mất** (gặp một dấu hiệu là coi như không đọc được câu đó):
+  - câu bị cụt ngay chỗ lẽ ra có công thức: "…thỏa mãn ." , "…bằng", "Tính ." , "Cho hàm số có đồ thị như hình";
+  - phương án chỉ có nhãn "A." / "B." mà không có nội dung, hoặc chỉ có một phần ("A. $k =$");
+  - bạn phải **suy luận từ lời giải hay đáp án** mới biết phương án là gì → đó là đoán, không phải đọc;
+  - đề **Toán / Lý / Hóa** dạng `.docx` mà bạn **không thấy mã công thức** (OMML `<m:oMath>` hay chữ công thức) ở
+    các câu có ký hiệu vectơ, phân số, căn → gần như chắc chắn là MathType.
 - **`.tex`:** giữ nguyên công thức LaTeX, chỉ đổi môi trường không hỗ trợ (mục B6).
 - **Đề và đáp án ở hai file:** ghép đáp án vào đúng câu theo **phần** và **số câu**.
 - Nếu **phần lớn** công thức không đọc được chắc chắn: **không tạo file**, chỉ trả lời đúng một câu:
@@ -377,6 +400,8 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
 - [ ] Đáp án khớp nguồn đáp án của đề theo đúng phần và đúng số câu; đáp án `NUMBER` chỉ là số; không có đáp án tự giải.
 - [ ] Mọi công thức nằm trong `$...$` / `$$...$$`, đóng mở đủ cặp trên cùng dòng; không còn `\(`, `\[`.
 - [ ] Mọi công thức, số liệu đọc từ đề, không có cái nào tự đặt ra; chỗ không đọc được ghi `[?]`.
+- [ ] Đọc lại từng câu: nội dung và **từng phương án A–D** đều chép được từ đề, **không** cái nào suy ra từ lời giải
+      / đáp án. Không có hai phương án giống hệt nhau (đề thật hầu như không có — nếu có, kiểm tra lại đề).
 - [ ] Số dòng ảnh `![...](hinh-...)` bằng số hình của đề (cả hình trong lời giải); tên đúng phần, đúng số câu in
       trong đề, đúng thứ tự.
 - [ ] Không còn "Câu 1.", "A.", "a)", "Lời giải", "Chọn C", nhãn `[MĐ1]` trong nội dung / lời giải; không còn tiêu đề
@@ -405,6 +430,8 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
 | `<br>`, `<u>…</u>`, `<sup>2</sup>` | Dòng trống, `**…**`, `$x^{2}$` | Không dùng HTML |
 | Tự giải rồi điền `@answer` khi đề không có đáp án | `@answer: ?` + nêu trong "Ghi chú" | Không bịa đáp án |
 | Đoán số liệu bị mờ | Ghi `[?]` đúng chỗ đó | Không bịa nội dung |
+| `.docx` mất công thức → tự viết công thức, phương án cho khớp lời giải và đáp án | Không tạo file, trả lời câu "Tôi không đọc được công thức…" (mục B2) | Đề bị đổi mà không ai biết |
+| Thấy đề "có vẻ sai" → sửa đề / sửa phương án | Chép nguyên văn, nêu nghi ngờ trong "Ghi chú" | Không hiệu chỉnh đề |
 
 **Khung file** (chép rồi điền; mỗi câu một khối, giữa các câu một dòng trống):
 
@@ -434,7 +461,9 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
 
 1. Trả về **toàn bộ file trong đúng một khối code** ```` ```markdown ````, bắt đầu bằng `@format: elearning-exam/1`.
    Không viết gì khác bên trong khối. Nếu bạn tạo được **file tải về**, tạo thêm file `de-thi.md` có nội dung y hệt.
-2. Sau khối code, viết mục **"Ghi chú"** (ngoài khối code) liệt kê: (a) các tên ảnh và hình tương ứng ở câu nào;
+2. Sau khối code, viết mục **"Ghi chú"** (ngoài khối code). Dòng đầu tiên của Ghi chú ghi đúng mẫu:
+   `Đầu vào: <PDF | ảnh | .docx | …>. Công thức: đọc trực tiếp từ đề, không tự suy ra.` (nếu không ghi được câu này
+   một cách trung thực thì bạn chưa được tạo file — xem mục B2). Sau đó liệt kê: (a) các tên ảnh và hình tương ứng ở câu nào;
    (b) chỗ nào trong đề bị mờ / không chắc chắn, đã ghi `[?]`; (c) câu nào không tìm thấy đáp án (`@answer: ?`);
    (d) điểm đã tự chia nếu đề không ghi điểm.
 3. **Đề dài:** nếu không đủ chỗ, dừng ở **ranh giới giữa hai câu** (không cắt ngang câu) và viết dòng

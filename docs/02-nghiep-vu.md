@@ -104,7 +104,10 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
   đếm tiếp theo thứ tự xuất hiện; hình trước câu đầu của phần → `hinh-p<phần>-chung.png`. Dừng ở tiêu đề viết hoa
   "BẢNG ĐÁP ÁN" / "LỜI GIẢI" / "HƯỚNG DẪN GIẢI" (phần lời giải gom cuối đề, đánh số lại từ câu 1) để hình không bị đặt
   nhầm tên; cùng một hình xuất hiện lại chỉ lấy một lần. Prompt yêu cầu AI đặt tên ảnh đúng quy ước này nên hai bên
-  khớp nhau. Ảnh ghép theo tên **bỏ đuôi** (`.md` ghi `hinh-p1-c3.png`, hình trong Word là `.jpg` vẫn khớp). Hình WMF /
+  khớp nhau. Ảnh ghép theo tên **bỏ đuôi** (`.md` ghi `hinh-p1-c3.png`, hình trong Word là `.jpg` vẫn khớp). AI hay
+  lệch số câu (đánh lại từ 1 mỗi phần: `hinh-p2-c2` trong khi Word in "Câu 14", hoặc ngược lại) hay lệch số thứ tự hình
+  (`-2`), nên dòng ảnh không khớp tên được ghép tiếp theo **vị trí câu** trong file (thứ tự câu trong phần / trong cả
+  file) rồi theo ảnh chưa dùng **của đúng câu đó**; không bao giờ lấy ảnh của câu khác. Hình WMF /
   EMF (trình duyệt không hiển thị) hoặc lớn hơn `Media:MaxBytes` được liệt kê để cắt tay. Giao diện cảnh báo hình có
   trong Word mà file `.md` không dùng (câu có thể thiếu hình). Ảnh người dùng tự chọn cùng tên được ưu tiên hơn ảnh
   lấy từ Word.

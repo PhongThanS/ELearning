@@ -22,6 +22,46 @@ describe("attachImages — ghép dòng ảnh trong file .md với ảnh đã ch�
     expect(out).toBe("![Lời giải](media:c2)\n![Câu 3](media:c3)\n![Câu 3 lời giải](media:c3b)\n![Câu 9](hinh-p1-c9-2.png)");
   });
 
+  it("AI đánh lại số câu từ 1 mỗi phần (Gemini: hinh-p2-c2) trong khi Word đánh liên tục (Câu 14) → ghép theo vị trí câu", () => {
+    const md = [
+      "@part: I",
+      "@question: 1",
+      "@explanation:",
+      "![](hinh-p1-c1.png)",
+      "@question: 2",
+      "@content: x",
+      "@part: II",
+      "@question: 1",
+      "@content: y",
+      "@question: 2",
+      "@content:",
+      "![Đề](hinh-p2-c2.png)",
+      "@explanation:",
+      "![Lời giải](hinh-p2-c2-2.png)",
+      "@question: 3",
+      "@explanation:",
+      "![](hinh-p2-c3-2.png)",
+    ].join("\n");
+    const out = attachImages(md, [
+      { id: "p1c1", name: "hinh-p1-c1.jpg" },
+      { id: "q4", name: "hinh-p2-c4.jpg" },
+      { id: "q4b", name: "hinh-p2-c4-2.jpg" },
+      { id: "q5", name: "hinh-p2-c5.jpg" },
+    ]);
+    expect(out).toContain("![Đề](media:q4)");
+    expect(out).toContain("![Lời giải](media:q4b)");
+    expect(out).toContain("![](media:q5)");
+  });
+
+  it("đúng tên thì giữ nguyên, kể cả khi đề đánh số lại từ 1 mỗi phần", () => {
+    const md = "@part: I\n@question: 1\n@content: a\n@part: II\n@question: 1\n@content:\n![](hinh-p2-c1.png)";
+    const out = attachImages(md, [
+      { id: "p2c1", name: "hinh-p2-c1.png" },
+      { id: "p2c2", name: "hinh-p2-c2.png" },
+    ]);
+    expect(out).toContain("![](media:p2c1)");
+  });
+
   it("tên bỏ đuôi, chữ thường, bỏ thư mục", () => {
     expect(imageStem("images/HINH-P2-C14.JPG")).toBe("hinh-p2-c14");
   });

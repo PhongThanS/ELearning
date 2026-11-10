@@ -39,15 +39,64 @@ type ImportImage = PendingImage & { name: string; fromDocx?: boolean };
 /** Nhóm của một câu: hinh-p1-c3-2 → hinh-p1-c3. */
 const imageGroup = (stem: string) => stem.replace(/-\d+$/, "");
 
+const IMAGE_NAME = /^hinh-p(\d+)-c(\d+)(-\d+)?$/;
+
+/** Dòng ảnh nằm ở câu thứ mấy: trong phần (`local`, đếm lại từ 1 mỗi @part) và trong cả file (`global`). */
+type ImagePosition = { local: number; global: number };
+
+function imagePositions(markdown: string): Map<string, ImagePosition> {
+  const positions = new Map<string, ImagePosition>();
+  let local = 0;
+  let global = 0;
+  for (const line of markdown.split(/\r?\n/)) {
+    const directive = /^\s*@(part|question)\s*:/i.exec(line)?.[1]?.toLowerCase();
+    if (directive === "part") {
+      local = 0;
+    } else if (directive === "question") {
+      local++;
+      global++;
+    } else if (local > 0) {
+      for (const m of line.matchAll(IMAGE_REF)) {
+        const target = (m[2] ?? "").toLowerCase();
+        if (!positions.has(target)) {
+          positions.set(target, { local, global });
+        }
+      }
+    }
+  }
+  return positions;
+}
+
 /**
- * Ghép từng dòng ảnh trong file .md với một ảnh đã chọn: đúng tên → tên bỏ đuôi → (AI đặt sai số thứ tự hình trong câu,
- * ví dụ "hinh-p1-c2-2" trong khi Word chỉ có "hinh-p1-c2") ảnh cùng câu chưa dòng nào dùng, theo thứ tự.
+ * Số câu có thể dùng trong tên hình của dòng ảnh: Word thường đánh số liên tục qua các phần (phần II bắt đầu "Câu 13")
+ * nhưng AI hay đánh lại từ 1 mỗi phần, hoặc ngược lại. Trả về số câu kiểu còn lại, theo vị trí thật của dòng ảnh.
+ */
+function positionalStems(target: string, position: ImagePosition | undefined): string[] {
+  const name = IMAGE_NAME.exec(imageStem(target));
+  if (!name || !position) {
+    return [];
+  }
+  const [, part, numbered, suffix = ""] = name;
+  const n = Number(numbered);
+  const numbers =
+    n === position.local ? [position.global] : n === position.global ? [position.local] : [position.global, position.local];
+  return [...new Set(numbers)].filter((x) => x !== n).map((x) => `hinh-p${part}-c${x}${suffix}`);
+}
+
+/**
+ * Ghép từng dòng ảnh trong file .md với một ảnh đã chọn, theo thứ tự:
+ * 1. đúng tên → tên bỏ đuôi;
+ * 2. AI đánh số câu kiểu khác Word (đánh lại từ 1 mỗi phần: "hinh-p2-c2" trong khi Word in "Câu 14" → "hinh-p2-c14"),
+ *    tính lại theo vị trí của dòng ảnh trong file;
+ * 3. AI đặt sai số thứ tự hình trong câu ("hinh-p1-c2-2" trong khi Word chỉ có "hinh-p1-c2") → ảnh cùng câu chưa dòng
+ *    nào dùng. Không bao giờ lấy ảnh của câu khác.
  * Trả về: đích trong .md (chữ thường) → ảnh.
  */
 export function matchImages<T extends Pick<ImportImage, "id" | "name">>(markdown: string, images: readonly T[]): Map<string, T> {
   const targets = [...new Set([...markdown.matchAll(IMAGE_REF)].map((m) => (m[2] ?? "").toLowerCase()))].filter(
     (t) => !t.startsWith("media:"),
   );
+  const positions = imagePositions(markdown);
   const byName = new Map(images.map((i) => [i.name.toLowerCase(), i]));
   const byStem = new Map(images.map((i) => [imageStem(i.name), i]));
   const result = new Map<string, T>();
@@ -58,12 +107,23 @@ export function matchImages<T extends Pick<ImportImage, "id" | "name">>(markdown
     }
   }
   const used = new Set([...result.values()].map((i) => i.id));
-  for (const target of targets.filter((t) => !result.has(t))) {
-    const spare = images.find((i) => !used.has(i.id) && imageGroup(imageStem(i.name)) === imageGroup(imageStem(target)));
-    if (spare) {
-      result.set(target, spare);
-      used.add(spare.id);
+  const take = (target: string, image: T | undefined) => {
+    if (image && !used.has(image.id)) {
+      result.set(target, image);
+      used.add(image.id);
+      return true;
     }
+    return false;
+  };
+  for (const target of targets.filter((t) => !result.has(t))) {
+    positionalStems(target, positions.get(target)).some((stem) => take(target, byStem.get(stem)));
+  }
+  for (const target of targets.filter((t) => !result.has(t))) {
+    const groups = new Set([imageStem(target), ...positionalStems(target, positions.get(target))].map(imageGroup));
+    take(
+      target,
+      images.find((i) => !used.has(i.id) && groups.has(imageGroup(imageStem(i.name)))),
+    );
   }
   return result;
 }
