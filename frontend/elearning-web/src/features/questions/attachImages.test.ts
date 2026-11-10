@@ -1,4 +1,25 @@
-import { attachImages, imageStem } from "./MarkdownImportPage";
+import { attachImages, imageRefLine, imageStem, renameImageRef } from "./MarkdownImportPage";
+
+describe("renameImageRef — người dùng gán ảnh chưa dùng cho dòng ảnh bị thiếu", () => {
+  const md = '@question: 5\n@content:\n![Hình](HINH-P1-C5.png "tiêu đề")\n@explanation:\n![Lời giải](hinh-p1-c5.png)\n![Khác](hinh-p1-c6.png)';
+
+  it("đổi mọi dòng ảnh cùng đích (không phân biệt hoa thường), giữ mô tả và tiêu đề, không đụng dòng khác", () => {
+    expect(renameImageRef(md, "hinh-p1-c5.png", "hinh-p1-c4.jpg")).toBe(
+      '@question: 5\n@content:\n![Hình](hinh-p1-c4.jpg "tiêu đề")\n@explanation:\n![Lời giải](hinh-p1-c4.jpg)\n![Khác](hinh-p1-c6.png)',
+    );
+  });
+
+  it("sau khi đổi, ảnh được ghép đúng tên", () => {
+    const out = attachImages(renameImageRef(md, "hinh-p1-c5.png", "hinh-p1-c4.jpg"), [{ id: "c4", name: "hinh-p1-c4.jpg" }]);
+    expect(out).toContain("![Hình](media:c4");
+    expect(out).toContain("![Khác](hinh-p1-c6.png)");
+  });
+
+  it("tìm số dòng của dòng ảnh", () => {
+    expect(imageRefLine(md, "hinh-p1-c5.png")).toBe(3);
+    expect(imageRefLine(md, "khong-co.png")).toBeNull();
+  });
+});
 
 describe("attachImages — ghép dòng ảnh trong file .md với ảnh đã chọn", () => {
   it("khớp đúng tên trước, không có thì khớp tên bỏ đuôi (.png trong .md ↔ .jpg lấy từ Word)", () => {

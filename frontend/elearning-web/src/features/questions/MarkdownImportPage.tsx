@@ -154,6 +154,26 @@ export function attachImages(markdown: string, images: readonly Pick<ImportImage
 }
 
 /**
+ * Đổi đích của mọi dòng ảnh trỏ tới `from` (không phân biệt hoa thường) thành `to`: người dùng tự chọn ảnh cho dòng ảnh
+ * bị thiếu (AI gán hình cho nhầm câu). Sửa thẳng file .md nên tải "file đã sửa" về cũng giữ được.
+ */
+export function renameImageRef(markdown: string, from: string, to: string): string {
+  const key = from.toLowerCase();
+  return markdown.replace(IMAGE_REF, (whole, open: string, target: string, close: string) =>
+    target.toLowerCase() === key ? `${open}${to}${close}` : whole,
+  );
+}
+
+/** Số dòng (đếm từ 1) của dòng ảnh đầu tiên trỏ tới `target`. */
+export function imageRefLine(markdown: string, target: string): number | null {
+  const key = target.toLowerCase();
+  const index = markdown
+    .split(/\r?\n/)
+    .findIndex((line) => [...line.matchAll(IMAGE_REF)].some((m) => (m[2] ?? "").toLowerCase() === key));
+  return index < 0 ? null : index + 1;
+}
+
+/**
  * Nhập đề từ file Markdown "elearning-exam/1" (docs/02-nghiep-vu.md mục 1.5, D-29). Chọn file → server đọc và kiểm tra
  * (dryRun) → xem trước đúng như học viên thấy → nhập. Ảnh chỉ tải lên khi bấm nhập; có thể tạo sẵn đề thi nháp.
  */
@@ -336,7 +356,13 @@ export function MarkdownImportPage() {
   };
 
   // Ảnh Word đã được dòng ảnh nào trong .md dùng (kể cả ghép theo câu khi AI đặt sai số thứ tự hình)
-  const referenced = useMemo(() => new Set([...matchImages(markdown, images).values()].map((i) => imageStem(i.name))), [markdown, images]);
+  const matched = useMemo(() => [...matchImages(markdown, images).values()], [markdown, images]);
+  const referenced = useMemo(() => new Set(matched.map((i) => imageStem(i.name))), [matched]);
+  // Ảnh đã chọn (lấy từ Word hoặc tự chọn) mà chưa dòng ảnh nào dùng: để gán tay cho dòng ảnh bị thiếu
+  const unusedImages = useMemo(() => images.filter((i) => !matched.some((m) => m.id === i.id)), [images, matched]);
+  /** Câu chứa dòng ảnh bị thiếu: câu cuối cùng bắt đầu trước dòng đó. */
+  const questionAt = (line: number | null) =>
+    line == null ? undefined : [...(result?.questions ?? [])].filter((q) => q.line <= line).sort((a, b) => b.line - a.line)[0];
   const docxImages = images.filter((i) => i.fromDocx);
   const unusedDocx = markdown ? docxImages.filter((i) => !referenced.has(imageStem(i.name))) : [];
 
@@ -546,9 +572,45 @@ export function MarkdownImportPage() {
             </Alert>
           )}
           {result.missingImages.length > 0 && (
-            <Alert variant="warning">
-              <div className="fw-semibold mb-1">Thiếu ảnh — chọn thêm ở bước 2:</div>
-              {result.missingImages.map((name) => <Badge key={name} bg="warning" text="dark" className="me-1">{name}</Badge>)}
+            <Alert variant="warning" data-testid="missing-images">
+              <div className="fw-semibold mb-1">Thiếu {result.missingImages.length} ảnh</div>
+              <div className="small mb-2">
+                {unusedImages.length > 0
+                  ? "AI có thể đã gán hình cho nhầm câu. Bấm vào hình đúng (trong các hình chưa dùng) để gán cho dòng ảnh — đối chiếu với đề gốc; hoặc chọn thêm ảnh ở bước 2."
+                  : "Chọn file Word gốc hoặc ảnh có tên trùng ở bước 2, hoặc sửa / xóa dòng ảnh trong câu."}
+              </div>
+              {result.missingImages.map((name) => {
+                const line = imageRefLine(markdown, name);
+                const question = questionAt(line);
+                return (
+                  <div key={name} className="mb-2">
+                    <Badge bg="warning" text="dark" className="me-2">{name}</Badge>
+                    <span className="small text-secondary">
+                      {question ? `Câu ${question.label}${question.part ? ` · ${question.part}` : ""}` : null}
+                      {line != null ? ` · dòng ${line}` : null}
+                    </span>
+                    {unusedImages.length > 0 && (
+                      <div className="d-flex flex-wrap gap-2 mt-1">
+                        {unusedImages.map((i) => (
+                          <Button
+                            key={i.id}
+                            variant="light"
+                            size="sm"
+                            className="border p-1"
+                            disabled={busy !== null}
+                            title={`Dùng ${i.name} cho dòng ảnh ${name}`}
+                            aria-label={`Dùng ${i.name} cho ${name}`}
+                            onClick={() => void applyEdit(renameImageRef(markdown, name, i.name))}
+                          >
+                            <img src={i.previewUrl} alt={i.name} style={{ height: 56, maxWidth: 120, objectFit: "contain" }} />
+                            <div className="small"><code>{i.name}</code></div>
+                          </Button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </Alert>
           )}
 
