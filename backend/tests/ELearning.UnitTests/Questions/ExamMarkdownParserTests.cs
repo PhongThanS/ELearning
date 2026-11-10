@@ -26,6 +26,21 @@ public class ExamMarkdownParserTests
     }
 
     [Fact]
+    public void Sample_with_solutions_and_four_levels_parses_without_issues()
+    {
+        var doc = ExamMarkdownParser.Parse(File.ReadAllText(PublicFile("mau-de-thi-co-loi-giai.md")));
+
+        doc.FileIssues.Should().BeEmpty();
+        doc.Questions.SelectMany(q => q.Issues).Should().BeEmpty();
+        doc.Questions.Select(q => q.Input!.Difficulty).Should().Equal(
+            QuestionDifficulty.Level1, QuestionDifficulty.Level2, QuestionDifficulty.Level3, QuestionDifficulty.Level4);
+        doc.Questions.Select(q => q.Input!.QuestionType).Should().Equal(
+            QuestionType.SingleChoice, QuestionType.TrueFalse, QuestionType.FillIn, QuestionType.FillIn);
+        doc.Questions[1].Input!.Options!.Select(o => o.IsCorrect).Should().Equal(true, true, false, true);
+        doc.Questions[3].Input!.CorrectAnswerNumber.Should().Be(0.31m);
+    }
+
+    [Fact]
     public void Example_inside_ai_prompt_parses_without_issues()
     {
         const string fence = "```";
