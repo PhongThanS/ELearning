@@ -262,6 +262,7 @@
   },
   "errors": {
     "NETWORK_ERROR": "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.",
+    "PAYLOAD_TOO_LARGE": "File quá lớn so với giới hạn của máy chủ (file Word tối đa 30 MB, Excel 5 MB, ảnh 2 MB).",
     "INVALID_CREDENTIALS": "Tên đăng nhập hoặc mật khẩu không đúng.",
     "ACCOUNT_LOCKED": "Tài khoản tạm bị khóa do đăng nhập sai nhiều lần. Vui lòng thử lại sau.",
     "ACCOUNT_DISABLED": "Tài khoản đã bị vô hiệu hóa.",

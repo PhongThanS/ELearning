@@ -137,6 +137,10 @@ export function toApiError(error: unknown): ApiError {
     if (!error.response) {
       return new ApiError(0, "NETWORK_ERROR", "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.", [], null);
     }
+    if (error.response.status === 413) {
+      // Nginx chặn trước khi tới API (client_max_body_size), body là trang HTML
+      return new ApiError(413, "PAYLOAD_TOO_LARGE", "File quá lớn so với giới hạn của máy chủ.", [], null);
+    }
     return new ApiError(error.response.status, "HTTP_" + error.response.status, error.message, [], null);
   }
   return new ApiError(0, "UNKNOWN", error instanceof Error ? error.message : "Đã xảy ra lỗi.", [], null);

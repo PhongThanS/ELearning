@@ -134,7 +134,7 @@ docker compose up -d --build
 
 **Ghi chú:**
 - API tin `X-Forwarded-For` chỉ từ mạng compose `172.28.0.0/24` (`ReverseProxy:KnownNetworks`); Nginx **ghi đè** header này bằng IP thật của client, nên client không giả mạo được IP (rate limit theo IP phụ thuộc vào điều này).
-- Nginx: CSP `default-src 'self'` (chỉ `style-src` có `'unsafe-inline'` cho thuộc tính style của React), `X-Frame-Options DENY`, `nosniff`, HSTS chỉ qua HTTPS; `index.html` không cache, `/assets/*` cache 1 năm; `client_max_body_size 6m` cho import Excel; rate limit thô 200 request/giây/IP cho `/api`; trang 50x tĩnh.
+- Nginx: CSP `default-src 'self'` (chỉ `style-src` có `'unsafe-inline'` cho thuộc tính style của React), `X-Frame-Options DENY`, `nosniff`, HSTS chỉ qua HTTPS; `index.html` không cache, `/assets/*` cache 1 năm; `client_max_body_size 6m` cho import Excel, riêng `/api/questions/import-markdown/docx-*` (file đề Word, API nhận tối đa 30 MB) là `31m`; rate limit thô 200 request/giây/IP cho `/api`; trang 50x tĩnh.
 - **Docker Desktop (Windows / Mac) chuyển tiếp cổng qua proxy**, nên mọi client hiện ra cùng một IP gateway (`172.28.0.1`) → rate limit theo IP gom chung. Chỉ dùng để chạy thử; máy chủ Linux (Docker Engine) giữ nguyên IP thật của client.
 - Đã chạy thử trên máy dev: `docker compose up` → migrate / db-init / seed / api / web; bắt buộc đổi mật khẩu admin lần đầu; tài khoản app quyền tối thiểu sinh mã câu hỏi qua SEQUENCE; Excel (ClosedXML) chạy trên Linux; backup full + log → `restore-test.sh` khôi phục đủ dữ liệu trong 2 giây; cấu hình HTTPS (`nginx -t`, 301, HSTS) với chứng chỉ tự ký.
 - `MSSQL_PID=Express` mặc định (giới hạn 10 GB / database, không nén / mã hóa backup). Production nên dùng Standard có license.
