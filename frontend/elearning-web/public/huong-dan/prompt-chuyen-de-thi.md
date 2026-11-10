@@ -184,7 +184,7 @@ File gồm các **trường**. Mỗi trường bắt đầu bằng một dòng `
 | `@format: elearning-exam/1` | **Có**, là dòng đầu tiên | Phiên bản định dạng |
 | `@title:` | Nên có | Tên đề, ví dụ `Kiểm tra giữa học kỳ I – Toán 12` |
 | `@code:` | Không | Mã đề, chỉ gồm chữ không dấu, số, `-`, `_`, `.` (ví dụ `GK1-TOAN12-2026`) |
-| `@duration:` | Nên có | Thời gian làm bài, **chỉ ghi số phút** (ví dụ `90`) |
+| `@duration:` | Khi đề có ghi | Thời gian làm bài, **chỉ ghi số phút** (ví dụ `90`). Đề không ghi thời gian thì **bỏ dòng này**, không tự đặt |
 | `@category:` | Không | Mã danh mục trong phần mềm — **chỉ** ghi khi người dùng cho biết |
 | `@instructions:` | Không | Hướng dẫn làm bài (nhiều dòng) |
 | `@description:` | Không | Mô tả đề (nhiều dòng) |
@@ -378,6 +378,11 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
   - **Hình trong lời giải** ngay dưới câu đếm **tiếp** theo câu đó, theo thứ tự xuất hiện: câu 20 có một hình trong đề
     và một hình trong lời giải → `hinh-p3-c20.png` (trong `@content`) và `hinh-p3-c20-2.png` (trong `@explanation`).
     Câu chỉ có hình trong lời giải → hình đó là `hinh-p1-c1.png`, đặt trong `@explanation`.
+  - **Hình thuộc câu nào:** hình nằm giữa dòng "Câu 4" và dòng "Câu 5" là hình của **câu 4** (kể cả khi nó nằm sát
+    ngay trên "Câu 5" hay ở đầu trang mới). Không gán hình cho câu ngay sau nó; không thêm hình cho câu không có hình.
+  - **Hình nằm sau chữ "Lời giải" / "Hướng dẫn" / "Chọn C"** là hình lời giải → đặt trong `@explanation`, **không**
+    đưa lên `@content` (học sinh sẽ thấy hình lời giải ngay khi làm bài). Chỉ hình nằm trong phần đề (trước các phương
+    án) mới đặt trong `@content`.
   - Hình nằm trước câu đầu tiên của một phần (dùng chung cho nhiều câu): `hinh-p<số phần>-chung.png`.
   - Hình nằm trong phương án / ý thì đặt dòng ảnh trong `@option` / `@statement` tương ứng, vẫn đánh tên theo câu.
   - Liệt kê mọi tên ảnh trong "Ghi chú" kèm mô tả. Câu nói "như hình vẽ", "hình bên"… mà không có dòng ảnh sẽ bị
@@ -400,6 +405,8 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
 - [ ] Đáp án khớp nguồn đáp án của đề theo đúng phần và đúng số câu; đáp án `NUMBER` chỉ là số; không có đáp án tự giải.
 - [ ] Mọi công thức nằm trong `$...$` / `$$...$$`, đóng mở đủ cặp trên cùng dòng; không còn `\(`, `\[`.
 - [ ] Mọi công thức, số liệu đọc từ đề, không có cái nào tự đặt ra; chỗ không đọc được ghi `[?]`.
+- [ ] Mỗi dòng ảnh đúng câu chứa hình (hình giữa "Câu 4" và "Câu 5" là của câu 4); hình lời giải nằm trong
+      `@explanation`, không nằm trong `@content`.
 - [ ] Đọc lại từng câu: nội dung và **từng phương án A–D** đều chép được từ đề, **không** cái nào suy ra từ lời giải
       / đáp án. Không có hai phương án giống hệt nhau (đề thật hầu như không có — nếu có, kiểm tra lại đề).
 - [ ] Số dòng ảnh `![...](hinh-...)` bằng số hình của đề (cả hình trong lời giải); tên đúng phần, đúng số câu in
