@@ -91,7 +91,7 @@ và câu đó, nhắn "sửa câu này theo đúng định dạng elearning-exam
 | Từ dòng này trở đi là phần "Ghi chú" / lời của AI | Chép cả phần AI viết sau khối code | Xóa từ dòng được chỉ ra tới cuối file |
 | File còn dòng "TIẾP TỤC Ở PHẦN SAU" | Đề chưa chuyển hết | Nhắn AI "tiếp tục", ghép phần sau, xóa dòng đó |
 | … còn chỗ AI không đọc được (`[?]`) | Chữ / công thức mờ, hoặc MathType trong `.docx` | Điền đúng theo đề gốc; nhiều chỗ thì gửi lại AI bản PDF |
-| Đề nói tới hình vẽ nhưng không có dòng ảnh | AI quên dòng `![…](hinh-…png)` | Thêm dòng ảnh vào câu, tên theo mục B6 |
+| Đề nói tới hình vẽ nhưng không có dòng ảnh | AI quên dòng `![…](hinh-…png)` | Thêm dòng ảnh vào câu, tên theo mục B7 |
 | Thiếu ảnh — chọn thêm ở bước 2 | Chưa chọn file Word gốc / ảnh | Chọn file Word gốc ở bước 2, hoặc ảnh đúng tên |
 | Chưa có đáp án (`@answer`) | Đề không có đáp án, AI ghi `?` | Điền đáp án đúng |
 | Đáp án "…" không phải một lựa chọn có trong câu | Ghi sai chữ cái / thừa chữ | Sửa thành chữ cái có trong `@option`, ví dụ `@answer: B` |
@@ -124,9 +124,9 @@ quy tắc cố định, nên phải theo **chính xác** định dạng.
 1. **Đọc hết đề trước khi viết.** Xác định: tiêu đề, thời gian, các PHẦN, **số câu mỗi phần**, câu nào có hình, đáp
    án nằm ở đâu (dưới từng câu, bảng đáp án cuối đề, file đáp án riêng, hay không có).
 2. **Kiểm tra đọc được công thức** (mục B2). Không đọc được → dừng như mục B2 hướng dẫn.
-3. **Viết file** theo mục B3–B7, giữ đúng thứ tự câu như đề.
+3. **Viết file** theo mục B3–B7 (tránh các lỗi ở bảng B9), giữ đúng thứ tự câu như đề.
 4. **Tự kiểm tra** theo mục B8 và sửa trước khi trả lời.
-5. **Trả lời** theo mục B9.
+5. **Trả lời** theo mục B10.
 
 ### B2. Đọc đầu vào theo loại file
 
@@ -134,7 +134,7 @@ quy tắc cố định, nên phải theo **chính xác** định dạng.
 - **`.docx`:** đọc được chữ và công thức *Equation* của Word. Công thức **MathType** (đối tượng "Equation.DSMT…",
   thường chỉ hiện như ảnh hoặc ô trống) thì bạn **không đọc được nội dung**. Nếu thấy chỗ trống / ảnh nhỏ nằm giữa câu
   ở chỗ lẽ ra là công thức, hoặc câu chữ bị thiếu số liệu, thì **đừng đoán**.
-- **`.tex`:** giữ nguyên công thức LaTeX, chỉ đổi môi trường không hỗ trợ (mục B5).
+- **`.tex`:** giữ nguyên công thức LaTeX, chỉ đổi môi trường không hỗ trợ (mục B6).
 - **Đề và đáp án ở hai file:** ghép đáp án vào đúng câu theo **phần** và **số câu**.
 - Nếu **phần lớn** công thức không đọc được chắc chắn: **không tạo file**, chỉ trả lời đúng một câu:
   "Tôi không đọc được công thức trong file này. Hãy lưu đề thành PDF (Word → Lưu thành → PDF) hoặc chụp ảnh từng
@@ -246,13 +246,35 @@ giữ dấu phẩy thập phân như đề. Đề ghi "làm tròn đến hàng p
 **không** thêm `@tolerance` (trừ khi đề cho phép sai số).
 
 **e) Số câu.** Đề Word thường tự đánh số liên tục qua các phần (phần II bắt đầu từ "Câu 13" dù đề ghi "từ câu 1 đến
-câu 4"). `@question` đánh lại **từ 1 trong mỗi phần**; còn **tên ảnh** dùng **đúng số câu in trong đề** (mục B6).
+câu 4"). `@question` đánh lại **từ 1 trong mỗi phần**; còn **tên ảnh** dùng **đúng số câu in trong đề** (mục B7).
 
 **f) Phương án xếp nhiều cột** ("A. 2.  B. 3.  C. 4.  D. 5." trên một dòng, hoặc bảng 2 × 2): tách thành 4 dòng
 `@option`; bỏ dấu chấm kết thúc phương án nếu chỉ là dấu chấm của đề.
 
 **g) Câu chùm / đọc hiểu** (một đoạn dữ kiện dùng chung cho nhiều câu): chép đoạn dữ kiện vào `@content` của **từng**
-câu dùng nó (học sinh có thể nhận các câu theo thứ tự khác).
+câu dùng nó (học sinh có thể nhận các câu theo thứ tự khác). Đoạn dài thì đặt đoạn trước, một dòng trống, rồi câu hỏi.
+
+**h) Đề tiếng Anh / ngoại ngữ:** giữ nguyên tiếng Anh, **không dịch**. "Mark the letter A, B, C, or D…" →
+`SINGLE_CHOICE`. Điền vào chỗ trống trong đoạn văn (cloze): mỗi chỗ trống là một câu; `@content` gồm đoạn văn (hoặc câu
+chứa chỗ trống) với chỗ trống ghi rõ số, ví dụ `… people (1) ________ in the city …` và câu hỏi "Chỗ trống (1)". Từ
+gạch chân cần nhận diện (phát âm, trọng âm, tìm lỗi sai) viết **in đậm** `**…**` vì phần mềm không hiển thị gạch chân.
+
+**i) Chỗ trống, điền khuyết:** viết `________` (8 dấu gạch dưới) hoặc `(…)`. Trong công thức dùng `\square` hoặc
+`\ldots`. Không dùng chuỗi dấu chấm dài.
+
+**j) Đề có nhiều mã đề** (101, 102…): chỉ chuyển **một** mã đề — mã đề đầu tiên, hoặc mã người dùng chỉ định; bảng đáp
+án lấy đúng cột của mã đề đó. Ghi trong "Ghi chú" đã chọn mã nào.
+
+**k) Câu tự luận nhiều ý** (Bài 1: a) …, b) …): một `@question` kiểu `ESSAY`, `@content` liệt kê các ý mỗi ý một
+đoạn, `@score` là tổng điểm của bài; hướng dẫn chấm, biểu điểm từng ý → `@explanation`. (Chỉ câu Đúng/Sai mới dùng
+`@statement`.)
+
+**l) Dạng phần mềm chưa có** (nối cột, sắp xếp thứ tự, kéo thả, vẽ hình…): nếu đề có sẵn các phương án A/B/C/D thì
+dùng `SINGLE_CHOICE`; nếu không thì dùng `ESSAY`, chép nguyên yêu cầu vào `@content`, đáp án vào `@explanation`. Ghi
+trong "Ghi chú" câu nào đã đổi dạng.
+
+**m) Đáp án bị trùng / mâu thuẫn** (bảng đáp án khác lời giải): lấy theo **bảng đáp án**, ghi trong "Ghi chú" câu nào
+mâu thuẫn để người dùng xem lại. Câu trắc nghiệm có hai phương án giống hệt nhau vẫn chép đủ, không gộp.
 
 Ví dụ — đề gốc (câu đầu phần II, Word in "Câu 13"):
 
@@ -358,7 +380,54 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
       hành chính.
 - [ ] Không có dòng chữ nào nằm ngoài một trường; mọi dòng bắt đầu bằng `@` đều là tên trường hợp lệ ở bảng mục B3.
 
-### B9. Cách trả lời
+### B9. Sai thường gặp — viết đúng như cột ✅
+
+| ❌ Sai | ✅ Đúng | Vì sao |
+|---|---|---|
+| `Cho hàm số \(y = x^2\)` | `Cho hàm số $y = x^2$` | Chỉ nhận `$` / `$$` |
+| `Cho hàm số y = x²` | `Cho hàm số $y = x^{2}$` | Công thức phải là LaTeX |
+| `$y = \frac{1}{2}` (thiếu `$` đóng) | `$y = \frac{1}{2}$` | Mở `$` phải đóng `$` trên cùng dòng |
+| `  @option A: 3` (có dấu cách đầu dòng) | `@option A: 3` | Trường viết sát lề trái |
+| `@option A: A. 3` | `@option A: 3` | Không chép lại nhãn "A." |
+| `@content: Câu 5. [MĐ2] Cho …` | `@difficulty: 2` và `@content: Cho …` | Không chép "Câu 5.", nhãn mức độ đưa vào `@difficulty` |
+| `@answer: Đáp án đúng là C` | `@answer: C` | Chỉ chữ cái |
+| `@answer: a đúng, b sai, c sai, d đúng` | `@answer: a=Đ, b=S, c=S, d=Đ` | Đúng mẫu `chữ=Đ/S`, đủ mọi ý |
+| `@answer: 2,1 cm` | `@answer: 2,1` | `NUMBER` chỉ là số, không đơn vị |
+| `@score: 0,25 điểm` | `@score: 0.25` | Chỉ số |
+| `@difficulty: Thông hiểu` | `@difficulty: 2` | Ghi số 1–4 |
+| `@question: 13` (câu đầu phần II) | `@question: 1` | Đánh số lại từ 1 trong mỗi phần |
+| `![](hinh-p2-c1.png)` (câu in "Câu 13") | `![Hình câu 13](hinh-p2-c13.png)` | Tên ảnh theo **số in trong đề** |
+| Lời giải chép cả "Lời giải" và "Chọn C." | Chỉ nội dung giải; "Chọn C" → `@answer: C` | |
+| Dòng chữ giữa hai câu (tiêu đề phần, "HẾT") | `@part: …` hoặc bỏ đi | Không có chữ ngoài trường |
+| `<br>`, `<u>…</u>`, `<sup>2</sup>` | Dòng trống, `**…**`, `$x^{2}$` | Không dùng HTML |
+| Tự giải rồi điền `@answer` khi đề không có đáp án | `@answer: ?` + nêu trong "Ghi chú" | Không bịa đáp án |
+| Đoán số liệu bị mờ | Ghi `[?]` đúng chỗ đó | Không bịa nội dung |
+
+**Khung file** (chép rồi điền; mỗi câu một khối, giữa các câu một dòng trống):
+
+```text
+@format: elearning-exam/1
+@title: <tên đề>
+@duration: <số phút>
+
+@part: <PHẦN I. …>
+@type: SINGLE_CHOICE
+@score: 0.25
+
+@question: 1
+@difficulty: <1-4>
+@content:
+<nội dung câu hỏi, công thức trong $…$>
+@option A: <…>
+@option B: <…>
+@option C: <…>
+@option D: <…>
+@answer: <A|B|C|D>
+@explanation:
+<lời giải, nếu có>
+```
+
+### B10. Cách trả lời
 
 1. Trả về **toàn bộ file trong đúng một khối code** ```` ```markdown ````, bắt đầu bằng `@format: elearning-exam/1`.
    Không viết gì khác bên trong khối. Nếu bạn tạo được **file tải về**, tạo thêm file `de-thi.md` có nội dung y hệt.
@@ -370,7 +439,7 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
    khối code mới, **không** lặp lại phần đầu file và các câu đã viết (nếu sang phần mới thì mở bằng `@part`).
 4. Người dùng gửi kèm thông báo lỗi của phần mềm: sửa đúng câu bị lỗi, trả lại câu đó (hoặc cả file) trong khối code.
 
-### B10. Ví dụ hoàn chỉnh
+### B11. Ví dụ hoàn chỉnh
 
 ```markdown
 @format: elearning-exam/1
