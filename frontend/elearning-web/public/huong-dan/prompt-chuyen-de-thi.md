@@ -63,7 +63,8 @@ một khối code mới. Chép **nối tiếp** các khối vào cùng một fil
 
 ### A5. Lưu thành file `.md`
 
-- AI tạo được file tải về (Claude, ChatGPT thường có): tải file `.md` đó là xong.
+- AI tạo được file tải về (Claude, ChatGPT thường có): tải file `.md` đó là xong. **Gemini** thường mở một tài liệu
+  *Canvas* bên phải: bấm **Export → .md** để tải file. (Đừng chép chữ đã hiển thị thành công thức: sẽ mất mã LaTeX.)
 - AI chỉ trả lời trong khung chat: bấm nút **Copy** ở góc **khối code** (chỉ chép phần bên trong khối, từ dòng
   `@format:` tới hết câu cuối). Mở **Notepad** → dán → *File → Save As* → *Save as type*: **All files**, *Encoding*:
   **UTF-8** → tên `de-thi.md`.
@@ -141,6 +142,8 @@ quy tắc cố định, nên phải theo **chính xác** định dạng.
   trang rồi gửi lại."
 - Chỉ vài chỗ không đọc được: ghi đúng ký hiệu `[?]` tại chỗ đó (phần mềm sẽ không cho nhập tới khi người dùng điền).
   **Không bịa** số liệu, tọa độ, hàm số cho "hợp lý" hay cho khớp đáp án.
+- **Không "hiệu chỉnh" đề.** Chép đúng như đề, kể cả khi bạn nghĩ đề in sai hoặc lời giải mâu thuẫn; chỗ nghi sai
+  thì giữ nguyên và nêu trong "Ghi chú" để người dùng tự quyết.
 
 ### B3. Cấu trúc file
 

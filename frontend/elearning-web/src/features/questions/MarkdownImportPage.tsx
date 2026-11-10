@@ -36,9 +36,36 @@ export function imageStem(name: string): string {
 
 type ImportImage = PendingImage & { name: string; fromDocx?: boolean };
 
-/** Tên file ảnh (chữ thường, bỏ đuôi) mà file .md tham chiếu. */
-function referencedNames(markdown: string): Set<string> {
-  return new Set([...markdown.matchAll(IMAGE_REF)].map((m) => imageStem(m[2] ?? "")));
+/** Nhóm của một câu: hinh-p1-c3-2 → hinh-p1-c3. */
+const imageGroup = (stem: string) => stem.replace(/-\d+$/, "");
+
+/**
+ * Ghép từng dòng ảnh trong file .md với một ảnh đã chọn: đúng tên → tên bỏ đuôi → (AI đặt sai số thứ tự hình trong câu,
+ * ví dụ "hinh-p1-c2-2" trong khi Word chỉ có "hinh-p1-c2") ảnh cùng câu chưa dòng nào dùng, theo thứ tự.
+ * Trả về: đích trong .md (chữ thường) → ảnh.
+ */
+export function matchImages<T extends Pick<ImportImage, "id" | "name">>(markdown: string, images: readonly T[]): Map<string, T> {
+  const targets = [...new Set([...markdown.matchAll(IMAGE_REF)].map((m) => (m[2] ?? "").toLowerCase()))].filter(
+    (t) => !t.startsWith("media:"),
+  );
+  const byName = new Map(images.map((i) => [i.name.toLowerCase(), i]));
+  const byStem = new Map(images.map((i) => [imageStem(i.name), i]));
+  const result = new Map<string, T>();
+  for (const target of targets) {
+    const image = byName.get(baseName(target)) ?? byStem.get(imageStem(target));
+    if (image) {
+      result.set(target, image);
+    }
+  }
+  const used = new Set([...result.values()].map((i) => i.id));
+  for (const target of targets.filter((t) => !result.has(t))) {
+    const spare = images.find((i) => !used.has(i.id) && imageGroup(imageStem(i.name)) === imageGroup(imageStem(target)));
+    if (spare) {
+      result.set(target, spare);
+      used.add(spare.id);
+    }
+  }
+  return result;
 }
 
 function fileFromBase64(name: string, type: string, base64: string): File {
@@ -55,18 +82,14 @@ function isDocx(file: File): boolean {
 }
 
 /**
- * Thay ![..](hinh-1.png) bằng ![..](media:pending-x) cho các ảnh đã chọn; tên chưa có ảnh giữ nguyên. Khớp đúng tên
- * trước, không có thì khớp tên bỏ đuôi (hinh-p1-c3.png ↔ hinh-p1-c3.jpg lấy từ Word).
+ * Thay ![..](hinh-1.png) bằng ![..](media:pending-x) cho các ảnh đã chọn (ghép theo {@link matchImages}); tên chưa có
+ * ảnh giữ nguyên để server báo thiếu ảnh.
  */
 export function attachImages(markdown: string, images: readonly Pick<ImportImage, "id" | "name">[]): string {
-  const byName = new Map(images.map((i) => [i.name, i.id]));
-  const byStem = new Map(images.map((i) => [imageStem(i.name), i.id]));
+  const matched = matchImages(markdown, images);
   return markdown.replace(IMAGE_REF, (whole, open: string, target: string, close: string) => {
-    if (target.toLowerCase().startsWith("media:")) {
-      return whole;
-    }
-    const id = byName.get(baseName(target)) ?? byStem.get(imageStem(target));
-    return id ? `${open}media:${id}${close}` : whole;
+    const image = matched.get(target.toLowerCase());
+    return image ? `${open}media:${image.id}${close}` : whole;
   });
 }
 
@@ -252,7 +275,8 @@ export function MarkdownImportPage() {
     }
   };
 
-  const referenced = useMemo(() => referencedNames(markdown), [markdown]);
+  // Ảnh Word đã được dòng ảnh nào trong .md dùng (kể cả ghép theo câu khi AI đặt sai số thứ tự hình)
+  const referenced = useMemo(() => new Set([...matchImages(markdown, images).values()].map((i) => imageStem(i.name))), [markdown, images]);
   const docxImages = images.filter((i) => i.fromDocx);
   const unusedDocx = markdown ? docxImages.filter((i) => !referenced.has(imageStem(i.name))) : [];
 
