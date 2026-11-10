@@ -191,6 +191,10 @@ public static partial class ExamMarkdownParser
 
                 raw = parts[0];
             }
+            else
+            {
+                raw = TolerateAiOutput(key, argument, raw);
+            }
 
             result.Add(new Directive(start, key, argument, TrimBlankLines(raw)));
             key = null;
@@ -200,6 +204,13 @@ public static partial class ExamMarkdownParser
         {
             var line = lines[i];
             var lineNo = i + 1;
+
+            // AI hay thụt lề trước trường ("  @option A: …"): nhận nếu đúng là một trường hợp lệ
+            if (line.Length > 0 && char.IsWhiteSpace(line[0]) && line.TrimStart() is var trimmed && IsKnownDirective(trimmed))
+            {
+                line = trimmed;
+            }
+
             if (line.StartsWith("@@", StringComparison.Ordinal))
             {
                 Append(line[1..]);
@@ -306,6 +317,52 @@ public static partial class ExamMarkdownParser
         }
     }
 
+    /// <summary>
+    /// Sửa sẵn các lệch định dạng mà AI hay mắc, đều là sửa chắc chắn đúng (không đoán nội dung): công thức viết
+    /// <c>\( … \)</c> / <c>\[ … \]</c>, chữ "Câu 3." để sót đầu nội dung, nhãn "A." / "a)" chép lại trong phương án / ý.
+    /// </summary>
+    private static string TolerateAiOutput(string key, string? argument, string raw)
+    {
+        raw = DisplayMathBrackets().Replace(raw, m => "$$" + m.Groups["m"].Value + "$$");
+        raw = InlineMathParens().Replace(raw, m => "$" + m.Groups["m"].Value.Trim() + "$");
+        switch (key)
+        {
+            case "content":
+                raw = QuestionLabel().Replace(raw, string.Empty, 1);
+                break;
+            case "option" or "statement" when argument is { Length: 1 }:
+                var text = raw.TrimStart();
+                if (text.Length > 2
+                    && char.ToUpperInvariant(text[0]) == char.ToUpperInvariant(argument[0])
+                    && (text[1] is '.' or ')' or ':')
+                    && char.IsWhiteSpace(text[2]))
+                {
+                    raw = text[3..];
+                }
+
+                break;
+        }
+
+        return raw;
+    }
+
+    private static bool IsKnownDirective(string line)
+    {
+        if (!line.StartsWith('@') || line.StartsWith("@@", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (line.Trim().TrimEnd(':').Equals("@end", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var m = DirectiveLine().Match(line);
+        var key = m.Success ? m.Groups["key"].Value.ToLowerInvariant() : string.Empty;
+        return key is "question" or "part" || HeaderKeys.Contains(key) || QuestionKeys.Contains(key);
+    }
+
     private static string TrimBlankLines(string value)
     {
         var lines = value.Split('\n').ToList();
@@ -409,8 +466,17 @@ public static partial class ExamMarkdownParser
         CheckUnreadable(block, issues);
         CheckFigure(content, options, statements, block, issues);
 
+        // Nhãn mức độ AI để sót ở đầu nội dung ("[MĐ2] Cho …"): bỏ khỏi đề, dùng làm độ khó nếu câu chưa ghi @difficulty
+        var contentText = content?.Value ?? string.Empty;
+        QuestionDifficulty? tagLevel = null;
+        if (LeadingLevelTag().Match(contentText) is { Success: true } tag)
+        {
+            contentText = contentText[tag.Length..];
+            tagLevel = DifficultyLevels.TryParse(tag.Groups["tag"].Value, out var parsed) ? parsed : null;
+        }
+
         var score = ParseScore(Field("score"), block, issues);
-        var difficulty = ParseDifficulty(Field("difficulty"), block, issues);
+        var difficulty = Field("difficulty") is null && tagLevel is not null ? tagLevel : ParseDifficulty(Field("difficulty"), block, issues);
         var tags = Field("tags")?.Value.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
         var answer = Field("answer");
         var explanation = Field("explanation")?.Value;
@@ -428,7 +494,7 @@ public static partial class ExamMarkdownParser
         var input = new QuestionInput
         {
             Code = Field("code")?.Value is { Length: > 0 } code ? code.Trim() : null,
-            Content = content?.Value ?? string.Empty,
+            Content = contentText,
             ContentFormat = ContentFormat.Markdown,
             DefaultScore = score ?? 1,
             Difficulty = difficulty,
@@ -520,6 +586,8 @@ public static partial class ExamMarkdownParser
         var correct = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (RequireAnswer(answer, block, issues) is { } value)
         {
+            // "Chọn C", "Đáp án C", "(C)", "[A, C]" chép từ đề → "C" / "A, C"
+            value = ChoicePrefix().Replace(value, string.Empty).Replace('(', ' ').Replace('[', ' ').Replace(']', ' ');
             foreach (var token in value.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
             {
                 var letter = token.TrimEnd('.', ')').ToUpperInvariant();
@@ -689,7 +757,8 @@ public static partial class ExamMarkdownParser
 
     private static string? RequireAnswer(Directive? answer, QuestionBlock block, List<MarkdownImportIssue> issues)
     {
-        var value = answer?.Value.Trim();
+        // "Đáp án: 2,1", "Trả lời: 85" chép nguyên từ đề → "2,1", "85"
+        var value = answer is null ? null : AnswerPrefix().Replace(answer.Value, string.Empty).Trim();
         if (string.IsNullOrEmpty(value) || value == "?")
         {
             issues.Add(new(answer?.Line ?? block.Line, "answer", "ANSWER_REQUIRED", $"Câu {block.Label}: chưa có đáp án (@answer)."));
@@ -796,4 +865,28 @@ public static partial class ExamMarkdownParser
 
     [GeneratedRegex(@"^\s*(?:(?<k>[a-f])\s*[\)\.=:]\s*(?<v>[^\s,;]+)[\s,;]*)+$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex TruthAnswerList();
+
+    /// <summary>"\[ … \]" (có thể nhiều dòng) → công thức riêng dòng.</summary>
+    [GeneratedRegex(@"\\\[(?<m>[\s\S]+?)\\\]", RegexOptions.CultureInvariant)]
+    private static partial Regex DisplayMathBrackets();
+
+    /// <summary>"\( … \)" trên một dòng → công thức trong dòng.</summary>
+    [GeneratedRegex(@"\\\((?<m>.+?)\\\)", RegexOptions.CultureInvariant)]
+    private static partial Regex InlineMathParens();
+
+    /// <summary>"Câu 3." / "**Câu 3:**" / "Bài 2." ở đầu nội dung câu.</summary>
+    [GeneratedRegex(@"^\s*(?:\*\*)?(?:CÂU|BÀI)\s*\d{1,3}\s*[\.:](?:\*\*)?[ \t]*", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex QuestionLabel();
+
+    /// <summary>Nhãn mức độ đầu nội dung: "[MĐ2]", "(NB)", "[VDC]", "[Mức 3]".</summary>
+    [GeneratedRegex(@"^\s*[\[\(](?<tag>M[ĐD]\s*[1-4]|NB|TH|VDC|VD|MỨC\s*(?:ĐỘ\s*)?[1-4])[\]\)][ \t]*", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex LeadingLevelTag();
+
+    /// <summary>"Đáp án: …", "Đáp số: …", "Trả lời: …" chép nguyên từ đề (bắt buộc có dấu hai chấm để không cắt nhầm đáp án chữ).</summary>
+    [GeneratedRegex(@"^\s*(?:ĐÁP\s*ÁN|ĐÁP\s*SỐ|TRẢ\s*LỜI|KẾT\s*QUẢ)\s*:\s*", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex AnswerPrefix();
+
+    /// <summary>"Chọn C", "Chọn đáp án C", "Đáp án C" của câu chọn phương án.</summary>
+    [GeneratedRegex(@"^\s*(?:CHỌN(?:\s*ĐÁP\s*ÁN)?|ĐÁP\s*ÁN)\s*:?\s*(?=[A-J]\b)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex ChoicePrefix();
 }

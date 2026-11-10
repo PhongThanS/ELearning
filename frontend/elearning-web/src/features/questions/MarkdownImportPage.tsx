@@ -313,17 +313,17 @@ export function MarkdownImportPage() {
             <Card.Body>
               <h2 className="h6"><i className="bi bi-robot me-1" aria-hidden="true" />Chuyển đề sang file .md bằng AI</h2>
               <ol className="small ps-3 mb-3">
-                <li>Tải <strong>prompt hướng dẫn</strong> bên dưới.</li>
+                <li>Tải <strong>prompt & hướng dẫn chi tiết</strong> bên dưới (phần A dành cho thầy cô, phần B cho AI).</li>
                 <li>
-                  Mở Claude / ChatGPT / Gemini, dán prompt và đính kèm <strong>file PDF</strong> của đề (Word → Lưu thành → PDF) hoặc
-                  ảnh chụp. <strong>Không gửi file .docx</strong>: AI không đọc được công thức MathType trong đó.
+                  Mở AI bất kỳ (Claude, ChatGPT, Gemini…), <strong>đính kèm file prompt và file đề</strong>, nhắn "Làm đúng theo PHẦN B".
+                  Đề Word có công thức <strong>MathType</strong>: lưu thành <strong>PDF</strong> rồi gửi PDF.
                 </li>
-                <li>Chỉ chép phần <strong>bên trong khối code</strong> AI trả về, lưu thành file <code>.md</code> và chọn ở bước 1.</li>
+                <li>Lưu phần <strong>bên trong khối code</strong> AI trả về thành file <code>.md</code>, chọn ở bước 1.</li>
                 <li>Ở bước 2 chọn file Word gốc để hệ thống tự lấy hình cho từng câu.</li>
               </ol>
               <div className="d-grid gap-2">
                 <a className="btn btn-sm btn-primary" href="/huong-dan/prompt-chuyen-de-thi.md" download>
-                  <i className="bi bi-download me-1" aria-hidden="true" />Tải prompt cho AI
+                  <i className="bi bi-download me-1" aria-hidden="true" />Tải prompt & hướng dẫn chi tiết
                 </a>
                 <a
                   className="btn btn-sm btn-outline-primary"

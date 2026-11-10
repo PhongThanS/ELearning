@@ -56,6 +56,58 @@ public class ExamMarkdownParserTests
     }
 
     [Fact]
+    public void Common_ai_slips_are_fixed_instead_of_rejected()
+    {
+        // Thụt lề trước trường, \( \) / \[ \], "Câu 1." và [MĐ3] sót trong nội dung, "A." lặp trong phương án,
+        // "Chọn C" / "(B)" / "Đáp án: 2,5" chép nguyên từ đề
+        var doc = ExamMarkdownParser.Parse(Header + """
+              @question: 1
+              @type: SINGLE_CHOICE
+              @score: 0.25
+            @content:
+            **Câu 1.** [MĐ3] Cho hàm số \(y = x^2\). Tính
+            \[
+            y'(1)
+            \]
+              @option A: A. \(1\)
+            @option B: B) 2
+            @answer: Chọn B
+            @explanation:
+            Ta có \(y' = 2x\).
+            @question: 2
+            @type: SINGLE_CHOICE
+            @score: 0.25
+            @content: Câu 2: Chọn
+            @option A: x
+            @option B: y
+            @answer: (A)
+            @question: 3
+            @type: NUMBER
+            @score: 0.5
+            @content: Tính.
+            @answer: Đáp án: 2,5
+            @question: 4
+            @type: TEXT
+            @score: 0.5
+            @content: Cơ chế tiến hóa?
+            @answer: Chọn lọc tự nhiên
+            """);
+
+        doc.FileIssues.Should().BeEmpty();
+        doc.Questions.SelectMany(q => q.Issues).Should().BeEmpty();
+        var q1 = doc.Questions[0].Input!;
+        q1.Content.Should().Be("Cho hàm số $y = x^2$. Tính\n$$\ny'(1)\n$$");
+        q1.Difficulty.Should().Be(QuestionDifficulty.Level3);
+        q1.Options!.Select(o => o.Content).Should().Equal("$1$", "2");
+        q1.Options!.Select(o => o.IsCorrect).Should().Equal(false, true);
+        q1.Explanation.Should().Be("Ta có $y' = 2x$.");
+        doc.Questions[1].Input!.Content.Should().Be("Chọn");
+        doc.Questions[1].Input!.Options!.Select(o => o.IsCorrect).Should().Equal(true, false);
+        doc.Questions[2].Input!.CorrectAnswerNumber.Should().Be(2.5m);
+        doc.Questions[3].Input!.AcceptedAnswers.Should().Equal("Chọn lọc tự nhiên");
+    }
+
+    [Fact]
     public void Example_inside_ai_prompt_parses_without_issues()
     {
         const string fence = "```";
