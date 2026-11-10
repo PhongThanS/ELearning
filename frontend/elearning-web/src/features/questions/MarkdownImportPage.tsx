@@ -325,16 +325,13 @@ export function MarkdownImportPage() {
                 <a className="btn btn-sm btn-primary" href="/huong-dan/prompt-chuyen-de-thi.md" download>
                   <i className="bi bi-download me-1" aria-hidden="true" />Tải prompt cho AI
                 </a>
-                <a className="btn btn-sm btn-outline-primary" href="/huong-dan/mau-de-thi.md" download>
-                  <i className="bi bi-file-earmark-text me-1" aria-hidden="true" />Tải file đề mẫu (.md)
-                </a>
                 <a
                   className="btn btn-sm btn-outline-primary"
-                  href="/huong-dan/mau-de-thi-co-loi-giai.md"
+                  href="/huong-dan/mau-de-thi.md"
                   download
-                  title="Đề Word dạng có lời giải dưới từng câu: [MĐ1]–[MĐ4], Chọn C, Đúng/Sai dạng bảng, Trả lời: …"
+                  title="Đề có lời giải dưới từng câu, đủ 4 mức độ: trắc nghiệm, Đúng/Sai, trả lời ngắn, hình trong đề và lời giải"
                 >
-                  <i className="bi bi-file-earmark-check me-1" aria-hidden="true" />Tải đề mẫu có lời giải, 4 mức độ (.md)
+                  <i className="bi bi-file-earmark-text me-1" aria-hidden="true" />Tải file đề mẫu (.md)
                 </a>
               </div>
             </Card.Body>

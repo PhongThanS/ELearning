@@ -1,101 +1,94 @@
 @format: elearning-exam/1
-@title: Đề mẫu – Kiểm tra Toán 12
-@code: DE-MAU-TOAN12
-@duration: 90
-@category: TOAN12
+@title: Đề mẫu có lời giải – Vectơ (Toán 10)
+@code: DE-MAU-VECTO10
+@duration: 45
 @instructions:
-Thời gian làm bài **90 phút**. Không sử dụng tài liệu.
+Đề mẫu chuyển từ đề Word dạng "có lời giải ngay dưới từng câu": mức độ `[MĐ1]`–`[MĐ4]`, "Lời giải – Chọn C",
+câu Đúng/Sai dạng bảng, "Trả lời: 0,31". Ở bước 2 chọn file Word gốc để lấy hình `hinh-p…-c….png`.
 
-@part: PHẦN I. Trắc nghiệm nhiều phương án lựa chọn
+@part: PHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn
 @type: SINGLE_CHOICE
 @score: 0.25
 
 @question: 1
 @difficulty: 1
-@tags: tiem-can
 @content:
-Đường tiệm cận đứng của đồ thị hàm số $y = \dfrac{2x - 1}{x + 3}$ có phương trình là
-@option A: $x = 3$
-@option B: $x = -3$
-@option C: $y = 2$
-@option D: $y = -3$
-@answer: B
+Cho tam giác $ABC$ với trung tuyến $AM$ và trọng tâm $G$. Tìm số thực $k$ thỏa mãn $\overrightarrow{GA} = k.\overrightarrow{GM}$.
+@option A: $\dfrac{1}{2}$
+@option B: $-\dfrac{1}{2}$
+@option C: $-2$
+@option D: $2$
+@answer: C
 @explanation:
-Mẫu số bằng $0$ khi $x = -3$, tử số khác $0$ tại đó nên tiệm cận đứng là $x = -3$.
+![Tam giác ABC, trung tuyến AM, trọng tâm G](hinh-p1-c1.png)
 
-@question: 2
-@difficulty: 2
-@content:
-Cho hàm số $y = f(x)$ có đồ thị như hình vẽ. Giá trị cực đại của hàm số bằng
+Vì $GA = 2GM$, $\overrightarrow{GA}$ và $\overrightarrow{GM}$ ngược hướng nên $\overrightarrow{GA} = -2\overrightarrow{GM}$. Vậy $k = -2$.
 
-![Đồ thị hàm số y = f(x)](hinh-cau-2.png)
-@option A: $3$
-@option B: $2$
-@option C: $1$
-@option D: $-1$
-@answer: A
-
-@part: PHẦN II. Trắc nghiệm đúng sai
+@part: PHẦN II. Câu trắc nghiệm đúng sai
 @type: TRUE_FALSE
 @score: 1
 
 @question: 1
+@difficulty: 2
 @content:
-Cho hàm số $y = x^3 - 3x + 1$.
-@statement a: Hàm số đồng biến trên khoảng $(1; +\infty)$.
-@statement b: Hàm số đạt cực đại tại $x = 1$.
-@statement c: Giá trị cực tiểu của hàm số bằng $-1$.
-@statement d: Đồ thị hàm số cắt trục tung tại điểm $(0; 1)$.
-@answer: a=Đ, b=S, c=Đ, d=Đ
+Cho bốn điểm $A, B, C, D$ có $M, N$ là trung điểm của $AB, CD$.
+@statement a: $\overrightarrow{MA} + \overrightarrow{MB} = \vec{0}$
+@statement b: $\overrightarrow{NC} + \overrightarrow{ND} = \vec{0}$
+@statement c: $\overrightarrow{MN} = \overrightarrow{MA} + \overrightarrow{AC}$
+@statement d: $2\overrightarrow{MN} = \overrightarrow{AC} + \overrightarrow{BD}$
+@answer: a=Đ, b=Đ, c=S, d=Đ
 @explanation:
-$y' = 3x^2 - 3 = 0 \Leftrightarrow x = \pm 1$.
+a) $M$ là trung điểm của $AB$ nên $\overrightarrow{MA} + \overrightarrow{MB} = \vec{0}$. Chọn ĐÚNG.
 
-- Hàm số đồng biến trên $(-\infty; -1)$ và $(1; +\infty)$ nên a) đúng.
-- Cực đại tại $x = -1$, không phải $x = 1$ nên b) sai.
-- $y(1) = -1$ nên c) đúng; $y(0) = 1$ nên d) đúng.
+b) $N$ là trung điểm của $CD$ nên $\overrightarrow{NC} + \overrightarrow{ND} = \vec{0}$. Chọn ĐÚNG.
 
-@part: PHẦN III. Trả lời ngắn
+c) $\overrightarrow{MA} + \overrightarrow{AC} = \overrightarrow{MC} \ne \overrightarrow{MN}$. Chọn SAI.
+
+d) $\overrightarrow{MN} = \overrightarrow{MA} + \overrightarrow{AC} + \overrightarrow{CN}$ và $\overrightarrow{MN} = \overrightarrow{MB} + \overrightarrow{BD} + \overrightarrow{DN}$.
+Cộng hai đẳng thức trên vế theo vế, ta chứng minh được $2\overrightarrow{MN} = \overrightarrow{AC} + \overrightarrow{BD}$. Chọn ĐÚNG.
+
+@part: PHẦN III. Câu trắc nghiệm trả lời ngắn
 @type: NUMBER
 @score: 0.5
 
 @question: 1
+@difficulty: 3
 @content:
-Một chất điểm chuyển động theo phương trình $s(t) = t^3 - 6t^2 + 15t$ (mét, giây). Vận tốc nhỏ nhất của chất điểm bằng bao nhiêu m/s?
-@answer: 3
+Một vật đang ở vị trí $O$ chịu hai lực tác dụng ngược chiều nhau là $\vec{F}_{1}$ và $\vec{F}_{2}$, trong đó độ lớn lực
+$\vec{F}_{2}$ lớn gấp đôi độ lớn lực $\vec{F}_{1}$. Người ta muốn vật dừng lại nên cần tác dụng vào vật hai lực
+$\vec{F}_{3}, \vec{F}_{4}$ có phương hợp với lực $\vec{F}_{1}$ các góc $45^\circ$ như hình vẽ, chúng có độ lớn bằng nhau
+và bằng $20\text{ N}$. Tính tổng độ lớn của các lực $\vec{F}_{1}, \vec{F}_{2}$. Kết quả làm tròn đến hàng đơn vị.
+
+![Các lực tác dụng lên vật tại O](hinh-p3-c20.png)
+@answer: 85
 @explanation:
-$v(t) = s'(t) = 3t^2 - 12t + 15$, nhỏ nhất tại $t = 2$: $v(2) = 3$ m/s.
+![Hình vẽ lời giải](hinh-p3-c20-2.png)
+
+Ta có $\vec{F}_{2} = -2\vec{F}_{1}$. Để vật trở về trạng thái cân bằng thì hợp lực bằng $\vec{0}$; tính độ lớn hợp lực
+của $\vec{F}_{3}, \vec{F}_{4}$ rồi suy ra tổng độ lớn của $\vec{F}_{1}, \vec{F}_{2}$ xấp xỉ $85$ N.
 
 @question: 2
+@difficulty: 4
 @content:
-Tính $\displaystyle\int_0^1 (2x + 1)\,dx$ (làm tròn đến hàng phần mười).
-@answer: 2
-@tolerance: 0.05
-
-@part: Câu hỏi bổ sung
-@question: 1
-@type: MULTIPLE_CHOICE
-@score: 0.5
-@partial: yes
-@content:
-Những hàm số nào sau đây **đồng biến** trên $\mathbb{R}$?
-@option A: $y = x^3 + x$
-@option B: $y = -x + 2$
-@option C: $y = e^x$
-@option D: $y = x^2$
-@answer: A, C
-
-@question: 2
-@type: TEXT
-@score: 0.5
-@ignore_accent: yes
-@content:
-Thủ đô của Việt Nam là thành phố nào?
-@answer: Hà Nội | Thành phố Hà Nội
-
-@question: 3
-@type: ESSAY
-@score: 2
-@content:
-Chứng minh rằng tổng của hai số lẻ bất kỳ là một số chẵn.
+Cho tam giác $ABC$. Gọi $D, E$ lần lượt là các điểm thỏa mãn: $\overrightarrow{BD} = \dfrac{3}{4}\overrightarrow{BC}$,
+$\overrightarrow{AE} = \dfrac{1}{4}\overrightarrow{AC}$. Gọi $BE$ cắt $AD$ tại $K$. Tỉ số $\dfrac{AK}{AD}$ bằng (kết quả làm
+tròn đến hàng phần trăm)
+@answer: 0,31
 @explanation:
-Gọi hai số lẻ là $2m + 1$ và $2n + 1$. Tổng bằng $2(m + n + 1)$, chia hết cho $2$.
+![Hình vẽ lời giải](hinh-p3-c22.png)
+
+Vì $\overrightarrow{AE} = \dfrac{1}{4}\overrightarrow{AC} \Rightarrow \overrightarrow{BE} = \dfrac{1}{4}\overrightarrow{BC} + \dfrac{3}{4}\overrightarrow{BA}$ (1).
+
+Giả sử $\overrightarrow{AK} = x\cdot\overrightarrow{AD} \Rightarrow \overrightarrow{BK} = x\cdot\overrightarrow{BD} + (1 - x)\cdot\overrightarrow{BA}$.
+
+Mà $\overrightarrow{BD} = \dfrac{3}{4}\overrightarrow{BC}$ nên $\overrightarrow{BK} = \dfrac{3x}{4}\cdot\overrightarrow{BC} + (1 - x)\cdot\overrightarrow{BA}$.
+
+Vì $B, K, E$ thẳng hàng ($B$ không trùng $E$) nên có $m$ sao cho $\overrightarrow{BK} = m\cdot\overrightarrow{BE}$.
+
+Do đó $\dfrac{3x}{4}\overrightarrow{BC} + (1 - x)\overrightarrow{BA} = \dfrac{m}{4}\overrightarrow{BC} + \dfrac{3m}{4}\overrightarrow{BA}$,
+hay $\left(\dfrac{m}{4} - \dfrac{3x}{4}\right)\overrightarrow{BC} + \left(\dfrac{3m}{4} + x - 1\right)\overrightarrow{BA} = \vec{0}$.
+
+Do $\overrightarrow{BC}, \overrightarrow{BA}$ không cùng phương nên
+$\begin{cases} \dfrac{m}{4} - \dfrac{3x}{4} = 0 \\ \dfrac{3m}{4} + x - 1 = 0 \end{cases} \Leftrightarrow \begin{cases} m = \dfrac{12}{13} \\ x = \dfrac{4}{13} \end{cases}$
+
+Vậy $\dfrac{AK}{AD} = \dfrac{4}{13} \approx 0{,}31$.

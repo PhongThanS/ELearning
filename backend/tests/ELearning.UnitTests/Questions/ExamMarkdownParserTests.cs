@@ -11,27 +11,13 @@ public class ExamMarkdownParserTests
     [Fact]
     public void Sample_file_shipped_to_users_parses_without_issues()
     {
+        // Đề mẫu có lời giải dưới từng câu, đủ 4 mức độ (chuyển từ đề Word thật)
         var doc = ExamMarkdownParser.Parse(File.ReadAllText(PublicFile("mau-de-thi.md")));
 
         doc.FileIssues.Should().BeEmpty();
-        doc.Questions.Should().HaveCount(8);
         doc.Questions.SelectMany(q => q.Issues).Should().BeEmpty();
-        doc.Header.Title.Should().Be("Đề mẫu – Kiểm tra Toán 12");
-        doc.Header.DurationMinutes.Should().Be(90);
-        doc.Header.CategoryCode.Should().Be("TOAN12");
-        doc.Questions.Select(q => q.Input!.QuestionType).Should().Equal(
-            QuestionType.SingleChoice, QuestionType.SingleChoice, QuestionType.TrueFalse, QuestionType.FillIn,
-            QuestionType.FillIn, QuestionType.MultipleChoice, QuestionType.FillIn, QuestionType.Essay);
-        doc.Questions.Sum(q => q.Input!.DefaultScore).Should().Be(5.5m);
-    }
-
-    [Fact]
-    public void Sample_with_solutions_and_four_levels_parses_without_issues()
-    {
-        var doc = ExamMarkdownParser.Parse(File.ReadAllText(PublicFile("mau-de-thi-co-loi-giai.md")));
-
-        doc.FileIssues.Should().BeEmpty();
-        doc.Questions.SelectMany(q => q.Issues).Should().BeEmpty();
+        doc.Header.DurationMinutes.Should().Be(45);
+        doc.Questions.Sum(q => q.Input!.DefaultScore).Should().Be(2.25m);
         doc.Questions.Select(q => q.Input!.Difficulty).Should().Equal(
             QuestionDifficulty.Level1, QuestionDifficulty.Level2, QuestionDifficulty.Level3, QuestionDifficulty.Level4);
         doc.Questions.Select(q => q.Input!.QuestionType).Should().Equal(

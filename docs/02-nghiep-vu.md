@@ -62,7 +62,7 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
   prompt `frontend/elearning-web/public/huong-dan/prompt-chuyen-de-thi.md` (tải ở màn hình nhập) → **Ngân hàng câu hỏi →
   Nhập đề từ file** → hệ thống đọc, kiểm tra, hiển thị xem trước đúng như học viên thấy → bấm nhập.
   Hệ thống **không** gọi AI: chỉ đọc định dạng chặt chẽ bằng quy tắc cố định, cùng file luôn ra cùng kết quả.
-- **Định dạng `elearning-exam/1`** (đặc tả đầy đủ trong prompt; file mẫu `public/huong-dan/mau-de-thi.md`; mẫu đề có lời giải dưới từng câu, đủ 4 mức độ: `public/huong-dan/mau-de-thi-co-loi-giai.md`, tải ở trang Nhập đề):
+- **Định dạng `elearning-exam/1`** (đặc tả đầy đủ trong prompt; file mẫu `public/huong-dan/mau-de-thi.md` — đề có lời giải dưới từng câu, đủ 4 mức độ, nút "Tải file đề mẫu" ở trang Nhập đề):
   - Mỗi trường là một dòng `@tên: giá trị` sát lề trái; các dòng tiếp theo nối vào trường đang mở (nội dung nhiều dòng,
     Markdown, LaTeX, bảng, ảnh không cần escape). Dòng nội dung bắt đầu bằng `@` viết `@@`.
   - Đầu file: `@format: elearning-exam/1` (bắt buộc), `@title`, `@code`, `@duration` (phút), `@category` (mã danh mục),
