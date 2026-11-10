@@ -110,134 +110,25 @@ Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
   file) rồi theo ảnh chưa dùng **của đúng câu đó**; không bao giờ lấy ảnh của câu khác. Còn dòng ảnh thiếu (AI gán
   hình cho nhầm câu) thì mục "Thiếu ảnh" ghi câu / dòng của từng dòng ảnh và hiện các hình **chưa dùng** để người dùng
   bấm chọn; chọn xong sửa thẳng tên ảnh trong file `.md` (tải được "file đã sửa") rồi kiểm tra lại — hệ thống không tự
-  đoán hình của câu khác. File Word có công thức
-  **MathType** (đối tượng OLE "Equation.DSMT…" / "Equation.3") → bước 2 hiện **cảnh báo đỏ** kèm số công thức: gửi
-  `.docx` loại này, AI không thấy công thức và hay tự bịa công thức / phương án khớp đáp án (file vẫn hợp lệ), nên giáo
-  viên phải đối chiếu từng công thức hoặc làm lại bằng bản PDF. Hình WMF /
+  đoán hình của câu khác. **Đối chiếu công thức với file Word:** khi đã chọn file Word ở bước 2, SClass đọc công thức
+  của file Word (MathType và công thức Word, như `docx-for-ai`) và so từng công thức trong phần đề (nội dung, phương án,
+  ý; bỏ `@answer`, lời giải chỉ tham khảo) của file `.md` sau khi chuẩn hóa cách viết (`\vec` ↔ `\overrightarrow`,
+  `\dfrac` ↔ `\frac`, `\triangle` ↔ `\Delta`, dấu cách, `array` ↔ `cases`…; bỏ công thức chỉ là tên điểm như `$ABC$`).
+  Câu có công thức không có trong Word (AI tự bịa, thường do gửi thẳng `.docx` có MathType) được **đánh dấu đỏ ngay tại
+  câu**, kèm các công thức lệch, **đề gốc của câu đó lấy từ Word** và nút "Sửa câu này theo đề gốc" (sửa thẳng trên
+  trang xem trước, lưu là kiểm tra lại). Đầu trang có nhãn "N câu có công thức khác file Word" / "Công thức khớp file
+  Word"; không chặn nhập. Đề gốc từng câu cắt theo dòng "Câu N:" của Word, ghép theo thứ tự câu. Đo trên đề mẫu: file
+  AI chép đúng khớp 96–100% công thức phần đề, file AI bịa chỉ 37–45%. Hình WMF /
   EMF (trình duyệt không hiển thị) hoặc lớn hơn `Media:MaxBytes` được liệt kê để cắt tay. Giao diện cảnh báo hình có
   trong Word mà file `.md` không dùng (câu có thể thiếu hình). Ảnh người dùng tự chọn cùng tên được ưu tiên hơn ảnh
   lấy từ Word.
-- **Chuyển đề Word cho AI** (nút trên trang Nhập đề và trong cảnh báo MathType ở bước 2; `POST …/docx-for-ai`): AI không đọc được công thức MathType trong `.docx` và hay tự bịa công thức khớp đáp án, nên SClass tự đổi file Word thành `<tên>-cho-AI.md` — chữ theo đúng thứ tự, số câu / nhãn Word tự đánh được in ra, công thức MathType (giải MTEF trong đối tượng OLE) và công thức Word (OMML) thành LaTeX, công thức không giải được ghi `[?]`, bảng thành dòng `| … |`, hình thành dòng ảnh đặt tên **giống hệt** lúc lấy hình ở bước 2. Giáo viên gửi file này (hoặc PDF) cho AI kèm prompt, không gửi thẳng `.docx`. Không lưu gì trên server.
-- **File prompt** (`public/huong-dan/prompt-chuyen-de-thi.md`, nút "Tải prompt & hướng dẫn chi tiết") gồm **phần A** hướng dẫn giáo viên (gửi gì cho AI theo loại file, cách gửi cho mọi AI bằng đính kèm file, đề dài, lưu `.md`, bảng lỗi thường gặp → cách sửa) và **phần B** prompt cho AI (đọc đầu vào theo loại file, dừng khi không đọc được MathType, định dạng, LaTeX chỉ dùng `# 02 — Nghiệp vụ
-
-## 1. Loại câu hỏi
-
-MVP có đúng 4 loại. Mọi loại dùng chung một bảng; không tạo bảng riêng cho từng loại.
-
-| `QuestionType` | Mô tả | Lưu đáp án đúng |
-|---|---|---|
-| `SINGLE_CHOICE` | Chọn 1 | `IsCorrect` trên option |
-| `MULTIPLE_CHOICE` | Chọn nhiều | `IsCorrect` trên option |
-| `TRUE_FALSE` | Đúng / Sai | `IsCorrect` trên option |
-| `FILL_IN` | Điền đáp án | `AcceptedAnswers` (TEXT) hoặc `CorrectAnswerNumber` (NUMBER) |
-
-Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
-
-### 1.1 Quy tắc hợp lệ
-
-| Loại | Quy tắc |
-|---|---|
-| `SINGLE_CHOICE` | 2–10 option (khuyến nghị 4); đúng **1** option đúng |
-| `MULTIPLE_CHOICE` | 2–10 option; **≥ 1** option đúng |
-| `TRUE_FALSE` | **Nhiều mệnh đề:** 1–6 mệnh đề mã `A`…`F`, mỗi mệnh đề có `IsCorrect` (Đúng / Sai). **Kiểu cũ:** đúng 2 option mã `TRUE` và `FALSE`, đúng 1 option đúng |
-| `FILL_IN` + `TEXT` | Không có option; **≥ 1** đáp án chấp nhận; tối đa 20 |
-| `FILL_IN` + `NUMBER` | Không có option; bắt buộc `CorrectAnswerNumber`; `NumericTolerance ≥ 0` |
-
-**Quy tắc chung:**
-- `OptionCode` là chữ cái in hoa `A`–`J` (hoặc `TRUE` / `FALSE`), duy nhất trong một câu.
-- Nội dung câu hỏi: 1–10.000 ký tự. Nội dung option: 1–2.000 ký tự.
-- Điểm (`Score`) nằm trong khoảng `0.25`–`100`, bước `0.25`.
-- `Code` của câu hỏi là duy nhất và không được dùng lại, kể cả khi câu hỏi đã tắt. Nếu để trống, hệ thống tự sinh `Q000123`.
-
-### 1.2 Nội dung câu hỏi (D-17)
-
-- `ContentFormat`: `PLAIN` hoặc `MARKDOWN`.
-- Markdown được hỗ trợ: đoạn văn, xuống dòng, **đậm**, *nghiêng*, `inline code`, code block có ngôn ngữ, danh sách, bảng.
-- **HTML thô bị vô hiệu hóa** khi render (không bật `rehype-raw`). Liên kết chỉ nhận `http`/`https`. Ảnh chỉ nhận ảnh đã tải lên hệ thống, cú pháp `![mô tả](media:<id>)` (mục 1.4); ảnh ngoài (`http…`) không hiển thị.
-- Lý do: đề demo là "C# Basic", cần hiển thị code nhiều dòng; plain text không đủ.
-
-### 1.3 Import câu hỏi từ Excel (sau MVP, đã làm)
-
-- File `.xlsx` tối đa 5 MB, tối đa 1.000 câu mỗi lần. Đọc sheet `CauHoi` (không có thì sheet đầu tiên). Cột được nhận theo **tiêu đề**, không theo vị trí.
-- File mẫu (`GET /api/questions/import/template`) có sẵn sheet hướng dẫn và danh sách mã danh mục đang hoạt động.
-- Cột: `Mã`, `Danh mục` (mã), `Loại`, `Định dạng`, `Nội dung`, `Điểm`, `Lựa chọn A` … `Lựa chọn J`, `Đáp án đúng`, `Kiểu đáp án`, `Đáp án chấp nhận` (cách nhau bởi `|` hoặc xuống dòng), `Đáp án số`, `Sai số`, `Phân biệt hoa thường`, `Bỏ qua dấu`, `Giải thích`.
-- `Loại` nhận mã enum hoặc tên tiếng Việt. Đúng / Sai nhận `Đúng` / `Sai` / `TRUE` / `FALSE`. Số nhận dấu phẩy hoặc dấu chấm thập phân. Định dạng mặc định là `MARKDOWN`.
-- Mỗi dòng đi qua **đúng validator và domain của chức năng tạo câu hỏi**. Không có quy tắc hợp lệ riêng cho import.
-- Kiểm tra thêm: danh mục phải tồn tại và đang hoạt động; mã câu không trùng câu đã có và không trùng nhau trong file; lựa chọn phải liên tục từ A.
-- **Tất cả hoặc không:** có một dòng lỗi thì không câu nào được tạo, kết quả trả lỗi theo từng dòng (số dòng Excel + tên cột). `dryRun=true` chỉ kiểm tra.
-- Import thành công ghi một audit `QUESTIONS_IMPORTED` (số câu và danh sách mã).
-
-
-### 1.4 Ảnh trong câu hỏi (sau MVP, đã làm, D-27)
-
-- Dùng được ở **đề bài, nội dung lựa chọn và giải thích** (đề bài phải là Markdown; chèn ảnh vào đề PLAIN thì trình soạn tự bật Markdown).
-- Admin bấm "Chèn ảnh" → chọn PNG / JPEG / GIF / WebP tối đa 2 MB (kiểm tra ngay trên trình duyệt) → ảnh **chỉ hiển thị xem trước trên máy**, nội dung được chèn mã tạm `![tên file](media:pending-…)`. **Ảnh chỉ được tải lên server khi bấm Tạo mới / Lưu:** chỉ ảnh còn được dùng trong đề, lựa chọn hoặc giải thích mới được tải lên (lưu thành file trong thư mục ảnh `Media:RootPath`, theo SHA-256), mã tạm được thay bằng `media:<id>` thật rồi mới lưu câu hỏi. Ảnh đã bỏ hoặc đã xóa khỏi nội dung không bao giờ lên server. Sửa phần mô tả trong ngoặc vuông để có văn bản thay thế cho trình đọc màn hình.
-- **Ảnh bất biến:** không sửa, không xóa (D-16). Thay ảnh = tải ảnh mới và sửa nội dung. Nhờ vậy version đã publish (snapshot giữ chuỗi `media:<id>`) luôn hiển thị đúng ảnh lúc publish (D-01). Cùng một file tải lên nhiều lần chỉ lưu một bản.
-- Lưu hoặc import câu hỏi có `media:<id>` không tồn tại → lỗi `MEDIA_NOT_FOUND`.
-- **Ảnh không làm lộ đáp án:** học viên chỉ nhận URL của ảnh nằm trong các trường được trả về. Khi đang thi chỉ có ảnh của đề và lựa chọn; ảnh của giải thích chỉ có khi `ReviewPolicy` cho xem lại.
-
-### 1.5 Nhập đề từ file Markdown (sau MVP, đã làm, D-29)
-
-- **Luồng:** đề Word / PDF / ảnh chụp → người dùng nhờ AI bất kỳ (Claude, ChatGPT, Gemini…) chuyển sang file `.md` theo
-  prompt `frontend/elearning-web/public/huong-dan/prompt-chuyen-de-thi.md` (tải ở màn hình nhập) → **Ngân hàng câu hỏi →
-  Nhập đề từ file** → hệ thống đọc, kiểm tra, hiển thị xem trước đúng như học viên thấy → bấm nhập.
-  Hệ thống **không** gọi AI: chỉ đọc định dạng chặt chẽ bằng quy tắc cố định, cùng file luôn ra cùng kết quả.
-- **Định dạng `elearning-exam/1`** (đặc tả đầy đủ trong prompt; đề mẫu: `public/huong-dan/de-goc-mau.docx` (đề Word thật: lời giải dưới từng câu, `[MĐ1]`–`[MĐ4]`, Đúng/Sai dạng bảng, MathType, 20 hình) và `mau-de-thi.md` chuyển đủ 22 câu từ đề đó; nút "Tải đề mẫu" ở trang Nhập đề tải `de-thi-mau.zip` gồm cả hai để thử nhập 2 bước — test đơn vị bắt file nén khớp hai file và mọi hình trong `.md` lấy được từ file Word):
-  - Mỗi trường là một dòng `@tên: giá trị` sát lề trái; các dòng tiếp theo nối vào trường đang mở (nội dung nhiều dòng,
-    Markdown, LaTeX, bảng, ảnh không cần escape). Dòng nội dung bắt đầu bằng `@` viết `@@`.
-  - Đầu file: `@format: elearning-exam/1` (bắt buộc), `@title`, `@code`, `@duration` (phút), `@category` (mã danh mục),
-    `@instructions`, `@description`.
-  - `@part` mở một phần, có thể khai mặc định `@type` / `@score` / `@difficulty` / `@tags` cho các câu trong phần.
-  - Mỗi câu: `@question`, `@type` (`SINGLE_CHOICE`, `MULTIPLE_CHOICE`, `TRUE_FALSE`, `NUMBER`, `TEXT`, `ESSAY`), `@score`,
-    `@content`, `@option A..J` / `@statement a..f`, `@answer` (`B`; `A, C`; `a=Đ, b=S…`; số; `chữ | chữ`), `@tolerance`,
-    `@ignore_accent`, `@case_sensitive`, `@partial`, `@explanation`, `@difficulty`, `@tags`, `@code`.
-  - `NUMBER` / `TEXT` tạo câu `FILL_IN` kiểu số / chữ. Mọi câu nhập có `ContentFormat = MARKDOWN`.
-- **Không đoán:** trường lạ, thiếu trường, lựa chọn không liên tục, đáp án không khớp lựa chọn / thiếu ý, `@answer: ?`,
-  chữ nằm ngoài trường… đều là lỗi kèm **số dòng**. Rào ```markdown … ``` bao cả file (chép từ khung chat AI) được bỏ qua.
-- **Chặn lỗi hay gặp khi AI chuyển đề** (file đúng cú pháp nhưng nội dung chưa dùng được):
-  - `CONTENT_UNREADABLE`: còn `[?]` (prompt yêu cầu AI ghi ở chỗ không đọc được) hoặc ghi chú kiểu
-    "[… không trích xuất được]" trong nội dung / lựa chọn / ý / đáp án / lời giải.
-  - `FIGURE_MISSING`: nội dung câu nói "như hình", "hình vẽ", "hình bên"… mà câu không có dòng ảnh.
-  - `AI_NOTES_INCLUDED`: mục "Ghi chú", dòng `eof` của AI bị chép vào file (nếu không chặn sẽ nối vào lời giải câu cuối);
-    `AI_RESPONSE_INCOMPLETE`: còn dòng "TIẾP TỤC Ở PHẦN SAU" (đề chưa chuyển hết).
-- **Kiểm tra giống import Excel (mục 1.3):** mỗi câu qua đúng validator và domain của chức năng tạo câu hỏi; **tất cả hoặc không**; audit `QUESTIONS_IMPORTED` (`Source = MARKDOWN`). Tối đa 500 câu, khoảng 2 MB văn bản.
-- **Sửa lúc xem trước:** mỗi câu có ô **mức độ** (Mức 1 / 2 / 3 / 4 / chưa đặt; ghi vào file là `@difficulty: 1` … `4`) và nút **sửa** mở đúng đoạn văn bản
-  của câu trong file `.md`; có thêm "đặt độ khó cho tất cả câu". Mọi thay đổi sửa thẳng vào nội dung file (dòng
-  `@difficulty` riêng của câu, hoặc thay cả khối câu) rồi server kiểm tra lại cả file như lúc mới chọn — không có
-  đường nhập nào bỏ qua kiểm tra. Bỏ độ khó riêng thì câu theo mặc định của `@part` (nếu có). Tải được file `.md` đã sửa.
-- **Chuyên đề và cách nhập:** trang không chọn chuyên đề trước. Xem trước xong bấm **Import** → hộp thoại chọn **đúng một
-  chuyên đề** cho cả bộ câu hỏi (**luôn bắt buộc**; API nhập thật thiếu `categoryId` → 400 `CATEGORY_REQUIRED`, kể cả
-  khi tạo đề thi) và ô **"Tạo đề thi"**: tích → tạo câu hỏi trong ngân hàng và tạo luôn đề thi nháp thuộc chuyên đề đó
-  (API gửi `forExam: true`, D-30); không tích → chỉ nhập câu hỏi vào ngân hàng của chuyên đề. Bản kiểm tra (dryRun)
-  không cần chuyên đề (dùng `@category` nếu có để xem trước).
-- **Mã câu hỏi sinh theo chuyên đề:** `<mã chuyên đề>-<mức độ 2 số>-<số thứ tự 6 số>`, ví dụ chuyên đề `12.HS` →
-  `12.HS-01-000001`. Mức độ trống → `00`. Số thứ tự **đếm chung cả chuyên đề**, nối tiếp số lớn nhất đã có (không trùng;
-  khóa `pg_advisory_xact_lock` theo chuyên đề khi nhập song song). Ký tự ngoài `A-Z a-z 0-9 . _ -` trong mã chuyên đề (`#`, `+`)
-  đổi thành `_`. `@code` của từng câu trong file bị bỏ qua.
-- **Ảnh:** đề ghi `![mô tả](ten-file.png)`; người dùng chọn các file ảnh cùng tên ở màn hình nhập. Ảnh chỉ được tải lên
-  (D-27) khi bấm nhập, rồi tên file được thay bằng `media:<id>`. Thiếu ảnh hoặc ảnh từ trang ngoài (`http…`) thì không nhập được.
-- **Lấy hình từ file Word gốc (không AI):** người dùng chọn file `.docx` gốc ở bước chọn ảnh; server đọc file (không lưu),
-  lấy các hình vẽ (ảnh DrawingML / VML, **bỏ** ảnh xem trước của công thức MathType) theo thứ tự trong đề và đặt tên theo
-  vị trí: phần từ dòng "PHẦN I/II/…" (I → 1; chưa có dòng phần → 1), câu từ dòng "Câu 3." / "Bài 3:" hoặc từ số Word
-  **tự đánh** có mẫu "Câu %1:" (đếm như Word in ra: đánh tiếp qua các phần, theo `startOverride` nếu có) →
-  `hinh-p<phần>-c<câu>.png`, hình thứ hai trở đi của câu thêm `-2`, `-3` — kể cả hình trong "Lời giải" ngay dưới câu,
-  đếm tiếp theo thứ tự xuất hiện; hình trước câu đầu của phần → `hinh-p<phần>-chung.png`. Dừng ở tiêu đề viết hoa
-  "BẢNG ĐÁP ÁN" / "LỜI GIẢI" / "HƯỚNG DẪN GIẢI" (phần lời giải gom cuối đề, đánh số lại từ câu 1) để hình không bị đặt
-  nhầm tên; cùng một hình xuất hiện lại chỉ lấy một lần. Prompt yêu cầu AI đặt tên ảnh đúng quy ước này nên hai bên
-  khớp nhau. Ảnh ghép theo tên **bỏ đuôi** (`.md` ghi `hinh-p1-c3.png`, hình trong Word là `.jpg` vẫn khớp). AI hay
-  lệch số câu (đánh lại từ 1 mỗi phần: `hinh-p2-c2` trong khi Word in "Câu 14", hoặc ngược lại) hay lệch số thứ tự hình
-  (`-2`), nên dòng ảnh không khớp tên được ghép tiếp theo **vị trí câu** trong file (thứ tự câu trong phần / trong cả
-  file) rồi theo ảnh chưa dùng **của đúng câu đó**; không bao giờ lấy ảnh của câu khác. Còn dòng ảnh thiếu (AI gán
-  hình cho nhầm câu) thì mục "Thiếu ảnh" ghi câu / dòng của từng dòng ảnh và hiện các hình **chưa dùng** để người dùng
-  bấm chọn; chọn xong sửa thẳng tên ảnh trong file `.md` (tải được "file đã sửa") rồi kiểm tra lại — hệ thống không tự
-  đoán hình của câu khác. File Word có công thức
-  **MathType** (đối tượng OLE "Equation.DSMT…" / "Equation.3") → bước 2 hiện **cảnh báo đỏ** kèm số công thức: gửi
-  `.docx` loại này, AI không thấy công thức và hay tự bịa công thức / phương án khớp đáp án (file vẫn hợp lệ), nên giáo
-  viên phải đối chiếu từng công thức hoặc làm lại bằng bản PDF. Hình WMF /
-  EMF (trình duyệt không hiển thị) hoặc lớn hơn `Media:MaxBytes` được liệt kê để cắt tay. Giao diện cảnh báo hình có
-  trong Word mà file `.md` không dùng (câu có thể thiếu hình). Ảnh người dùng tự chọn cùng tên được ưu tiên hơn ảnh
-  lấy từ Word.
- / `$`, tự kiểm tra, cách trả lời / đề dài).
+- **Chuyển đề Word cho AI** (nút trên trang Nhập đề; `POST …/docx-for-ai`): AI không đọc được công thức MathType
+  trong `.docx` và hay tự bịa công thức khớp đáp án, nên SClass tự đổi file Word thành `<tên>-cho-AI.md` — chữ theo đúng
+  thứ tự, số câu / nhãn Word tự đánh được in ra, công thức MathType (giải MTEF trong đối tượng OLE) và công thức Word
+  (OMML) thành LaTeX, công thức không giải được ghi `[?]`, bảng thành dòng `| … |`, hình thành dòng ảnh đặt tên **giống
+  hệt** lúc lấy hình ở bước 2. Giáo viên gửi file này (hoặc PDF) cho AI kèm prompt, không gửi thẳng `.docx`. Không lưu
+  gì trên server.
+- **File prompt** (`public/huong-dan/prompt-chuyen-de-thi.md`, nút "Tải prompt & hướng dẫn chi tiết") gồm **phần A** hướng dẫn giáo viên (gửi gì cho AI theo loại file, cách gửi cho mọi AI bằng đính kèm file, đề dài, lưu `.md`, bảng lỗi thường gặp → cách sửa) và **phần B** prompt cho AI (đọc đầu vào theo loại file, dừng khi không đọc được MathType, định dạng, LaTeX chỉ dùng `$` / `$$`, tự kiểm tra, cách trả lời / đề dài).
 - **Tự sửa lệch nhỏ của AI khi đọc file** (chắc chắn đúng, không đoán nội dung): `\( … \)` / `\[ … \]` → `$` / `$$`; dòng trường bị thụt lề; "Câu 1." sót đầu `@content`; nhãn `[MĐ2]`, `(NB)`… sót đầu `@content` → bỏ và dùng làm độ khó khi câu chưa có `@difficulty`; "A." / "a)" chép lại đầu `@option` / `@statement`; đáp án "Chọn C", "(C)", "Đáp án: 2,1" (tiền tố có dấu hai chấm để không cắt nhầm đáp án chữ như "Chọn lọc tự nhiên").
 - **Cách trình bày đề hay gặp** (prompt mục B5): nhãn mức độ `[MĐ1]`–`[MĐ4]` / NB / TH / VD / VDC → `@difficulty`
   (MĐ1 → 1, MĐ2 → 2, MĐ3 → 3, MĐ4 → 4; parser cũng nhận thẳng các nhãn này, NB / TH / VD / VDC, và giá trị cũ EASY / MEDIUM / HARD = 1 / 2 / 3); "Lời giải … Chọn C" dưới từng câu →

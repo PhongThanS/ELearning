@@ -10,6 +10,7 @@ import { formatNumber } from "../../utils/format";
 import type { DocxSkippedImage, MarkdownImportQuestion, MarkdownImportResult, MediaUrlMap } from "../../types/api";
 import { newPendingId, readAsDataUrl, referencedPending, replacePendingIds, validateImage, type PendingImage } from "./pendingImages";
 import { normalizeMarkdown, questionText, replaceQuestion, setQuestionDifficulty, type Difficulty } from "./markdownBlocks";
+import { checkFormulas, wordQuestionBlocks } from "./formulaCheck";
 import { MarkdownImportDialog, type ImportChoice } from "./MarkdownImportDialog";
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = { LEVEL1: "Mức 1", LEVEL2: "Mức 2", LEVEL3: "Mức 3", LEVEL4: "Mức 4" };
@@ -183,7 +184,14 @@ export function MarkdownImportPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [markdown, setMarkdown] = useState<string>("");
   const [images, setImages] = useState<ImportImage[]>([]);
-  const [docx, setDocx] = useState<{ file: File; fileName: string; skipped: DocxSkippedImage[]; mathTypeFormulas: number } | null>(null);
+  const [docx, setDocx] = useState<{
+    file: File;
+    fileName: string;
+    skipped: DocxSkippedImage[];
+    mathTypeFormulas: number;
+    /** Văn bản file Word (công thức đã thành LaTeX) để đối chiếu công thức của file .md; null nếu không đọc được. */
+    text: string | null;
+  } | null>(null);
   const [converting, setConverting] = useState(false);
 
   /** Đề Word → file .md cho AI đọc (công thức MathType đã thành LaTeX, hình đặt tên sẵn), tải về máy. */
@@ -283,7 +291,11 @@ export function MarkdownImportPage() {
     if (word) {
       setBusy("docx");
       try {
-        const extracted = await questionsApi.docxImages(word);
+        // Lấy hình và đọc công thức (để đối chiếu với file .md) cùng lúc; đọc công thức lỗi thì vẫn dùng được hình
+        const [extracted, wordText] = await Promise.all([
+          questionsApi.docxImages(word),
+          questionsApi.docxForAi(word).then((r) => r.text).catch(() => null),
+        ]);
         const chosenByHand = new Set(images.filter((i) => !i.fromDocx).map((i) => i.name));
         for (const img of extracted.images) {
           const name = img.name.toLowerCase();
@@ -292,7 +304,7 @@ export function MarkdownImportPage() {
             added.push({ id: newPendingId(), file, previewUrl: `data:${img.contentType};base64,${img.dataBase64}`, name, fromDocx: true });
           }
         }
-        setDocx({ file: word, fileName: word.name, skipped: extracted.skipped, mathTypeFormulas: extracted.mathTypeFormulas });
+        setDocx({ file: word, fileName: word.name, skipped: extracted.skipped, mathTypeFormulas: extracted.mathTypeFormulas, text: wordText });
       } catch (e) {
         toast.error(`${word.name}: ${describeError(e)}`);
       } finally {
@@ -389,6 +401,23 @@ export function MarkdownImportPage() {
   // Ảnh đã chọn (lấy từ Word hoặc tự chọn) mà chưa dòng ảnh nào dùng: để gán tay cho dòng ảnh bị thiếu
   const unusedImages = useMemo(() => images.filter((i) => !matched.some((m) => m.id === i.id)), [images, matched]);
   /** Câu chứa dòng ảnh bị thiếu: câu cuối cùng bắt đầu trước dòng đó. */
+  // Đối chiếu công thức của file .md với file Word gốc: câu nào có công thức không có trong Word (AI tự viết) thì báo câu đó
+  const formulaCheck = useMemo(() => (docx?.text && markdown ? checkFormulas(markdown, docx.text) : null), [docx, markdown]);
+  const orderedQuestions = useMemo(() => [...(result?.questions ?? [])].sort((a, b) => a.line - b.line), [result]);
+  const wordBlocks = useMemo(
+    () => (docx?.text ? wordQuestionBlocks(docx.text, orderedQuestions.length) : null),
+    [docx, orderedQuestions],
+  );
+  const wrongByQuestion = useMemo(() => {
+    const map = new Map<number, string[]>();
+    for (const m of formulaCheck?.missing.filter((x) => !x.explanation) ?? []) {
+      const q = [...orderedQuestions].reverse().find((x) => x.line <= m.line);
+      if (q) {
+        map.set(q.line, [...(map.get(q.line) ?? []), m.formula]);
+      }
+    }
+    return map;
+  }, [formulaCheck, orderedQuestions]);
   const questionAt = (line: number | null) =>
     line == null ? undefined : [...(result?.questions ?? [])].filter((q) => q.line <= line).sort((a, b) => b.line - a.line)[0];
   const docxImages = images.filter((i) => i.fromDocx);
@@ -507,23 +536,20 @@ export function MarkdownImportPage() {
       {docx && (
         <Card className="mb-3">
           <Card.Body>
-            {docx.mathTypeFormulas > 0 && (
-              <Alert variant="danger" className="small py-2" data-testid="mathtype-warning">
-                <div className="fw-semibold">
-                  ⚠️ File Word này có {docx.mathTypeFormulas} công thức MathType — hãy đối chiếu kỹ với đề gốc trước khi nhập.
-                </div>
-                AI <strong>không đọc được</strong> công thức MathType nếu bạn gửi thẳng file <code>.docx</code>, và thường{" "}
-                <strong>tự nghĩ ra</strong> công thức, phương án sao cho khớp đáp án: file vẫn hợp lệ, không báo lỗi, nhưng đề đã
-                khác đề gốc. So <strong>từng công thức, từng phương án</strong> ở phần xem trước (ít nhất câu đầu, câu cuối và vài
-                câu giữa mỗi phần). Thấy khác thì làm lại: gửi cho AI file SClass chuyển sẵn (nút dưới) hoặc bản{" "}
-                <strong>PDF</strong>.
-                <div className="mt-2">
-                  <Button size="sm" variant="danger" disabled={converting} onClick={() => void downloadForAi(docx.file)}>
-                    {converting ? <Spinner size="sm" className="me-1" /> : <i className="bi bi-download me-1" aria-hidden="true" />}
-                    Tải file cho AI từ {docx.fileName}
-                  </Button>
-                </div>
+            {docx.mathTypeFormulas > 0 && docx.text == null && (
+              <Alert variant="warning" className="small py-2" data-testid="mathtype-warning">
+                File Word có {docx.mathTypeFormulas} công thức MathType nhưng SClass không đọc được để đối chiếu: so tay từng công
+                thức ở phần xem trước trước khi nhập.
               </Alert>
+            )}
+            {docx.mathTypeFormulas > 0 && (
+              <div className="small text-secondary mb-2">
+                File Word có {docx.mathTypeFormulas} công thức MathType — chưa có file .md thì{" "}
+                <Button size="sm" variant="link" className="p-0 align-baseline" disabled={converting} onClick={() => void downloadForAi(docx.file)}>
+                  tải file cho AI từ {docx.fileName}
+                </Button>{" "}
+                (gửi file đó cho AI, không gửi thẳng file Word).
+              </div>
             )}
             <div className="fw-semibold mb-2">
               Hình lấy từ <span className="text-primary">{docx.fileName}</span>: {docxImages.length} ảnh
@@ -584,6 +610,17 @@ export function MarkdownImportPage() {
                   <Badge bg="warning" text="dark">Thiếu {result.missingImages.length} ảnh</Badge>
                 ) : (
                   <Badge bg="danger">Còn lỗi — hợp lệ {result.validQuestions}/{result.totalQuestions}</Badge>
+                )}
+                {formulaCheck && formulaCheck.checked > 0 && !result.imported && (
+                  wrongByQuestion.size > 0 ? (
+                    <Badge bg="danger" title="Câu có công thức không có trong file Word gốc — xem các câu đánh dấu đỏ bên dưới">
+                      {wrongByQuestion.size} câu có công thức khác file Word
+                    </Badge>
+                  ) : (
+                    <Badge bg="success" title={`Đã đối chiếu ${formulaCheck.checked} công thức trong đề với file Word gốc`}>
+                      Công thức khớp file Word
+                    </Badge>
+                  )
                 )}
                 <Button onClick={() => setImporting(true)} disabled={!canImport || busy !== null || result.imported}>
                   {busy === "import" ? <Spinner size="sm" className="me-1" /> : <i className="bi bi-cloud-upload me-1" aria-hidden="true" />}
@@ -679,6 +716,8 @@ export function MarkdownImportPage() {
                 q={q}
                 media={media}
                 source={result.imported ? null : questionText(markdown, q.line)}
+                wrongFormulas={wrongByQuestion.get(q.line) ?? []}
+                wordOriginal={wordBlocks?.[orderedQuestions.indexOf(q)] ?? null}
                 busy={busy !== null}
                 onDifficulty={(d) => void applyEdit(setQuestionDifficulty(markdown, q.line, d))}
                 onSave={(text) => applyEdit(replaceQuestion(markdown, q.line, text))}
@@ -706,6 +745,8 @@ function PreviewQuestion({
   busy,
   onDifficulty,
   onSave,
+  wrongFormulas,
+  wordOriginal,
 }: {
   q: MarkdownImportQuestion;
   media: MediaUrlMap;
@@ -714,13 +755,24 @@ function PreviewQuestion({
   busy: boolean;
   onDifficulty: (difficulty: Difficulty | null) => void;
   onSave: (text: string) => Promise<void>;
+  /** Công thức (phần đề) của câu không có trong file Word gốc: AI có thể đã tự viết. */
+  wrongFormulas: string[];
+  /** Đề gốc của câu này lấy từ file Word (công thức đã thành LaTeX), để đối chiếu khi sửa; null nếu không có. */
+  wordOriginal: string | null;
 }) {
   const input = q.question;
   const isTrueFalse = input?.questionType === "TRUE_FALSE";
   const [draft, setDraft] = useState<string | null>(null);
   const difficulty = (input?.difficulty ?? "") as Difficulty | "";
+  const suspicious = wrongFormulas.length > 0;
+  const original = wordOriginal && (suspicious || draft != null) && (
+    <div className="border rounded p-2 mb-2 bg-body-tertiary small" data-testid="word-original">
+      <div className="fw-semibold mb-1"><i className="bi bi-file-earmark-word me-1" aria-hidden="true" />Đề gốc trong file Word</div>
+      <MarkdownView content={wordOriginal} />
+    </div>
+  );
   return (
-    <Card className={q.issues.length > 0 ? "border-danger" : undefined}>
+    <Card className={q.issues.length > 0 || suspicious ? "border-danger" : undefined} data-suspicious={suspicious || undefined}>
       <Card.Header className="d-flex flex-wrap align-items-center gap-2 bg-transparent">
         <strong>Câu {q.label}</strong>
         {q.part && <span className="small text-secondary">{q.part}</span>}
@@ -757,8 +809,29 @@ function PreviewQuestion({
         )}
       </Card.Header>
       <Card.Body>
+        {suspicious && draft == null && (
+          <Alert variant="danger" className="py-2 small">
+            <div className="fw-semibold mb-1">
+              Công thức không có trong file Word gốc — AI có thể đã tự viết (thường do gửi thẳng file Word cho AI):
+            </div>
+            <div className="d-flex flex-wrap gap-2 mb-2">
+              {wrongFormulas.map((f, n) => (
+                <span key={n} className="border border-danger rounded px-1 bg-body">
+                  <MarkdownView content={`$${f}$`} inline />
+                </span>
+              ))}
+            </div>
+            {source != null && (
+              <Button size="sm" variant="danger" disabled={busy} onClick={() => setDraft(source)}>
+                <i className="bi bi-pencil me-1" aria-hidden="true" />Sửa câu này theo đề gốc
+              </Button>
+            )}
+          </Alert>
+        )}
+        {draft == null && original}
         {draft != null && (
           <div className="mb-3">
+            {original}
             <Form.Control
               as="textarea"
               aria-label={`Nội dung câu ${q.label} (định dạng elearning-exam/1)`}
