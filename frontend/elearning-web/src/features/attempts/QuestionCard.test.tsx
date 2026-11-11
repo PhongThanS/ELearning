@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuestionCard } from "./ExamPlayerPage";
 
@@ -79,8 +79,65 @@ describe("QuestionCard", () => {
       />,
     );
 
-    expect(screen.getByRole("textbox")).toHaveClass("is-invalid");
+    // Câu điền số hiển thị dạng lưới, mỗi ký tự một ô (kiểu phiếu trả lời THPT).
+    const cells = within(screen.getByRole("group", { name: "Các ô điền đáp án số" })).getAllByRole("textbox");
+    expect(cells.map((c) => (c as HTMLInputElement).value).join("")).toBe("1,000.5");
+    for (const cell of cells) {
+      expect(cell).toHaveClass("is-invalid");
+      expect(cell).toHaveAttribute("aria-invalid", "true");
+    }
+    expect(screen.getByRole("textbox", { name: "Ô thứ 1 của đáp án" })).toHaveAccessibleDescription(/Số không hợp lệ/);
     expect(screen.getByText(/Số không hợp lệ/)).toBeInTheDocument();
+  });
+
+  it("câu điền số hợp lệ không báo lỗi", () => {
+    render(
+      <QuestionCard
+        question={{ ...base, type: "FILL_IN", answerDataType: "NUMBER", options: [] }}
+        total={5}
+        draft={{ selectedOptions: [], answerText: "-3,5", isMarkedForReview: false }}
+        onSelect={vi.fn()}
+        onText={vi.fn()}
+        onMark={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Ô thứ 1 của đáp án" })).not.toHaveClass("is-invalid");
+    expect(screen.queryByText(/Số không hợp lệ/)).toBeNull();
+  });
+
+  it("câu điền chữ dùng một ô nhập nhận được chữ cái", async () => {
+    const onText = vi.fn();
+    render(
+      <QuestionCard
+        question={{ ...base, type: "FILL_IN", answerDataType: "TEXT", options: [] }}
+        total={1}
+        draft={{ selectedOptions: [], answerText: "", isMarkedForReview: false }}
+        onSelect={vi.fn()}
+        onText={onText}
+        onMark={vi.fn()}
+      />,
+    );
+
+    await userEvent.type(screen.getByRole("textbox", { name: "Nhập câu trả lời" }), "a");
+    expect(onText).toHaveBeenLastCalledWith("a");
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+  });
+
+  it("câu tự luận có ô soạn bài và bộ đếm ký tự", () => {
+    render(
+      <QuestionCard
+        question={{ ...base, type: "ESSAY", answerDataType: null, options: [] }}
+        total={1}
+        draft={{ selectedOptions: [], answerText: "Bài làm", isMarkedForReview: false }}
+        onSelect={vi.fn()}
+        onText={vi.fn()}
+        onMark={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("textbox", { name: "Viết bài làm của bạn…" }).tagName).toBe("TEXTAREA");
+    expect(screen.getByText("7 / 20000 ký tự")).toBeInTheDocument();
   });
 
   it("render Markdown nhưng không render HTML thô", () => {

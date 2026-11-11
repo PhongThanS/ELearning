@@ -15,12 +15,16 @@ import {
   initPlayerState,
   isAnswered,
   isUnsaved,
+  isValidNumberAnswer,
   loadBackup,
   playerReducer,
   type AnswerDraft,
   type PlayerState,
 } from "./playerState";
 import { useAttemptEvents, useAutosave, useCountdown, type SaveStatus } from "./playerHooks";
+
+/** Khớp giới hạn server (AttemptContracts.MaxAnswerTextLength). */
+const ESSAY_MAX_LENGTH = 20_000;
 
 /** Trang làm bài (docs/06-frontend.md mục 4). */
 export function ExamPlayerPage() {
@@ -431,14 +435,42 @@ export function QuestionCard({
               onText={onText}
             />
           )
-        ) : question.type === "FILL_IN" ? (
+        ) : question.type === "ESSAY" ? (
+          <Form.Group controlId={`${name}-essay`} className="mt-3">
+            <Form.Label className="visually-hidden">{t("player.essayPlaceholder")}</Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={10}
+              value={draft.answerText ?? ""}
+              placeholder={t("player.essayPlaceholder")}
+              maxLength={ESSAY_MAX_LENGTH}
+              readOnly={readOnly}
+              onChange={(e) => onText(e.target.value)}
+              onPaste={onPaste}
+            />
+            <Form.Text>{t("player.essayCount", { count: (draft.answerText ?? "").length, max: ESSAY_MAX_LENGTH })}</Form.Text>
+          </Form.Group>
+        ) : question.type === "FILL_IN" && question.answerDataType === "NUMBER" ? (
           <SquareGridAnswerBox
+            id={`${name}-number`}
             value={draft.answerText ?? ""}
             expectedLength={question.expectedLength}
             readOnly={readOnly}
             onChange={onText}
             onPaste={onPaste}
           />
+        ) : question.type === "FILL_IN" ? (
+          <Form.Group controlId={`${name}-text`} className="mt-3">
+            <Form.Label className="visually-hidden">{t("player.fillPlaceholder")}</Form.Label>
+            <Form.Control
+              value={draft.answerText ?? ""}
+              placeholder={t("player.fillPlaceholder")}
+              maxLength={1000}
+              readOnly={readOnly}
+              onChange={(e) => onText(e.target.value)}
+              onPaste={onPaste}
+            />
+          </Form.Group>
         ) : (
           <fieldset className="mt-3">
             <legend className="visually-hidden">{t("player.question", { order: question.order, total })}</legend>
@@ -734,18 +766,24 @@ function TrueFalsePropositionTable({
  * Mỗi ô chỉ nhận số 0-9, dấu - hoặc dấu ,
  */
 function SquareGridAnswerBox({
+  id,
   value,
   expectedLength,
   readOnly,
   onChange,
   onPaste,
 }: {
+  id: string;
   value: string;
   expectedLength?: number | null;
   readOnly?: boolean;
   onChange: (val: string) => void;
   onPaste?: () => void;
 }) {
+  const { t } = useTranslation();
+  // docs/02 mục 3.3: frontend dùng cùng regex với server để báo sai định dạng ngay trên ô nhập.
+  const invalid = !isValidNumberAnswer(value);
+  const feedbackId = `${id}-invalid`;
   const targetSize = expectedLength && expectedLength > 0 ? expectedLength : 4;
   const currentLength = (value || "").length;
   const GRID_SIZE = Math.max(targetSize, currentLength, 1);
@@ -837,7 +875,7 @@ function SquareGridAnswerBox({
         <span>Điền đáp án vào các ô vuông bên dưới (chỉ nhận số 0-9, dấu âm - và dấu phẩy ,):</span>
       </div>
 
-      <div className="d-flex justify-content-center gap-2 my-3">
+      <div className="d-flex justify-content-center gap-2 my-3" role="group" aria-label={t("player.numberGrid")}>
         {chars.map((char, index) => {
           const isActive = index === activeIndex;
           return (
@@ -845,10 +883,14 @@ function SquareGridAnswerBox({
               key={index}
               ref={(el) => { inputRefs.current[index] = el; }}
               type="text"
+              inputMode="decimal"
               readOnly={readOnly}
+              aria-label={t("player.numberCell", { index: index + 1 })}
+              aria-invalid={invalid || undefined}
+              aria-describedby={invalid ? feedbackId : undefined}
               className={`form-control text-center fw-bold fs-3 rounded-2 shadow-sm ${
                 isActive ? "border-primary border-2 bg-white" : "border-secondary-subtle bg-white"
-              }`}
+              }${invalid ? " is-invalid" : ""}`}
               style={{
                 width: "48px",
                 height: "58px",
@@ -869,6 +911,12 @@ function SquareGridAnswerBox({
           );
         })}
       </div>
+
+      {invalid && (
+        <div id={feedbackId} className="invalid-feedback d-block text-center" role="alert">
+          {t("player.numberInvalid")}
+        </div>
+      )}
 
       {!readOnly && (
         <div className="mt-3 mx-auto" style={{ maxWidth: "340px" }}>

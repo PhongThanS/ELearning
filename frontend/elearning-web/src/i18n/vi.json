@@ -242,6 +242,8 @@
     "essayCount": "{{count}} / {{max}} ký tự",
     "numberHint": "Nhập số, dùng dấu phẩy hoặc dấu chấm cho phần thập phân (ví dụ 3,5).",
     "numberInvalid": "Số không hợp lệ. Ví dụ hợp lệ: 3,5 hoặc 3.5",
+    "numberGrid": "Các ô điền đáp án số",
+    "numberCell": "Ô thứ {{index}} của đáp án",
     "tracking": "Hệ thống ghi nhận việc rời khỏi trang thi."
   },
   "student": {
