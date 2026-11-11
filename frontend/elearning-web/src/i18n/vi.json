@@ -338,6 +338,17 @@
     "ROLE_CODE_INVALID": "Mã vai trò gồm 2–50 ký tự: chữ không dấu, số, gạch dưới; bắt đầu bằng chữ cái.",
     "CATEGORY_HAS_QUESTIONS": "Chuyên đề đang có câu hỏi trực thuộc."
   },
+  "questionEditor": {
+    "editTab": "Sửa nội dung",
+    "previewHint": "Đang xem câu hỏi như học viên thấy. Bấm \"Sửa nội dung\" để chỉnh đề, phương án và lời giải.",
+    "edit": "Sửa",
+    "correct": "Đáp án đúng",
+    "statementTrue": "Đúng",
+    "statementFalse": "Sai",
+    "explanation": "Giải thích (hiển thị khi xem lại bài)",
+    "noExplanation": "(Chưa có giải thích)",
+    "noContent": "_(Chưa có nội dung)_"
+  },
   "classes": {
     "create": "Tạo lớp học",
     "edit": "Sửa lớp học",

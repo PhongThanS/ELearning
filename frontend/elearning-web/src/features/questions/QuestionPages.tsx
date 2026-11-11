@@ -874,6 +874,9 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
   }, [categories.data]);
   const [form, setForm] = useState<EditorState>(() => (existing ? toEditorState(existing) : emptyQuestion()));
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // Câu đã có: mở ở chế độ xem trước (công thức hiển thị như học viên thấy); tab "Sửa nội dung" mới hiện ô soạn mã.
+  // Câu mới: soạn ngay.
+  const [mode, setMode] = useState<"preview" | "edit">(existing ? "preview" : "edit");
   const [pendingType, setPendingType] = useState<QuestionType | null>(null);
   const [tryValue, setTryValue] = useState("");
   // Tag nhập dạng "a, b, c"; tách khi lưu để gõ dấu phẩy không bị mất
@@ -911,7 +914,11 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
       navigate(`/admin/questions/${saved.id}/edit`, { replace: true });
       setForm((f) => ({ ...f, rowVersion: saved.rowVersion, code: saved.code }));
     },
-    onError: (e) => setErrors(toApiError(e).fieldErrors()),
+    onError: (e) => {
+      setErrors(toApiError(e).fieldErrors());
+      // Lỗi nhập liệu: mở ô soạn để thấy ô báo lỗi
+      setMode("edit");
+    },
   });
 
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1040,8 +1047,19 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
 
             <Card className="mb-3">
               <Card.Body>
-                <Tabs defaultActiveKey="edit" className="mb-2">
-                  <Tab eventKey="edit" title="Nội dung">
+                <Tabs activeKey={mode} onSelect={(key) => setMode(key === "edit" ? "edit" : "preview")} className="mb-2">
+                  <Tab eventKey="preview" title={<><i className="bi bi-eye me-1" aria-hidden="true" />{t("common.preview")}</>}>
+                    <MediaUrls value={media}>
+                      <div className="border rounded p-3 bg-white">
+                        <MarkdownView content={fullContentWithImages || t("questionEditor.noContent")} format={form.contentFormat} />
+                      </div>
+                    </MediaUrls>
+                    <div className="small text-secondary mt-2">
+                      <i className="bi bi-info-circle me-1" aria-hidden="true" />
+                      {t("questionEditor.previewHint")}
+                    </div>
+                  </Tab>
+                  <Tab eventKey="edit" title={<><i className="bi bi-pencil-square me-1" aria-hidden="true" />{t("questionEditor.editTab")}</>}>
                     <Form.Group controlId="q-content">
                       <Form.Label className="visually-hidden">Nội dung</Form.Label>
                       <Form.Control ref={contentRef} as="textarea" rows={6} value={form.content} isInvalid={!!err("content")} onChange={(e) => set({ content: e.target.value })} />
@@ -1091,33 +1109,28 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                       </div>
                     )}
                   </Tab>
-                  <Tab eventKey="preview" title={t("common.preview")}>
-                    <MediaUrls value={media}>
-                      <div className="border rounded p-3 bg-white">
-                        <MarkdownView content={fullContentWithImages || "_(Chưa có nội dung)_"} format={form.contentFormat} />
-                        {["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE"].includes(form.questionType) && form.options.some((o) => o.content.trim()) && (
-                          <ul className="list-unstyled mt-3 mb-0">
-                            {form.options.map((o) => (
-                              <li key={o.optionCode} className="d-flex gap-2 py-1">
-                                <strong>{form.questionType === "TRUE_FALSE" ? `${o.optionCode})` : `${o.optionCode}.`}</strong>
-                                <MarkdownView content={o.content || "…"} inline />
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </MediaUrls>
-                  </Tab>
                 </Tabs>
               </Card.Body>
             </Card>
 
             <Card className="mb-3">
               <Card.Body>
-                <h2 className="h6">Đáp án</h2>
+                <div className="d-flex align-items-center mb-2">
+                  <h2 className="h6 mb-0 me-auto">Đáp án</h2>
+                  {mode === "preview" && form.questionType !== "FILL_IN" && (
+                    <Button size="sm" variant="outline-primary" onClick={() => setMode("edit")}>
+                      <i className="bi bi-pencil-square me-1" aria-hidden="true" />
+                      {t("questionEditor.edit")}
+                    </Button>
+                  )}
+                </div>
                 {err("options") && <Alert variant="danger" className="py-2">{err("options")}</Alert>}
                 {form.questionType === "FILL_IN" ? (
                   <FillInEditor form={form} set={set} errors={errors} tryValue={tryValue} setTryValue={setTryValue} />
+                ) : mode === "preview" ? (
+                  <MediaUrls value={media}>
+                    <OptionsPreview form={form} />
+                  </MediaUrls>
                 ) : (
                   <>
                     <OptionsEditor form={form} set={set} errors={errors} />
@@ -1133,13 +1146,34 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
 
             <Card>
               <Card.Body>
-                <Form.Group controlId="q-explanation">
-                  <div className="d-flex align-items-center mb-2">
-                    <Form.Label className="me-auto mb-0">Giải thích (hiển thị khi xem lại bài, Markdown)</Form.Label>
-                    {canUpload && <ImageInsertButton target="phần giải thích" onInserted={insertIntoExplanation} />}
-                  </div>
-                  <Form.Control ref={explanationRef} as="textarea" rows={3} value={form.explanation ?? ""} onChange={(e) => set({ explanation: e.target.value })} />
-                </Form.Group>
+                {mode === "preview" ? (
+                  <>
+                    <div className="d-flex align-items-center mb-2">
+                      <h2 className="h6 mb-0 me-auto">{t("questionEditor.explanation")}</h2>
+                      <Button size="sm" variant="outline-primary" onClick={() => setMode("edit")}>
+                        <i className="bi bi-pencil-square me-1" aria-hidden="true" />
+                        {t("questionEditor.edit")}
+                      </Button>
+                    </div>
+                    {form.explanation?.trim() ? (
+                      <MediaUrls value={media}>
+                        <div className="border rounded p-3 bg-white">
+                          <MarkdownView content={form.explanation} />
+                        </div>
+                      </MediaUrls>
+                    ) : (
+                      <p className="text-secondary small mb-0">{t("questionEditor.noExplanation")}</p>
+                    )}
+                  </>
+                ) : (
+                  <Form.Group controlId="q-explanation">
+                    <div className="d-flex align-items-center mb-2">
+                      <Form.Label className="me-auto mb-0">Giải thích (hiển thị khi xem lại bài, Markdown)</Form.Label>
+                      {canUpload && <ImageInsertButton target="phần giải thích" onInserted={insertIntoExplanation} />}
+                    </div>
+                    <Form.Control ref={explanationRef} as="textarea" rows={3} value={form.explanation ?? ""} onChange={(e) => set({ explanation: e.target.value })} />
+                  </Form.Group>
+                )}
               </Card.Body>
             </Card>
           </Col>
@@ -1225,6 +1259,42 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
         </Modal.Footer>
       </Modal>
     </>
+  );
+}
+
+/**
+ * Phương án ở chế độ xem trước: nội dung hiển thị như học viên thấy (công thức, hình), đánh dấu đáp án đúng;
+ * câu Đúng/Sai nhiều mệnh đề ghi Đúng / Sai cho từng mệnh đề.
+ */
+function OptionsPreview({ form }: { form: EditorState }) {
+  const { t } = useTranslation();
+  const propositions = form.questionType === "TRUE_FALSE";
+  return (
+    <div className="d-grid gap-2">
+      {form.options.map((o) => (
+        <div
+          key={o.optionCode}
+          className={`d-flex align-items-center gap-2 px-3 py-2 rounded border ${
+            !propositions && o.isCorrect ? "border-success bg-success-subtle" : "bg-white"
+          }`}
+        >
+          <strong>{propositions ? `${o.optionCode})` : `${o.optionCode}.`}</strong>
+          <div className="flex-grow-1 min-w-0">
+            <MarkdownView content={o.content || "…"} inline />
+          </div>
+          {propositions ? (
+            <Badge bg={o.isCorrect ? "success" : "danger"}>{o.isCorrect ? t("questionEditor.statementTrue") : t("questionEditor.statementFalse")}</Badge>
+          ) : (
+            o.isCorrect && (
+              <Badge bg="success">
+                <i className="bi bi-check-lg me-1" aria-hidden="true" />
+                {t("questionEditor.correct")}
+              </Badge>
+            )
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 
