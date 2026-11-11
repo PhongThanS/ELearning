@@ -20,7 +20,15 @@ public sealed record DocxSkippedImage(string? Name, int Part, int? Question, str
 /// Số công thức dạng đối tượng OLE (MathType "Equation.DSMT…", Microsoft Equation 3.0) trong cả file. AI không đọc được
 /// các công thức này trong .docx và hay tự bịa ra, nên giao diện cảnh báo đối chiếu kỹ (docs/02-nghiep-vu.md mục 1.5).
 /// </param>
-public sealed record DocxImageResult(IReadOnlyList<DocxImage> Images, IReadOnlyList<DocxSkippedImage> Skipped, int MathTypeFormulas = 0);
+/// <param name="AiText">
+/// Chỉ khi gọi với <c>withText=true</c>: văn bản cho AI (như <c>docx-for-ai</c>) để giao diện đối chiếu công thức của file
+/// .md với file Word mà không phải gửi file Word lên lần thứ hai. Null khi không yêu cầu.
+/// </param>
+public sealed record DocxImageResult(
+    IReadOnlyList<DocxImage> Images,
+    IReadOnlyList<DocxSkippedImage> Skipped,
+    int MathTypeFormulas = 0,
+    string? AiText = null);
 
 /// <summary>
 /// Lấy ảnh (hình vẽ, đồ thị) từ file đề .docx gốc và đặt tên theo vị trí trong đề, đúng quy ước mà prompt yêu cầu AI

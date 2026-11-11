@@ -1117,6 +1117,8 @@ export interface DocxImageResult {
   skipped: DocxSkippedImage[];
   /** Số công thức MathType / Equation 3.0 (đối tượng OLE) trong file Word — AI không đọc được trong .docx. */
   mathTypeFormulas: number;
+  /** Văn bản cho AI (như docx-for-ai), chỉ có khi gọi với withText; null khi không đọc được. */
+  aiText?: string | null;
 }
 
 /** Đề Word đã chuyển thành văn bản cho AI đọc: công thức (cả MathType) thành LaTeX, hình đặt tên sẵn. */

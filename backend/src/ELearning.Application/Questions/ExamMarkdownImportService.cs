@@ -45,8 +45,11 @@ public interface IExamMarkdownImportService
 {
     Task<Result<ExamMarkdownImportResult>> ImportAsync(ExamMarkdownImportRequest request, CancellationToken ct);
 
-    /// <summary>Lấy ảnh từ file đề Word gốc, đặt tên theo phần / câu để ghép với file .md. Không lưu gì.</summary>
-    Task<Result<DocxImageResult>> ExtractDocxImagesAsync(Stream docx, CancellationToken ct);
+    /// <summary>
+    /// Lấy ảnh từ file đề Word gốc, đặt tên theo phần / câu để ghép với file .md. <paramref name="withAiText"/>: kèm
+    /// văn bản cho AI trong cùng kết quả (một lần tải file lên thay vì hai). Không lưu gì.
+    /// </summary>
+    Task<Result<DocxImageResult>> ExtractDocxImagesAsync(Stream docx, string fileName, bool withAiText, CancellationToken ct);
 
     /// <summary>Chuyển đề Word (kể cả công thức MathType) thành văn bản cho AI đọc. Không lưu gì.</summary>
     Task<Result<DocxAiTextResult>> ConvertDocxForAiAsync(Stream docx, string fileName, CancellationToken ct);
@@ -69,16 +72,25 @@ internal sealed class ExamMarkdownImportService(
 {
     private const string PendingPrefix = "media:pending-";
 
-    public async Task<Result<DocxImageResult>> ExtractDocxImagesAsync(Stream docx, CancellationToken ct)
+    public async Task<Result<DocxImageResult>> ExtractDocxImagesAsync(Stream docx, string fileName, bool withAiText, CancellationToken ct)
     {
         // ZipArchive cần đọc ngẫu nhiên; file đã được giới hạn kích thước ở controller
         using var buffer = new MemoryStream();
         await docx.CopyToAsync(buffer, ct);
         buffer.Position = 0;
         var result = DocxImageExtractor.Extract(buffer, mediaOptions.Value.MaxBytes);
-        return result is null
-            ? Error.Validation("IMPORT_FILE_INVALID", "File không phải file Word .docx hợp lệ (file .doc cũ: mở bằng Word và lưu lại thành .docx).", "file")
-            : result;
+        if (result is null)
+        {
+            return Error.Validation("IMPORT_FILE_INVALID", "File không phải file Word .docx hợp lệ (file .doc cũ: mở bằng Word và lưu lại thành .docx).", "file");
+        }
+
+        if (!withAiText)
+        {
+            return result;
+        }
+
+        buffer.Position = 0;
+        return result with { AiText = DocxImageExtractor.ExtractForAi(buffer, Path.GetFileName(fileName), mediaOptions.Value.MaxBytes)?.Text };
     }
 
     public async Task<Result<DocxAiTextResult>> ConvertDocxForAiAsync(Stream docx, string fileName, CancellationToken ct)

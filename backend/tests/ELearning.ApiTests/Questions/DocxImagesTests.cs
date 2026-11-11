@@ -10,7 +10,7 @@ public sealed record DocxImageView(string Name, string ContentType, string DataB
 
 public sealed record DocxSkippedView(string? Name, string Reason);
 
-public sealed record DocxImagesView(List<DocxImageView> Images, List<DocxSkippedView> Skipped);
+public sealed record DocxImagesView(List<DocxImageView> Images, List<DocxSkippedView> Skipped, string? AiText);
 
 public sealed record DocxAiTextView(string Text, int Formulas, int UnreadFormulas, int Pictures);
 
@@ -36,6 +36,7 @@ public class DocxImagesTests(ApiFactory factory)
         okBody.Data!.Images.Should().ContainSingle();
         okBody.Data.Images[0].Name.Should().Be("hinh-p2-c3.png");
         Convert.FromBase64String(okBody.Data.Images[0].DataBase64).Should().Equal(Png);
+        okBody.Data.AiText.Should().BeNull("chỉ trả văn bản cho AI khi được yêu cầu (withText=true)");
         notZip.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         notZipBody.Errors.Should().Contain(e => e.Code == "IMPORT_FILE_INVALID");
         wrongType.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -57,6 +58,19 @@ public class DocxImagesTests(ApiFactory factory)
         okBody.Data.Pictures.Should().Be(1);
         wrongType.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         anonymous.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task With_text_one_upload_returns_both_the_images_and_the_text_for_ai()
+    {
+        var admin = factory.CreateHttpsClient();
+        await admin.LoginAsync(ApiFactory.AdminUserName, ApiFactory.AdminPassword);
+
+        var (ok, okBody) = await PostAsync<DocxImagesView>(admin, Docx(), "de-thi.docx", Url + "?withText=true");
+
+        ok.StatusCode.Should().Be(HttpStatusCode.OK);
+        okBody.Data!.Images.Should().ContainSingle(i => i.Name == "hinh-p2-c3.png");
+        okBody.Data.AiText.Should().Contain("Câu 3. Cho hình vẽ").And.Contain("![hình](hinh-p2-c3.png)");
     }
 
     private const string AiUrl = "/api/questions/import-markdown/docx-for-ai";

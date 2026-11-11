@@ -106,13 +106,15 @@ public sealed class QuestionsController(IQuestionService questions, IQuestionImp
     /// <summary>
     /// Lấy ảnh (hình vẽ, đồ thị) từ file đề Word gốc, đặt tên theo phần / câu (<c>hinh-p1-c3.png</c>) như prompt
     /// yêu cầu AI ghi trong file .md. Không lưu gì; trình duyệt dùng các ảnh này như ảnh người dùng tự chọn.
+    /// <c>withText=true</c>: kèm văn bản cho AI (<c>aiText</c>, như <c>docx-for-ai</c>) để đối chiếu công thức, khỏi
+    /// tải file Word lên lần thứ hai.
     /// </summary>
     [HttpPost("import-markdown/docx-images")]
     [HasPermission(Permissions.QuestionCreate)]
     [RequestSizeLimit(MaxDocxBytes + 64 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxDocxBytes + 64 * 1024)]
     [ProducesResponseType<ApiResponse<DocxImageResult>>(StatusCodes.Status200OK)]
-    public async Task<ActionResult> DocxImages(IFormFile? file, CancellationToken ct)
+    public async Task<ActionResult> DocxImages(IFormFile? file, [FromQuery] bool withText, CancellationToken ct)
     {
         if (file is null || file.Length == 0)
         {
@@ -125,7 +127,7 @@ public sealed class QuestionsController(IQuestionService questions, IQuestionImp
         }
 
         await using var stream = file.OpenReadStream();
-        return ToResponse(await markdownImports.ExtractDocxImagesAsync(stream, ct));
+        return ToResponse(await markdownImports.ExtractDocxImagesAsync(stream, file.FileName, withText, ct));
     }
 
     /// <summary>

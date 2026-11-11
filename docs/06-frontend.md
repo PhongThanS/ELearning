@@ -298,6 +298,7 @@ type ExamPlayerState = {
 **Bổ sung khi triển khai (M7):**
 
 - **Code splitting theo route** bằng `React.lazy`: màn hình quản trị, player và `react-markdown` không nằm trong bundle đăng nhập. Học viên chỉ tải phần của học viên.
+- **Tải ngầm trang sau khi đăng nhập** (`app/pageLoaders.ts`, `prefetchPages`): vào khu quản trị / học viên thì lần lượt tải sẵn chunk các trang của khu đó khi trình duyệt rảnh (học viên: phòng thi trước), để chuyển trang không phải chờ tải qua mạng (mỗi request qua Cloudflare + tunnel tốn 100–300 ms). Bỏ qua khi bật tiết kiệm dữ liệu / mạng 2G; lỗi tải ngầm bỏ qua, trang vẫn tải khi mở.
 - **Nội dung lựa chọn đáp án render inline** (`MarkdownView inline`). Chế độ này chỉ giữ `strong`, `em`, `del`, `code`, `a`, `br`; đoạn văn thành `span`; khối code bị gỡ thành `code` inline. Lý do: `<label>` không được chứa `div` / `p` / `pre`. Nội dung lựa chọn cần khối code thì đưa lên đề bài.
 - **Cột "Nội dung" trong bảng** (danh sách câu hỏi, builder, thống kê câu hỏi) hiển thị bản rút gọn văn bản thuần (`markdownExcerpt`), không render Markdown.
 - **Điều hướng sau đăng nhập:**

@@ -19,6 +19,31 @@ public class PlatformEndpointsTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Every_response_tells_how_long_the_server_took_so_slowness_can_be_split_from_the_network()
+    {
+        var anonymous = await _client.GetAsync(new Uri("/api/khong-ton-tai", UriKind.Relative));
+        var health = await _client.GetAsync(new Uri("/health/live", UriKind.Relative));
+
+        anonymous.Headers.GetValues("Server-Timing").Should().ContainSingle().Which.Should().MatchRegex(@"^app;dur=\d+\.\d$");
+        health.Headers.Contains("Server-Timing").Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(200, 20, null, Serilog.Events.LogEventLevel.Information)]
+    [InlineData(200, 501, null, Serilog.Events.LogEventLevel.Warning)]
+    [InlineData(404, 900, null, Serilog.Events.LogEventLevel.Warning)]
+    [InlineData(500, 10, null, Serilog.Events.LogEventLevel.Error)]
+    [InlineData(200, 10, "boom", Serilog.Events.LogEventLevel.Error)]
+    public void Slow_requests_are_logged_as_warnings_and_failures_as_errors(int status, double ms, string? error, Serilog.Events.LogEventLevel expected)
+    {
+        var context = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        context.Response.StatusCode = status;
+
+        ELearning.Api.Monitoring.RequestLogLevel.Get(context, ms, error is null ? null : new InvalidOperationException(error))
+            .Should().Be(expected);
+    }
+
+    [Fact]
     public async Task Ready_health_check_verifies_database()
     {
         var response = await _client.GetAsync(new Uri("/health/ready", UriKind.Relative));

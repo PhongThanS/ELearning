@@ -44,6 +44,7 @@ if (seedOnly || app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
+app.UseMiddleware<ServerTimingMiddleware>();
 app.UseMiddleware<RequestMetricsMiddleware>();
 app.UseExceptionHandler();
 app.UseStatusCodePages(StatusCodeResponses.WriteAsync);
@@ -54,7 +55,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseSerilogRequestLogging();
+// Request chậm (> 500 ms) ghi mức Warning, lỗi 5xx mức Error: lọc được trong log khi người dùng báo chậm
+app.UseSerilogRequestLogging(options => options.GetLevel = RequestLogLevel.Get);
 
 if (!app.Environment.IsProduction())
 {

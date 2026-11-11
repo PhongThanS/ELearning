@@ -8,6 +8,7 @@ import { useAuth } from "../features/auth/useAuth";
 import { categoriesApi } from "../services/api";
 import { matchClassroom, useAllClassrooms } from "../hooks/useClassrooms";
 import { orderCategories } from "../utils/categoryTree";
+import { prefetchPages } from "../app/pageLoaders";
 import type { Category, Classroom } from "../types/api";
 
 export function SClassLogo({
@@ -530,6 +531,8 @@ function SidebarGroupItem({ item, leaves }: { item: AdminNavItem; leaves: AdminN
 export function AdminLayout() {
   const { t } = useTranslation();
   const { hasPermission } = useAuth();
+  // Tải ngầm sẵn các trang quản trị khi trình duyệt rảnh: chuyển trang không phải chờ tải qua mạng
+  useEffect(() => prefetchPages("admin"), []);
   // Mục con lọc theo quyền; mục chỉ gom nhóm hiện khi còn ít nhất một mục con
   const items = adminNav
     .map((item) => ({ item, leaves: (item.children ?? []).filter((c) => hasPermission(c.permission)) }))
@@ -662,6 +665,8 @@ export function AdminLayout() {
 
 export function StudentLayout() {
   const { t } = useTranslation();
+  // Tải ngầm sẵn phòng thi và các trang học viên khi trình duyệt rảnh
+  useEffect(() => prefetchPages("student"), []);
   return (
     <>
       <Navbar bg="primary" data-bs-theme="dark" expand="xl" className="sclass-navbar shadow-sm">

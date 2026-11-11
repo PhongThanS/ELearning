@@ -194,6 +194,7 @@ Mục tiêu: RPO 15 phút (5 phút trong ngày thi), RTO 1 giờ *(cần xác nh
 | `elearning.attempts.in_progress`, `…overdue`, `…oldest_overdue` (giây) | Đo mỗi phút; `oldest_overdue` là **độ trễ worker** |
 
 - Đọc trực tiếp: `dotnet-counters monitor -n ELearning.Api --counters ELearning,Microsoft.AspNetCore.Hosting`.
+- **Chậm do máy chủ hay do mạng?** Mọi response có header `Server-Timing: app;dur=<ms>` (thời gian API tự xử lý, `ServerTimingMiddleware`): xem ở DevTools → Network → Timing, hoặc `performance.getEntriesByType("resource")[i].serverTiming`. Thời gian chờ trên trình duyệt trừ `app;dur` là phần đường mạng (Cloudflare, tunnel). Dòng log request của Serilog ghi mức **Warning** khi xử lý quá 500 ms (`RequestLogLevel`), mức Error khi 5xx; lọc request chậm trên server: `docker compose logs api --no-log-prefix --since 24h | Select-String '"@l":"Warning"' | Select-String 'responded'`.
 - Mỗi `Monitoring:SnapshotIntervalSeconds` (60 giây) API ghi một dòng log `Monitoring: …` có cấu trúc với các số trên, để công cụ gom log vẽ biểu đồ. Khi có điều kiện cảnh báo, ghi thêm dòng `ALERT <mục>` ở mức Warning.
 
 **Cảnh báo** — `/health/alerts` trả 503 khi một check lỗi, kèm số liệu từng check:

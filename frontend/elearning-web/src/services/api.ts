@@ -1,4 +1,4 @@
-import { apiClient, http, toApiError } from "./apiClient";
+import { apiClient, http, request, toApiError } from "./apiClient";
 import type {
   AttendanceClass,
   AttendanceSession,
@@ -187,10 +187,16 @@ export const questionsApi = {
   importMarkdown: (body: { markdown: string; categoryId: string | null; dryRun: boolean; forExam?: boolean }) =>
     http.post<MarkdownImportResult>("/questions/import-markdown", body),
   /** Ảnh trong file đề Word gốc, đã đặt tên theo phần / câu (hinh-p1-c3.png). Không lưu gì trên server. */
-  docxImages: (file: File) => {
+  /** withText: kèm văn bản cho AI (aiText) trong cùng một lần tải file lên, để đối chiếu công thức. */
+  docxImages: (file: File, withText = false) => {
     const form = new FormData();
     form.append("file", file);
-    return http.post<DocxImageResult>("/questions/import-markdown/docx-images", form);
+    return request<DocxImageResult>({
+      method: "POST",
+      url: "/questions/import-markdown/docx-images",
+      data: form,
+      params: withText ? { withText: true } : undefined,
+    });
   },
   docxForAi: (file: File) => {
     const form = new FormData();

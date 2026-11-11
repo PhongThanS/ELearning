@@ -291,11 +291,10 @@ export function MarkdownImportPage() {
     if (word) {
       setBusy("docx");
       try {
-        // Lấy hình và đọc công thức (để đối chiếu với file .md) cùng lúc; đọc công thức lỗi thì vẫn dùng được hình
-        const [extracted, wordText] = await Promise.all([
-          questionsApi.docxImages(word),
-          questionsApi.docxForAi(word).then((r) => r.text).catch(() => null),
-        ]);
+        // Lấy hình và đọc công thức (để đối chiếu với file .md) trong một lần tải file lên; đọc công thức lỗi thì
+        // aiText null, vẫn dùng được hình
+        const extracted = await questionsApi.docxImages(word, true);
+        const wordText = extracted.aiText ?? null;
         const chosenByHand = new Set(images.filter((i) => !i.fromDocx).map((i) => i.name));
         for (const img of extracted.images) {
           const name = img.name.toLowerCase();
