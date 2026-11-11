@@ -13,6 +13,7 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 import "./theme.scss";
 import "./styles.css";
 import "./styles-exam.css";
+import "./styles-pages.css";
 import "./i18n";
 import { App } from "./app/App";
 

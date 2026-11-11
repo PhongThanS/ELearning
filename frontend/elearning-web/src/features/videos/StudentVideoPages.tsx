@@ -17,6 +17,7 @@ import { LessonThumbnail } from "./AdminVideoPages";
 import { lessonKind } from "./mediaLinks";
 import { openLessonInNewTab } from "./VideoWatchPage";
 import { LessonClassBadges } from "./LessonClassBadges";
+import { pageWindow } from "../../components/common/DataTable";
 
 export function StudentVideoPages() {
   const [page, setPage] = useState(1);
@@ -77,20 +78,31 @@ export function StudentVideoPages() {
   return (
     <Container className="py-4">
       {/* Header Banner */}
-      <div className="p-4 p-md-5 mb-4 rounded-4 bg-primary text-white shadow-sm sclass-video-hero">
-        <div className="col-md-9 px-0">
-          <Badge bg="light" text="primary" className="mb-2 fw-semibold px-2 py-1">
-            🎬 HỌC LIỆU TRỰC TUYẾN
-          </Badge>
-          <h1 className="display-6 fw-bold mb-2">Kho Video Bài Giảng & Hướng Dẫn</h1>
-          <p className="lead mb-0 text-white-50">
+      <section className="sclass-hero mb-4">
+        <div className="sclass-hero-body">
+          <div className="sclass-hero-eyebrow">🎬 Học liệu trực tuyến</div>
+          <h1 className="sclass-hero-title">
+            Kho <span className="text-cyan">video bài giảng</span> & hướng dẫn
+          </h1>
+          <p className="sclass-hero-text mb-0">
             Xem lại các bài giảng, video hướng dẫn giải đề thi và tài liệu học tập của thầy cô mọi lúc, mọi nơi.
           </p>
+          {videosData && (
+            <div className="sclass-hero-stat mt-3">
+              <i className="bi bi-collection-play-fill me-2" aria-hidden="true" />
+              {videosData.totalCount} bài giảng
+            </div>
+          )}
         </div>
-      </div>
+        <div className="sclass-hero-art d-none d-md-block" aria-hidden="true">
+          <span className="hero-bubble hero-bubble-a"><i className="bi bi-play-btn-fill" /></span>
+          <span className="hero-bubble hero-bubble-b"><i className="bi bi-file-earmark-text-fill" /></span>
+          <span className="hero-bubble hero-bubble-c"><i className="bi bi-headphones" /></span>
+        </div>
+      </section>
 
       {/* Filter Toolbar */}
-      <Card className="border-0 shadow-sm mb-4 bg-light-subtle rounded-3">
+      <Card className="filter-bar mb-4">
         <Card.Body className="p-3">
           <Row className="g-2">
             <Col xs={12} md={5}>
@@ -224,11 +236,11 @@ export function StudentVideoPages() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="d-flex justify-content-center mt-4">
-          <Pagination>
+          <Pagination className="sclass-pagination">
             <Pagination.Prev disabled={page === 1} onClick={() => setPage((p) => p - 1)} />
-            {Array.from({ length: totalPages }, (_, i) => (
-              <Pagination.Item key={i + 1} active={i + 1 === page} onClick={() => setPage(i + 1)}>
-                {i + 1}
+            {pageWindow(page, totalPages).map((p) => (
+              <Pagination.Item key={p} active={p === page} onClick={() => setPage(p)}>
+                {p}
               </Pagination.Item>
             ))}
             <Pagination.Next disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} />

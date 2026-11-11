@@ -48,15 +48,26 @@ export function DataTable<T>({
   return (
     <>
       <div className="table-card table-responsive">
-        <Table hover striped size="sm" className="align-middle">
+        <Table hover size="sm" className="align-middle">
           <thead>
             <tr>
               {columns.map((c) => (
                 <th key={c.key} className={c.className} scope="col">
                   {c.sortKey && onSort ? (
-                    <Button variant="link" size="sm" className="p-0 text-decoration-none fw-semibold" onClick={() => onSort(c.sortKey!)}>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className={`p-0 text-decoration-none fw-semibold table-sort${sort?.sortBy === c.sortKey ? " is-active" : ""}`}
+                      onClick={() => onSort(c.sortKey!)}
+                    >
                       {c.header}
-                      {sort?.sortBy === c.sortKey ? (sort.sortDir === "desc" ? " ▼" : " ▲") : ""}
+                      <i
+                        className={`bi ms-1 ${sort?.sortBy === c.sortKey ? (sort.sortDir === "desc" ? "bi-sort-down" : "bi-sort-up") : "bi-arrow-down-up"}`}
+                        aria-hidden="true"
+                      />
+                      {sort?.sortBy === c.sortKey && (
+                        <span className="visually-hidden">{sort.sortDir === "desc" ? " (giảm dần)" : " (tăng dần)"}</span>
+                      )}
                     </Button>
                   ) : (
                     c.header
@@ -93,15 +104,26 @@ export function Pager<T>({ data, onPage, label }: { data: Paged<T>; onPage: (pag
       <span className="small text-secondary">
         {label} · {t("common.page", { page: data.page, total: data.totalPages })}
       </span>
-      <Pagination size="sm" className="mb-0">
+      <Pagination size="sm" className="mb-0 sclass-pagination">
         <Pagination.First disabled={data.page <= 1} onClick={() => onPage(1)} aria-label="Trang đầu" />
         <Pagination.Prev disabled={data.page <= 1} onClick={() => onPage(data.page - 1)} aria-label="Trang trước" />
-        <Pagination.Item active>{data.page}</Pagination.Item>
+        {pageWindow(data.page, data.totalPages).map((p) => (
+          <Pagination.Item key={p} active={p === data.page} onClick={() => p !== data.page && onPage(p)}>
+            {p}
+          </Pagination.Item>
+        ))}
         <Pagination.Next disabled={data.page >= data.totalPages} onClick={() => onPage(data.page + 1)} aria-label="Trang sau" />
         <Pagination.Last disabled={data.page >= data.totalPages} onClick={() => onPage(data.totalPages)} aria-label="Trang cuối" />
       </Pagination>
     </div>
   );
+}
+
+/** Các số trang hiển thị quanh trang hiện tại (tối đa 5 số). */
+export function pageWindow(page: number, totalPages: number): number[] {
+  const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+  const end = Math.min(totalPages, start + 4);
+  return Array.from({ length: end - start + 1 }, (_, i) => start + i);
 }
 
 export function SearchBox({ value, onSearch, placeholder }: { value: string; onSearch: (value: string) => void; placeholder?: string }) {
@@ -115,7 +137,10 @@ export function SearchBox({ value, onSearch, placeholder }: { value: string; onS
       }}
       role="search"
     >
-      <InputGroup size="sm">
+      <InputGroup size="sm" className="sclass-search">
+        <InputGroup.Text aria-hidden="true">
+          <i className="bi bi-search" />
+        </InputGroup.Text>
         <Form.Control
           aria-label={placeholder ?? t("common.searchCodeOrName")}
           placeholder={placeholder ?? t("common.searchCodeOrName")}

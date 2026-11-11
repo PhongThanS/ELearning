@@ -19,6 +19,7 @@ import { extractYoutubeId, isDirectVideo, lessonKind, lessonThumbnail, parseDriv
 import { openLessonInNewTab } from "./VideoWatchPage";
 import { LessonClassBadges } from "./LessonClassBadges";
 import { MultiSearchableSelect } from "../../components/common/MultiSearchableSelect";
+import { pageWindow } from "../../components/common/DataTable";
 
 /** Ảnh bìa thẻ bài giảng: YouTube / trang đầu tệp Drive; lỗi tải ảnh (tệp riêng tư) thì hiện biểu tượng. */
 export function LessonThumbnail({ video }: { video: VideoLesson }) {
@@ -157,10 +158,11 @@ export function AdminVideoPages() {
       {/* Header */}
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
-          <h1 className="h3 fw-bold text-dark mb-1 d-flex align-items-center gap-2">
+          <h1 className="h4 mb-1 page-title d-flex align-items-center gap-2">
             <span>🎥</span> Kho Video bài giảng
+            {videosData && <span className="badge text-bg-light border fw-semibold ms-1">{videosData.totalCount}</span>}
           </h1>
-          <p className="text-secondary mb-0 small">
+          <p className="text-secondary mb-0 small mt-2">
             Quản lý danh sách video bài học, hướng dẫn giải đề bằng link YouTube theo chuyên đề hoặc lớp học.
           </p>
         </div>
@@ -171,7 +173,7 @@ export function AdminVideoPages() {
       </div>
 
       {/* Filter Bar */}
-      <Card className="border-0 shadow-sm mb-4 bg-light-subtle">
+      <Card className="filter-bar mb-4">
         <Card.Body className="p-3">
           <Row className="g-2">
             <Col xs={12} md={4}>
@@ -360,11 +362,11 @@ export function AdminVideoPages() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="d-flex justify-content-center mt-4">
-          <Pagination>
+          <Pagination className="sclass-pagination">
             <Pagination.Prev disabled={page === 1} onClick={() => setPage((p) => p - 1)} />
-            {Array.from({ length: totalPages }, (_, i) => (
-              <Pagination.Item key={i + 1} active={i + 1 === page} onClick={() => setPage(i + 1)}>
-                {i + 1}
+            {pageWindow(page, totalPages).map((p) => (
+              <Pagination.Item key={p} active={p === page} onClick={() => setPage(p)}>
+                {p}
               </Pagination.Item>
             ))}
             <Pagination.Next disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} />

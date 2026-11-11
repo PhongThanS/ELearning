@@ -46,7 +46,14 @@ export function ErrorAlert({ error, onRetry }: { error: unknown; onRetry?: () =>
 
 export function Empty({ text }: { text?: string }) {
   const { t } = useTranslation();
-  return <p className="text-secondary py-3 mb-0">{text ?? t("common.noData")}</p>;
+  return (
+    <div className="sclass-empty">
+      <span className="sclass-empty-icon" aria-hidden="true">
+        <i className="bi bi-inbox" />
+      </span>
+      <p className="text-secondary mb-0">{text ?? t("common.noData")}</p>
+    </div>
+  );
 }
 
 // ----- Toast -----
