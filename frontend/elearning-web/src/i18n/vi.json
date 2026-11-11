@@ -219,6 +219,7 @@
     "next": "Câu sau →",
     "submit": "Nộp bài",
     "navigator": "Danh sách câu",
+    "finishTitle": "Làm xong rồi? Kiểm tra lại các câu còn trống rồi nộp bài nhé.",
     "answeredCount": "Đã trả lời: {{answered}}/{{total}}",
     "legendAnswered": "Đã trả lời",
     "legendUnanswered": "Chưa trả lời",
@@ -289,7 +290,12 @@
     "correctAnswer": "Đáp án đúng",
     "explanation": "Giải thích",
     "noAnswer": "(bỏ trống)",
-    "voided": "Câu đã bị hủy — mọi người được trọn điểm"
+    "voided": "Câu đã bị hủy — mọi người được trọn điểm",
+    "congrats": "Chúc mừng! Bạn đã đạt bài thi này 🎉",
+    "encourage": "Chưa đạt lần này — xem lại bài để làm tốt hơn nhé 💪",
+    "done": "Bạn đã hoàn thành bài thi 👏",
+    "wrong": "Câu chưa đúng",
+    "jumpTo": "Đi tới câu"
   },
   "errors": {
     "NETWORK_ERROR": "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.",

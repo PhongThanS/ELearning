@@ -12,6 +12,7 @@ import "@fontsource/be-vietnam-pro/latin-700.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./theme.scss";
 import "./styles.css";
+import "./styles-exam.css";
 import "./i18n";
 import { App } from "./app/App";
 

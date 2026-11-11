@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState, type CSSProperties } from "react";
 import { Alert, Badge, Button, Card, Col, Form, Modal, Offcanvas, Row, Spinner } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -125,22 +125,41 @@ function Player({ attempt }: { attempt: Attempt }) {
 
   return (
     <>
-      <header className="player-header sticky-top bg-white border-bottom shadow-sm">
+      <header className="player-header sticky-top">
         <div className="container-fluid d-flex align-items-center gap-3 py-2">
-          <h1 className="h6 mb-0 flex-grow-1 text-truncate">{attempt.examName}</h1>
+          <span className="player-header-icon d-none d-sm-inline-flex" aria-hidden="true">
+            <i className="bi bi-journal-text" />
+          </span>
+          <div className="flex-grow-1 min-w-0">
+            <h1 className="h6 mb-0 text-truncate">{attempt.examName}</h1>
+            <div className="player-header-sub d-none d-sm-block">
+              {t("player.answeredCount", { answered: answeredCount, total: questions.length })}
+            </div>
+          </div>
           <SaveIndicator status={autosave.status} online={state.online} />
           <Timer remainingMs={remaining} isUntimed={isUntimed} />
-          <Button size="sm" variant="outline-secondary" className="d-lg-none" onClick={() => setShowNavigator(true)}>
-            {t("player.navigator")}
+          <Button
+            size="sm"
+            variant="outline-primary"
+            className="d-lg-none text-nowrap"
+            onClick={() => setShowNavigator(true)}
+            aria-label={t("player.navigator")}
+          >
+            <i className="bi bi-grid-3x3-gap" aria-hidden="true" />
+            <span className="d-none d-sm-inline ms-1">{t("player.navigator")}</span>
           </Button>
+        </div>
+        {/* Thanh tiến độ: số câu đã trả lời */}
+        <div className="player-progress" aria-hidden="true">
+          <div className="player-progress-bar" style={{ width: `${questions.length ? (answeredCount / questions.length) * 100 : 0}%` }} />
         </div>
       </header>
 
-      <div className="container-fluid py-3">
+      <div className="container-fluid py-3 player-body">
         {multiTab && <Alert variant="warning">{t("player.multiTab")}</Alert>}
         {!state.online && <Alert variant="warning">{t("player.offline")}</Alert>}
         <Row className="g-3">
-          <Col lg={9}>
+          <Col lg={9} className="player-main">
             <QuestionCard
               question={current}
               total={questions.length}
@@ -151,11 +170,17 @@ function Player({ attempt }: { attempt: Attempt }) {
               onPaste={events.recordPaste}
             />
             <div className="d-flex justify-content-between mt-3">
-              <Button variant="outline-primary" disabled={state.currentIndex === 0} onClick={() => dispatch({ type: "goto", index: state.currentIndex - 1 })}>
+              <Button
+                variant="outline-primary"
+                className="player-step"
+                disabled={state.currentIndex === 0}
+                onClick={() => dispatch({ type: "goto", index: state.currentIndex - 1 })}
+              >
                 {t("player.previous")}
               </Button>
               <Button
-                variant="outline-primary"
+                variant="primary"
+                className="player-step"
                 disabled={state.currentIndex >= questions.length - 1}
                 onClick={() => dispatch({ type: "goto", index: state.currentIndex + 1 })}
               >
@@ -164,16 +189,23 @@ function Player({ attempt }: { attempt: Attempt }) {
             </div>
           </Col>
           <Col lg={3} className="d-none d-lg-block">
-            <Card>
+            <Card className="player-navigator">
               <Card.Body>
                 <Navigator questions={questions} state={state} onGoto={(index) => dispatch({ type: "goto", index })} />
               </Card.Body>
             </Card>
           </Col>
         </Row>
-        <div className="text-center mt-4">
-          <p className="small text-secondary">{t("player.answeredCount", { answered: answeredCount, total: questions.length })}</p>
-          <Button size="lg" variant="success" onClick={() => setShowConfirm(true)} disabled={submitting}>
+        <div className="player-finish mt-4">
+          <span className="player-finish-icon" aria-hidden="true">
+            <i className="bi bi-flag-fill" />
+          </span>
+          <div className="flex-grow-1 min-w-0">
+            <div className="player-finish-title">{t("player.finishTitle")}</div>
+            <div className="small text-secondary">{t("player.answeredCount", { answered: answeredCount, total: questions.length })}</div>
+          </div>
+          <Button size="lg" variant="success" className="btn-cta px-4" onClick={() => setShowConfirm(true)} disabled={submitting}>
+            <i className="bi bi-send-check me-2" aria-hidden="true" />
             {t("player.submit")}
           </Button>
         </div>
@@ -236,9 +268,10 @@ function Timer({ remainingMs, isUntimed }: { remainingMs: number; isUntimed?: bo
   const { t } = useTranslation();
   if (isUntimed) {
     return (
-      <div className="fw-semibold px-2 py-1 rounded bg-info bg-opacity-10 text-info-emphasis border border-info-subtle d-flex align-items-center gap-1 small">
-        <i className="bi bi-infinity fs-6 text-info" />
-        <span>Luyện tập tự do (Không giới hạn thời gian)</span>
+      <div className="player-timer player-timer-free">
+        <i className="bi bi-infinity" aria-hidden="true" />
+        <span className="d-none d-md-inline">Luyện tập tự do (Không giới hạn thời gian)</span>
+        <span className="d-md-none">Tự do</span>
       </div>
     );
   }
@@ -246,10 +279,8 @@ function Timer({ remainingMs, isUntimed }: { remainingMs: number; isUntimed?: bo
   const warning = seconds <= 60;
   const caution = seconds <= 5 * 60;
   return (
-    <div
-      className={`fw-bold font-monospace px-2 py-1 rounded ${warning ? "bg-danger text-white" : caution ? "bg-warning" : "bg-light"}`}
-      aria-label={t("player.timeLeft")}
-    >
+    <div className={`player-timer ${warning ? "is-warning" : caution ? "is-caution" : ""}`} aria-label={t("player.timeLeft")}>
+      <i className="bi bi-stopwatch" aria-hidden="true" />
       <span className="visually-hidden">{t("player.timeLeft")}: </span>
       {formatDuration(seconds)}
       {warning && <span className="ms-2 small">{t("player.timeWarning")}</span>}
@@ -270,9 +301,12 @@ function SaveIndicator({ status, online }: { status: SaveStatus; online: boolean
     unsaved: ["warning", t("player.unsaved")],
   };
   // Mất mạng: câu đã lưu vẫn là đã lưu; câu đang chờ hiển thị "chưa lưu" (không phải "đang lưu").
-  const [bg, text] = map[!online && status === "saving" ? "unsaved" : status];
+  const effective = !online && status === "saving" ? "unsaved" : status;
+  const [bg, text] = map[effective];
+  const icon = effective === "saved" ? "bi-cloud-check-fill" : effective === "saving" ? "bi-arrow-repeat" : "bi-cloud-slash-fill";
   return (
-    <Badge bg={bg} text={bg === "warning" ? "dark" : undefined} role="status">
+    <Badge bg={bg} text={bg === "warning" ? "dark" : undefined} role="status" className="player-save">
+      <i className={`bi ${icon} me-1`} aria-hidden="true" />
       {text}
     </Badge>
   );
@@ -280,36 +314,47 @@ function SaveIndicator({ status, online }: { status: SaveStatus; online: boolean
 
 function Navigator({ questions, state, onGoto }: { questions: AttemptQuestion[]; state: PlayerState; onGoto: (index: number) => void }) {
   const { t } = useTranslation();
+  const answered = questions.filter((q) => isAnswered(state.answers[q.id])).length;
+  const percent = questions.length ? Math.round((answered / questions.length) * 100) : 0;
   return (
     <>
-      <div className="d-flex flex-wrap gap-2" role="list">
+      <div className="navigator-summary">
+        <div className="navigator-ring" style={{ "--value": percent } as CSSProperties} aria-hidden="true">
+          <span>{percent}%</span>
+        </div>
+        <div className="min-w-0">
+          <div className="navigator-title">{t("player.navigator")}</div>
+          <div className="small text-secondary">{t("player.answeredCount", { answered, total: questions.length })}</div>
+        </div>
+      </div>
+      <div className="navigator-grid" role="list">
         {questions.map((q, index) => {
           const draft = state.answers[q.id];
-          const answered = isAnswered(draft);
+          const isDone = isAnswered(draft);
           const marked = !!draft?.isMarkedForReview;
-          const label = `Câu ${q.order}, ${answered ? t("player.legendAnswered") : t("player.legendUnanswered")}${marked ? `, ${t("player.legendMarked")}` : ""}`;
+          const current = index === state.currentIndex;
+          const label = `Câu ${q.order}, ${isDone ? t("player.legendAnswered") : t("player.legendUnanswered")}${marked ? `, ${t("player.legendMarked")}` : ""}`;
           return (
             <Button
               key={q.id}
               role="listitem"
               size="sm"
-              variant={index === state.currentIndex ? "primary" : answered ? "outline-success" : "outline-secondary"}
-              className="nav-question"
+              variant={current ? "primary" : isDone ? "outline-success" : "outline-secondary"}
+              className={`nav-question${isDone ? " is-answered" : ""}${marked ? " is-marked" : ""}${current ? " is-current" : ""}`}
               aria-label={label}
-              aria-current={index === state.currentIndex ? "step" : undefined}
+              aria-current={current ? "step" : undefined}
               onClick={() => onGoto(index)}
             >
               {q.order}
-              {answered && <span aria-hidden> ✓</span>}
-              {marked && <span aria-hidden> ⚑</span>}
+              {marked && <span className="nav-question-flag" aria-hidden>⚑</span>}
             </Button>
           );
         })}
       </div>
-      <ul className="list-unstyled small text-secondary mt-3 mb-0">
-        <li>✓ {t("player.legendAnswered")}</li>
-        <li>⚑ {t("player.legendMarked")}</li>
-        <li>□ {t("player.legendUnanswered")}</li>
+      <ul className="navigator-legend list-unstyled small text-secondary mt-3 mb-0">
+        <li><span className="legend-swatch is-answered" aria-hidden="true" /> {t("player.legendAnswered")}</li>
+        <li><span className="legend-swatch is-marked" aria-hidden="true" /> {t("player.legendMarked")}</li>
+        <li><span className="legend-swatch" aria-hidden="true" /> {t("player.legendUnanswered")}</li>
       </ul>
     </>
   );

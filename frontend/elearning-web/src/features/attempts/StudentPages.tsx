@@ -386,42 +386,89 @@ export function ResultPage() {
   return (
     <>
       <Link to={`/student/exams/${r.examId}`} className="small">← {r.examName}</Link>
-      <h1 className="h4 mt-2">{t("result.title")}</h1>
+      {/* Phần đầu: màu theo kết quả (xanh: đạt, hồng: chưa đạt, xanh dương: đề không xét đạt / chưa công bố điểm) */}
+      <section className={`result-hero mt-2 mb-3 accent-${!r.scoreVisible || r.passed == null ? "blue" : r.passed ? "green" : "pink"}`}>
+        {r.scoreVisible && (
+          <div
+            className="score-ring"
+            style={{ "--value": Math.min(100, Math.max(0, r.percentage ?? 0)) } as CSSProperties}
+            role="img"
+            aria-label={`${t("result.percentage")} ${formatNumber(r.percentage)}%`}
+          >
+            <span>{formatNumber(r.percentage)}%</span>
+          </div>
+        )}
+        <div className="min-w-0 flex-grow-1">
+          <div className="result-hero-exam text-truncate">{r.examName}</div>
+          <h1 className="result-hero-title">{t("result.title")}</h1>
+          <p className="result-hero-message">
+            {!r.scoreVisible || r.passed == null ? t("result.done") : r.passed ? t("result.congrats") : t("result.encourage")}
+          </p>
+          <div className="result-hero-meta">
+            <span>
+              <i className="bi bi-check2-square me-1" aria-hidden="true" />
+              {t(`enums.attemptStatus.${r.status}`)}
+              {r.submitReason && r.submitReason !== "STUDENT" && ` (${t(`enums.submitReason.${r.submitReason}`)})`}
+            </span>
+            <span>
+              <i className="bi bi-clock-history me-1" aria-hidden="true" />
+              {t("result.submittedAt")} {formatDateTime(r.submittedAt)}
+            </span>
+            <span>
+              <i className="bi bi-hourglass-split me-1" aria-hidden="true" />
+              {t("result.duration")}: {formatDuration(r.durationSeconds)}
+            </span>
+          </div>
+        </div>
+        {r.scoreVisible && r.passed != null && (
+          <div className="result-medal d-none d-md-flex" aria-hidden="true">
+            <i className={`bi ${r.passed ? "bi-trophy-fill" : "bi-emoji-smile"}`} />
+          </div>
+        )}
+      </section>
       <Card className="mb-3">
         <Card.Body>
-          <p className="mb-2">
-            {t(`enums.attemptStatus.${r.status}`)}
-            {r.submitReason && r.submitReason !== "STUDENT" && ` (${t(`enums.submitReason.${r.submitReason}`)})`} · {t("result.submittedAt")}{" "}
-            {formatDateTime(r.submittedAt)} · {t("result.duration")}: {formatDuration(r.durationSeconds)}
-          </p>
           {r.scoreVisible ? (
-            <Row className="align-items-center text-center g-3">
-              <Col xs={12} md={3}>
-                {/* Vòng tròn phần trăm: xanh khi đạt, đỏ khi chưa đạt, tím khi đề không xét đạt */}
-                <div
-                  className={`score-ring accent-${r.passed == null ? "blue" : r.passed ? "green" : "pink"}`}
-                  style={{ "--value": Math.min(100, Math.max(0, r.percentage ?? 0)) } as CSSProperties}
-                  role="img"
-                  aria-label={`${t("result.percentage")} ${formatNumber(r.percentage)}%`}
-                >
-                  <span>{formatNumber(r.percentage)}%</span>
+            <Row xs={2} md={r.passed != null ? 4 : 3} className="g-3">
+              <Col>
+                <div className="result-stat accent-indigo">
+                  <span className="stat-icon" aria-hidden="true"><i className="bi bi-star-fill" /></span>
+                  <div>
+                    <div className="stat-value">{formatScore(r.totalScore, r.maxScore)}</div>
+                    <div className="small text-secondary">{t("result.score")}</div>
+                  </div>
                 </div>
               </Col>
-              <Col xs={4} md={3}>
-                <div className="fs-2 fw-bold text-primary">{formatScore(r.totalScore, r.maxScore)}</div>
-                <div className="small text-secondary">{t("result.score")}</div>
-              </Col>
-              <Col xs={4} md={3}>
-                <div className="fs-2 fw-bold text-info-emphasis">
-                  {r.correctCount}/{r.totalQuestion}
+              <Col>
+                <div className="result-stat accent-green">
+                  <span className="stat-icon" aria-hidden="true"><i className="bi bi-check-circle-fill" /></span>
+                  <div>
+                    <div className="stat-value">
+                      {r.correctCount}/{r.totalQuestion}
+                    </div>
+                    <div className="small text-secondary">{t("result.correct")}</div>
+                  </div>
                 </div>
-                <div className="small text-secondary">{t("result.correct")}</div>
+              </Col>
+              <Col>
+                <div className="result-stat accent-pink">
+                  <span className="stat-icon" aria-hidden="true"><i className="bi bi-x-circle-fill" /></span>
+                  <div>
+                    <div className="stat-value">{r.correctCount == null ? "—" : Math.max(0, r.totalQuestion - r.correctCount)}</div>
+                    <div className="small text-secondary">{t("result.wrong")}</div>
+                  </div>
+                </div>
               </Col>
               {r.passed != null && (
-                <Col xs={4} md={3}>
-                  <div className={`fs-2 fw-bold ${r.passed ? "text-success" : "text-danger"}`}>
-                    <i className={`bi ${r.passed ? "bi-trophy-fill" : "bi-emoji-frown"} me-2`} aria-hidden="true" />
-                    {r.passed ? t("result.passed") : t("result.failed")}
+                <Col>
+                  <div className={`result-stat accent-${r.passed ? "teal" : "orange"}`}>
+                    <span className="stat-icon" aria-hidden="true">
+                      <i className={`bi ${r.passed ? "bi-trophy-fill" : "bi-arrow-repeat"}`} />
+                    </span>
+                    <div>
+                      <div className="stat-value">{r.passed ? t("result.passed") : t("result.failed")}</div>
+                      <div className="small text-secondary">{t("result.percentage")} {formatNumber(r.percentage)}%</div>
+                    </div>
                   </div>
                 </Col>
               )}
@@ -450,8 +497,10 @@ export function ResultPage() {
       {r.reviewAvailable && r.questions && (
         <MediaUrls value={r.media}>
           <div className="d-flex align-items-center justify-content-between mb-3 mt-4">
-            <h2 className="h5 mb-0 d-flex align-items-center gap-2">
-              <i className="bi bi-card-checklist text-primary" />
+            <h2 className="h5 mb-0 section-title">
+              <span className="section-title-icon accent-indigo" aria-hidden="true">
+                <i className="bi bi-card-checklist" />
+              </span>
               <span>{t("result.review")} - Chi tiết câu hỏi và đáp án</span>
             </h2>
             <Badge bg="secondary" className="px-2 py-1">
@@ -459,14 +508,30 @@ export function ResultPage() {
             </Badge>
           </div>
 
+          {/* Đi nhanh tới từng câu: xanh đúng, hồng sai, xám câu bị hủy */}
+          <nav className="review-jump mb-3" aria-label={t("result.jumpTo")}>
+            {r.questions.map((q) => (
+              <a
+                key={q.id}
+                href={`#review-q-${q.order}`}
+                className={`review-jump-item ${q.isVoided ? "is-voided" : q.isCorrect ? "is-correct" : "is-wrong"}`}
+                aria-label={`${t("result.jumpTo")} ${q.order}`}
+              >
+                {q.order}
+              </a>
+            ))}
+          </nav>
+
           {r.questions.map((q) => (
             <Card
               key={q.id}
-              className={`mb-3 shadow-sm border-2 border-${q.isVoided ? "secondary" : q.isCorrect ? "success" : "danger"}`}
+              id={`review-q-${q.order}`}
+              className={`mb-3 review-card ${q.isVoided ? "is-voided" : q.isCorrect ? "is-correct" : "is-wrong"}`}
             >
               <Card.Body>
                 <div className="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
                   <div className="d-flex align-items-center gap-2">
+                    <span className="review-number">{q.order}</span>
                     <strong className="fs-6">Câu {q.order}</strong>
                     {q.isVoided ? (
                       <Badge bg="secondary">{t("result.voided")}</Badge>

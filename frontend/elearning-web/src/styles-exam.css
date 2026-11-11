@@ -1,0 +1,533 @@
+/* ==========================================================================
+   Trang làm bài (ExamPlayerPage) và trang kết quả (ResultPage) — cùng phong cách với styles.css:
+   navy + cyan của SClass, mảng pastel, thẻ bo lớn. Biến màu (--sclass-*, --accent*) khai báo ở styles.css / theme.scss.
+   ========================================================================== */
+
+/* ---------- Trang làm bài: thanh trên kính mờ + tiến độ ---------- */
+.player-header {
+  background: rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 10px 24px -20px rgba(12, 35, 99, 0.6);
+}
+
+.player-header-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.8rem;
+  color: #ffffff;
+  background: linear-gradient(135deg, #1a47a6, #0c2363);
+  box-shadow: 0 6px 14px -6px rgba(12, 35, 99, 0.6);
+}
+
+.player-header-sub {
+  font-size: 0.8rem;
+  color: var(--sclass-muted);
+}
+
+.player-progress {
+  height: 4px;
+  background: #e8ecf8;
+}
+
+.player-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #00c2ee, #2563eb 60%, #6d5df5);
+  border-radius: 0 4px 4px 0;
+  transition: width 0.35s ease;
+}
+
+.player-save {
+  border-radius: 999px;
+  padding: 0.45em 0.8em;
+}
+
+/* Đồng hồ dạng viên: xanh trời bình thường, vàng khi còn ≤ 5 phút, đỏ nhấp nháy khi còn ≤ 1 phút */
+.player-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-family: var(--sclass-font-display);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--sclass-ink);
+  background: var(--sclass-pastel-sky);
+  border: 1px solid #bfe6fb;
+  white-space: nowrap;
+}
+
+.player-timer.is-caution {
+  background: var(--sclass-pastel-lemon);
+  border-color: #f8d77a;
+  color: #7a4d00;
+}
+
+.player-timer.is-warning {
+  background: #e11d48;
+  border-color: #e11d48;
+  color: #ffffff;
+  animation: timerPulse 1s ease-in-out infinite;
+}
+
+.player-timer-free {
+  font-size: 0.85rem;
+  background: var(--sclass-pastel-mint);
+  border-color: #a7e9cf;
+  color: #0f5f46;
+}
+
+@keyframes timerPulse {
+  50% {
+    box-shadow: 0 0 0 6px rgba(225, 29, 72, 0.18);
+  }
+}
+
+/* ---------- Thẻ câu hỏi: dải màu trên cùng ---------- */
+.player-main > .card {
+  overflow: hidden;
+}
+
+.player-main > .card::before {
+  content: "";
+  display: block;
+  height: 5px;
+  background: linear-gradient(90deg, #00c2ee, #2563eb, #6d5df5);
+}
+
+.player-main > .card > .card-body {
+  padding: 1.5rem 1.75rem;
+}
+
+.player-main > .card > .card-body > div:first-child > .fw-semibold {
+  font-family: var(--sclass-font-display);
+  font-size: 1.05rem;
+  color: var(--sclass-ink);
+}
+
+/* Dãy ô điền số (SquareGridAnswerBox): màn hẹp thì xuống dòng thay vì tràn ra ngoài thẻ */
+.player-main .card-body .bg-light > .d-flex.justify-content-center {
+  flex-wrap: wrap;
+}
+
+.player-step {
+  border-radius: 999px !important;
+  padding-left: 1.2rem;
+  padding-right: 1.2rem;
+}
+
+/* Phương án trả lời: thẻ bo lớn, rê chuột nền nhạt, chọn rồi viền xanh */
+.option-item {
+  border-radius: 1rem !important;
+  border-width: 1.5px !important;
+  padding: 0.9rem 1.15rem !important;
+}
+
+/* Bấm chỗ nào trong ô cũng chọn: nhãn phủ cả ô */
+.option-item {
+  position: relative;
+}
+
+.option-item .form-check-label {
+  flex: 1 1 auto;
+  cursor: pointer;
+}
+
+.option-item .form-check-label::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.option-item:hover {
+  background-color: #f6f8ff !important;
+  border-color: #a5b4fc !important;
+}
+
+.option-item:has(input:checked) {
+  background: linear-gradient(90deg, #eef4ff, #f7f5ff) !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 8px 18px -12px rgba(37, 99, 235, 0.6);
+}
+
+/* ---------- Bảng câu hỏi bên phải ---------- */
+.player-navigator {
+  position: sticky;
+  top: 5.5rem;
+}
+
+.navigator-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.navigator-title {
+  font-family: var(--sclass-font-display);
+  font-weight: 700;
+  color: var(--sclass-ink);
+}
+
+.navigator-ring {
+  --value: 0;
+  flex-shrink: 0;
+  width: 3.4rem;
+  height: 3.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(#16a34a calc(var(--value) * 1%), #e8ecf8 0);
+}
+
+.navigator-ring span {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  font-family: var(--sclass-font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--sclass-ink);
+}
+
+.navigator-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(2.6rem, 1fr));
+  gap: 0.45rem;
+}
+
+.nav-question {
+  position: relative;
+  min-width: 0 !important;
+  height: 2.6rem;
+  padding: 0 !important;
+  border-radius: 0.75rem !important;
+  font-family: var(--sclass-font-display) !important;
+  font-weight: 700;
+}
+
+.nav-question.is-answered:not(.is-current) {
+  background: var(--sclass-pastel-mint);
+  border-color: #86d9b4;
+  color: #0f5f46;
+}
+
+.nav-question.is-current {
+  box-shadow: 0 6px 14px -6px rgba(12, 35, 99, 0.6);
+  transform: translateY(-1px);
+}
+
+.nav-question-flag {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.35rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.65rem;
+  color: #7a4d00;
+  background: #ffd666;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.navigator-legend {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.navigator-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-swatch {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 0.3rem;
+  border: 1.5px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.legend-swatch.is-answered {
+  background: var(--sclass-pastel-mint);
+  border-color: #86d9b4;
+}
+
+.legend-swatch.is-marked {
+  border-radius: 50%;
+  background: #ffd666;
+  border-color: #f5b82e;
+}
+
+/* ---------- Khối nộp bài cuối trang ---------- */
+.player-finish {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.4rem;
+  border-radius: var(--sclass-radius-card);
+  background: linear-gradient(110deg, #ffffff 0%, #f3fbf6 60%, #e9f8ef 100%);
+  border: 1px solid #cdeedb;
+  box-shadow: var(--sclass-shadow-soft);
+}
+
+.player-finish-icon {
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  border-radius: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: #15803d;
+  background: var(--sclass-pastel-mint);
+}
+
+.player-finish-title {
+  font-family: var(--sclass-font-display);
+  font-weight: 700;
+  color: var(--sclass-ink);
+}
+
+.btn-success.btn-cta {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+  border-color: #15803d;
+  box-shadow: 0 10px 22px -10px rgba(21, 128, 61, 0.7);
+}
+
+.btn-success.btn-cta:hover {
+  background: linear-gradient(135deg, #16a34a, #166534);
+  transform: translateY(-1px);
+}
+
+/* ==========================================================================
+   Trang kết quả: phần đầu theo màu kết quả, vòng tròn %, thẻ số liệu, đi nhanh tới câu
+   ========================================================================== */
+.result-hero {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.6rem 1.9rem;
+  border-radius: 1.5rem;
+  background:
+    radial-gradient(20rem 12rem at 95% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%),
+    linear-gradient(120deg, #ffffff 0%, color-mix(in srgb, var(--accent) 10%, #ffffff) 100%);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, #ffffff);
+  box-shadow: var(--sclass-shadow-soft);
+}
+
+.result-hero::after {
+  content: "";
+  position: absolute;
+  right: 1.25rem;
+  bottom: 0.9rem;
+  width: 6rem;
+  height: 3.5rem;
+  background-image: radial-gradient(color-mix(in srgb, var(--accent) 45%, transparent) 2px, transparent 2px);
+  background-size: 14px 14px;
+  pointer-events: none;
+}
+
+.result-hero-exam {
+  font-family: var(--sclass-font-display);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.result-hero-title {
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+  font-weight: 800;
+  margin: 0.15rem 0 0.25rem;
+}
+
+.result-hero-message {
+  font-size: 1.05rem;
+  color: var(--sclass-ink);
+  margin-bottom: 0.6rem;
+}
+
+.result-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.88rem;
+  color: var(--sclass-muted);
+}
+
+.result-medal {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+  color: var(--accent-strong);
+  background: #ffffff;
+  box-shadow: 0 16px 30px -16px color-mix(in srgb, var(--accent) 80%, #000);
+  animation: sclassFloat 6s ease-in-out infinite alternate;
+}
+
+/* Vòng tròn phần trăm */
+.score-ring {
+  --value: 0;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--accent, #2563eb) calc(var(--value) * 1%), color-mix(in srgb, var(--accent, #2563eb) 14%, #ffffff) 0);
+  box-shadow: 0 14px 28px -16px color-mix(in srgb, var(--accent, #2563eb) 80%, #000);
+}
+
+.score-ring span {
+  width: 5.9rem;
+  height: 5.9rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #ffffff;
+  font-family: var(--sclass-font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--sclass-ink);
+}
+
+.result-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  height: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--accent) 6%, #ffffff);
+  border: 1px solid color-mix(in srgb, var(--accent) 16%, #ffffff);
+}
+
+.result-stat .stat-value {
+  font-size: 1.35rem;
+}
+
+/* Dãy số câu để nhảy tới */
+.review-jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.review-jump-item {
+  width: 2.3rem;
+  height: 2.3rem;
+  border-radius: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sclass-font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none !important;
+  transition: transform 0.15s ease;
+}
+
+.review-jump-item:hover {
+  transform: translateY(-2px);
+}
+
+.review-jump-item.is-correct {
+  color: #0f5f46;
+  background: var(--sclass-pastel-mint);
+  border: 1px solid #86d9b4;
+}
+
+.review-jump-item.is-wrong {
+  color: #9f1239;
+  background: var(--sclass-pastel-pink);
+  border: 1px solid #f9a8c4;
+}
+
+.review-jump-item.is-voided {
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+}
+
+/* Thẻ xem lại từng câu: dải màu bên trái theo đúng / sai */
+.review-card {
+  scroll-margin-top: 1.5rem;
+  border-left: 6px solid #cbd5e1 !important;
+}
+
+.review-card.is-correct {
+  border-left-color: #22c55e !important;
+}
+
+.review-card.is-wrong {
+  border-left-color: #f43f5e !important;
+}
+
+.review-number {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--sclass-font-display);
+  font-weight: 800;
+  font-size: 0.9rem;
+  color: #ffffff;
+  background: #94a3b8;
+}
+
+.review-card.is-correct .review-number {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+.review-card.is-wrong .review-number {
+  background: linear-gradient(135deg, #fb7185, #e11d48);
+}
+
+@media (max-width: 575.98px) {
+  .result-hero {
+    flex-direction: column;
+    text-align: center;
+    padding: 1.4rem 1.1rem;
+  }
+
+  .result-hero-meta {
+    justify-content: center;
+  }
+
+  .player-main > .card > .card-body {
+    padding: 1.1rem 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .result-medal,
+  .player-timer.is-warning {
+    animation: none !important;
+  }
+}
