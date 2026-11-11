@@ -81,6 +81,9 @@ main .form-select:focus {
 
 /* Bảng rộng hơn khung: cuộn ngang trong khung, không bao giờ đẩy cả trang tràn ngang */
 .table-card {
+  /* position: relative bắt buộc: chữ ẩn cho trình đọc màn hình (.visually-hidden) và KaTeX MathML trong ô bảng là
+     position: absolute — không có khung chứa định vị thì chúng thoát khỏi vùng cuộn và đẩy cả trang tràn ngang */
+  position: relative;
   overflow-x: auto;
   max-width: 100%;
   /* Cột phụ ẩn / hiện theo bề rộng thật của khung bảng (trừ menu trái), không theo bề rộng cửa sổ */
@@ -88,12 +91,13 @@ main .form-select:focus {
 }
 
 .data-card {
+  position: relative;
   overflow: hidden;
 }
 
 /* Cột phụ dùng class Bootstrap d-{xl,xxl}-table-cell (hiện từ cửa sổ 1200 / 1400px). Có menu trái 260px nên
-   khung bảng hẹp hơn cửa sổ: ẩn cột đó khi chính khung bảng chưa đủ rộng. */
-@container (max-width: 1199.98px) {
+   khung bảng hẹp hơn cửa sổ: ẩn cột đó khi chính khung bảng chưa đủ rộng (bảng câu hỏi đủ cột cần ~1340px). */
+@container (max-width: 1359.98px) {
   .table-card .d-xxl-table-cell {
     display: none !important;
   }
