@@ -47,7 +47,8 @@ export function DataTable<T>({
 
   return (
     <>
-      <div className="table-card table-responsive">
+      {/* table-stack: màn hẹp (< 768px) mỗi hàng thành một thẻ, mỗi ô ghi kèm tên cột (data-label) */}
+      <div className="table-card table-responsive table-stack">
         <Table hover size="sm" className="align-middle">
           <thead>
             <tr>
@@ -80,7 +81,7 @@ export function DataTable<T>({
             {data.items.map((row) => (
               <tr key={rowKey(row)}>
                 {columns.map((c) => (
-                  <td key={c.key} className={c.className}>
+                  <td key={c.key} className={c.className} data-label={typeof c.header === "string" ? c.header : undefined}>
                     {c.render(row)}
                   </td>
                 ))}

@@ -1,7 +1,19 @@
 /* ==========================================================================
-   Hiệu ứng chung cho bảng, bộ lọc, nút ở mọi trang quản trị / học viên (bản giao diện 2026-11).
-   Không đổi bố cục; tắt chuyển động khi người dùng bật giảm chuyển động. Biến màu ở styles.css.
+   Hiệu ứng chung cho bảng, bộ lọc, nút ở mọi trang (bản giao diện 2026-11).
+   Bảng theo phong cách "Data Table v3": tiêu đề cột chữ in hoa nhỏ trên nền tím rất nhạt, hàng trắng chỉ kẻ ngang,
+   hàng được tích chọn nền tím nhạt, nhãn trạng thái có chấm màu; màn hẹp mỗi hàng thành một thẻ.
+   Tắt chuyển động khi người dùng bật giảm chuyển động. Biến màu ở styles.css.
    ========================================================================== */
+
+:root {
+  --dt-head-bg: #f4f2ff;
+  --dt-head-color: #6e6893;
+  --dt-border: #eceaf5;
+  --dt-hover: #faf9ff;
+  --dt-selected: #f2f0fd;
+  --dt-accent: #6d5bd0;
+  --dt-link: #5b4ed6;
+}
 
 /* ---------- Bộ lọc ----------
    Hàng lọc của các trang danh sách (Row chứa SearchBox) và thẻ .filter-bar: nền pastel, viền gradient, bóng mềm */
@@ -23,7 +35,7 @@ main .filter-bar > .card-body {
   padding: 0.85rem 1rem;
 }
 
-/* Ô nhập / chọn: rê chuột viền tím nhạt, đang gõ viền xanh cyan + quầng sáng */
+/* Ô nhập / chọn: rê chuột viền tím nhạt, đang gõ viền tím chàm + quầng sáng */
 main .form-control,
 main .form-select {
   transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
@@ -31,128 +43,256 @@ main .form-select {
 
 main .form-control:hover:not(:disabled):not(:focus),
 main .form-select:hover:not(:disabled):not(:focus) {
-  border-color: #a5b4fc;
+  border-color: #c4bdf3;
 }
 
 main .form-control:focus,
 main .form-select:focus {
-  border-color: #22b8e0;
-  box-shadow: 0 0 0 0.22rem rgba(0, 194, 238, 0.18);
+  border-color: var(--dt-accent);
+  box-shadow: 0 0 0 0.22rem rgba(109, 91, 208, 0.16);
 }
 
 .sclass-search:focus-within .input-group-text {
-  color: #0891b2;
-  border-color: #22b8e0;
+  color: var(--dt-accent);
+  border-color: var(--dt-accent);
 }
 
 .sclass-search:focus-within .form-control {
-  border-color: #22b8e0;
+  border-color: var(--dt-accent);
 }
 
-/* Nút lọc dạng viên (Điểm danh): nút đang chọn nền navy gradient */
+/* Nút lọc dạng viên (Điểm danh): nút đang chọn nền tím chàm */
 .filter-pill {
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.filter-pill:hover {
-  transform: translateY(-1px);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .filter-pill.btn-dark {
-  background: linear-gradient(135deg, #1a47a6, #0c2363);
-  border-color: #0c2363;
-  box-shadow: 0 6px 14px -8px rgba(12, 35, 99, 0.7);
+  background: var(--dt-accent);
+  border-color: var(--dt-accent);
 }
 
 /* ---------- Bảng ---------- */
-/* Khung bảng: dải màu gradient trên cùng */
 .table-card,
 .data-card {
-  position: relative;
+  border: 1px solid var(--dt-border) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 1px 2px rgba(12, 35, 99, 0.04), 0 8px 24px -16px rgba(12, 35, 99, 0.25) !important;
   overflow: hidden;
 }
 
-.table-card::before,
-.data-card::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 3px;
-  background: linear-gradient(90deg, #00c2ee, #2563eb 50%, #6d5df5);
-  z-index: 3;
-  pointer-events: none;
-}
-
-.data-card {
-  border-radius: var(--sclass-radius-card) !important;
-}
-
 .data-card-header {
-  background: linear-gradient(100deg, #ffffff 0%, #f8f7ff 100%) !important;
-  border-bottom: 1px solid #eef1f8 !important;
-  padding-top: 0.9rem !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--dt-border) !important;
 }
 
-/* Tiêu đề cột: nền gradient tím nhạt → xanh nhạt */
+/* Tiêu đề cột: chữ in hoa nhỏ, xám tím, nền tím rất nhạt */
 .table > thead th,
 .table > thead.table-light th {
-  background: linear-gradient(180deg, #f6f5ff 0%, #eef2ff 100%) !important;
-  color: var(--table-head-color) !important;
+  background: var(--dt-head-bg) !important;
+  color: var(--dt-head-color) !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--dt-border) !important;
+  border-radius: 0 !important;
 }
 
-/* Hàng hiện dần khi bảng tải xong / đổi trang / đổi bộ lọc (20 hàng đầu so le nhau) */
+.table-sort {
+  color: var(--dt-head-color) !important;
+  font-size: inherit !important;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.table-sort.is-active,
+.table-sort.is-active .bi {
+  color: var(--dt-accent) !important;
+}
+
+/* Hàng: nền trắng, chỉ kẻ ngang mảnh */
+.table-card .table > tbody > tr > *,
+.data-card .table > tbody > tr > * {
+  border-bottom: 1px solid var(--dt-border);
+  background-color: #ffffff;
+}
+
+/* Rê chuột: nền tím rất nhạt (đổi nền, không dùng bóng đổ để không lóe màu ở ô đầu) */
+.table-hover > tbody > tr:hover > * {
+  --bs-table-bg-state: var(--dt-hover);
+}
+
+/* Hàng được tích chọn: cả hàng nền tím nhạt */
+.table > tbody > tr:has(> td .form-check-input:checked) > *,
+.table > tbody > tr:has(> td > input[type="checkbox"]:checked) > * {
+  --bs-table-bg-state: var(--dt-selected);
+  background-color: var(--dt-selected);
+}
+
+/* Ô tích: vuông bo góc, tím chàm khi chọn */
+.table .form-check-input[type="checkbox"],
+.table input[type="checkbox"].form-check-input {
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 0.3rem;
+  border: 1.5px solid #c9c6dc;
+  cursor: pointer;
+}
+
+.table .form-check-input[type="checkbox"]:checked,
+.table .form-check-input[type="checkbox"]:indeterminate {
+  background-color: var(--dt-accent);
+  border-color: var(--dt-accent);
+}
+
+.table .form-check-input[type="checkbox"]:focus {
+  box-shadow: 0 0 0 0.2rem rgba(109, 91, 208, 0.2);
+  border-color: var(--dt-accent);
+}
+
+/* Mã / tên ở cột đầu (sau ô tích): màu tím chàm */
+.table-card .table > tbody > tr > td a:not(.btn) {
+  color: var(--dt-link);
+  text-decoration: none;
+}
+
+.table-card .table > tbody > tr > td a:not(.btn):hover {
+  color: #3f33b5;
+  text-decoration: underline;
+}
+
+/* Nhãn trạng thái trong bảng: chấm màu trước chữ */
+.table-card .badge.bg-success::before,
+.table-card .badge.bg-danger::before,
+.table-card .badge.bg-warning::before,
+.table-card .badge.bg-secondary::before,
+.table-card .badge.bg-info::before {
+  content: "";
+  display: inline-block;
+  width: 0.42em;
+  height: 0.42em;
+  margin-right: 0.45em;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 0.12em;
+}
+
+/* Hàng hiện dần khi bảng tải xong / đổi trang / đổi bộ lọc */
 @keyframes sclassRowIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
 .table > tbody > tr {
-  animation: sclassRowIn 0.35s ease both;
+  animation: sclassRowIn 0.3s ease both;
 }
 
-.table > tbody > tr:nth-child(2) { animation-delay: 0.03s; }
-.table > tbody > tr:nth-child(3) { animation-delay: 0.06s; }
-.table > tbody > tr:nth-child(4) { animation-delay: 0.09s; }
-.table > tbody > tr:nth-child(5) { animation-delay: 0.12s; }
-.table > tbody > tr:nth-child(6) { animation-delay: 0.15s; }
-.table > tbody > tr:nth-child(7) { animation-delay: 0.18s; }
-.table > tbody > tr:nth-child(8) { animation-delay: 0.21s; }
-.table > tbody > tr:nth-child(9) { animation-delay: 0.24s; }
-.table > tbody > tr:nth-child(10) { animation-delay: 0.27s; }
-.table > tbody > tr:nth-child(n + 11) { animation-delay: 0.3s; }
+.table > tbody > tr:nth-child(2) { animation-delay: 0.02s; }
+.table > tbody > tr:nth-child(3) { animation-delay: 0.04s; }
+.table > tbody > tr:nth-child(4) { animation-delay: 0.06s; }
+.table > tbody > tr:nth-child(5) { animation-delay: 0.08s; }
+.table > tbody > tr:nth-child(6) { animation-delay: 0.1s; }
+.table > tbody > tr:nth-child(n + 7) { animation-delay: 0.12s; }
 
-/* Rê chuột vào hàng: nền tím nhạt + vạch màu bên trái */
-.table-hover > tbody > tr > * {
-  transition: background-color 0.15s ease, box-shadow 0.15s ease;
-}
+/* ---------- Màn hẹp: mỗi hàng thành một thẻ, mỗi ô có tên cột ở bên trái ---------- */
+@media (max-width: 767.98px) {
+  .table-stack {
+    overflow: visible;
+    background: transparent;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
 
-.table-hover > tbody > tr:hover > * {
-  --bs-table-bg-state: #f5f3ff;
-}
+  .table-stack .table {
+    background: transparent;
+  }
 
-.table-hover > tbody > tr:hover > :first-child {
-  box-shadow: inset 4px 0 0 #6d5df5;
-}
+  .table-stack thead {
+    display: none;
+  }
 
-/* Mã / liên kết ở cột đầu: đổi màu và gạch chân động khi rê chuột */
-.table > tbody > tr > td:first-child a {
-  background-image: linear-gradient(90deg, #00c2ee, #6d5df5);
-  background-size: 0 2px;
-  background-repeat: no-repeat;
-  background-position: 0 100%;
-  text-decoration: none;
-  transition: background-size 0.25s ease, color 0.15s ease;
-}
+  .table-stack tbody {
+    display: grid;
+    gap: 0.75rem;
+  }
 
-.table > tbody > tr:hover > td:first-child a {
-  background-size: 100% 2px;
-  color: #4338ca;
+  .table-stack tbody tr {
+    display: block;
+    padding: 0.6rem 0.9rem;
+    background: #ffffff;
+    border: 1px solid var(--dt-border);
+    border-radius: 1rem;
+    box-shadow: 0 6px 18px -14px rgba(12, 35, 99, 0.4);
+  }
+
+  .table-stack tbody tr:has(> td .form-check-input:checked) {
+    background: var(--dt-selected);
+    border-color: #cfc8f3;
+  }
+
+  .table-stack.table-card .table > tbody > tr > * {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    min-width: 0;
+    padding: 0.35rem 0 !important;
+    text-align: right;
+    border-bottom: 1px dashed var(--dt-border);
+    background: transparent;
+    box-shadow: none;
+    white-space: normal;
+  }
+
+  .table-stack.table-card .table > tbody > tr > *:last-child {
+    border-bottom: 0;
+  }
+
+  .table-stack tbody td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    max-width: 45%;
+    text-align: left;
+    font-family: var(--sclass-font-display);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--dt-head-color);
+  }
+
+  /* Ô trống (vd. câu chưa có độ khó / tag): bỏ hẳn dòng đó trong thẻ */
+  .table-stack.table-card .table > tbody > tr > td:empty {
+    display: none;
+  }
+
+  /* Ô không có tên cột (ô tích, nút thao tác): không ghi nhãn, nằm sát lề */
+  .table-stack tbody td:not([data-label])::before {
+    content: none;
+  }
+
+  .table-stack tbody td:not([data-label]) {
+    justify-content: flex-end;
+  }
+
+  .table-stack tbody td:first-child:not([data-label]) {
+    justify-content: flex-start;
+  }
+
+  .table-stack .cell-content,
+  .table-stack .cell-min-8,
+  .table-stack .cell-min-10 {
+    min-width: 0;
+  }
+
+  .table-stack tbody td > * {
+    min-width: 0;
+  }
 }
 
 /* ---------- Thẻ thống kê bấm để lọc (Điểm danh) ---------- */
@@ -217,27 +357,7 @@ main .form-select:focus {
   transition: left 0.6s ease;
 }
 
-/* Nút viền: rê chuột nhấc nhẹ */
-main .btn[class*="btn-outline-"]:not(.btn-sm):hover,
-main .btn-sm[class*="btn-outline-"]:not(.table .btn):hover {
-  transform: translateY(-1px);
-}
-
-/* Giảm chuyển động: hàng chỉ hiện mờ dần, không trượt */
-@keyframes sclassRowFade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .table > tbody > tr {
-    animation-name: sclassRowFade;
-  }
-
   .btn-primary:not(.dropdown-toggle):hover::after,
   .btn-success:not(.dropdown-toggle):hover::after {
     transition: none;
