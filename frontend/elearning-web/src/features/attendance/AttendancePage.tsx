@@ -110,7 +110,7 @@ export function AttendancePage() {
         <div className="text-secondary small">Điểm danh, chấm BTVN từng buổi — tự động lưu khi thay đổi.</div>
       </PageHeader>
 
-      <Card className="mb-3 shadow-sm">
+      <Card className="mb-3 filter-bar">
         <Card.Body className="d-flex flex-wrap gap-3 align-items-end">
           <Form.Group style={{ minWidth: 260, flex: "1 1 260px" }}>
             <Form.Label className="small fw-semibold mb-1">Lớp học</Form.Label>
@@ -476,7 +476,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
               tabIndex={0}
               onClick={() => setFilter(c.filter)}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setFilter(c.filter)}
-              className={`h-100 border-${c.color} ${filter === c.filter ? `bg-${c.color}-subtle shadow` : "shadow-sm"}`}
+              className={`h-100 attendance-stat border-${c.color} ${filter === c.filter ? `bg-${c.color}-subtle is-active` : ""}`}
               style={{ borderLeftWidth: 4 }}
             >
               <Card.Body className="py-2">
@@ -518,8 +518,8 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
       </Row>
 
       {/* Tìm, lọc, sắp xếp */}
-      <Card className="shadow-sm">
-        <Card.Header className="bg-body d-flex flex-wrap gap-2 align-items-center">
+      <Card className="data-card">
+        <Card.Header className="data-card-header d-flex flex-wrap gap-2 align-items-center">
           <Form.Control
             ref={searchRef}
             size="sm"
@@ -535,7 +535,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
               <Button
                 key={p.value}
                 size="sm"
-                className="rounded-pill"
+                className="rounded-pill filter-pill"
                 variant={filter === p.value ? "dark" : "outline-secondary"}
                 onClick={() => setFilter(p.value)}
               >
