@@ -1049,9 +1049,23 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
               <Card.Body>
                 <Tabs activeKey={mode} onSelect={(key) => setMode(key === "edit" ? "edit" : "preview")} className="mb-2">
                   <Tab eventKey="preview" title={<><i className="bi bi-eye me-1" aria-hidden="true" />{t("common.preview")}</>}>
+                    {/* Xem trước gộp cả đề, đáp án và lời giải như học viên thấy; tab "Nội dung" mới hiện các ô soạn */}
                     <MediaUrls value={media}>
                       <div className="border rounded p-3 bg-white">
                         <MarkdownView content={fullContentWithImages || t("questionEditor.noContent")} format={form.contentFormat} />
+                        <div className="mt-3">
+                          <div className="small fw-semibold text-secondary mb-2">{t("questionEditor.answers")}</div>
+                          {form.questionType === "FILL_IN" ? <FillInPreview form={form} /> : <OptionsPreview form={form} />}
+                        </div>
+                        {form.explanation?.trim() && (
+                          <div className="mt-3 p-2 px-3 rounded bg-info-subtle border border-info-subtle small">
+                            <div className="fw-semibold mb-1">
+                              <i className="bi bi-lightbulb me-1" aria-hidden="true" />
+                              {t("questionEditor.explanation")}
+                            </div>
+                            <MarkdownView content={form.explanation} />
+                          </div>
+                        )}
                       </div>
                     </MediaUrls>
                     <div className="small text-secondary mt-2">
@@ -1059,7 +1073,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
                       {t("questionEditor.previewHint")}
                     </div>
                   </Tab>
-                  <Tab eventKey="edit" title={<><i className="bi bi-pencil-square me-1" aria-hidden="true" />{t("questionEditor.editTab")}</>}>
+                  <Tab eventKey="edit" title={<><i className="bi bi-pencil-square me-1" aria-hidden="true" />Nội dung</>}>
                     <Form.Group controlId="q-content">
                       <Form.Label className="visually-hidden">Nội dung</Form.Label>
                       <Form.Control ref={contentRef} as="textarea" rows={6} value={form.content} isInvalid={!!err("content")} onChange={(e) => set({ content: e.target.value })} />
@@ -1113,24 +1127,15 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
               </Card.Body>
             </Card>
 
+            {/* Chế độ xem trước: đáp án và lời giải đã hiện trong tab Xem trước; các khung soạn chỉ hiện ở tab Nội dung */}
+            {mode === "edit" && (
+            <>
             <Card className="mb-3">
               <Card.Body>
-                <div className="d-flex align-items-center mb-2">
-                  <h2 className="h6 mb-0 me-auto">Đáp án</h2>
-                  {mode === "preview" && form.questionType !== "FILL_IN" && (
-                    <Button size="sm" variant="outline-primary" onClick={() => setMode("edit")}>
-                      <i className="bi bi-pencil-square me-1" aria-hidden="true" />
-                      {t("questionEditor.edit")}
-                    </Button>
-                  )}
-                </div>
+                <h2 className="h6">Đáp án</h2>
                 {err("options") && <Alert variant="danger" className="py-2">{err("options")}</Alert>}
                 {form.questionType === "FILL_IN" ? (
                   <FillInEditor form={form} set={set} errors={errors} tryValue={tryValue} setTryValue={setTryValue} />
-                ) : mode === "preview" ? (
-                  <MediaUrls value={media}>
-                    <OptionsPreview form={form} />
-                  </MediaUrls>
                 ) : (
                   <>
                     <OptionsEditor form={form} set={set} errors={errors} />
@@ -1146,36 +1151,17 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
 
             <Card>
               <Card.Body>
-                {mode === "preview" ? (
-                  <>
-                    <div className="d-flex align-items-center mb-2">
-                      <h2 className="h6 mb-0 me-auto">{t("questionEditor.explanation")}</h2>
-                      <Button size="sm" variant="outline-primary" onClick={() => setMode("edit")}>
-                        <i className="bi bi-pencil-square me-1" aria-hidden="true" />
-                        {t("questionEditor.edit")}
-                      </Button>
-                    </div>
-                    {form.explanation?.trim() ? (
-                      <MediaUrls value={media}>
-                        <div className="border rounded p-3 bg-white">
-                          <MarkdownView content={form.explanation} />
-                        </div>
-                      </MediaUrls>
-                    ) : (
-                      <p className="text-secondary small mb-0">{t("questionEditor.noExplanation")}</p>
-                    )}
-                  </>
-                ) : (
-                  <Form.Group controlId="q-explanation">
-                    <div className="d-flex align-items-center mb-2">
-                      <Form.Label className="me-auto mb-0">Giải thích (hiển thị khi xem lại bài, Markdown)</Form.Label>
-                      {canUpload && <ImageInsertButton target="phần giải thích" onInserted={insertIntoExplanation} />}
-                    </div>
-                    <Form.Control ref={explanationRef} as="textarea" rows={3} value={form.explanation ?? ""} onChange={(e) => set({ explanation: e.target.value })} />
-                  </Form.Group>
-                )}
+                <Form.Group controlId="q-explanation">
+                  <div className="d-flex align-items-center mb-2">
+                    <Form.Label className="me-auto mb-0">Giải thích (hiển thị khi xem lại bài, Markdown)</Form.Label>
+                    {canUpload && <ImageInsertButton target="phần giải thích" onInserted={insertIntoExplanation} />}
+                  </div>
+                  <Form.Control ref={explanationRef} as="textarea" rows={3} value={form.explanation ?? ""} onChange={(e) => set({ explanation: e.target.value })} />
+                </Form.Group>
               </Card.Body>
             </Card>
+            </>
+            )}
           </Col>
           <Col lg={4}>
             <Card className="sticky-lg-top" style={{ top: 16 }}>
@@ -1293,6 +1279,30 @@ function OptionsPreview({ form }: { form: EditorState }) {
             )
           )}
         </div>
+      ))}
+    </div>
+  );
+}
+
+/** Câu điền đáp án ở chế độ xem trước: đáp án số (kèm sai số) hoặc các đáp án chữ được chấp nhận. */
+function FillInPreview({ form }: { form: EditorState }) {
+  const { t } = useTranslation();
+  const answers =
+    form.answerDataType === "NUMBER"
+      ? form.correctAnswerNumber == null
+        ? []
+        : [`${formatNumber(form.correctAnswerNumber)}${form.numericTolerance ? ` (± ${formatNumber(form.numericTolerance)})` : ""}`]
+      : form.acceptedAnswers.filter((a) => a.trim());
+  if (answers.length === 0) {
+    return <p className="text-secondary small mb-0">{t("questionEditor.noAnswer")}</p>;
+  }
+  return (
+    <div className="d-flex flex-wrap gap-2">
+      {answers.map((a) => (
+        <span key={a} className="px-3 py-2 rounded border border-success bg-success-subtle fw-semibold">
+          <i className="bi bi-check-lg me-1 text-success" aria-hidden="true" />
+          {a}
+        </span>
       ))}
     </div>
   );

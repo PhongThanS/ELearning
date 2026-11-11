@@ -76,7 +76,7 @@ Tổng số user / học viên, số đề / số đề đang mở, lượt thi 
   ├── SingleChoiceEditor | MultipleChoiceEditor | TrueFalseEditor | FillInEditor
   └── ExplanationEditor
   ```
-- **Mở câu đã có thì ở chế độ Xem trước** (tab đầu): đề bài, các lựa chọn (đáp án đúng nền xanh + nhãn "Đáp án đúng"; câu Đúng/Sai ghi Đúng / Sai từng mệnh đề) và lời giải hiển thị như học viên thấy (công thức, hình). Tab **"Sửa nội dung"** hoặc nút "Sửa" ở mục Đáp án / Giải thích mới hiện ô soạn mã (`$…$`) cho cả ba phần. Câu mới mở thẳng chế độ sửa; Lưu bị lỗi nhập liệu thì tự chuyển sang chế độ sửa để thấy ô báo lỗi. Câu điền đáp án (FILL_IN) luôn hiện ô nhập đáp án.
+- **Mở câu đã có thì ở tab Xem trước** (tab đầu): một khung gộp đề bài, đáp án (lựa chọn đúng nền xanh + nhãn "Đáp án đúng"; câu Đúng/Sai ghi Đúng / Sai từng mệnh đề; câu điền đáp án hiện đáp án số kèm sai số hoặc các đáp án chữ được chấp nhận) và lời giải, hiển thị như học viên thấy (công thức, hình); các khung soạn đáp án / giải thích bên dưới ẩn đi. Tab **"Nội dung"** mới hiện ô soạn mã (`$…$`) của đề cùng khung soạn đáp án và giải thích. Câu mới mở thẳng tab Nội dung; Lưu bị lỗi nhập liệu thì tự chuyển sang tab Nội dung để thấy ô báo lỗi.
 - Chỉ render editor ứng với `questionType`. Đổi loại câu thì hỏi xác nhận vì dữ liệu option sẽ bị xóa.
 - Option: thêm / xóa / kéo thả sắp xếp; đánh dấu đúng. Với chọn một thì dùng radio, tức là chỉ được chọn 1.
 - `FillInEditor`:

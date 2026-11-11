@@ -339,14 +339,13 @@
     "CATEGORY_HAS_QUESTIONS": "Chuyên đề đang có câu hỏi trực thuộc."
   },
   "questionEditor": {
-    "editTab": "Sửa nội dung",
-    "previewHint": "Đang xem câu hỏi như học viên thấy. Bấm \"Sửa nội dung\" để chỉnh đề, phương án và lời giải.",
-    "edit": "Sửa",
+    "previewHint": "Đang xem câu hỏi như học viên thấy. Bấm tab \"Nội dung\" để sửa đề, đáp án và lời giải.",
+    "answers": "Đáp án",
     "correct": "Đáp án đúng",
     "statementTrue": "Đúng",
     "statementFalse": "Sai",
     "explanation": "Giải thích (hiển thị khi xem lại bài)",
-    "noExplanation": "(Chưa có giải thích)",
+    "noAnswer": "(Chưa có đáp án)",
     "noContent": "_(Chưa có nội dung)_"
   },
   "classes": {
