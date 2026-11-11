@@ -4,11 +4,26 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi } from "../../services/api";
 import { ErrorAlert, Loading } from "../../components/common/Feedback";
-import { PageHeader } from "../../components/common/DataTable";
 import { formatDateTime, formatNumber } from "../../utils/format";
+import { Permissions } from "../../constants/permissions";
+import { useAuth } from "../auth/useAuth";
+
+/** Lời chào theo giờ trên máy người dùng (chỉ để hiển thị). */
+function greetingKey(hour: number): "home.morning" | "home.afternoon" | "home.evening" {
+  return hour < 11 ? "home.morning" : hour < 18 ? "home.afternoon" : "home.evening";
+}
+
+// [khóa i18n, đường dẫn, icon, quyền]
+const quickActions: [string, string, string, string][] = [
+  ["home.quickExams", "/admin/exams", "bi-journal-text", Permissions.ExamView],
+  ["home.quickQuestions", "/admin/questions", "bi-collection", Permissions.QuestionView],
+  ["home.quickImport", "/admin/questions/import-markdown", "bi-file-earmark-arrow-up", Permissions.QuestionCreate],
+  ["home.quickAttendance", "/admin/attendance", "bi-person-check", Permissions.AttendanceTake],
+];
 
 export function DashboardPage() {
   const { t } = useTranslation();
+  const { user, hasPermission } = useAuth();
   const query = useQuery({ queryKey: ["dashboard"], queryFn: adminApi.dashboard, refetchInterval: 60_000 });
 
   if (query.error) {
@@ -29,10 +44,36 @@ export function DashboardPage() {
     ["Điểm TB 30 ngày", d.averagePercentage30Days == null ? "—" : `${formatNumber(d.averagePercentage30Days)}%`, "bi-graph-up-arrow", "green"],
     ["Tỉ lệ đạt 30 ngày", d.passRate30Days == null ? "—" : `${formatNumber(d.passRate30Days)}%`, "bi-trophy-fill", "pink"],
   ];
+  const actions = quickActions.filter(([, , , permission]) => hasPermission(permission));
 
   return (
     <>
-      <PageHeader title={t("nav.dashboard")} />
+      <section className="sclass-hero mb-4">
+        <div className="sclass-hero-body">
+          <div className="sclass-hero-eyebrow">{t("nav.dashboard")}</div>
+          <h1 className="sclass-hero-title">
+            {t(greetingKey(new Date().getHours()))}, <span className="text-cyan">{user?.fullName}</span> 👋
+          </h1>
+          <p className="sclass-hero-text">
+            {t("home.today", { attempts: formatNumber(d.attemptsToday), open: formatNumber(d.openExams), inProgress: formatNumber(d.inProgressAttempts) })}
+          </p>
+          {actions.length > 0 && (
+            <div className="d-flex flex-wrap gap-2">
+              {actions.map(([label, to, icon]) => (
+                <Link key={to} to={to} className="btn btn-hero">
+                  <i className={`bi ${icon} me-2`} aria-hidden="true" />
+                  {t(label)}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="sclass-hero-art d-none d-md-block" aria-hidden="true">
+          <span className="hero-bubble hero-bubble-a"><i className="bi bi-mortarboard-fill" /></span>
+          <span className="hero-bubble hero-bubble-b"><i className="bi bi-patch-check-fill" /></span>
+          <span className="hero-bubble hero-bubble-c"><i className="bi bi-lightbulb-fill" /></span>
+        </div>
+      </section>
       <Row xs={2} md={4} className="g-3 mb-4">
         {tiles.map(([label, value, icon, accent]) => (
           <Col key={label}>
@@ -43,7 +84,7 @@ export function DashboardPage() {
                 </span>
                 <div className="min-w-0">
                   <div className="small text-secondary text-truncate">{label}</div>
-                  <div className="fs-4 fw-bold lh-sm">{value}</div>
+                  <div className="stat-value">{value}</div>
                 </div>
               </Card.Body>
             </Card>
@@ -52,37 +93,43 @@ export function DashboardPage() {
       </Row>
       <Card>
         <Card.Body>
-          <h2 className="h5">
-            <i className="bi bi-calendar-event text-primary me-2" aria-hidden="true" />
-            Đề thi sắp diễn ra / đang mở
+          <h2 className="h5 section-title">
+            <span className="section-title-icon accent-sky" aria-hidden="true">
+              <i className="bi bi-calendar-event" />
+            </span>
+            {t("home.upcoming")}
           </h2>
-          <p className="small text-secondary">Không deploy hệ thống trong khung giờ có đề đang mở.</p>
-          <div className="table-responsive">
-            <Table size="sm" hover className="align-middle mb-0">
-              <thead>
-                <tr>
-                  <th>{t("common.code")}</th>
-                  <th>{t("common.name")}</th>
-                  <th>Bắt đầu</th>
-                  <th>Kết thúc</th>
-                  <th>Đang làm</th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.upcomingExams.map((e) => (
-                  <tr key={e.examId}>
-                    <td>
-                      <Link to={`/admin/exams/${e.examId}`}>{e.code}</Link>
-                    </td>
-                    <td>{e.name}</td>
-                    <td>{formatDateTime(e.startAt)}</td>
-                    <td>{formatDateTime(e.endAt)}</td>
-                    <td>{e.inProgressAttempts}</td>
+          <p className="small text-secondary">{t("home.upcomingHint")}</p>
+          {d.upcomingExams.length === 0 ? (
+            <p className="text-secondary mb-0">{t("home.noUpcoming")}</p>
+          ) : (
+            <div className="table-responsive">
+              <Table size="sm" hover className="align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>{t("common.code")}</th>
+                    <th>{t("common.name")}</th>
+                    <th>Bắt đầu</th>
+                    <th>Kết thúc</th>
+                    <th>Đang làm</th>
                   </tr>
-                ))}
-              </tbody>
-            </Table>
-          </div>
+                </thead>
+                <tbody>
+                  {d.upcomingExams.map((e) => (
+                    <tr key={e.examId}>
+                      <td>
+                        <Link to={`/admin/exams/${e.examId}`}>{e.code}</Link>
+                      </td>
+                      <td>{e.name}</td>
+                      <td>{formatDateTime(e.startAt)}</td>
+                      <td>{formatDateTime(e.endAt)}</td>
+                      <td>{e.inProgressAttempts}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </div>
+          )}
         </Card.Body>
       </Card>
     </>

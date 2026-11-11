@@ -85,6 +85,37 @@
     "myAttendance": "Điểm danh & BTVN",
     "systemSettings": "Cấu hình hệ thống"
   },
+  "landing": {
+    "tagline": "Hệ thống Khảo thí & Luyện thi Trực tuyến",
+    "headlineStart": "Học thông minh,",
+    "headlineAccent": "thi hiệu quả",
+    "headlineEnd": "cùng SClass",
+    "intro": "Đề thi trực tuyến chấm điểm tự động, ngân hàng câu hỏi theo chuyên đề, điểm danh và bài giảng video — tất cả trong một nơi.",
+    "feature1Title": "Thi trực tuyến",
+    "feature1Text": "Tính giờ trên máy chủ, tự lưu bài, nộp là có điểm.",
+    "feature2Title": "Ngân hàng câu hỏi",
+    "feature2Text": "Theo chuyên đề, có công thức và hình vẽ.",
+    "feature3Title": "Theo dõi tiến bộ",
+    "feature3Text": "Điểm danh, lịch sử làm bài, kết quả từng lớp.",
+    "badgeGrading": "Chấm điểm tự động",
+    "badgeTimer": "Tự lưu bài làm",
+    "welcomeBack": "Chào mừng trở lại 👋",
+    "loginHint": "Đăng nhập để vào lớp học và làm bài thi.",
+    "registerHint": "Tạo tài khoản học viên trong vài giây."
+  },
+  "home": {
+    "morning": "Chào buổi sáng",
+    "afternoon": "Chào buổi chiều",
+    "evening": "Chào buổi tối",
+    "today": "Hôm nay có {{attempts}} lượt thi · {{open}} đề đang mở · {{inProgress}} người đang làm bài.",
+    "quickExams": "Đề thi",
+    "quickQuestions": "Ngân hàng câu hỏi",
+    "quickImport": "Nhập đề từ file",
+    "quickAttendance": "Điểm danh",
+    "upcoming": "Đề thi sắp diễn ra / đang mở",
+    "upcomingHint": "Không deploy hệ thống trong khung giờ có đề đang mở.",
+    "noUpcoming": "Chưa có đề nào sắp diễn ra."
+  },
   "auth": {
     "login": "Đăng nhập",
     "register": "Đăng ký",
@@ -298,13 +329,6 @@
     "OPTION_CODE_INVALID": "Mã lựa chọn phải là chữ cái từ A đến J.",
     "ROLE_CODE_INVALID": "Mã vai trò gồm 2–50 ký tự: chữ không dấu, số, gạch dưới; bắt đầu bằng chữ cái.",
     "CATEGORY_HAS_QUESTIONS": "Chuyên đề đang có câu hỏi trực thuộc."
-  },
-  "landing": {
-    "title": "Thi trực tuyến dễ dàng, công bằng",
-    "subtitle": "Làm bài mọi lúc, mọi nơi — hệ thống lo phần còn lại.",
-    "autosave": "Tự động lưu từng câu trả lời, mất mạng không mất bài",
-    "timer": "Đồng hồ chính xác theo máy chủ, tự nộp khi hết giờ",
-    "results": "Xem điểm và xem lại bài ngay khi được phép"
   },
   "classes": {
     "create": "Tạo lớp học",

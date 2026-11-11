@@ -41,9 +41,10 @@ export function LoginPage() {
   });
 
   return (
-    <Card>
+    <Card className="auth-card">
       <Card.Body>
-        <h2 className="h5 mb-3">{t("auth.login")}</h2>
+        <h2 className="h4 mb-1">{t("landing.welcomeBack")}</h2>
+        <p className="text-secondary small mb-4">{t("landing.loginHint")}</p>
         {notice && <Alert variant="success">{notice}</Alert>}
         {error && <Alert variant="danger">{error}</Alert>}
         <Form noValidate onSubmit={onSubmit}>
@@ -57,9 +58,10 @@ export function LoginPage() {
             <Form.Control type="password" autoComplete="current-password" isInvalid={!!formState.errors.password} {...register("password")} />
             <Form.Control.Feedback type="invalid">{formState.errors.password?.message}</Form.Control.Feedback>
           </Form.Group>
-          <Button type="submit" className="w-100" disabled={formState.isSubmitting}>
+          <Button type="submit" size="lg" className="w-100 btn-cta" disabled={formState.isSubmitting}>
             {formState.isSubmitting && <Spinner size="sm" animation="border" className="me-2" />}
             {t("auth.login")}
+            {!formState.isSubmitting && <i className="bi bi-arrow-right ms-2" aria-hidden="true" />}
           </Button>
         </Form>
         <div className="d-flex justify-content-between mt-3 small">
@@ -129,9 +131,10 @@ export function RegisterPage() {
   );
 
   return (
-    <Card>
+    <Card className="auth-card">
       <Card.Body>
-        <h2 className="h5 mb-3">{t("auth.register")}</h2>
+        <h2 className="h4 mb-1">{t("auth.register")}</h2>
+        <p className="text-secondary small mb-4">{t("landing.registerHint")}</p>
         {isRegistrationClosed && (
           <Alert variant="warning" className="d-flex align-items-start gap-2 mb-3">
             <i className="bi bi-shield-lock-fill fs-5 mt-1" />

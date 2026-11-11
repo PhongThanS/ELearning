@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Button, Container, Nav, Navbar, NavDropdown, Spinner } from "react-bootstrap";
+import { Button, Col, Container, Nav, Navbar, NavDropdown, Row, Spinner } from "react-bootstrap";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
@@ -716,7 +716,16 @@ export function PlayerLayout() {
   );
 }
 
+/** Ba điểm nổi bật ở trang đăng nhập: [khóa i18n, icon Bootstrap Icons, màu nhấn]. */
+const landingFeatures: [string, string, string][] = [
+  ["feature1", "bi-laptop", "orange"],
+  ["feature2", "bi-collection", "indigo"],
+  ["feature3", "bi-graph-up-arrow", "teal"],
+];
+
+/** Trang đăng nhập / đăng ký / quên mật khẩu: giới thiệu bên trái, khung form bên phải, nền pastel. */
 export function PublicLayout() {
+  const { t } = useTranslation();
   const { data: catData } = useQuery({
     queryKey: ["public-active-categories"],
     queryFn: () => categoriesApi.list({ isActive: true, pageSize: 5, sortBy: "name" }),
@@ -725,55 +734,75 @@ export function PublicLayout() {
   const categories = catData?.items ?? [];
 
   return (
-    <div className="min-vh-100 d-flex align-items-center sclass-auth-wrapper py-5 position-relative">
-      {/* Background study doodles inspired by S Class banner */}
-      <div className="sclass-banner-backdrop" />
-      <div className="sclass-study-doodle doodle-triangle">
-        <svg width="75" height="75" viewBox="0 0 100 100" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2.5">
-          <polygon points="50,15 15,85 85,85" />
-          <path d="M 28,68 A 20,20 0 0,0 45,85" />
-          <text x="47" y="10" fill="rgba(255,255,255,0.3)" fontSize="12" fontWeight="bold">A</text>
-          <text x="3" y="96" fill="rgba(255,255,255,0.3)" fontSize="12" fontWeight="bold">B</text>
-          <text x="87" y="96" fill="rgba(255,255,255,0.3)" fontSize="12" fontWeight="bold">C</text>
-        </svg>
-      </div>
-      <div className="sclass-study-doodle doodle-book">
-        <svg width="68" height="68" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2">
-          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-        </svg>
-      </div>
-      <div className="sclass-dots-matrix matrix-left" />
-      <div className="sclass-dots-matrix matrix-right" />
+    <div className="auth-page">
+      {/* Mảng màu loang và hình vẽ trang trí (không nhận chuột) */}
+      <div className="auth-blob auth-blob-lemon" aria-hidden="true" />
+      <div className="auth-blob auth-blob-lavender" aria-hidden="true" />
+      <div className="auth-blob auth-blob-sky" aria-hidden="true" />
+      <svg className="auth-doodle auth-doodle-squiggle" width="92" height="64" viewBox="0 0 92 64" fill="none" aria-hidden="true">
+        <path d="M4 52c14-2 22-14 18-24-3-8-14-5-11 4 4 11 24 12 36 2 9-8 13-20 26-24" stroke="#f5b82e" strokeWidth="3" strokeLinecap="round" />
+        <path d="M70 6l12 4-7 10" stroke="#f5b82e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="auth-doodle auth-doodle-ring" aria-hidden="true" />
+      <span className="auth-doodle auth-doodle-dots" aria-hidden="true" />
+      <svg className="auth-doodle auth-doodle-triangle" width="72" height="72" viewBox="0 0 100 100" fill="none" stroke="#7c6fff" strokeOpacity="0.35" strokeWidth="3" aria-hidden="true">
+        <polygon points="50,12 12,86 88,86" />
+        <path d="M27 68a20 20 0 0 0 17 18" />
+      </svg>
 
-      <Container style={{ maxWidth: 460, position: "relative", zIndex: 2 }}>
-        <div className="text-center mb-4">
-          <div className="bg-white d-inline-block px-4 py-3 rounded-4 shadow-lg border border-light-subtle mb-2">
-            <SClassLogo size={46} showTagline={true} lightText={false} />
-          </div>
-          <div className="d-flex justify-content-center flex-wrap gap-2 mt-2">
-            {categories.length > 0 ? (
-              categories.map((c) => (
-                <span
-                  key={c.id}
-                  className="badge px-2.5 py-1"
-                  style={{
-                    backgroundColor: `${getCodeColor(c.code)}18`,
-                    color: getCodeColor(c.code),
-                    border: `1px solid ${getCodeColor(c.code)}40`,
-                  }}
-                >
-                  {c.name}
-                </span>
-              ))
-            ) : (
-              <span className="badge bg-primary-subtle text-primary border border-primary-subtle px-2.5 py-1">
-                Hệ thống Khảo thí &amp; Luyện thi Trực tuyến
-              </span>
-            )}
-          </div>
-        </div>
-        <Outlet />
+      <Container className="auth-container">
+        <Row className="align-items-center g-4 g-lg-5">
+          <Col lg={6} className="auth-intro">
+            <SClassLogo size={44} showTagline={true} lightText={false} />
+            <h1 className="auth-headline mt-4">
+              {t("landing.headlineStart")} <span className="text-gradient">{t("landing.headlineAccent")}</span> {t("landing.headlineEnd")}
+            </h1>
+            <p className="auth-lead">{t("landing.intro")}</p>
+            <ul className="auth-features list-unstyled d-none d-md-grid">
+              {landingFeatures.map(([key, icon, accent], index) => (
+                <li key={key} className={`auth-feature accent-${accent}`}>
+                  <span className="auth-feature-number">{String(index + 1).padStart(2, "0")}</span>
+                  <div className="min-w-0">
+                    <div className="auth-feature-title">
+                      <i className={`bi ${icon} me-2`} aria-hidden="true" />
+                      {t(`landing.${key}Title`)}
+                    </div>
+                    <div className="auth-feature-text">{t(`landing.${key}Text`)}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="d-flex flex-wrap gap-2 mt-3">
+              {categories.length > 0 ? (
+                categories.map((c) => (
+                  <span
+                    key={c.id}
+                    className="auth-chip"
+                    style={{ color: getCodeColor(c.code), borderColor: `${getCodeColor(c.code)}40`, backgroundColor: `${getCodeColor(c.code)}12` }}
+                  >
+                    <i className="bi bi-bookmark-star-fill me-1" aria-hidden="true" />
+                    {c.name}
+                  </span>
+                ))
+              ) : (
+                <span className="auth-chip">{t("landing.tagline")}</span>
+              )}
+            </div>
+          </Col>
+          <Col lg={6}>
+            <div className="auth-form-wrap">
+              <div className="auth-float auth-float-top d-none d-sm-flex" aria-hidden="true">
+                <span className="auth-float-icon accent-green"><i className="bi bi-patch-check-fill" /></span>
+                {t("landing.badgeGrading")}
+              </div>
+              <div className="auth-float auth-float-bottom d-none d-sm-flex" aria-hidden="true">
+                <span className="auth-float-icon accent-amber"><i className="bi bi-cloud-check-fill" /></span>
+                {t("landing.badgeTimer")}
+              </div>
+              <Outlet />
+            </div>
+          </Col>
+        </Row>
       </Container>
     </div>
   );

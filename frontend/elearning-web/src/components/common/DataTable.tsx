@@ -139,7 +139,7 @@ export function PageHeader({ title, actions, children }: { title: ReactNode; act
   return (
     <div className="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
       <div>
-        <h1 className="h4 mb-1">{title}</h1>
+        <h1 className="h4 mb-1 page-title">{title}</h1>
         {children}
       </div>
       {actions && <div className="d-flex gap-2 flex-wrap">{actions}</div>}
