@@ -119,6 +119,17 @@ Không cần mở cổng trên modem, có HTTPS tự động. Cần một tên m
    đặt `PUBLIC_ORIGIN=https://thi.<tên miền>`.
 4. `docker compose up -d` rồi `docker compose logs tunnel` phải có `Registered tunnel connection`.
 
+**Có máy vào rất chậm, máy khác lại nhanh** (tải file lên vài chục giây, ping vài trăm ms tới vài giây): người dùng
+vào Cloudflare ở điểm nào (Singapore, Hồng Kông…) là do nhà mạng của họ; tunnel mặc định chạy QUIC (UDP), nhà mạng VN
+hay bóp UDP đi quốc tế nên chặng Cloudflare → tunnel → máy chủ qua một số điểm bị nghẽn. Cách xử lý:
+
+1. Xem tunnel đang nối tới đâu, giao thức gì: `docker compose logs tunnel | Select-String "Registered tunnel connection"`
+   (`location=sin…/hkg…`, `protocol=quic`).
+2. Chuyển sang TCP: thêm dòng `CLOUDFLARE_TUNNEL_PROTOCOL=http2` vào `.env`, chạy `docker compose up -d tunnel`; log
+   phải có `protocol=http2`. Nếu tunnel không nối được (mạng chặn TCP cổng 7844) thì xóa dòng đó và chạy lại lệnh.
+3. Đo lại từ máy chậm: `https://<tên miền>/cdn-cgi/trace` cho biết điểm Cloudflare (`colo=`); trong DevTools → Network,
+   cột Time của request API trừ `Server-Timing` (`app;dur`) là phần đường mạng.
+
 Không dùng `docker-compose.https.yml` cùng tunnel (HTTPS do Cloudflare lo).
 
 ## 7. Lưu ý

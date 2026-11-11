@@ -123,6 +123,9 @@ services:
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+      # auto = QUIC (UDP 7844). Nhà mạng VN hay bóp UDP đi quốc tế: tunnel nối qua một số điểm Cloudflare (vd. SIN)
+      # rất chậm. Đặt CLOUDFLARE_TUNNEL_PROTOCOL=http2 trong .env để chạy TCP (deploy/server/README.md mục 6).
+      TUNNEL_TRANSPORT_PROTOCOL: ${CLOUDFLARE_TUNNEL_PROTOCOL:-auto}
     networks: [backend]
     depends_on:
       - web
