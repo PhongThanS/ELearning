@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from "react";
-import { Button, Col, Container, Nav, Navbar, NavDropdown, Row, Spinner } from "react-bootstrap";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { Fragment, useEffect, useState } from "react";
+import { Button, Col, Container, Nav, Navbar, NavDropdown, Row } from "react-bootstrap";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Permissions, StudentRole } from "../constants/permissions";
+import { Features } from "../constants/features";
 import { useAuth } from "../features/auth/useAuth";
 import { categoriesApi } from "../services/api";
-import { matchClassroom, useAllClassrooms } from "../hooks/useClassrooms";
-import { orderCategories } from "../utils/categoryTree";
+import { useAllClassrooms } from "../hooks/useClassrooms";
+import { categoryLabel, orderCategories } from "../utils/categoryTree";
+import { RECENT_LIMIT, rememberRecent, useRecent, type RecentItem } from "./recentItems";
+import { QuickSearch, type QuickPage } from "./QuickSearch";
 import { prefetchPages } from "../app/pageLoaders";
-import type { Category, Classroom } from "../types/api";
 
 export function SClassLogo({
   size = 36,
@@ -111,16 +113,16 @@ function UserMenu() {
       </div>
       {user.permissions.length > 0 && (
         <NavDropdown.Item as={NavLink} to="/admin">
-          🛡️ {t("nav.admin")}
+          <i className="bi bi-shield-lock me-2" aria-hidden="true" />{t("nav.admin")}
         </NavDropdown.Item>
       )}
       {hasRole(StudentRole) && (
         <NavDropdown.Item as={NavLink} to="/student/attendance">
-          🎓 {t("nav.student")}
+          <i className="bi bi-mortarboard me-2" aria-hidden="true" />{t("nav.student")}
         </NavDropdown.Item>
       )}
       <NavDropdown.Item as={NavLink} to="/profile">
-        ⚙️ {t("nav.profile")}
+        <i className="bi bi-person-gear me-2" aria-hidden="true" />{t("nav.profile")}
       </NavDropdown.Item>
       <NavDropdown.Divider />
       <NavDropdown.Item
@@ -131,7 +133,7 @@ function UserMenu() {
           navigate("/login", { replace: true });
         }}
       >
-        🚪 {t("nav.logout")}
+        <i className="bi bi-box-arrow-right me-2" aria-hidden="true" />{t("nav.logout")}
       </NavDropdown.Item>
     </NavDropdown>
   );
@@ -150,281 +152,18 @@ function getCodeColor(code: string): string {
   return colors[Math.abs(hash) % colors.length] ?? "#2563eb";
 }
 
-function getGroupBadge(code: string) {
-  const parts = code.split("-");
-  return parts.length > 1 ? parts.slice(1).join("-") : code.slice(0, 4).toUpperCase();
-}
-
-
-// Hover dropdown cho Danh sách lớp học: toàn bộ lớp (mục Lớp học, /api/classes), tìm theo mã hoặc tên
-function SidebarClassesHoverItem({ label }: { label: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [keyword, setKeyword] = useState("");
-  const timerRef = useRef<number | null>(null);
-
-  const { data: allClasses, isLoading } = useAllClassrooms();
-  const classes: Classroom[] = allClasses ?? [];
-  const shown = classes.filter((c) => matchClassroom(c, keyword));
-
-  const handleMouseEnter = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setIsOpen(true);
-  };
-
-  const handleMouseLeave = () => {
-    timerRef.current = window.setTimeout(() => {
-      setIsOpen(false);
-    }, 120);
-  };
-
-  return (
-    <div
-      className={`sidebar-groups-wrapper is-bottom ${isOpen ? "hover-active" : ""}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <NavLink
-        to="/admin/classes"
-        className={({ isActive }) =>
-          `nav-link groups-nav-link d-flex align-items-center justify-content-between ${
-            isActive ? "active" : ""
-          }`
-        }
-        end
-      >
-        <span className="d-flex align-items-center gap-2 text-truncate">
-          <span className="nav-item-icon">🏫</span>
-          <span className="nav-item-label">{label}</span>
-        </span>
-        <span className="d-flex align-items-center gap-1">
-          <span className="class-pill-badge">
-            {isLoading ? "..." : `${classes.length} lớp`}
-          </span>
-          <span className={`chevron-indicator ${isOpen ? "open" : ""}`}>›</span>
-        </span>
-      </NavLink>
-
-      {/* Flyout panel on hover */}
-      <div className={`groups-flyout-menu shadow-lg ${isOpen ? "is-visible" : ""}`}>
-        <div className="flyout-hover-bridge" />
-        <div className="groups-flyout-header">
-          <div className="d-flex align-items-center justify-content-between">
-            <span className="groups-flyout-title">🏫 Danh sách lớp học</span>
-            <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
-              {classes.filter((c) => c.isActive).length} lớp đang mở
-            </span>
-          </div>
-          <input
-            type="search"
-            className="form-control form-control-sm mt-2"
-            placeholder="Tìm theo mã hoặc tên lớp..."
-            aria-label="Tìm lớp theo mã hoặc tên"
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-        </div>
-
-        <div className="groups-flyout-list">
-          {isLoading && (
-            <div className="text-center py-3 text-muted small">
-              <Spinner size="sm" animation="border" className="me-2" />
-              Đang tải danh sách lớp...
-            </div>
-          )}
-
-          {!isLoading && shown.length === 0 && (
-            <div className="text-center py-3 text-muted small">
-              {classes.length === 0 ? "Chưa có lớp học nào trong hệ thống." : "Không có lớp nào khớp từ khóa."}
-            </div>
-          )}
-
-          {shown.map((c) => (
-            <NavLink
-              key={c.id}
-              to={`/admin/classes/${c.id}`}
-              className={({ isActive }) =>
-                `class-card-item d-flex align-items-center ${isActive ? "active" : ""}`
-              }
-              onClick={() => setIsOpen(false)}
-            >
-              <div
-                className="class-card-badge"
-                style={{ backgroundColor: getCodeColor(c.code) }}
-              >
-                {getGroupBadge(c.code)}
-              </div>
-              <div className="class-card-info flex-grow-1 min-w-0">
-                <div className="class-card-name text-truncate">
-                  {c.name}
-                </div>
-                <div className="class-card-meta d-flex align-items-center gap-2">
-                  <span className="class-card-students">
-                    👥 {c.studentCount} học viên
-                  </span>
-                  <span className="class-card-code">
-                    {c.code}
-                  </span>
-                  {!c.isActive && <span className="text-secondary">(đã tắt)</span>}
-                </div>
-              </div>
-              <span className="class-card-arrow">→</span>
-            </NavLink>
-          ))}
-        </div>
-
-        <div className="groups-flyout-footer">
-          <NavLink
-            to="/admin/classes"
-            className="view-all-link"
-            onClick={() => setIsOpen(false)}
-          >
-            <span>Quản lý tất cả danh sách lớp học</span>
-            <span className="ms-1">→</span>
-          </NavLink>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Hover dropdown cho Chuyên đề môn học (dữ liệu động từ API backend)
-function SidebarCategoriesHoverItem({ label }: { label: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const timerRef = useRef<number | null>(null);
-
-  // Gọi trực tiếp API backend /api/question-categories
-  const { data: categoriesData, isLoading } = useQuery({
-    queryKey: ["sidebar-categories"],
-    queryFn: () => categoriesApi.list({ page: 1, pageSize: 50 }),
-    staleTime: 60_000,
-  });
-
-  // Chuyên đề con nằm ngay dưới chuyên đề cha
-  const categories: Category[] = orderCategories(categoriesData?.items ?? []);
-
-  const handleMouseEnter = () => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setIsOpen(true);
-  };
-
-  const handleMouseLeave = () => {
-    timerRef.current = window.setTimeout(() => {
-      setIsOpen(false);
-    }, 120);
-  };
-
-  return (
-    <div
-      className={`sidebar-groups-wrapper ${isOpen ? "hover-active" : ""}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <NavLink
-        to="/admin/categories"
-        className={({ isActive }) =>
-          `nav-link groups-nav-link d-flex align-items-center justify-content-between ${
-            isActive ? "active" : ""
-          }`
-        }
-        end
-      >
-        <span className="d-flex align-items-center gap-2 text-truncate">
-          <span className="nav-item-icon">📁</span>
-          <span className="nav-item-label">{label}</span>
-        </span>
-        <span className="d-flex align-items-center gap-1">
-          <span className="class-pill-badge">
-            {isLoading ? "..." : `${categories.length} CĐ`}
-          </span>
-          <span className={`chevron-indicator ${isOpen ? "open" : ""}`}>›</span>
-        </span>
-      </NavLink>
-
-      {/* Flyout panel on hover */}
-      <div className={`groups-flyout-menu shadow-lg ${isOpen ? "is-visible" : ""}`} style={{ width: 360 }}>
-        <div className="flyout-hover-bridge" />
-        <div className="groups-flyout-header">
-          <div className="d-flex align-items-center justify-content-between">
-            <span className="groups-flyout-title">📁 Danh sách chuyên đề</span>
-            <span className="badge bg-primary-subtle text-primary border border-primary-subtle">
-              {categories.length} chuyên đề
-            </span>
-          </div>
-          <div className="groups-flyout-subtitle">
-            Dữ liệu trực tiếp từ máy chủ backend
-          </div>
-        </div>
-
-        <div className="groups-flyout-list">
-          {isLoading && (
-            <div className="text-center py-3 text-muted small">
-              <Spinner size="sm" animation="border" className="me-2" />
-              Đang tải chuyên đề từ máy chủ...
-            </div>
-          )}
-
-          {!isLoading && categories.length === 0 && (
-            <div className="text-center py-3 text-muted small">
-              Chưa có chuyên đề nào trong hệ thống.
-            </div>
-          )}
-
-          {categories.map((c) => (
-            <NavLink
-              key={c.id}
-              to={`/admin/questions?categoryId=${c.id}`}
-              style={c.parentId ? { marginLeft: 24 } : undefined}
-              className={({ isActive }) =>
-                `class-card-item d-flex align-items-center ${isActive ? "active" : ""}`
-              }
-              onClick={() => setIsOpen(false)}
-            >
-              <div
-                className="class-card-badge"
-                style={{ backgroundColor: getCodeColor(c.code) }}
-              >
-                {getGroupBadge(c.code)}
-              </div>
-              <div className="class-card-info flex-grow-1 min-w-0">
-                <div className="class-card-name text-truncate">
-                  {c.name}
-                </div>
-                <div className="class-card-meta d-flex align-items-center gap-2">
-                  <span className="class-card-students">
-                    ❓ {c.childCount > 0 ? `${c.totalQuestionCount} câu · ${c.childCount} chuyên đề con` : `${c.questionCount} câu hỏi`}
-                  </span>
-                  <span className="class-card-code">
-                    {c.code}
-                  </span>
-                </div>
-              </div>
-              <span className="class-card-arrow">→</span>
-            </NavLink>
-          ))}
-        </div>
-
-        <div className="groups-flyout-footer">
-          <NavLink
-            to="/admin/categories"
-            className="view-all-link"
-            onClick={() => setIsOpen(false)}
-          >
-            <span>Quản lý tất cả danh mục chuyên đề</span>
-            <span className="ms-1">→</span>
-          </NavLink>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 interface AdminNavLeaf {
   to: string;
   label: string;
+  /** Lớp Bootstrap Icons nét mảnh, ví dụ "bi-people". */
   icon: string;
   permission: string;
   /** Chỉ sáng khi đúng đường dẫn (không sáng ở trang con có mục menu riêng). */
   end?: boolean;
+  /** Chữ hiển thị nguyên văn (tên lớp, chuyên đề) thay cho khóa dịch `label`. */
+  text?: string;
+  /** Dòng phụ "Xem tất cả": chữ nhạt, không tô sáng như mục đang chọn. */
+  muted?: boolean;
 }
 
 interface AdminNavItem extends Omit<AdminNavLeaf, "to" | "permission"> {
@@ -432,35 +171,41 @@ interface AdminNavItem extends Omit<AdminNavLeaf, "to" | "permission"> {
   to?: string;
   /** Trống: hiện khi người dùng có quyền với ít nhất một mục con. */
   permission?: string;
+  /** Mục con là các lớp mở gần đây (D-28). */
   isClassesDropdown?: boolean;
+  /** Mục con là các chuyên đề mở gần đây. */
   isCategoriesDropdown?: boolean;
   /** Mục con xổ xuống bằng mũi tên. */
   children?: AdminNavLeaf[];
+  /** Tiêu đề nhóm hiện phía trên mục (bỏ trống: cùng nhóm với mục trước). */
+  section?: string;
 }
 
 const adminNav: AdminNavItem[] = [
-  { to: "/admin/dashboard", label: "nav.dashboard", icon: "📊", permission: Permissions.ReportView },
-  { to: "/admin/attendance", label: "nav.attendance", icon: "✅", permission: Permissions.AttendanceTake },
-  { to: "/admin/exams", label: "nav.exams", icon: "📝", permission: Permissions.ExamView },
-  { to: "/admin/videos", label: "nav.videos", icon: "🎥", permission: Permissions.VideoView },
+  { to: "/admin/dashboard", label: "nav.dashboard", icon: "bi-grid-1x2", permission: Permissions.ReportView },
+  { section: "Giảng dạy", to: "/admin/attendance", label: "nav.attendance", icon: "bi-calendar-check", permission: Permissions.AttendanceTake },
+  { to: "/admin/classes", label: "nav.classes", icon: "bi-mortarboard", permission: Permissions.ClassView, isClassesDropdown: true, end: true },
+  { to: "/admin/videos", label: "nav.videos", icon: "bi-play-btn", permission: Permissions.VideoView },
+  { section: "Đề và câu hỏi", to: "/admin/exams", label: "nav.exams", icon: "bi-file-earmark-text", permission: Permissions.ExamView },
   {
     to: "/admin/questions",
     label: "nav.questions",
-    icon: "❓",
+    icon: "bi-collection",
     permission: Permissions.QuestionView,
     end: true,
-    children: [{ to: "/admin/questions/import-markdown", label: "nav.importExam", icon: "📥", permission: Permissions.QuestionCreate }],
+    children: [{ to: "/admin/questions/import-markdown", label: "nav.importExam", icon: "bi-file-earmark-arrow-up", permission: Permissions.QuestionCreate }],
   },
-  { to: "/admin/categories", label: "nav.categories", icon: "📁", permission: Permissions.CategoryView, isCategoriesDropdown: true },
-  { to: "/admin/groups", label: "nav.groups", icon: "👥", permission: Permissions.GroupView },
-  { to: "/admin/classes", label: "nav.classList", icon: "🏫", permission: Permissions.ClassView, isClassesDropdown: true },
+  { to: "/admin/categories", label: "nav.categories", icon: "bi-folder2", permission: Permissions.CategoryView, isCategoriesDropdown: true, end: true },
+  // Nhóm người dùng đang ẩn (Features.userGroups)
+  ...(Features.userGroups ? [{ to: "/admin/groups", label: "nav.groups", icon: "bi-people", permission: Permissions.GroupView } as AdminNavItem] : []),
   {
+    section: "Hệ thống",
     label: "nav.systemSettings",
-    icon: "⚙️",
+    icon: "bi-gear",
     children: [
-      { to: "/admin/users", label: "nav.users", icon: "👤", permission: Permissions.UserView },
-      { to: "/admin/roles", label: "nav.roles", icon: "🛡️", permission: Permissions.RoleView },
-      { to: "/admin/audit-logs", label: "nav.auditLogs", icon: "📜", permission: Permissions.AuditView },
+      { to: "/admin/users", label: "nav.users", icon: "bi-person", permission: Permissions.UserView },
+      { to: "/admin/roles", label: "nav.roles", icon: "bi-shield-lock", permission: Permissions.RoleView },
+      { to: "/admin/audit-logs", label: "nav.auditLogs", icon: "bi-journal-text", permission: Permissions.AuditView },
     ],
   },
 ];
@@ -472,7 +217,7 @@ const adminNav: AdminNavItem[] = [
  */
 function SidebarGroupItem({ item, leaves }: { item: AdminNavItem; leaves: AdminNavLeaf[] }) {
   const { t } = useTranslation();
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   const inChild = leaves.some((c) => pathname.startsWith(c.to));
   const [open, setOpen] = useState(inChild);
   useEffect(() => {
@@ -486,12 +231,12 @@ function SidebarGroupItem({ item, leaves }: { item: AdminNavItem; leaves: AdminN
       {item.to ? (
         <div className="d-flex align-items-center">
           <Nav.Link as={NavLink} to={item.to} end={item.end} className="d-flex align-items-center gap-2 flex-grow-1">
-            <span className="nav-item-icon">{item.icon}</span>
+            <i className={`nav-item-icon bi ${item.icon}`} aria-hidden="true" />
             <span className="nav-item-label">{t(item.label)}</span>
           </Nav.Link>
           <button
             type="button"
-            className="btn btn-link btn-sm text-secondary px-2"
+            className="btn btn-link btn-sm px-2 nav-group-toggle"
             aria-expanded={open}
             aria-controls={id}
             aria-label={`${open ? "Thu gọn" : "Mở"} ${t(item.label)}`}
@@ -509,19 +254,38 @@ function SidebarGroupItem({ item, leaves }: { item: AdminNavItem; leaves: AdminN
           aria-controls={id}
           onClick={() => setOpen(!open)}
         >
-          <span className="nav-item-icon">{item.icon}</span>
+          <i className={`nav-item-icon bi ${item.icon}`} aria-hidden="true" />
           <span className="nav-item-label flex-grow-1">{t(item.label)}</span>
           {chevron}
         </Nav.Link>
       )}
       {open && (
-        <div id={id} className="ms-3 border-start ps-1">
-          {leaves.map((c) => (
-            <Nav.Link key={c.to} as={NavLink} to={c.to} end={c.end} className="d-flex align-items-center gap-2 py-1 small">
-              <span className="nav-item-icon">{c.icon}</span>
-              <span className="nav-item-label">{t(c.label)}</span>
-            </Nav.Link>
-          ))}
+        <div id={id} className="nav-subgroup">
+          {leaves.map((c) =>
+            c.muted ? (
+              <Link key={c.to} to={c.to} className="nav-view-all d-block small">
+                {c.text ?? t(c.label)}
+                <i className="bi bi-arrow-right ms-1" aria-hidden="true" />
+              </Link>
+            ) : c.to.includes("?") ? (
+              // Liên kết có tham số (chuyên đề): chỉ sáng khi đúng cả tham số, NavLink chỉ so phần đường dẫn
+              <Link
+                key={c.to}
+                to={c.to}
+                className={`nav-link d-flex align-items-center gap-2 nav-sublink ${pathname + search === c.to ? "active" : ""}`}
+                aria-current={pathname + search === c.to ? "page" : undefined}
+                title={c.text}
+              >
+                <i className={`nav-item-icon bi ${c.icon}`} aria-hidden="true" />
+                <span className="nav-item-label">{c.text ?? t(c.label)}</span>
+              </Link>
+            ) : (
+              <Nav.Link key={c.to} as={NavLink} to={c.to} end={c.end} className="d-flex align-items-center gap-2 nav-sublink" title={c.text}>
+                <i className={`nav-item-icon bi ${c.icon}`} aria-hidden="true" />
+                <span className="nav-item-label">{c.text ?? t(c.label)}</span>
+              </Nav.Link>
+            ),
+          )}
         </div>
       )}
     </>
@@ -534,21 +298,86 @@ export function AdminLayout() {
   // Tải ngầm sẵn các trang quản trị khi trình duyệt rảnh: chuyển trang không phải chờ tải qua mạng
   useEffect(() => prefetchPages("admin"), []);
   // Mục con lọc theo quyền; mục chỉ gom nhóm hiện khi còn ít nhất một mục con
-  const items = adminNav
-    .map((item) => ({ item, leaves: (item.children ?? []).filter((c) => hasPermission(c.permission)) }))
-    .filter(({ item, leaves }) => (item.permission ? hasPermission(item.permission) : leaves.length > 0));
-
-  // Lấy dữ liệu cho menu di động từ API backend
+  const location = useLocation();
   const { data: allClasses } = useAllClassrooms(hasPermission(Permissions.ClassView));
   const { data: categoriesData } = useQuery({
     queryKey: ["sidebar-categories"],
-    queryFn: () => categoriesApi.list({ page: 1, pageSize: 50 }),
+    queryFn: () => categoriesApi.list({ page: 1, pageSize: 100 }),
     staleTime: 60_000,
     enabled: hasPermission(Permissions.CategoryView),
   });
-
   const classes = allClasses ?? [];
   const categories = orderCategories(categoriesData?.items ?? []);
+  const recentClasses = useRecent("class");
+  const recentCategories = useRecent("category");
+
+  // Ghi nhớ lớp / chuyên đề vừa mở để menu bên hiện "gần đây"
+  useEffect(() => {
+    const classId = /^\/admin\/classes\/([^/]+)$/.exec(location.pathname)?.[1];
+    const opened = classId ? classes.find((c) => c.id === classId) : undefined;
+    if (opened) rememberRecent("class", { id: opened.id, name: opened.name, code: opened.code });
+    const categoryId = location.pathname === "/admin/questions" ? new URLSearchParams(location.search).get("categoryId") : null;
+    const category = categoryId ? categories.find((c) => c.id === categoryId) : undefined;
+    if (category) rememberRecent("category", { id: category.id, name: categoryLabel(category), code: category.code });
+  }, [location.pathname, location.search, classes, categories]);
+
+  // Mục con: tối đa 5 mục (ưu tiên mục mở gần đây, còn thiếu thì lấy theo thứ tự danh sách); cuối cùng là dòng "Xem tất cả"
+  const pick = <T extends { id: string }>(recent: RecentItem[], all: T[], toItem: (x: T) => RecentItem): RecentItem[] => {
+    const byId = new Map(all.map((x) => [x.id, x]));
+    const known = recent.filter((r) => byId.has(r.id)).map((r) => toItem(byId.get(r.id)!));
+    const rest = all.filter((x) => !known.some((k) => k.id === x.id)).map(toItem);
+    // "Gần đây" chỉ quyết định hiện mục nào; thứ tự hiển thị luôn theo danh sách gốc để bấm vào mục không làm danh sách nhảy
+    const shown = new Set([...known, ...rest].slice(0, RECENT_LIMIT).map((x) => x.id));
+    return all.filter((x) => shown.has(x.id)).map(toItem);
+  };
+  const classLeaves = (permission: string): AdminNavLeaf[] => [
+    ...pick(recentClasses, classes.filter((c) => c.isActive), (c) => ({ id: c.id, name: c.name, code: c.code })).map((c) => ({
+      to: `/admin/classes/${c.id}`,
+      label: c.code,
+      text: c.name,
+      icon: "bi-dot",
+      permission,
+    })),
+    { to: "/admin/classes", label: "", text: `Xem tất cả ${classes.length} lớp`, icon: "", permission, muted: true, end: true },
+  ];
+  const categoryLeaves = (permission: string): AdminNavLeaf[] => [
+    ...pick(recentCategories, categories, (c) => ({ id: c.id, name: categoryLabel(c), code: c.code })).map((c) => ({
+      to: `/admin/questions?categoryId=${c.id}`,
+      label: c.code,
+      text: c.name,
+      icon: "bi-dot",
+      permission,
+    })),
+    { to: "/admin/categories", label: "", text: `Xem tất cả ${categories.length} chuyên đề`, icon: "", permission, muted: true, end: true },
+  ];
+
+  const items = adminNav
+    .map((item) => {
+      const children = item.isClassesDropdown
+        ? classLeaves(item.permission!)
+        : item.isCategoriesDropdown
+          ? categoryLeaves(item.permission!)
+          : (item.children ?? []);
+      return { item, leaves: children.filter((c) => hasPermission(c.permission)) };
+    })
+    .map((entry, index, all) => {
+      const visible = (e: typeof entry) => (e.item.permission ? hasPermission(e.item.permission) : e.leaves.length > 0);
+      let section: string | undefined;
+      for (let i = index; i >= 0; i--) {
+        if (all[i]!.item.section) {
+          section = all.slice(i, index).some(visible) ? undefined : all[i]!.item.section;
+          break;
+        }
+      }
+      return { ...entry, section, visible: visible(entry) };
+    })
+    .filter((entry) => entry.visible);
+
+  // Ô tìm nhanh: mọi trang trong menu (trừ danh sách lớp / chuyên đề, được tìm riêng)
+  const quickPages: QuickPage[] = items.flatMap(({ item, leaves }) => [
+    ...(item.to ? [{ to: item.to, label: t(item.label), icon: item.icon }] : []),
+    ...(item.isClassesDropdown || item.isCategoriesDropdown ? [] : leaves.map((c) => ({ to: c.to, label: t(c.label), icon: c.icon }))),
+  ]);
 
   return (
     <>
@@ -558,52 +387,24 @@ export function AdminLayout() {
             <SClassLogo size={36} showTagline={true} lightText={true} />
             <span className="sclass-portal-tag ms-2">{t("nav.admin")}</span>
           </Navbar.Brand>
+          <div className="ms-auto ms-lg-4 me-2 me-lg-0">
+            <QuickSearch pages={quickPages} />
+          </div>
           <Navbar.Toggle aria-controls="admin-nav" />
           <Navbar.Collapse id="admin-nav">
             <Nav className="me-auto d-lg-none py-2">
               {items.map(({ item, leaves }) => {
                 if (leaves.length > 0) {
                   return (
-                    <NavDropdown key={item.label} title={`${item.icon} ${t(item.label)}`} id={`mobile-${item.label}`}>
+                    <NavDropdown key={item.label} title={t(item.label)} id={`mobile-${item.label}`}>
                       {item.to && (
                         <NavDropdown.Item as={NavLink} to={item.to} end={item.end}>
-                          {item.icon} {t(item.label)}
+                          {t(item.label)}
                         </NavDropdown.Item>
                       )}
                       {leaves.map((c) => (
-                        <NavDropdown.Item key={c.to} as={NavLink} to={c.to}>
-                          {c.icon} {t(c.label)}
-                        </NavDropdown.Item>
-                      ))}
-                    </NavDropdown>
-                  );
-                }
-                if (item.isClassesDropdown) {
-                  return (
-                    <NavDropdown key={item.to} title={`🏫 ${t(item.label)}`} id="mobile-classes-nav">
-                      <NavDropdown.Item as={NavLink} to="/admin/classes" end>
-                        📋 Tất cả danh sách lớp học
-                      </NavDropdown.Item>
-                      <NavDropdown.Divider />
-                      {classes.map((c) => (
-                        <NavDropdown.Item key={c.id} as={NavLink} to={`/admin/classes/${c.id}`}>
-                          🎓 {c.name} ({c.studentCount} học viên)
-                        </NavDropdown.Item>
-                      ))}
-                    </NavDropdown>
-                  );
-                }
-                if (item.isCategoriesDropdown) {
-                  return (
-                    <NavDropdown key={item.to} title={`📁 ${t(item.label)}`} id="mobile-categories-nav">
-                      <NavDropdown.Item as={NavLink} to="/admin/categories" end>
-                        📋 Tất cả chuyên đề
-                      </NavDropdown.Item>
-                      <NavDropdown.Divider />
-                      {categories.map((c) => (
-                        <NavDropdown.Item key={c.id} as={NavLink} to={`/admin/questions?categoryId=${c.id}`}>
-                          {c.parentId ? "   ↳ " : "📁 "}
-                          {c.name}
+                        <NavDropdown.Item key={c.to} as={NavLink} to={c.to} className={c.muted ? "small text-secondary" : undefined}>
+                          {c.text ?? t(c.label)}
                         </NavDropdown.Item>
                       ))}
                     </NavDropdown>
@@ -611,7 +412,7 @@ export function AdminLayout() {
                 }
                 return (
                   <Nav.Link key={item.to} as={NavLink} to={item.to!} end={item.end} className="d-flex align-items-center gap-2">
-                    <span>{item.icon}</span>
+                    <i className={`bi ${item.icon}`} aria-hidden="true" />
                     <span>{t(item.label)}</span>
                   </Nav.Link>
                 );
@@ -624,35 +425,21 @@ export function AdminLayout() {
         </Container>
       </Navbar>
       <div className="d-flex">
-        <nav className="admin-sidebar d-none d-lg-block border-end p-2.5" aria-label="Menu quản trị">
+        <nav className="admin-sidebar d-none d-lg-block border-end" aria-label="Menu quản trị">
           <Nav className="flex-column" variant="pills">
-            {items.map(({ item, leaves }) => {
-              if (leaves.length > 0) {
-                return <SidebarGroupItem key={item.label} item={item} leaves={leaves} />;
-              }
-              if (item.isClassesDropdown) {
-                return (
-                  <SidebarClassesHoverItem
-                    key={item.to}
-                    label={t(item.label)}
-                  />
-                );
-              }
-              if (item.isCategoriesDropdown) {
-                return (
-                  <SidebarCategoriesHoverItem
-                    key={item.to}
-                    label={t(item.label)}
-                  />
-                );
-              }
-              return (
-                <Nav.Link key={item.to} as={NavLink} to={item.to!} end={item.end} className="d-flex align-items-center gap-2">
-                  <span className="nav-item-icon">{item.icon}</span>
-                  <span className="nav-item-label">{t(item.label)}</span>
-                </Nav.Link>
-              );
-            })}
+            {items.map(({ item, leaves, section }) => (
+              <Fragment key={item.to ?? item.label}>
+                {section && <div className="nav-section">{section}</div>}
+                {leaves.length > 0 ? (
+                  <SidebarGroupItem item={item} leaves={leaves} />
+                ) : (
+                  <Nav.Link as={NavLink} to={item.to!} end={item.end} className="d-flex align-items-center gap-2">
+                    <i className={`nav-item-icon bi ${item.icon}`} aria-hidden="true" />
+                    <span className="nav-item-label">{t(item.label)}</span>
+                  </Nav.Link>
+                )}
+              </Fragment>
+            ))}
           </Nav>
         </nav>
         <main className="flex-grow-1 p-3 min-w-0">
@@ -679,19 +466,19 @@ export function StudentLayout() {
           <Navbar.Collapse id="student-nav">
             <Nav className="me-auto">
               <Nav.Link as={NavLink} to="/student/attendance" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <span>📈</span> {t("nav.myAttendance")}
+                <i className="bi bi-calendar-check" aria-hidden="true" /> {t("nav.myAttendance")}
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/exams" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <span>📝</span> {t("nav.studentExams")}
+                <i className="bi bi-file-earmark-text" aria-hidden="true" /> {t("nav.studentExams")}
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/classes" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <span>🏫</span> {t("nav.myClasses")}
+                <i className="bi bi-mortarboard" aria-hidden="true" /> {t("nav.myClasses")}
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/videos" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <span>🎥</span> {t("nav.videos", "Video bài giảng")}
+                <i className="bi bi-play-btn" aria-hidden="true" /> {t("nav.videos", "Video bài giảng")}
               </Nav.Link>
               <Nav.Link as={NavLink} to="/student/history" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <span>📊</span> {t("nav.history")}
+                <i className="bi bi-clock-history" aria-hidden="true" /> {t("nav.history")}
               </Nav.Link>
             </Nav>
             <Nav>

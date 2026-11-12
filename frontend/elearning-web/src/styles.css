@@ -183,7 +183,6 @@ body {
 .admin-sidebar .nav-link:hover {
   background-color: #f1f5f9;
   color: #1e293b;
-  transform: translateX(2px);
 }
 
 .admin-sidebar .nav-link.active {
@@ -232,217 +231,30 @@ body {
   font-size: 0.98rem;
 }
 
-.admin-sidebar .nav-link.active .class-pill-badge {
-  background-color: rgba(255, 255, 255, 0.25);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.35);
+
+
+/* Mục menu luôn nằm gọn trong khung menu: có lề trong, không giãn theo chữ, chữ dài thì rút gọn "…" */
+.admin-sidebar {
+  width: 288px;
+  padding: 0.75rem 0.5rem;
 }
 
-.admin-sidebar .nav-link.active .chevron-indicator {
-  color: #ffffff;
+.admin-sidebar .nav-link {
+  padding: 0.55rem 0.6rem;
+  gap: 0.6rem !important;
 }
 
-/* Sidebar Dropdown on Hover Wrapper (Lớp học & Chuyên đề) */
-.sidebar-groups-wrapper {
-  position: relative;
+.admin-sidebar > .nav > *,
+.admin-sidebar .nav-link {
+  min-width: 0;
+  max-width: 100%;
 }
 
-.class-pill-badge {
-  font-size: 0.72rem;
-  font-weight: 600;
-  background-color: #eff6ff;
-  color: #0c2b75;
-  border: 1px solid #bfdbfe;
-  border-radius: 9999px;
-  padding: 0.12rem 0.45rem;
+.admin-sidebar .nav-link .nav-item-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-  transition: all 0.15s ease;
-}
-
-.chevron-indicator {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #94a3b8;
-  transition: transform 0.2s ease, color 0.2s ease;
-  display: inline-block;
-  line-height: 1;
-}
-
-.sidebar-groups-wrapper.hover-active .chevron-indicator,
-.sidebar-groups-wrapper:hover .chevron-indicator {
-  transform: translateX(3px) scale(1.15);
-  color: #0c2b75;
-}
-
-/* Groups Flyout Menu (Dropdown on Hover) */
-.groups-flyout-menu {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: 0;
-  width: 350px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 1rem;
-  box-shadow: 0 20px 35px -5px rgba(15, 23, 42, 0.15), 0 10px 15px -5px rgba(15, 23, 42, 0.08);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateX(-8px) scale(0.98);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
-  z-index: 1060;
-  overflow: visible;
-}
-
-.flyout-hover-bridge {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: -16px;
-  width: 20px;
-  background: transparent;
-}
-
-.sidebar-groups-wrapper:hover .groups-flyout-menu,
-.sidebar-groups-wrapper.hover-active .groups-flyout-menu,
-.groups-flyout-menu.is-visible {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(0) scale(1);
-}
-
-/* Khi menu ở dưới cùng, neo đáy để không bị tràn ra ngoài màn hình */
-.sidebar-groups-wrapper.is-bottom .groups-flyout-menu {
-  top: auto;
-  bottom: 0;
-}
-
-.groups-flyout-header {
-  padding: 0.85rem 1rem 0.65rem;
-  border-bottom: 1px solid #f1f5f9;
-  background-color: #f8fafc;
-  border-top-left-radius: 1rem;
-  border-top-right-radius: 1rem;
-}
-
-.groups-flyout-title {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: #0f172a;
-}
-
-.groups-flyout-subtitle {
-  font-size: 0.78rem;
-  color: #64748b;
-  margin: 0.25rem 0 0;
-}
-
-.groups-flyout-list {
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  /* Danh sách lớp lấy toàn bộ: cuộn trong khung thay vì tràn màn hình */
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.class-card-item {
-  display: flex;
-  align-items: center;
-  padding: 0.6rem 0.75rem;
-  border-radius: 0.75rem;
-  text-decoration: none !important;
-  color: inherit;
-  border: 1px solid transparent;
-  transition: all 0.16s ease;
-  background: #ffffff;
-}
-
-.class-card-item:hover {
-  background-color: #eff6ff;
-  border-color: #bfdbfe;
-  transform: translateX(3px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
-}
-
-.class-card-item.active {
-  background-color: #f0fdf4;
-  border-color: #86efac;
-}
-
-.class-card-badge {
-  width: 38px;
-  height: 38px;
-  border-radius: 0.6rem;
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 0.78rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-right: 0.75rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-.class-card-name {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #1e293b;
-  line-height: 1.3;
-}
-
-.class-card-meta {
-  margin-top: 0.2rem;
-  font-size: 0.75rem;
-}
-
-.class-card-students {
-  color: #0c2b75;
-  font-weight: 600;
-}
-
-.class-card-code {
-  color: #64748b;
-  background: #f1f5f9;
-  padding: 0.08rem 0.35rem;
-  border-radius: 0.3rem;
-  font-size: 0.7rem;
-}
-
-.class-card-arrow {
-  color: #94a3b8;
-  font-size: 0.95rem;
-  margin-left: 0.5rem;
-  transition: transform 0.15s ease, color 0.15s ease;
-}
-
-.class-card-item:hover .class-card-arrow {
-  color: #0c2b75;
-  transform: translateX(3px);
-}
-
-.groups-flyout-footer {
-  padding: 0.65rem 1rem;
-  border-top: 1px solid #f1f5f9;
-  background: #f8fafc;
-  border-bottom-left-radius: 1rem;
-  border-bottom-right-radius: 1rem;
-  text-align: center;
-}
-
-.view-all-link {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #0c2b75 !important;
-  text-decoration: none !important;
-  display: inline-flex;
-  align-items: center;
-  transition: transform 0.15s ease;
-}
-
-.view-all-link:hover {
-  text-decoration: underline !important;
-  transform: translateX(2px);
 }
 
 /* Thẻ Card: trắng, bo lớn, bóng mềm rộng */
@@ -1367,3 +1179,302 @@ body {
 .attendance-table tr.table-row-excused > td { background-color: rgba(var(--bs-info-rgb), 0.07); }
 .attendance-table tr.table-row-unexcused > td { background-color: rgba(var(--bs-danger-rgb), 0.07); }
 .attendance-table .btn-group > .btn { white-space: nowrap; }
+
+/* Dòng "Xem tất cả" dưới danh sách lớp / chuyên đề gần đây trong menu bên */
+.admin-sidebar .nav-view-all {
+  color: #64748b;
+  font-weight: 500;
+  padding: 0.35rem 0.6rem 0.5rem;
+  text-decoration: none;
+}
+
+.admin-sidebar .nav-view-all:hover {
+  color: var(--bs-primary);
+}
+
+/* ---------- Ô tìm nhanh (Ctrl+K) ---------- */
+.quick-search-trigger {
+  align-items: center;
+  gap: 0.55rem;
+  width: 300px;
+  max-width: 34vw;
+  padding: 0.38rem 0.5rem 0.38rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.quick-search-trigger:hover,
+.quick-search-trigger:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+.quick-search-trigger kbd {
+  background: rgba(255, 255, 255, 0.16);
+  color: inherit;
+  font-size: 0.7rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 0.35rem;
+}
+
+.quick-search-trigger-icon {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.15rem;
+  padding: 0.25rem 0.4rem;
+}
+
+.quick-search-dialog {
+  max-width: 640px;
+  margin-top: 10vh;
+}
+
+.quick-search-dialog .modal-content {
+  overflow: hidden;
+  border: 0;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}
+
+.quick-search-input {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 1.05rem;
+}
+
+.quick-search-input .form-control-plaintext {
+  padding: 0;
+  font-size: 1.05rem;
+  outline: none;
+  box-shadow: none;
+}
+
+.quick-search-dialog kbd {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.35rem;
+  box-shadow: none;
+}
+
+.quick-search-results {
+  max-height: min(60vh, 460px);
+  overflow-y: auto;
+  padding: 0.4rem;
+}
+
+.quick-search-group {
+  padding: 0.55rem 0.65rem 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.quick-search-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.55rem;
+  color: #1e293b;
+}
+
+.quick-search-item.active {
+  background: #eef4ff;
+  color: #0c2b75;
+}
+
+.quick-search-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  background: #f1f3fb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.95rem;
+}
+
+.quick-search-hint {
+  flex-shrink: 0;
+  max-width: 40%;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.quick-search-empty {
+  padding: 1.25rem 0.75rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.quick-search-footer {
+  display: flex;
+  gap: 1.25rem;
+  padding: 0.55rem 1rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+/* ==========================================================================
+   Menu bên quản trị — nền xanh navy nối liền thanh trên (khung chữ "L"),
+   icon nét mảnh cùng màu, mục đang chọn nhẹ (nền mờ + vạch xanh bên trái), chia nhóm có tiêu đề.
+   ========================================================================== */
+.admin-sidebar {
+  --side-bg: #0b1838;
+  --side-text: #dbe3f4;
+  --side-icon: #9fb0d6;
+  --side-muted: #8796bb;
+  --side-section: #7dd3fc;
+  --side-hover: rgba(255, 255, 255, 0.1);
+  --side-active: rgba(56, 189, 248, 0.18);
+  --side-accent: #38bdf8;
+  background: var(--side-bg) !important;
+  border-right: 0 !important;
+  color: var(--side-text);
+  padding: 0.5rem 0.625rem 1.5rem;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  min-height: calc(100vh - 58px);
+}
+
+.admin-sidebar .nav-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding: 0.85rem 0.7rem 0.45rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--side-section);
+}
+
+.admin-sidebar .nav-link {
+  color: var(--side-text);
+  font-size: 0.94rem;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.7rem;
+  margin-bottom: 2px;
+  border-radius: 0.5rem;
+  border-left: 0;
+  box-shadow: none;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.admin-sidebar .nav-link .nav-item-label {
+  font-family: inherit;
+  font-size: 0.94rem;
+  letter-spacing: 0.005em;
+}
+
+.admin-sidebar .nav-link:hover {
+  background: var(--side-hover);
+  color: #ffffff;
+}
+
+/* Bấm chuột không để lại khung viền; vẫn giữ viền khi dùng bàn phím (focus-visible) */
+.admin-sidebar .nav-link:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.admin-sidebar .nav-link.active:focus:not(:focus-visible) {
+  box-shadow: inset 3px 0 0 var(--side-accent) !important;
+}
+
+.admin-sidebar .nav-link.active {
+  background: var(--side-active) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--side-accent) !important;
+  border-left: 0 !important;
+}
+
+.admin-sidebar .nav-item-icon {
+  width: 1.25rem;
+  height: auto;
+  background: transparent !important;
+  border-radius: 0;
+  font-size: 1.05rem;
+  color: var(--side-icon);
+  transform: none !important;
+}
+
+.admin-sidebar .nav-link:hover .nav-item-icon,
+.admin-sidebar .nav-link.active .nav-item-icon {
+  color: #ffffff;
+}
+
+.admin-sidebar .nav-link.active .nav-item-icon {
+  color: var(--side-accent);
+}
+
+.admin-sidebar .nav-group-toggle {
+  color: var(--side-muted) !important;
+  text-decoration: none;
+}
+
+.admin-sidebar .nav-group-toggle:hover {
+  color: #ffffff !important;
+}
+
+.admin-sidebar .nav-subgroup {
+  margin: 0 0 0.35rem 1.3rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.admin-sidebar .nav-subgroup .nav-link {
+  min-height: 2.1rem;
+  font-size: 0.86rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.admin-sidebar .nav-subgroup .nav-link .nav-item-label {
+  font-size: 0.86rem;
+}
+
+.admin-sidebar .nav-subgroup .nav-item-icon {
+  width: 0.9rem;
+  font-size: 0.95rem;
+}
+
+.admin-sidebar .nav-view-all {
+  color: var(--side-muted);
+  padding: 0.3rem 0.6rem 0.45rem;
+}
+
+.admin-sidebar .nav-view-all:hover {
+  color: var(--side-accent);
+}
+
+/* Thanh trên cùng: bỏ bóng đổ để nối liền với menu bên */
+.admin-shell .sclass-navbar {
+  box-shadow: none;
+}
