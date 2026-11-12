@@ -182,7 +182,8 @@ internal sealed class AuthService(
             return InvalidToken;
         }
 
-        var (session, replacement) = await IssueSessionAsync(user, token.FamilyId, ct);
+        // Giữ nguyên mốc hết hạn của lần đăng nhập: làm mới không kéo dài phiên (D-34)
+        var (session, replacement) = await IssueSessionAsync(user, token.FamilyId, ct, _jwt.SessionMaxHours > 0 ? token.ExpiresAt : null);
         token.Revoke(RefreshTokenRevokedReason.Rotated, Now, replacement.Id);
         await db.SaveChangesAsync(ct);
         return session;
@@ -251,16 +252,25 @@ internal sealed class AuthService(
         token.RevokedReason == RefreshTokenRevokedReason.Rotated
         && token.RevokedAt >= Now.AddSeconds(-_auth.RefreshReuseGraceSeconds);
 
-    private async Task<(AuthSession Session, RefreshToken Entity)> IssueSessionAsync(User user, Guid familyId, CancellationToken ct)
+    /// <param name="notAfter">Mốc hết hạn của lần đăng nhập (khi làm mới); null = lần đăng nhập mới.</param>
+    private async Task<(AuthSession Session, RefreshToken Entity)> IssueSessionAsync(
+        User user, Guid familyId, CancellationToken ct, DateTime? notAfter = null)
     {
         var now = Now;
         var refresh = tokenService.GenerateRefreshToken();
+        var expiresAt = now.AddDays(_jwt.RefreshTokenDays);
+        if (_jwt.SessionMaxHours > 0)
+        {
+            var sessionEnd = notAfter ?? now.AddHours(_jwt.SessionMaxHours);
+            expiresAt = sessionEnd < expiresAt ? sessionEnd : expiresAt;
+        }
+
         var entity = new RefreshToken(
             user.Id,
             familyId,
             refresh.TokenHash,
             now,
-            now.AddDays(_jwt.RefreshTokenDays),
+            expiresAt,
             currentUser.IpAddress,
             Truncate(currentUser.UserAgent, 500));
         db.RefreshTokens.Add(entity);

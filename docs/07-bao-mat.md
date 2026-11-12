@@ -29,7 +29,7 @@
 
 ### 3.2 Refresh token
 - Là 32 byte ngẫu nhiên (`RandomNumberGenerator`), mã hóa base64url. **DB chỉ lưu SHA-256 hex.**
-- Hiệu lực 7 ngày.
+- Hiệu lực tối đa 7 ngày (`RefreshTokenDays`), nhưng một lần đăng nhập chỉ dùng được tối đa `SessionMaxHours` giờ (mặc định 12) kể từ lúc nhập mật khẩu: token mới khi xoay vòng giữ nguyên mốc hết hạn, không gia hạn trượt (D-34).
 - Gửi qua cookie `elearning_rt` với các thuộc tính: `HttpOnly; Secure; SameSite=Strict; Path=/api/auth`.
 - **Xoay vòng:** mỗi lần refresh thì thu hồi token cũ (`ROTATED`, ghi `ReplacedByTokenId`) và cấp token mới cùng `FamilyId`.
 - **Phát hiện dùng lại:** nếu một token đã bị thu hồi mà vẫn được gửi lên, thu hồi **cả family** (`REUSE_DETECTED`), ghi audit `REFRESH_TOKEN_REUSE`, buộc đăng nhập lại.

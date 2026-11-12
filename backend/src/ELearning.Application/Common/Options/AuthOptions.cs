@@ -41,4 +41,11 @@ public sealed class JwtOptions
 
     [Range(1, 90)]
     public int RefreshTokenDays { get; init; } = 7;
+
+    /// <summary>
+    /// Thời gian tối đa của một lần đăng nhập, tính từ lúc nhập mật khẩu (D-34). Làm mới token không kéo dài quá mốc này:
+    /// hết giờ thì phải đăng nhập lại. 0 = không giới hạn (refresh token gia hạn trượt theo RefreshTokenDays như trước).
+    /// </summary>
+    [Range(0, 2160)]
+    public int SessionMaxHours { get; init; } = 12;
 }

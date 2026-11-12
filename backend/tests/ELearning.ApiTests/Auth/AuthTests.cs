@@ -112,6 +112,33 @@ public class AuthTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Login_lasts_at_most_twelve_hours_even_when_refreshed()
+    {
+        var client = factory.CreateHttpsClient();
+        var (_, cookie) = await client.LoginWithCookieAsync(ApiFactory.StudentUserName, ApiFactory.StudentPassword);
+
+        // Làm mới đều đặn trong 11 giờ: phiên vẫn còn
+        for (var hour = 0; hour < 11; hour++)
+        {
+            factory.Time.Advance(TimeSpan.FromHours(1));
+            var (refreshed, _) = await client.PostJsonAsync<object>("/api/auth/refresh", csrf: true, refreshCookie: cookie);
+            refreshed.StatusCode.Should().Be(HttpStatusCode.OK, $"giờ thứ {hour + 1} vẫn trong 12 giờ");
+            cookie = ApiClientExtensions.ReadRefreshCookie(refreshed) ?? cookie;
+        }
+
+        // Quá 12 giờ kể từ lúc đăng nhập: làm mới bị từ chối dù vừa làm mới một giờ trước (D-34)
+        factory.Time.Advance(TimeSpan.FromHours(1) + TimeSpan.FromMinutes(1));
+        var (expired, expiredBody) = await client.PostJsonAsync<object>("/api/auth/refresh", csrf: true, refreshCookie: cookie);
+        expired.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        expiredBody.Errors.Single().Code.Should().Be("TOKEN_INVALID");
+
+        // Đăng nhập lại thì có phiên 12 giờ mới
+        var (_, freshCookie) = await client.LoginWithCookieAsync(ApiFactory.StudentUserName, ApiFactory.StudentPassword);
+        var (again, _) = await client.PostJsonAsync<object>("/api/auth/refresh", csrf: true, refreshCookie: freshCookie);
+        again.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task Refresh_without_csrf_header_is_forbidden()
     {
         var client = factory.CreateHttpsClient();

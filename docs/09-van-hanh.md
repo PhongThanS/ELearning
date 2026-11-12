@@ -6,7 +6,7 @@
 ```json
 {
   "ConnectionStrings": { "DefaultConnection": "" },
-  "Jwt": { "Issuer": "ELearning", "Audience": "ELearning.Web", "AccessTokenMinutes": 15, "RefreshTokenDays": 7 },
+  "Jwt": { "Issuer": "ELearning", "Audience": "ELearning.Web", "AccessTokenMinutes": 15, "RefreshTokenDays": 7, "SessionMaxHours": 12 },
   "Auth": { "AllowSelfRegistration": false, "LockoutMaxFailedAttempts": 5, "LockoutMinutes": 15 },
   "Exam": { "SubmitGraceSeconds": 30, "ExpirationSweepIntervalSeconds": 60, "ExpirationSweepBatchSize": 100 },
   "App": { "BusinessTimeZone": "Asia/Ho_Chi_Minh", "PublicOrigin": "https://elearning.example.vn" },
