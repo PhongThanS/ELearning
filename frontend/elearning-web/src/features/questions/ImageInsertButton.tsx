@@ -96,7 +96,7 @@ export function ImageInsertButton({
             {t("media.uploading")}
           </>
         ) : (
-          <>🖼 {t("media.insert")}</>
+          <><i className="bi bi-image me-1" aria-hidden="true" />{t("media.insert")}</>
         )}
       </Button>
     </>

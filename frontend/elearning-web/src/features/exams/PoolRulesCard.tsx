@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { examsApi } from "../../services/api";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { formatNumber } from "../../utils/format";
+import { Features } from "../../constants/features";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { PoolRuleInput, QuestionDifficulty, QuestionType, VersionDetail } from "../../types/api";
 
@@ -144,10 +145,12 @@ export function PoolRulesCard({
                   ))}
                 </Form.Select>
               </Col>
-              <Col md={4}>
-                <Form.Label htmlFor="pool-tag" className="small mb-0">Tag</Form.Label>
-                <Form.Control id="pool-tag" size="sm" value={rule.tag ?? ""} placeholder="(không lọc)" onChange={(e) => setRule({ ...rule, tag: e.target.value })} />
-              </Col>
+              {Features.tagFilter && (
+                <Col md={4}>
+                  <Form.Label htmlFor="pool-tag" className="small mb-0">Tag</Form.Label>
+                  <Form.Control id="pool-tag" size="sm" value={rule.tag ?? ""} placeholder="(không lọc)" onChange={(e) => setRule({ ...rule, tag: e.target.value })} />
+                </Col>
+              )}
               <Col md={3}>
                 <Form.Label htmlFor="pool-draw" className="small mb-0">Số câu bốc</Form.Label>
                 <Form.Control id="pool-draw" size="sm" type="number" min={1} max={500} required value={rule.drawCount}

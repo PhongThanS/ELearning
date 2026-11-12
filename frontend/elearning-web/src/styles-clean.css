@@ -1,0 +1,221 @@
+/* ==========================================================================
+   Giao diện gọn (việc 1 + 2): bỏ hiệu ứng thừa, siết màu.
+   - Phẳng: không gradient trên nút / thẻ / thanh lọc, bóng rất nhẹ, không nhảy khi rê chuột,
+     không vệt sáng chạy trên nút, không hàng bảng hiện dần, nền trang một màu.
+   - Màu: navy là màu chính duy nhất (nút chính, mục đang chọn, ô tích); còn lại là các sắc xám.
+     Màu xanh lá / đỏ / vàng chỉ dùng cho trạng thái. Tiêu đề cột không in hoa, không tím.
+   Nạp sau cùng trong main.tsx. Muốn về giao diện cũ: bỏ dòng import file này.
+   Không đụng trang đăng nhập (giữ nền pastel giới thiệu).
+   ========================================================================== */
+
+:root {
+  --clean-brand: #143b87;
+  --clean-brand-hover: #0c2363;
+  --clean-text: #0f172a;
+  --clean-muted: #64748b;
+  --clean-border: #e5e7eb;
+  --clean-surface: #f8fafc;
+  --clean-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+
+  /* Bảng: thay tông tím bằng xám trung tính + navy */
+  --dt-head-bg: #f8fafc;
+  --dt-head-color: #475569;
+  --dt-border: #e5e7eb;
+  --dt-hover: #f8fafc;
+  --dt-selected: #eef3fc;
+  --dt-accent: #143b87;
+  --dt-link: #0f172a;
+
+  /* Thẻ: bóng nhẹ, không phồng khi rê chuột */
+  --sclass-shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --sclass-shadow-hover: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+/* ---------- Nền trang một màu ---------- */
+body {
+  background-image: none;
+  background-color: #f5f6f8;
+}
+
+/* ---------- Thanh trên + menu trái: phẳng, giữ navy ---------- */
+.sclass-navbar {
+  background: #0c2363 !important;
+  border-bottom: 0 !important;
+  box-shadow: none;
+}
+.sclass-badge-box,
+.sclass-brand:hover .sclass-badge-box,
+.sclass-brand-wrap:hover .sclass-badge-box {
+  box-shadow: none;
+  transform: none;
+}
+.user-avatar-badge {
+  background: #2f5bb7;
+  box-shadow: none;
+}
+.sclass-portal-tag {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.admin-sidebar {
+  --side-section: #94a3b8;
+  --side-accent: #93c5fd;
+}
+
+/* ---------- Thẻ ---------- */
+.card {
+  border: 1px solid var(--clean-border);
+  box-shadow: var(--clean-shadow);
+  transition: none;
+}
+.stat-card:hover,
+.exam-card:hover,
+.video-card:hover,
+.attendance-stat:hover,
+.auth-feature:hover {
+  transform: none;
+  box-shadow: var(--clean-shadow) !important;
+}
+.attendance-stat.is-active {
+  transform: none;
+  box-shadow: 0 0 0 2px var(--clean-brand);
+}
+.video-card:hover .video-thumbnail-wrap img {
+  transform: none;
+}
+.exam-card-band {
+  background: var(--clean-surface);
+}
+.exam-card .stat-icon {
+  box-shadow: none;
+}
+
+/* Banner đầu trang (Tổng quan, trang đề học viên): một màu navy, bỏ chấm trang trí */
+.sclass-hero,
+.page-hero {
+  background: #0c2363 !important;
+  box-shadow: none;
+}
+.sclass-hero::after,
+.page-hero::after {
+  display: none;
+}
+.hero-bubble {
+  animation: none;
+  box-shadow: none;
+}
+.btn-hero,
+.btn-hero:hover,
+.btn-hero:focus-visible {
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---------- Nút ---------- */
+.btn-primary {
+  background: var(--clean-brand) !important;
+  border-color: var(--clean-brand) !important;
+  box-shadow: none;
+  transition: background-color 0.15s ease;
+}
+.btn-primary:hover,
+.btn-primary:focus {
+  background: var(--clean-brand-hover) !important;
+  border-color: var(--clean-brand-hover) !important;
+  box-shadow: none;
+  transform: none;
+}
+.btn-primary:focus-visible {
+  box-shadow: 0 0 0 3px rgba(20, 59, 135, 0.25);
+}
+.btn-outline-primary:hover {
+  box-shadow: none;
+  transform: none;
+}
+/* Bỏ vệt sáng chạy ngang khi rê chuột lên nút */
+.btn-primary:not(.dropdown-toggle)::after,
+.btn-success:not(.dropdown-toggle)::after {
+  display: none;
+}
+.btn-success.btn-cta,
+.btn-success.btn-cta:hover {
+  background: #15803d;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ---------- Thanh lọc / ô nhập ---------- */
+main .row:has(> div > form > .sclass-search),
+main .filter-bar,
+.filter-bar {
+  background: #ffffff !important;
+  border: 1px solid var(--clean-border) !important;
+  box-shadow: none;
+}
+main .form-control:hover:not(:disabled):not(:focus),
+main .form-select:hover:not(:disabled):not(:focus) {
+  border-color: #cbd5e1;
+}
+main .form-control:focus,
+main .form-select:focus {
+  border-color: var(--clean-brand);
+  box-shadow: 0 0 0 3px rgba(20, 59, 135, 0.12);
+}
+:focus-visible {
+  outline-color: #2f5bb7;
+}
+
+/* ---------- Bảng ---------- */
+.table-card,
+.data-card {
+  box-shadow: var(--clean-shadow) !important;
+}
+.table > thead th,
+.table > thead.table-light th {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.85rem !important;
+}
+/* Hàng hiện ra ngay, không mờ dần */
+.table > tbody > tr {
+  animation: none;
+}
+.table .form-check-input[type="checkbox"]:focus {
+  box-shadow: 0 0 0 3px rgba(20, 59, 135, 0.15);
+}
+/* Link trong bảng: chữ thường, chỉ gạch chân khi rê chuột */
+.table-card .table > tbody > tr > td a:not(.btn):hover {
+  color: var(--clean-brand);
+}
+
+/* ---------- Phân trang ---------- */
+.sclass-pagination .page-item.active .page-link {
+  background: var(--clean-brand);
+  border-color: var(--clean-brand);
+  box-shadow: none;
+}
+
+/* ---------- Phòng thi / kết quả: bỏ gradient trang trí, giữ màu trạng thái ---------- */
+.player-header {
+  box-shadow: 0 1px 0 var(--clean-border);
+}
+.player-header-icon {
+  background: var(--clean-brand);
+  box-shadow: none;
+}
+.option-item:has(input:checked) {
+  background: #eef3fc !important;
+  box-shadow: none;
+}
+.nav-question.is-current {
+  box-shadow: none;
+  transform: none;
+}
+.player-finish {
+  background: #ffffff;
+  box-shadow: var(--clean-shadow);
+}
+.result-medal {
+  animation: none;
+}

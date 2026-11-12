@@ -10,6 +10,7 @@ import { useActiveCategories } from "../../hooks/useCategories";
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
+import { NameCell, RowActions, StatusSwitch } from "../../components/common/TableCells";
 import { SearchableSelect } from "../../components/common/SearchableSelect";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
@@ -19,8 +20,11 @@ import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatNumber, markdownExcerpt } from "../../utils/format";
 import { isValidNumberAnswer } from "../attempts/playerState";
 import { Permissions } from "../../constants/permissions";
+import { Features } from "../../constants/features";
 import { useAuth } from "../auth/useAuth";
 import type { Category, ContentFormat, MediaUpload, MediaUrlMap, QuestionDetail, QuestionDifficulty, QuestionInput, QuestionListItem, QuestionType } from "../../types/api";
+import "./categoryTree.css";
+import { nextChildCode, validateCategory } from "./categoryForm";
 
 const QUESTION_TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN"];
 const CHOICE_CODES = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
@@ -28,7 +32,17 @@ const PROPOSITION_CODES = ["a", "b", "c", "d", "e", "f"];
 
 // ======================= Danh mục =======================
 
-type CategoryEdit = { id?: string; code: string; name: string; rowVersion?: string; isActive?: boolean; parentId: string | null; childCount?: number };
+type CategoryEdit = {
+  id?: string;
+  code: string;
+  name: string;
+  rowVersion?: string;
+  isActive?: boolean;
+  parentId: string | null;
+  childCount?: number;
+  /** Mã do hệ thống gợi ý; người dùng chưa sửa tay thì đổi cha sẽ gợi ý lại. */
+  autoCode?: string;
+};
 
 /**
  * Chuyên đề 2 cấp: chuyên đề gốc có chuyên đề con, chuyên đề gốc không có chuyên đề con, và chuyên đề con.
@@ -107,7 +121,7 @@ export function CategoriesPage() {
 
     let confirmMsg = `Bạn có chắc chắn muốn xóa ${selectedIds.size} chuyên đề đã chọn?`;
     if (totalQuestions > 0) {
-      confirmMsg = `⚠️ Trong số các chuyên đề đã chọn, có chứa tổng cộng ${totalQuestions} câu hỏi. Việc xóa sẽ làm giải phóng các câu hỏi bên trong.\n\n` + confirmMsg;
+      confirmMsg = `Trong số các chuyên đề đã chọn, có chứa tổng cộng ${totalQuestions} câu hỏi. Việc xóa sẽ làm giải phóng các câu hỏi bên trong.\n\n` + confirmMsg;
     }
 
     if (window.confirm(confirmMsg)) {
@@ -149,8 +163,28 @@ export function CategoriesPage() {
   });
 
   const isAllSelected = rows?.items.length && rows.items.every((c) => selectedIds.has(c.id));
+  // Chỉ hiện lỗi sau lần bấm Lưu đầu tiên, để form mới mở không đỏ ngay
+  const [submitted, setSubmitted] = useState(false);
+  const formErrors = editing ? validateCategory(editing) : {};
+  const openEditor = (next: CategoryEdit) => {
+    setSubmitted(false);
+    save.reset();
+    setEditing(next);
+  };
   const edit = (c: Category) =>
-    setEditing({ id: c.id, code: c.code, name: c.name, rowVersion: c.rowVersion, isActive: c.isActive, parentId: c.parentId, childCount: c.childCount });
+    openEditor({ id: c.id, code: c.code, name: c.name, rowVersion: c.rowVersion, isActive: c.isActive, parentId: c.parentId, childCount: c.childCount });
+  const allCodes = () => (all.data?.items ?? []).map((c) => c.code);
+  const codeForParent = (parentId: string | null) => {
+    const parent = parentId ? roots.find((r) => r.id === parentId) : undefined;
+    return parent ? nextChildCode(parent.code, allCodes()) : "";
+  };
+  const addChild = (parent: Category) => {
+    setExpanded((prev) => new Set(prev).add(parent.id));
+    const code = nextChildCode(parent.code, allCodes());
+    openEditor({ code, autoCode: code, name: "", parentId: parent.id });
+  };
+  const canAddChild = (c: Category) => c.parentId === null && c.questionCount === 0;
+  const addChildBlockedReason = "Chuyên đề đang có câu hỏi: chuyển câu hỏi sang chuyên đề khác trước khi tạo chuyên đề con";
 
   const columns: Column<Category>[] = [
     {
@@ -182,111 +216,92 @@ export function CategoriesPage() {
       ),
     },
     {
-      key: "code",
-      header: t("common.code"),
-      sortKey: "code",
-      render: (c) => (
-        <span className={c.parentId && !searching ? "ps-4 d-inline-flex align-items-center" : "d-inline-flex align-items-center"}>
-          {c.parentId && !searching && <span className="text-secondary me-1">↳</span>}
-          {!c.parentId && !searching && (
-            <Button
-              size="sm"
-              variant="link"
-              className="p-0 me-1 text-secondary"
-              style={{ width: 18, visibility: c.childCount > 0 ? "visible" : "hidden" }}
-              onClick={() => toggleExpanded(c.id)}
-              aria-expanded={expanded.has(c.id)}
-              aria-label={`${expanded.has(c.id) ? "Thu gọn" : "Mở"} chuyên đề con của ${c.name}`}
-              title={expanded.has(c.id) ? "Thu gọn chuyên đề con" : "Xem chuyên đề con"}
-            >
-              <i className={`bi ${expanded.has(c.id) ? "bi-chevron-down" : "bi-chevron-right"}`} aria-hidden="true" />
-            </Button>
-          )}
-          <code>{c.code}</code>
-        </span>
-      ),
-    },
-    {
       key: "name",
-      header: t("common.name"),
+      header: "Chuyên đề",
       sortKey: "name",
-      render: (c) => (
-        <span className={c.parentId ? "" : "fw-semibold"}>
-          {searching && c.parentName && <span className="text-secondary">{c.parentName} › </span>}
-          {c.name}
-        </span>
-      ),
-    },
-    {
-      key: "kind",
-      header: "Loại",
-      render: (c) =>
-        c.parentId ? (
-          <Badge bg="light" text="dark" className="border">
-            Chuyên đề con
-          </Badge>
-        ) : c.childCount > 0 ? (
-          <Badge
-            as="button"
-            type="button"
-            bg="primary-subtle"
-            text="primary"
-            className="border border-primary-subtle"
-            onClick={() => toggleExpanded(c.id)}
-            title={expanded.has(c.id) ? "Thu gọn chuyên đề con" : "Xem chuyên đề con"}
-          >
-            Có {c.childCount} chuyên đề con <i className={`bi ${expanded.has(c.id) ? "bi-chevron-up" : "bi-chevron-down"} ms-1`} aria-hidden="true" />
-          </Badge>
-        ) : (
-          <Badge bg="secondary-subtle" text="secondary" className="border">
-            Không có chuyên đề con
-          </Badge>
-        ),
+      render: (c) => {
+        const isChild = c.parentId !== null && !searching;
+        const open = expanded.has(c.id);
+        const hasChildren = c.parentId === null && c.childCount > 0;
+        return (
+          <div className={`cat-tree${isChild ? " cat-tree--child" : ""}`}>
+            {!isChild && !searching && (
+              <button
+                type="button"
+                className={`cat-tree__toggle${hasChildren ? "" : " is-empty"}`}
+                onClick={() => toggleExpanded(c.id)}
+                aria-expanded={open}
+                aria-label={`${open ? "Thu gọn" : "Mở"} chuyên đề con của ${c.name}`}
+                tabIndex={hasChildren ? 0 : -1}
+              >
+                <i className="bi bi-chevron-right" aria-hidden="true" />
+              </button>
+            )}
+            <div className="cat-tree__text">
+              {/* Bấm tên hoặc mã để vào danh sách câu hỏi của chuyên đề (giống bấm số câu hỏi) */}
+              <div>
+                <Link className="cat-tree__link cat-tree__name" to={`/admin/questions?categoryId=${c.id}`} title="Xem câu hỏi của chuyên đề">
+                  {c.name}
+                </Link>
+              </div>
+              <div className="cat-tree__meta">
+                {searching && c.parentName && <>{c.parentName} › </>}
+                {/* Cùng đích với tên nên bỏ khỏi thứ tự Tab, tránh đọc hai lần */}
+                <Link className="cat-tree__link" to={`/admin/questions?categoryId=${c.id}`} tabIndex={-1} title="Xem câu hỏi của chuyên đề">
+                  {c.code}
+                </Link>
+                {hasChildren && <> · {c.childCount} chuyên đề con</>}
+              </div>
+            </div>
+          </div>
+        );
+      },
     },
     {
       key: "count",
       header: "Số câu hỏi",
+      className: "text-end text-nowrap",
       render: (c) => (
-        <Link to={`/admin/questions?categoryId=${c.id}`} title={c.childCount > 0 ? "Gồm cả câu của các chuyên đề con" : undefined}>
+        <Link className="cat-count" to={`/admin/questions?categoryId=${c.id}`} title={c.childCount > 0 ? "Gồm cả câu của các chuyên đề con" : undefined}>
           {c.childCount > 0 ? c.totalQuestionCount : c.questionCount}
           {c.childCount > 0 && c.questionCount > 0 && <span className="small text-secondary ms-1">({c.questionCount} câu trực thuộc)</span>}
         </Link>
       ),
     },
-    { key: "status", header: t("common.status"), render: (c) => <ActiveBadge active={c.isActive} /> },
+    {
+      key: "status",
+      header: t("common.status"),
+      className: "text-nowrap",
+      render: (c) => (
+        <StatusSwitch
+          active={c.isActive}
+          label={`chuyên đề ${c.name}`}
+          disabled={toggle.isPending && toggle.variables?.id === c.id}
+          onToggle={canManage ? () => toggle.mutate(c) : undefined}
+        />
+      ),
+    },
     {
       key: "actions",
       header: "",
-      className: "text-end",
-      render: (c) =>
-        canManage && (
-          <div className="d-inline-flex gap-2">
-            {c.parentId === null && (
-              <Button
-                size="sm"
-                variant="link"
-                className="p-0"
-                disabled={c.questionCount > 0}
-                title={c.questionCount > 0 ? "Chuyên đề đang có câu hỏi: chuyển câu hỏi sang chuyên đề khác trước khi tạo chuyên đề con" : undefined}
-                onClick={() => {
-                  setExpanded((prev) => new Set(prev).add(c.id));
-                  setEditing({ code: `${c.code}.`, name: "", parentId: c.id });
-                }}
-              >
-                + Chuyên đề con
-              </Button>
-            )}
-            <Button size="sm" variant="link" className="p-0" onClick={() => edit(c)}>
-              {t("common.edit")}
-            </Button>
-            <Button size="sm" variant="link" className="p-0" onClick={() => toggle.mutate(c)}>
-              {c.isActive ? t("common.deactivate") : t("common.activate")}
-            </Button>
-            <Button size="sm" variant="link" className="p-0 text-danger" onClick={() => setDeleting(c)}>
-              {t("common.delete")}
-            </Button>
-          </div>
-        ),
+      className: "text-end text-nowrap",
+      render: (c) => (
+        <RowActions
+          label={c.name}
+          actions={[
+            { label: t("common.edit"), icon: "bi-pencil", onClick: () => edit(c), show: canManage },
+            {
+              label: "Thêm chuyên đề con",
+              icon: "bi-plus-lg",
+              onClick: () => addChild(c),
+              show: canManage && c.parentId === null,
+              disabled: !canAddChild(c),
+              title: canAddChild(c) ? undefined : addChildBlockedReason,
+            },
+            { label: t("common.delete"), icon: "bi-trash3", danger: true, onClick: () => setDeleting(c), show: canManage },
+          ]}
+        />
+      ),
     },
   ];
 
@@ -305,7 +320,7 @@ export function CategoriesPage() {
                   {removeMany.isPending ? "Đang xóa..." : `Xóa đã chọn (${selectedIds.size})`}
                 </Button>
               )}
-              <Button onClick={() => setEditing({ code: "", name: "", parentId: null })}>{t("common.create")}</Button>
+              <Button onClick={() => openEditor({ code: "", name: "", parentId: null })}>{t("common.create")}</Button>
             </div>
           )
         }
@@ -332,8 +347,11 @@ export function CategoriesPage() {
       {/* Modal Sửa / Thêm */}
       <Modal show={!!editing} onHide={() => setEditing(null)} centered>
         <Form
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
+            setSubmitted(true);
+            if (Object.keys(formErrors).length > 0) return;
             save.mutate();
           }}
         >
@@ -351,7 +369,14 @@ export function CategoriesPage() {
                   <Form.Select
                     value={editing.parentId ?? ""}
                     disabled={(editing.childCount ?? 0) > 0}
-                    onChange={(e) => setEditing({ ...editing, parentId: e.target.value || null })}
+                    onChange={(e) => {
+                      const parentId = e.target.value || null;
+                      // Mã đang là mã gợi ý (hoặc trống) thì gợi ý lại theo chuyên đề cha mới
+                      if (!editing.id && (editing.code === "" || editing.code === editing.autoCode)) {
+                        const code = codeForParent(parentId);
+                        setEditing({ ...editing, parentId, code, autoCode: code });
+                      } else setEditing({ ...editing, parentId });
+                    }}
                   >
                     <option value="">— Chuyên đề gốc (không có cha) —</option>
                     {parentOptions.map((r) => (
@@ -373,17 +398,25 @@ export function CategoriesPage() {
                     disabled={!!editing.id}
                     required
                     placeholder="VD: TOAN-12, HOA-HOC-10"
+                    isInvalid={submitted && !!formErrors.code}
                     onChange={(e) => setEditing({ ...editing, code: e.target.value })}
                   />
+                  <Form.Control.Feedback type="invalid">{formErrors.code}</Form.Control.Feedback>
+                  {!editing.id && editing.parentId && !(submitted && formErrors.code) && (
+                    <Form.Text className="text-secondary">Mã được gợi ý theo chuyên đề cha, có thể sửa lại.</Form.Text>
+                  )}
                 </Form.Group>
                 <Form.Group className="mb-3" controlId="cat-name">
                   <Form.Label>{t("common.name")} *</Form.Label>
                   <Form.Control
                     value={editing.name}
                     required
+                    autoFocus={!editing.id}
                     placeholder="VD: Đại số & Giải tích 12"
+                    isInvalid={submitted && !!formErrors.name}
                     onChange={(e) => setEditing({ ...editing, name: e.target.value })}
                   />
+                  <Form.Control.Feedback type="invalid">{formErrors.name}</Form.Control.Feedback>
                 </Form.Group>
               </>
             )}
@@ -419,7 +452,7 @@ export function CategoriesPage() {
                 </Alert>
               ) : deleting.questionCount > 0 ? (
                 <Alert variant="warning" className="mb-0">
-                  ⚠️ Chuyên đề này đang chứa <strong>{deleting.questionCount}</strong> câu hỏi. Thao tác này sẽ xóa chuyên đề và giải phóng các câu hỏi
+                  Chuyên đề này đang chứa <strong>{deleting.questionCount}</strong> câu hỏi. Thao tác này sẽ xóa chuyên đề và giải phóng các câu hỏi
                   liên quan.
                 </Alert>
               ) : (
@@ -523,21 +556,26 @@ export function QuestionsPage() {
         />
       ),
     },
-    { key: "code", header: t("common.code"), sortKey: "code", className: "text-nowrap", render: (q) => <Link to={`/admin/questions/${q.id}/edit`}><code>{q.code}</code></Link> },
     {
+      // Nội dung là phần chính, mã (bấm để sửa) nằm dưới màu xám; màn hẹp kèm thêm chuyên đề
       key: "content",
-      header: "Nội dung",
+      header: "Câu hỏi",
+      sortKey: "code",
       className: "cell-content",
       render: (q) => {
         const excerpt = markdownExcerpt(q.contentPreview);
         return (
-          <>
-            <div className="cell-clamp-2" title={excerpt}>
-              <MarkdownView content={excerpt} inline />
-            </div>
-            {/* Màn hẹp: chuyên đề hiện dưới nội dung thay cho cột riêng */}
-            {q.categoryName && <div className="small text-secondary d-xxl-none"><i className="bi bi-folder2 me-1" aria-hidden="true" />{q.categoryName}</div>}
-          </>
+          <NameCell
+            plain
+            name={
+              <div className="cell-clamp-2" title={excerpt}>
+                <MarkdownView content={excerpt} inline />
+              </div>
+            }
+            code={<Link to={`/admin/questions/${q.id}/edit`}>{q.code}</Link>}
+            separator={false}
+            meta={q.categoryName && <span className="d-xxl-none"> · {q.categoryName}</span>}
+          />
         );
       },
     },
@@ -559,15 +597,27 @@ export function QuestionsPage() {
       className: "cell-min-8",
       render: (q) => (
         <div className="d-flex flex-wrap gap-1">
-          {q.difficulty && <Badge bg="light" text="dark" className="border">{t(`enums.difficulty.${q.difficulty}`)}</Badge>}
+          {q.difficulty && <span className="cell-tag">{t(`enums.difficulty.${q.difficulty}`)}</span>}
           {q.tags.map((tag) => (
-            <Badge key={tag} bg="info-subtle" text="dark">{tag}</Badge>
+            <span key={tag} className="cell-tag">{tag}</span>
           ))}
         </div>
       ),
     },
     { key: "score", header: "Điểm", className: "text-center text-nowrap", render: (q) => formatNumber(q.defaultScore) },
-    { key: "status", header: t("common.status"), className: "text-nowrap", render: (q) => <ActiveBadge active={q.isActive} /> },
+    {
+      key: "status",
+      header: t("common.status"),
+      className: "text-nowrap",
+      render: (q) => (
+        <StatusSwitch
+          active={q.isActive}
+          label={`câu hỏi ${q.code}`}
+          disabled={action.isPending}
+          onToggle={hasPermission(Permissions.QuestionUpdate) ? () => action.mutate(() => questionsApi.setStatus(q.id, !q.isActive)) : undefined}
+        />
+      ),
+    },
     {
       key: "updated",
       header: t("common.updatedAt"),
@@ -581,45 +631,24 @@ export function QuestionsPage() {
       header: <span className="visually-hidden">{t("common.actions")}</span>,
       className: "text-end text-nowrap",
       render: (q) => (
-        <div className="d-inline-flex gap-1">
-          {hasPermission(Permissions.QuestionCreate) && (
-            <Button
-              size="sm"
-              variant="outline-secondary"
-              title={t("common.clone")}
-              aria-label={`${t("common.clone")} ${q.code}`}
-              onClick={() => action.mutate(async () => {
-                const clone = await questionsApi.clone(q.id);
-                navigate(`/admin/questions/${clone.id}/edit`);
-                return clone;
-              })}
-            >
-              <i className="bi bi-copy" aria-hidden="true" />
-            </Button>
-          )}
-          {hasPermission(Permissions.QuestionUpdate) && (
-            <>
-              <Button
-                size="sm"
-                variant="outline-secondary"
-                title={q.isActive ? t("common.deactivate") : t("common.activate")}
-                aria-label={`${q.isActive ? t("common.deactivate") : t("common.activate")} ${q.code}`}
-                onClick={() => action.mutate(() => questionsApi.setStatus(q.id, !q.isActive))}
-              >
-                <i className={`bi ${q.isActive ? "bi-pause-circle" : "bi-play-circle"}`} aria-hidden="true" />
-              </Button>
-              <Button
-                size="sm"
-                variant="outline-danger"
-                title={t("common.delete")}
-                aria-label={`${t("common.delete")} ${q.code}`}
-                onClick={() => setDeleting(q)}
-              >
-                <i className="bi bi-trash" aria-hidden="true" />
-              </Button>
-            </>
-          )}
-        </div>
+        <RowActions
+          label={`câu hỏi ${q.code}`}
+          actions={[
+            { label: t("common.edit"), icon: "bi-pencil", to: `/admin/questions/${q.id}/edit`, show: hasPermission(Permissions.QuestionUpdate) },
+            {
+              label: t("common.clone"),
+              icon: "bi-copy",
+              show: hasPermission(Permissions.QuestionCreate),
+              onClick: () =>
+                action.mutate(async () => {
+                  const clone = await questionsApi.clone(q.id);
+                  navigate(`/admin/questions/${clone.id}/edit`);
+                  return clone;
+                }),
+            },
+            { label: t("common.delete"), icon: "bi-trash3", danger: true, onClick: () => setDeleting(q), show: hasPermission(Permissions.QuestionUpdate) },
+          ]}
+        />
       ),
     },
   ];
@@ -667,7 +696,7 @@ export function QuestionsPage() {
                 <em>{markdownExcerpt(deleting.contentPreview)}</em>
               </div>
               <p className="text-danger small mb-0">
-                ⚠️ Thao tác này sẽ xóa vĩnh viễn câu hỏi khỏi ngân hàng câu hỏi.
+                Thao tác này sẽ xóa vĩnh viễn câu hỏi khỏi ngân hàng câu hỏi.
               </p>
             </div>
           )}
@@ -704,11 +733,13 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
           ))}
         </Form.Select>
       </Col>
-      <Col xs={6} md={3} xl={2}>
-        <Form.Control size="sm" aria-label="Tag" placeholder="Tag" defaultValue={String(list.state.tag ?? "")}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); list.setFilter({ tag: e.currentTarget.value.trim() }); } }}
-          onBlur={(e) => list.setFilter({ tag: e.currentTarget.value.trim() })} />
-      </Col>
+      {Features.tagFilter && (
+        <Col xs={6} md={3} xl={2}>
+          <Form.Control size="sm" aria-label="Tag" placeholder="Tag" defaultValue={String(list.state.tag ?? "")}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); list.setFilter({ tag: e.currentTarget.value.trim() }); } }}
+            onBlur={(e) => list.setFilter({ tag: e.currentTarget.value.trim() })} />
+        </Col>
+      )}
       <Col xs={12} md={6} xl={4} xxl={3}>
         <SearchableSelect
           size="sm"
@@ -1213,7 +1244,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
             Bạn có chắc chắn muốn xóa câu hỏi <strong>{existing?.code}</strong> này khỏi ngân hàng câu hỏi?
           </p>
           <p className="text-danger small mb-0">
-            ⚠️ Thao tác này sẽ xóa vĩnh viễn câu hỏi và không thể hoàn tác.
+            Thao tác này sẽ xóa vĩnh viễn câu hỏi và không thể hoàn tác.
           </p>
         </Modal.Body>
         <Modal.Footer>

@@ -1,6 +1,7 @@
 import { Suspense, lazy, type ComponentType, type ReactNode } from "react";
 import { Navigate, type RouteObject } from "react-router";
 import { Permissions } from "../constants/permissions";
+import { Features } from "../constants/features";
 import { AdminLayout, PlayerLayout, PublicLayout, StudentLayout } from "../layouts/Layouts";
 import { ChangePasswordPage, ForgotPasswordPage, LoginPage, ProfilePage, RegisterPage } from "../features/auth/AuthPages";
 import { AdminHome, HomeRedirect, RequireAuth, RequirePermission, RequireStudent } from "../features/auth/guards";
@@ -91,8 +92,13 @@ export const routes: RouteObject[] = [
           { path: "dashboard", element: guard(Permissions.ReportView, page(dashboard, "DashboardPage")) },
           { path: "users", element: guard(Permissions.UserView, page(identity, "UsersPage")) },
           { path: "users/:id", element: guard(Permissions.UserView, page(identity, "UserDetailPage")) },
-          { path: "groups", element: guard(Permissions.GroupView, page(identity, "GroupsPage")) },
-          { path: "groups/:id", element: guard(Permissions.GroupView, page(identity, "GroupDetailPage")) },
+          // Nhóm người dùng đang ẩn (Features.userGroups): đường dẫn cũ quay về trang quản trị
+          ...(Features.userGroups
+            ? [
+                { path: "groups", element: guard(Permissions.GroupView, page(identity, "GroupsPage")) },
+                { path: "groups/:id", element: guard(Permissions.GroupView, page(identity, "GroupDetailPage")) },
+              ]
+            : [{ path: "groups/*", element: <Navigate to="/admin" replace /> }]),
           { path: "classes", element: guard(Permissions.ClassView, page(classes, "ClassesPage")) },
           { path: "classes/:id", element: guard(Permissions.ClassView, page(classes, "ClassDetailPage")) },
           { path: "roles", element: guard(Permissions.RoleView, page(identity, "RolesPage")) },

@@ -15,6 +15,8 @@ import { useListQuery } from "../../hooks/useListQuery";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { formatDateTime, formatNumber, markdownExcerpt, utcIsoToVnLocal, vnLocalToUtcIso } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
+import { Features } from "../../constants/features";
+import { NameCell } from "../../components/common/TableCells";
 import { useAuth } from "../auth/useAuth";
 import type { AccessMode, ExamDetail, ExamKind, ExamListItem, RetakeScoringPolicy, ReviewPolicy, ScoreVisibility } from "../../types/api";
 
@@ -27,28 +29,28 @@ export function ExamsPage() {
   const [creating, setCreating] = useState(false);
 
   const columns: Column<ExamListItem>[] = [
-    { key: "code", header: t("common.code"), sortKey: "code", render: (e) => <Link to={`/admin/exams/${e.id}`}><code>{e.code}</code></Link> },
     {
+      // Tên đề (bấm để mở) + mã bên dưới; đề luyện ghi chữ; màn hẹp kèm chuyên đề và người thi
       key: "name",
-      header: t("common.name"),
+      header: "Đề thi",
       sortKey: "name",
       className: "cell-content",
       render: (e) => (
-        <>
-          <div className="cell-clamp-2" title={e.name}>
-            {e.kind === "PRACTICE" && (
-              <Badge bg="info" className="me-1">
-                Đề luyện
-              </Badge>
-            )}
-            {e.name}
-          </div>
-          {/* Màn hẹp: chuyên đề và người thi hiện dưới tên thay cho cột riêng */}
-          <div className="small text-secondary d-xxl-none">
-            {e.categoryName && <span className="me-2"><i className="bi bi-folder2 me-1" aria-hidden="true" />{e.categoryName}</span>}
-            <span className="text-nowrap"><i className="bi bi-people me-1" aria-hidden="true" />{t(`enums.accessMode.${e.accessMode}`)}</span>
-          </div>
-        </>
+        <NameCell
+          to={`/admin/exams/${e.id}`}
+          title={e.name}
+          name={<span className="cell-clamp-2">{e.name}</span>}
+          code={e.code}
+          separator={false}
+          meta={
+            <>
+              {e.kind === "PRACTICE" && <> · Đề luyện</>}
+              <span className="d-xxl-none">
+                {e.categoryName && <> · {e.categoryName}</>} · {t(`enums.accessMode.${e.accessMode}`)}
+              </span>
+            </>
+          }
+        />
       ),
     },
     { key: "category", header: t("nav.categories"), className: "cell-min-8 d-none d-xxl-table-cell", render: (e) => e.categoryName ?? <span className="text-secondary">—</span> },
@@ -75,7 +77,7 @@ export function ExamsPage() {
       render: (e) => (
         <>
           {e.publishedVersionNumber ? `v${e.publishedVersionNumber}` : <span className="text-secondary">—</span>}
-          {e.hasDraftVersion && <Badge bg="secondary-subtle" text="dark" className="ms-1 border">nháp</Badge>}
+          {e.hasDraftVersion && <span className="cell-tag ms-1">nháp</span>}
         </>
       ),
     },
@@ -96,7 +98,7 @@ export function ExamsPage() {
             value={String(list.state.categoryId ?? "")}
             onChange={(val) => list.setFilter({ categoryId: val })}
             options={(categories.data?.items ?? []).map((c) => ({ value: c.id, label: c.name, code: c.code }))}
-            placeholder="📁 Tất cả chuyên đề"
+            placeholder="Tất cả chuyên đề"
             searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
             clearable={true}
           />
@@ -156,8 +158,8 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
         <div className="d-flex flex-wrap gap-2">
           {(
             [
-              ["GRADED", "📝 Đề tính điểm", "Giới hạn số lượt và thời gian làm bài như hiện tại."],
-              ["PRACTICE", "🔁 Đề luyện", "Làm đi làm lại không giới hạn, không tính giờ."],
+              ["GRADED", "Đề tính điểm", "Giới hạn số lượt và thời gian làm bài như hiện tại."],
+              ["PRACTICE", "Đề luyện", "Làm đi làm lại không giới hạn, không tính giờ."],
             ] as const
           ).map(([value, title, detail]) => (
             <label
@@ -489,7 +491,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
               <div className="bg-light p-3 rounded mb-3 border">
                 <Row className="g-2 align-items-center">
                   <Col md={4}>
-                    <Form.Label className="small fw-bold mb-1">📁 Lọc theo Chuyên đề</Form.Label>
+                    <Form.Label className="small fw-bold mb-1">Lọc theo chuyên đề</Form.Label>
                     <SearchableSelect
                       size="sm"
                       disabled={!!form.categoryId}
@@ -506,7 +508,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                     />
                   </Col>
                   <Col md={4}>
-                    <Form.Label className="small fw-bold mb-1">🔍 Tìm kiếm nội dung / mã</Form.Label>
+                    <Form.Label className="small fw-bold mb-1">Tìm kiếm nội dung / mã</Form.Label>
                     <SearchBox
                       value={qList.state.keyword ?? ""}
                       onSearch={(keyword) => qList.setFilter({ keyword })}
@@ -1358,7 +1360,7 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
                 </div>
                 {canAssign && (
                   <Row className="g-2">
-                    <Col md={4}>
+                    <Col md={Features.userGroups ? 4 : 6}>
                       <Form.Control size="sm" aria-label="Tìm lớp" placeholder="Thêm lớp (mã hoặc tên)…" value={classSearch} onChange={(e) => setClassSearch(e.target.value)} />
                       {classes.data?.items.filter((c) => !classroomIds.includes(c.id)).map((c) => (
                         <Button key={c.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ classroomIds: [...classroomIds, c.id] })}>
@@ -1366,15 +1368,17 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
                         </Button>
                       ))}
                     </Col>
-                    <Col md={4}>
-                      <Form.Control size="sm" aria-label="Tìm nhóm" placeholder="Thêm nhóm (mã hoặc tên)…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} />
-                      {groups.data?.items.filter((g) => !groupIds.includes(g.id)).map((g) => (
-                        <Button key={g.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ groupIds: [...groupIds, g.id] })}>
-                          + {g.code} — {g.name}
-                        </Button>
-                      ))}
-                    </Col>
-                    <Col md={4}>
+                    {Features.userGroups && (
+                      <Col md={4}>
+                        <Form.Control size="sm" aria-label="Tìm nhóm" placeholder="Thêm nhóm (mã hoặc tên)…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} />
+                        {groups.data?.items.filter((g) => !groupIds.includes(g.id)).map((g) => (
+                          <Button key={g.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ groupIds: [...groupIds, g.id] })}>
+                            + {g.code} — {g.name}
+                          </Button>
+                        ))}
+                      </Col>
+                    )}
+                    <Col md={Features.userGroups ? 4 : 6}>
                       <Form.Control size="sm" aria-label="Tìm học viên" placeholder="Thêm học viên (mã hoặc họ tên)…" value={userSearch} onChange={(e) => setUserSearch(e.target.value)} />
                       {users.data?.items.filter((u) => !userIds.includes(u.id)).map((u) => (
                         <Button key={u.id} size="sm" variant="link" className="d-block px-0" onClick={() => set.mutate({ userIds: [...userIds, u.id] })}>

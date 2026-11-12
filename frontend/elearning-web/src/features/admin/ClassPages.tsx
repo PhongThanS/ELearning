@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Alert, Badge, Button, Card, Col, Form, Modal, ProgressBar, Row, Table } from "react-bootstrap";
+import { Alert, Button, Card, Col, Form, Modal, Row, Table } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { ConfirmDialog, ErrorAlert, Loading } from "../../components/common/Feed
 import { useToast } from "../../components/common/toast";
 import { describeError } from "../../utils/errors";
 import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
+import { NameCell, RowActions, StatusSwitch } from "../../components/common/TableCells";
 import { SearchableSelect } from "../../components/common/SearchableSelect";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateRange, formatDateTime } from "../../utils/format";
@@ -15,6 +16,7 @@ import { Permissions, StudentRole } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
 import type { Classroom, ClassroomStudent } from "../../types/api";
 import { StudentHistoryModal } from "../attendance/StudentHistoryModal";
+import { StudentProgressPanel } from "./StudentProgressPanel";
 
 interface ClassForm {
   code: string;
@@ -173,19 +175,29 @@ export function ClassesPage() {
     },
   });
 
+  const canManage = hasPermission(Permissions.ClassManage);
+  const toast = useToast();
+  const toggle = useMutation({
+    mutationFn: (c: Classroom) => classesApi.setStatus(c.id, !c.isActive),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["classes"] }),
+    onError: (e) => toast.error(e),
+  });
+
   const columns: Column<Classroom>[] = [
-    { key: "code", header: t("common.code"), sortKey: "code", className: "text-nowrap", render: (c) => <Link to={`/admin/classes/${c.id}`}>{c.code}</Link> },
     {
+      // Tên lớp (bấm để mở) + mã bên dưới; màn hẹp kèm năm học
       key: "name",
-      header: t("common.name"),
-      sortKey: "name",
+      header: "Lớp",
+      sortKey: "code",
       className: "cell-min-10",
       render: (c) => (
-        <>
-          {c.name}
-          {/* Màn hẹp hơn 1400px: năm học hiện dưới tên thay cho cột riêng */}
-          {c.schoolYear && <div className="small text-secondary text-nowrap d-xxl-none">{c.schoolYear}</div>}
-        </>
+        <NameCell
+          to={`/admin/classes/${c.id}`}
+          name={c.name}
+          code={c.code}
+          separator={false}
+          meta={c.schoolYear && <span className="d-xxl-none"> · {c.schoolYear}</span>}
+        />
       ),
     },
     {
@@ -195,7 +207,7 @@ export function ClassesPage() {
       render: (c) =>
         c.homeroomTeacherName ? (
           <div>
-            <span className="fw-medium text-primary"><i className="bi bi-person-badge me-1" aria-hidden="true" />{c.homeroomTeacherName}</span>
+            {c.homeroomTeacherName}
             {c.homeroomTeacherEmail && <div className="small text-secondary">{c.homeroomTeacherEmail}</div>}
           </div>
         ) : (
@@ -206,7 +218,19 @@ export function ClassesPage() {
     { key: "period", header: t("classes.period"), className: "small", render: (c) => formatDateRange(c.startDate, c.endDate) },
     { key: "students", header: t("classes.students"), className: "text-center", render: (c) => c.studentCount },
     { key: "exams", header: t("classes.exams"), className: "text-center", render: (c) => c.examCount },
-    { key: "status", header: t("common.status"), render: (c) => <ActiveBadge active={c.isActive} /> },
+    {
+      key: "status",
+      header: t("common.status"),
+      className: "text-nowrap",
+      render: (c) => (
+        <StatusSwitch
+          active={c.isActive}
+          label={`lớp ${c.name}`}
+          disabled={toggle.isPending && toggle.variables?.id === c.id}
+          onToggle={canManage ? () => toggle.mutate(c) : undefined}
+        />
+      ),
+    },
   ];
 
   return (
@@ -306,75 +330,46 @@ export function ClassDetailPage() {
 
   const columns: Column<ClassroomStudent>[] = [
     {
-      key: "userName",
-      header: t("auth.userNameOnly"),
+      // Họ tên (bấm để xem điểm danh / bài tập) + tên đăng nhập bên dưới; màn hẹp kèm email
+      key: "student",
+      header: "Học viên",
       render: (s) => (
-        <div className="d-flex align-items-center gap-1">
-          <button
-            type="button"
-            className="btn btn-link p-0 text-start fw-semibold text-decoration-none text-primary"
-            onClick={() => openStudent(s)}
-            title={nameTitle}
-          >
-            {s.userName}
-          </button>
-          <Link
-            to={`/admin/users/${s.userId}`}
-            className="text-secondary small ms-1"
-            title="Xem chi tiết hồ sơ tài khoản"
-          >
-            <i className="bi bi-box-arrow-up-right" style={{ fontSize: "0.75rem" }} />
-          </Link>
-          {s.email && <div className="small text-secondary d-xxl-none">{s.email}</div>}
-        </div>
+        <NameCell
+          name={
+            <button type="button" className="name-cell__btn" onClick={() => openStudent(s)} title={nameTitle}>
+              {s.fullName}
+            </button>
+          }
+          code={s.userName}
+          separator={false}
+          meta={s.email && <span className="d-xxl-none"> · {s.email}</span>}
+        />
       ),
     },
-    {
-      key: "fullName",
-      header: t("auth.fullName"),
-      render: (s) => (
-        <button
-          type="button"
-          className="btn btn-link p-0 text-start fw-semibold text-decoration-none text-primary"
-          onClick={() => openStudent(s)}
-          title={nameTitle}
-        >
-          <i className="bi bi-person-lines-fill me-1" />
-          {s.fullName}
-        </button>
-      ),
-    },
-    // Màn hẹp hơn 1400px: email hiện dưới tên đăng nhập thay cho cột riêng
+    // Màn hẹp hơn 1400px: email hiện dưới tên thay cho cột riêng
     { key: "email", header: t("auth.email"), className: "d-none d-xxl-table-cell", render: (s) => s.email },
     { key: "status", header: t("common.status"), render: (s) => <ActiveBadge active={s.isActive} /> },
     { key: "joinedAt", header: t("classes.joinedAt"), render: (s) => formatDateTime(s.joinedAt) },
     {
       key: "actions",
       header: "",
+      className: "text-end text-nowrap",
       render: (s) => (
-        <div className="d-flex justify-content-end gap-1">
-          <Button
-            size="sm"
-            variant="outline-primary"
-            onClick={() => setInspectingStudent(s)}
-            title="Xem bài tập đã làm và chưa làm"
-          >
-            <i className="bi bi-journal-check" aria-hidden="true" />
-            <span className="d-none d-xxl-inline ms-1">Bài tập</span>
-          </Button>
-          {canManage && (
-            <Button
-              size="sm"
-              variant="outline-danger"
-              onClick={() => change.mutate(() => classesApi.removeStudent(id, s.userId))}
-              title={t("classes.removeStudent")}
-              aria-label={`${t("classes.removeStudent")}: ${s.fullName}`}
-            >
-              <i className="bi bi-person-dash" aria-hidden="true" />
-              <span className="d-none d-xxl-inline ms-1">{t("classes.removeStudent")}</span>
-            </Button>
-          )}
-        </div>
+        <RowActions
+          label={s.fullName}
+          actions={[
+            { label: "Điểm danh & điểm BTVN", icon: "bi-calendar-check", onClick: () => setHistoryStudent(s), show: canViewAttendance },
+            { label: "Bài tập đã làm / chưa làm", icon: "bi-journal-check", onClick: () => setInspectingStudent(s) },
+            { label: "Hồ sơ tài khoản", icon: "bi-person", to: `/admin/users/${s.userId}` },
+            {
+              label: t("classes.removeStudent"),
+              icon: "bi-person-dash",
+              danger: true,
+              show: canManage,
+              onClick: () => change.mutate(() => classesApi.removeStudent(id, s.userId)),
+            },
+          ]}
+        />
       ),
     },
   ];
@@ -533,7 +528,8 @@ export function ClassDetailPage() {
   );
 }
 
-// ======================= Modal Xem Tiến độ bài tập của học sinh =======================
+// ======================= Modal bài tập đã làm / chưa làm của học sinh =======================
+// Dùng khi không có quyền điểm danh (không mở được cửa sổ điểm BTVN có tab bài tập).
 
 function StudentProgressModal({
   classroomId,
@@ -544,256 +540,19 @@ function StudentProgressModal({
   student: ClassroomStudent | null;
   onHide: () => void;
 }) {
-  const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "inProgress">("all");
-
-  const progressQuery = useQuery({
-    queryKey: ["class-student-progress", classroomId, student?.userId],
-    queryFn: () => classesApi.studentProgress(classroomId, student!.userId),
-    enabled: Boolean(student && classroomId),
-  });
-
-  const data = progressQuery.data;
-  const filteredExams = data?.exams.filter((item) => {
-    if (filter === "completed") return item.isSubmitted;
-    if (filter === "notStarted") return !item.isSubmitted && !item.isInProgress;
-    if (filter === "inProgress") return item.isInProgress;
-    return true;
-  }) ?? [];
-
-  const completionPct =
-    data && data.totalAssignedExams > 0
-      ? Math.round((data.completedExams / data.totalAssignedExams) * 100)
-      : 0;
-
   return (
-    <>
-      <Modal show={Boolean(student)} onHide={onHide} size="xl" centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="h5 d-flex align-items-center gap-2">
-            <i className="bi bi-mortarboard text-primary" />
-            <span>Tiến độ bài tập: {student?.fullName}</span>
-            <span className="text-muted fs-6 fw-normal">({student?.userName})</span>
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {progressQuery.isLoading && <Loading />}
-          {progressQuery.error && <ErrorAlert error={progressQuery.error} />}
-          {data && (
-            <>
-              <div className="mb-3 p-3 bg-light rounded border">
-                <div className="d-flex justify-content-between align-items-center mb-1">
-                  <span className="small fw-semibold text-secondary">Tỷ lệ hoàn thành bài tập</span>
-                  <span className="fw-bold text-primary">{completionPct}%</span>
-                </div>
-                <ProgressBar
-                  now={completionPct}
-                  variant={completionPct === 100 ? "success" : completionPct > 50 ? "primary" : "warning"}
-                  style={{ height: "8px" }}
-                />
-                <Row className="g-2 mt-2 text-center">
-                  <Col xs={3}>
-                    <div className="p-2 border rounded bg-white">
-                      <div className="text-muted small">Tổng số đề</div>
-                      <div className="fs-5 fw-bold text-dark">{data.totalAssignedExams}</div>
-                    </div>
-                  </Col>
-                  <Col xs={3}>
-                    <div className="p-2 border rounded bg-white">
-                      <div className="text-success small fw-semibold">Đã làm</div>
-                      <div className="fs-5 fw-bold text-success">{data.completedExams}</div>
-                    </div>
-                  </Col>
-                  <Col xs={3}>
-                    <div className="p-2 border rounded bg-white">
-                      <div className="text-secondary small fw-semibold">Chưa làm</div>
-                      <div className="fs-5 fw-bold text-danger">{data.notStartedExams}</div>
-                    </div>
-                  </Col>
-                  <Col xs={3}>
-                    <div className="p-2 border rounded bg-white">
-                      <div className="text-warning small fw-semibold">Đang làm</div>
-                      <div className="fs-5 fw-bold text-warning">{data.inProgressExams}</div>
-                    </div>
-                  </Col>
-                </Row>
-              </div>
-
-              <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                <div className="btn-group btn-group-sm" role="group">
-                  <button
-                    type="button"
-                    className={`btn ${filter === "all" ? "btn-primary" : "btn-outline-secondary"}`}
-                    onClick={() => setFilter("all")}
-                  >
-                    Tất cả ({data.totalAssignedExams})
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn ${filter === "completed" ? "btn-success" : "btn-outline-secondary"}`}
-                    onClick={() => setFilter("completed")}
-                  >
-                    Đã làm ({data.completedExams})
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn ${filter === "notStarted" ? "btn-danger" : "btn-outline-secondary"}`}
-                    onClick={() => setFilter("notStarted")}
-                  >
-                    Chưa làm ({data.notStartedExams})
-                  </button>
-                  {data.inProgressExams > 0 && (
-                    <button
-                      type="button"
-                      className={`btn ${filter === "inProgress" ? "btn-warning" : "btn-outline-secondary"}`}
-                      onClick={() => setFilter("inProgress")}
-                    >
-                      Đang làm ({data.inProgressExams})
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {filteredExams.length === 0 ? (
-                <Alert variant="info" className="py-2 small mb-0">
-                  Không có bài tập nào trong mục này.
-                </Alert>
-              ) : (
-                <div className="table-responsive border rounded">
-                  <Table hover size="sm" className="mb-0 align-middle">
-                    <thead className="table-light">
-                      <tr>
-                        <th>Tên bài tập / Đề thi</th>
-                        <th className="text-center">Thời lượng</th>
-                        <th className="text-center">Lượt làm</th>
-                        <th className="text-center">Trạng thái</th>
-                        <th className="text-center">Điểm số</th>
-                        <th className="text-end">Thời gian nộp</th>
-                        <th className="text-end" style={{ width: 150 }}>Hành động</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredExams.map((item) => {
-                        const isCompleted = item.isSubmitted && Boolean(item.latestAttemptId);
-                        const isInProgress = item.isInProgress && Boolean(item.inProgressAttemptId);
-                        const targetUrl = isCompleted
-                          ? `/admin/attempts/${item.latestAttemptId}`
-                          : isInProgress
-                          ? `/admin/attempts/${item.inProgressAttemptId}`
-                          : `/admin/exams/${item.examId}/preview`;
-
-                        return (
-                          <tr key={item.examId}>
-                            <td>
-                              <Link
-                                to={targetUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="fw-semibold text-primary text-decoration-none"
-                                title={
-                                  isCompleted
-                                    ? "Mở xem bài làm và đáp án chi tiết ở tab mới"
-                                    : isInProgress
-                                    ? "Mở xem bài đang làm dở ở tab mới"
-                                    : "Mở xem đề bài (chế độ chỉ đọc) ở tab mới"
-                                }
-                              >
-                                {item.name} <i className="bi bi-box-arrow-up-right small text-muted ms-1" />
-                              </Link>
-                              <div className="text-muted small font-monospace">{item.code}</div>
-                            </td>
-                            <td className="text-center text-nowrap small">
-                              {item.durationMinutes === 0 ? (
-                                <Badge bg="info" className="text-dark bg-opacity-25 border border-info">
-                                  Luyện tập
-                                </Badge>
-                              ) : (
-                                <div>{item.durationMinutes} phút</div>
-                              )}
-                              <div className="text-muted">{item.questionCount} câu</div>
-                            </td>
-                            <td className="text-center small">
-                              <span className="badge bg-light text-dark border">
-                                {item.usedAttempts} / {item.maxAttempts === 0 ? "∞" : item.maxAttempts}
-                              </span>
-                            </td>
-                            <td className="text-center text-nowrap">
-                              {item.isSubmitted ? (
-                                <Badge bg={item.passed === false ? "danger" : "success"}>
-                                  {item.passed === true ? "Đã nộp (Đạt)" : item.passed === false ? "Đã nộp (Chưa đạt)" : "Đã nộp"}
-                                </Badge>
-                              ) : item.isInProgress ? (
-                                <Badge bg="warning" text="dark">Đang làm dở</Badge>
-                              ) : (
-                                <Badge bg="secondary">Chưa làm</Badge>
-                              )}
-                            </td>
-                            <td className="text-center text-nowrap">
-                              {item.isSubmitted && item.officialScore !== null ? (
-                                <div>
-                                  <span className="fw-bold text-primary">{item.officialScore}</span>
-                                  {item.percentage !== null && (
-                                    <span className="small text-muted ms-1">({item.percentage}%)</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-muted">—</span>
-                              )}
-                            </td>
-                            <td className="text-end text-nowrap small text-muted">
-                              {item.lastSubmittedAt ? formatDateTime(item.lastSubmittedAt) : "—"}
-                            </td>
-                            <td className="text-end">
-                              {isCompleted ? (
-                                <Link
-                                  to={targetUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-sm btn-outline-success d-inline-flex align-items-center gap-1"
-                                  title="Mở xem bài làm và đáp án chi tiết ở tab mới"
-                                >
-                                  <i className="bi bi-file-earmark-check" />
-                                  <span>Xem bài làm</span>
-                                </Link>
-                              ) : isInProgress ? (
-                                <Link
-                                  to={targetUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-sm btn-outline-warning d-inline-flex align-items-center gap-1"
-                                  title="Mở xem bài đang làm dở ở tab mới"
-                                >
-                                  <i className="bi bi-hourglass-split" />
-                                  <span>Xem bài dở</span>
-                                </Link>
-                              ) : (
-                                <Link
-                                  to={targetUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
-                                  title="Mở xem đề bài (chế độ chỉ đọc) ở tab mới"
-                                >
-                                  <i className="bi bi-eye" />
-                                  <span>Xem đề bài</span>
-                                </Link>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </Table>
-                </div>
-              )}
-            </>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" size="sm" onClick={onHide}>
-            Đóng
-          </Button>
-        </Modal.Footer>
-      </Modal>
-    </>
+    <Modal show={Boolean(student)} onHide={onHide} size="xl" centered scrollable>
+      <Modal.Header closeButton>
+        <Modal.Title as="h2" className="h5">
+          {student?.fullName} <span className="text-secondary fs-6 fw-normal">· bài tập đã làm / chưa làm</span>
+        </Modal.Title>
+      </Modal.Header>
+      <Modal.Body>{student && <StudentProgressPanel classroomId={classroomId} userId={student.userId} />}</Modal.Body>
+      <Modal.Footer>
+        <Button variant="secondary" onClick={onHide}>
+          Đóng
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 }

@@ -9,6 +9,7 @@ import { useToast } from "../../components/common/toast";
 import { attemptStatusVariant as attemptVariant } from "../../constants/ui";
 import { DataTable, PageHeader, SearchBox, type Column } from "../../components/common/DataTable";
 import { MarkdownView } from "../../components/common/MarkdownView";
+import { NameCell } from "../../components/common/TableCells";
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime, formatDuration, formatNumber, formatScore, markdownExcerpt } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
@@ -69,8 +70,8 @@ function ResultsTab({ examId }: { examId: string }) {
   const exportFile = useMutation({ mutationFn: () => adminApi.exportResults(examId, list.state.official === true), onError: (e) => toast.error(e) });
 
   const columns: Column<AdminResultRow>[] = [
-    { key: "user", header: t("auth.userNameOnly"), sortKey: "userName", render: (r) => <>{r.userName}<div className="small text-secondary">{r.fullName}</div></> },
-    { key: "attempt", header: "Lượt", className: "text-nowrap", render: (r) => <>#{r.attemptNumber} {r.isOfficial && <Badge bg="primary">chính thức</Badge>}</> },
+    { key: "user", header: "Học viên", sortKey: "userName", render: (r) => <NameCell to={`/admin/attempts/${r.attemptId}`} name={r.fullName || r.userName} code={r.userName} /> },
+    { key: "attempt", header: "Lượt", className: "text-nowrap", render: (r) => <>#{r.attemptNumber} {r.isOfficial && <span className="cell-tag">chính thức</span>}</> },
     { key: "status", header: t("common.status"), render: (r) => <Badge bg={attemptVariant[r.status]}>{t(`enums.attemptStatus.${r.status}`)}</Badge> },
     { key: "score", header: "Điểm", sortKey: "totalScore", className: "text-nowrap", render: (r) => (
       <>
@@ -93,7 +94,6 @@ function ResultsTab({ examId }: { examId: string }) {
       ),
     },
     { key: "duration", header: "Thời gian", className: "d-none d-xxl-table-cell", render: (r) => formatDuration(r.durationSeconds) },
-    { key: "detail", header: "", className: "text-nowrap", render: (r) => <Link to={`/admin/attempts/${r.attemptId}`}>{t("common.detail")}</Link> },
   ];
 
   return (
@@ -122,14 +122,13 @@ function AttemptsTab({ examId }: { examId: string }) {
   const query = useQuery({ queryKey: ["attempts", examId, list.params], queryFn: () => adminApi.attempts(examId, list.params), refetchInterval: 30_000 });
 
   const columns: Column<AdminAttemptRow>[] = [
-    { key: "user", header: t("auth.userNameOnly"), sortKey: "userName", render: (a) => <>{a.userName}<div className="small text-secondary">{a.fullName}</div></> },
+    { key: "user", header: "Học viên", sortKey: "userName", render: (a) => <NameCell to={`/admin/attempts/${a.attemptId}`} name={a.fullName || a.userName} code={a.userName} /> },
     { key: "attempt", header: "Lượt", className: "text-nowrap", render: (a) => `#${a.attemptNumber} (v${a.versionNumber})` },
     { key: "status", header: t("common.status"), render: (a) => <Badge bg={attemptVariant[a.status]}>{t(`enums.attemptStatus.${a.status}`)}</Badge> },
     { key: "started", header: "Bắt đầu", sortKey: "startedAt", render: (a) => formatDateTime(a.startedAt) },
     { key: "expired", header: "Hạn", render: (a) => <>{formatDateTime(a.expiredAt)}{a.timeExtensionMinutes > 0 && <Badge bg="info" className="ms-1">+{a.timeExtensionMinutes}′</Badge>}</> },
     { key: "score", header: "Điểm", className: "text-nowrap", render: (a) => formatScore(a.totalScore, a.maxScore) },
     { key: "events", header: "Sự kiện", render: (a) => (a.eventCount > 0 ? <Badge bg="warning" text="dark">{a.eventCount}</Badge> : 0) },
-    { key: "detail", header: "", className: "text-nowrap", render: (a) => <Link to={`/admin/attempts/${a.attemptId}`}>{t("common.detail")}</Link> },
   ];
 
   return (

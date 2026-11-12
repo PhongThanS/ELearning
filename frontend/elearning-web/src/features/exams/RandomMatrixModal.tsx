@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { examsApi } from "../../services/api";
 import { useActiveCategories } from "../../hooks/useCategories";
 import { useToast } from "../../components/common/toast";
+import { Features } from "../../constants/features";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { MatrixDrawInput, MatrixDrawMode, MatrixTopicItem, QuestionType, VersionDetail } from "../../types/api";
 
@@ -313,7 +314,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
           <Modal.Title className="h5 fw-bold d-flex align-items-center gap-2">
-            <span className="fs-4">🎲</span>
+            <i className="bi bi-grid-3x3-gap fs-5" aria-hidden="true" />
             <span>Ma trận tạo đề thi theo chuyên đề &amp; độ khó</span>
           </Modal.Title>
         </Modal.Header>
@@ -361,18 +362,20 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                   </Form.Select>
                 </Col>
 
-                <Col md={6}>
-                  <Form.Label htmlFor="matrix-tag" className="small mb-1 fw-medium">
-                    Tag / Thẻ phân loại (tùy chọn)
-                  </Form.Label>
-                  <Form.Control
-                    id="matrix-tag"
-                    size="sm"
-                    placeholder="VD: hk1, giua-ky..."
-                    value={tag}
-                    onChange={(e) => setTag(e.target.value)}
-                  />
-                </Col>
+                {Features.tagFilter && (
+                  <Col md={6}>
+                    <Form.Label htmlFor="matrix-tag" className="small mb-1 fw-medium">
+                      Tag / Thẻ phân loại (tùy chọn)
+                    </Form.Label>
+                    <Form.Control
+                      id="matrix-tag"
+                      size="sm"
+                      placeholder="VD: hk1, giua-ky..."
+                      value={tag}
+                      onChange={(e) => setTag(e.target.value)}
+                    />
+                  </Col>
+                )}
               </Row>
             </Card.Body>
           </Card>
@@ -600,7 +603,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                   />
                   <div>
                     <label htmlFor="mode-static" className="fw-bold mb-1 d-block" style={{ cursor: "pointer" }}>
-                      📌 Chốt cố định vào đề thi ngay (STATIC)
+                      Chốt cố định vào đề thi ngay (STATIC)
                     </label>
                     <p className="small text-muted mb-0">
                       Hệ thống tự động bốc ngẫu nhiên đúng {totalQuestionsWanted} câu theo ma trận và gắn trực tiếp vào đề thi. Mọi học sinh sẽ làm cùng các câu hỏi này. Bạn có thể xem trước và tinh chỉnh lại từng câu.
@@ -627,7 +630,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                   />
                   <div>
                     <label htmlFor="mode-pool" className="fw-bold mb-1 d-block" style={{ cursor: "pointer" }}>
-                      🔄 Bốc ngẫu nhiên cho từng lượt thi (POOL)
+                      Bốc ngẫu nhiên cho từng lượt thi (POOL)
                     </label>
                     <p className="small text-muted mb-0">
                       Tự động tạo các quy tắc Pool theo từng chuyên đề và độ khó. Mỗi khi thí sinh bấm &quot;Bắt đầu thi&quot;, hệ thống mới bốc ngẫu nhiên bộ câu khác nhau cho từng thí sinh theo đúng ma trận này.
@@ -702,7 +705,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                 </>
               ) : (
                 <>
-                  <span className="me-1">⚡</span> Tiến hành bốc {totalQuestionsWanted} câu theo ma trận
+                  Tiến hành bốc {totalQuestionsWanted} câu theo ma trận
                 </>
               )}
             </Button>

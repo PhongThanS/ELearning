@@ -102,7 +102,7 @@ function WatchInfo({ video }: { video: VideoLesson }) {
       <div className="d-flex flex-wrap gap-2 align-items-center">
         {video.categoryName && (
           <Badge bg="primary-subtle" className="text-primary border border-primary-subtle">
-            📁 {video.categoryName}
+            <i className="bi bi-folder2 me-1" aria-hidden="true" />{video.categoryName}
           </Badge>
         )}
         <LessonClassBadges classrooms={video.classrooms} max={10} />

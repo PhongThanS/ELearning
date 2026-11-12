@@ -52,7 +52,7 @@ export function DashboardPage() {
         <div className="sclass-hero-body">
           <div className="sclass-hero-eyebrow">{t("nav.dashboard")}</div>
           <h1 className="sclass-hero-title">
-            {t(greetingKey(new Date().getHours()))}, <span className="text-cyan">{user?.fullName}</span> 👋
+            {t(greetingKey(new Date().getHours()))}, <span className="text-cyan">{user?.fullName}</span>
           </h1>
           <p className="sclass-hero-text">
             {t("home.today", { attempts: formatNumber(d.attemptsToday), open: formatNumber(d.openExams), inProgress: formatNumber(d.inProgressAttempts) })}

@@ -552,9 +552,9 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
         <Card.Body className="py-2 small border-bottom d-flex flex-wrap gap-2 align-items-center">
           <span className="fw-semibold">BTVN:</span>
           <Badge bg={scoreVariant(homework.average)}>TB lớp {homework.average === null ? "—" : formatScoreValue(homework.average)}</Badge>
-          <Badge bg="success-subtle" text="success-emphasis">🌟 Xuất sắc {homework.excellent}</Badge>
-          <Badge bg="primary-subtle" text="primary-emphasis">✅ Đạt {homework.done}</Badge>
-          <Badge bg="warning-subtle" text="warning-emphasis">⚠️ Thiếu {homework.partial + homework.missing}</Badge>
+          <Badge bg="success-subtle" text="success-emphasis">Xuất sắc {homework.excellent}</Badge>
+          <Badge bg="primary-subtle" text="primary-emphasis">Đạt {homework.done}</Badge>
+          <Badge bg="warning-subtle" text="warning-emphasis">Thiếu {homework.partial + homework.missing}</Badge>
           <Badge bg="secondary-subtle" text="secondary-emphasis">Chưa chấm {homework.unrated}</Badge>
         </Card.Body>
 

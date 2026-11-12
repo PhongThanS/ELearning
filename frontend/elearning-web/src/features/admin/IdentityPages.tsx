@@ -12,6 +12,8 @@ import { ActiveBadge, DataTable, PageHeader, SearchBox, type Column } from "../.
 import { useListQuery } from "../../hooks/useListQuery";
 import { formatDateTime } from "../../utils/format";
 import { Permissions } from "../../constants/permissions";
+import { Features } from "../../constants/features";
+import { NameCell } from "../../components/common/TableCells";
 import { useAuth } from "../auth/useAuth";
 import { UserImportDialog } from "./UserImportDialog";
 import type { Group, GroupMember, UserListItem, UserWithPassword } from "../../types/api";
@@ -30,10 +32,25 @@ export function UsersPage() {
   const [created, setCreated] = useState<UserWithPassword | null>(null);
 
   const columns: Column<UserListItem>[] = [
-    { key: "userName", header: t("auth.userNameOnly"), sortKey: "userName", render: (u) => <Link to={`/admin/users/${u.id}`}>{u.userName}</Link> },
-    { key: "fullName", header: t("auth.fullName"), sortKey: "fullName", render: (u) => u.fullName },
+    {
+      // Họ tên (bấm để mở) + tên đăng nhập bên dưới
+      key: "user",
+      header: "Người dùng",
+      sortKey: "userName",
+      render: (u) => <NameCell to={`/admin/users/${u.id}`} name={u.fullName || u.userName} code={u.userName} />,
+    },
     { key: "email", header: t("auth.email"), sortKey: "email", render: (u) => u.email },
-    { key: "roles", header: t("nav.roles"), render: (u) => u.roles.map((r) => <Badge key={r} bg="info" className="me-1">{r}</Badge>) },
+    {
+      key: "roles",
+      header: t("nav.roles"),
+      render: (u) => (
+        <div className="d-flex flex-wrap gap-1">
+          {u.roles.map((r) => (
+            <span key={r} className="cell-tag">{r}</span>
+          ))}
+        </div>
+      ),
+    },
     {
       key: "status",
       header: t("common.status"),
@@ -364,8 +381,12 @@ export function UserDetailPage() {
                 <dd className="col-7">{formatDateTime(u.lastLoginAt)}</dd>
                 <dt className="col-5">Tạm khóa đến</dt>
                 <dd className="col-7">{formatDateTime(u.lockoutEnd)}</dd>
-                <dt className="col-5">Nhóm</dt>
-                <dd className="col-7">{u.groups.map((g) => g.code).join(", ") || "—"}</dd>
+                {Features.userGroups && (
+                  <>
+                    <dt className="col-5">Nhóm</dt>
+                    <dd className="col-7">{u.groups.map((g) => g.code).join(", ") || "—"}</dd>
+                  </>
+                )}
                 <dt className="col-5">Phải đổi mật khẩu</dt>
                 <dd className="col-7">{u.mustChangePassword ? t("common.yes") : t("common.no")}</dd>
               </dl>
@@ -877,7 +898,7 @@ export function GroupsPage() {
               </p>
               {deleting.memberCount > 0 ? (
                 <Alert variant="warning" className="mb-0">
-                  ⚠️ Lớp học này đang có <strong>{deleting.memberCount}</strong> thành viên. Thao tác xóa sẽ giải phóng danh sách học viên và đề thi đã gán cho lớp này.
+                  Lớp học này đang có <strong>{deleting.memberCount}</strong> thành viên. Thao tác xóa sẽ giải phóng danh sách học viên và đề thi đã gán cho lớp này.
                 </Alert>
               ) : (
                 <p className="text-secondary small mb-0">Hành động này không thể hoàn tác.</p>

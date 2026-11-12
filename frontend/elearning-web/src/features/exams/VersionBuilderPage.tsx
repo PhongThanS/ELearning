@@ -58,7 +58,7 @@ export function VersionBuilderPage() {
       <Link to={`/admin/exams/${id}`} className="small">← {exam.data.name}</Link>
       <PageHeader title={`Phiên bản ${v.versionNumber} — ${exam.data.code}`}>
         {exam.data.categoryName && (
-          <Badge bg="primary-subtle" text="primary" className="border border-primary-subtle me-1">📁 {exam.data.categoryName}</Badge>
+          <Badge bg="primary-subtle" text="primary" className="border border-primary-subtle me-1">{exam.data.categoryName}</Badge>
         )}
         <Badge bg={draft ? "secondary" : v.status === "PUBLISHED" ? "success" : "dark"}>{t(`enums.versionStatus.${v.status}`)}</Badge>{" "}
         <span className="small text-secondary">
@@ -77,7 +77,7 @@ export function VersionBuilderPage() {
             <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 p-2 px-3 bg-light border rounded shadow-sm">
               <div className="d-flex align-items-center gap-2">
                 <span className="badge bg-primary fs-6 px-2 py-1">
-                  🎲 Tạo nhanh
+                  Tạo nhanh
                 </span>
                 <span className="small text-secondary">
                   Tự động lấy số lượng câu hỏi theo chuyên đề và ma trận mức độ (Mức 1 – Mức 4)
@@ -89,7 +89,7 @@ export function VersionBuilderPage() {
                 className="fw-semibold px-3 shadow-sm"
                 onClick={() => setShowMatrixModal(true)}
               >
-                ⚡ Tạo câu hỏi theo ma trận độ khó
+                Tạo câu hỏi theo ma trận độ khó
               </Button>
             </div>
           )}
@@ -186,11 +186,11 @@ function QuestionPicker({
             <div className="d-flex gap-1">
               {onOpenMatrix && (
                 <Button size="sm" variant="outline-success" onClick={onOpenMatrix} title="Tạo câu hỏi theo ma trận độ khó">
-                  🎲 Ma trận
+                  Ma trận
                 </Button>
               )}
               <Button size="sm" variant="outline-primary" onClick={() => setShowModal(true)}>
-                🔍 Mở rộng
+                Mở rộng
               </Button>
             </div>
           </div>
@@ -204,7 +204,7 @@ function QuestionPicker({
                 value={String(list.state.categoryId ?? "")}
                 onChange={(val) => list.setFilter({ categoryId: val })}
                 options={categoryOptions}
-                placeholder="📁 Tất cả chuyên đề"
+                placeholder="Tất cả chuyên đề"
                 searchPlaceholder="Tìm theo mã hoặc tên..."
                 clearable={true}
               />
@@ -309,7 +309,7 @@ function QuestionPicker({
           <div className="bg-light p-3 rounded mb-3 border">
             <Row className="g-2 align-items-center">
               <Col md={4}>
-                <Form.Label className="small fw-bold mb-1">📁 Chuyên đề</Form.Label>
+                <Form.Label className="small fw-bold mb-1">Chuyên đề</Form.Label>
                 <SearchableSelect
                   size="sm"
                   value={String(list.state.categoryId ?? "")}
@@ -321,7 +321,7 @@ function QuestionPicker({
                 />
               </Col>
               <Col md={4}>
-                <Form.Label className="small fw-bold mb-1">🔍 Tìm kiếm</Form.Label>
+                <Form.Label className="small fw-bold mb-1">Tìm kiếm</Form.Label>
                 <SearchBox
                   value={list.state.keyword ?? ""}
                   onSearch={(keyword) => list.setFilter({ keyword })}

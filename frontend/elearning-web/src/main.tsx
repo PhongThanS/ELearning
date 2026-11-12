@@ -15,6 +15,7 @@ import "./styles.css";
 import "./styles-exam.css";
 import "./styles-pages.css";
 import "./styles-effects.css";
+import "./styles-clean.css";
 import "./i18n";
 import { App } from "./app/App";
 

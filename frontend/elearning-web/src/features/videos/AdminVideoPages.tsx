@@ -159,7 +159,7 @@ export function AdminVideoPages() {
       <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
         <div>
           <h1 className="h4 mb-1 page-title d-flex align-items-center gap-2">
-            <span>🎥</span> Kho Video bài giảng
+            <i className="bi bi-play-btn" aria-hidden="true" /> Kho video bài giảng
             {videosData && <span className="badge text-bg-light border fw-semibold ms-1">{videosData.totalCount}</span>}
           </h1>
           <p className="text-secondary mb-0 small mt-2">
@@ -179,7 +179,7 @@ export function AdminVideoPages() {
             <Col xs={12} md={4}>
               <Form.Control
                 type="search"
-                placeholder="🔍 Tìm kiếm theo tiêu đề, mô tả..."
+                placeholder="Tìm kiếm theo tiêu đề, mô tả..."
                 value={keyword}
                 onChange={(e) => {
                   setKeyword(e.target.value);
@@ -239,7 +239,7 @@ export function AdminVideoPages() {
       ) : videos.length === 0 ? (
         <Card className="border-0 shadow-sm text-center py-5">
           <Card.Body>
-            <div className="display-4 text-muted mb-3">🎬</div>
+            <div className="display-4 text-muted mb-3"><i className="bi bi-camera-video" aria-hidden="true" /></div>
             <h5 className="fw-bold text-dark">Chưa có video bài giảng nào</h5>
             <p className="text-secondary small mb-3">
               Hãy thêm video bài học hoặc liên kết video YouTube đầu tiên để học sinh theo dõi.
@@ -296,7 +296,7 @@ export function AdminVideoPages() {
                     <div className="d-flex flex-wrap gap-1 mb-2">
                       {v.categoryName && (
                         <Badge bg="primary-subtle" className="text-primary border border-primary-subtle fw-normal">
-                          📁 {v.categoryName}
+                          <i className="bi bi-folder2 me-1" aria-hidden="true" />{v.categoryName}
                         </Badge>
                       )}
                       <LessonClassBadges classrooms={v.classrooms} />
@@ -531,7 +531,7 @@ function VideoEditModal({
       <Form onSubmit={handleSubmit}>
         <Modal.Header closeButton>
           <Modal.Title className="h5 fw-bold text-dark">
-            {isEditing ? "✏️ Chỉnh sửa video bài giảng" : "➕ Thêm video bài giảng mới"}
+            {isEditing ? "Chỉnh sửa video bài giảng" : "Thêm video bài giảng mới"}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body className="p-4">
@@ -715,7 +715,7 @@ function VideoEditModal({
                   }))}
                   placeholder="-- Thêm lớp được xem --"
                   searchPlaceholder="Tìm theo mã hoặc tên lớp..."
-                  emptyText="🌐 Chưa chọn lớp: mọi học sinh đều xem được (Chung)"
+                  emptyText="Chưa chọn lớp: mọi học sinh đều xem được (Chung)"
                 />
               </Form.Group>
             </Col>

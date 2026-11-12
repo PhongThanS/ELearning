@@ -6,7 +6,7 @@ export function LessonClassBadges({ classrooms, max = 3 }: { classrooms: VideoCl
   if (classrooms.length === 0) {
     return (
       <Badge bg="secondary-subtle" className="text-secondary border border-secondary-subtle fw-normal">
-        🌐 Chung cho tất cả
+        Chung cho tất cả
       </Badge>
     );
   }
@@ -16,7 +16,7 @@ export function LessonClassBadges({ classrooms, max = 3 }: { classrooms: VideoCl
     <>
       {shown.map((c) => (
         <Badge key={c.id} bg="info-subtle" className="text-info-emphasis border border-info-subtle fw-normal" title={c.code}>
-          🏫 {c.name}
+          {c.name}
         </Badge>
       ))}
       {hidden.length > 0 && (

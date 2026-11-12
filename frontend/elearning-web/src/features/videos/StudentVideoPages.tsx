@@ -80,7 +80,7 @@ export function StudentVideoPages() {
       {/* Header Banner */}
       <section className="sclass-hero mb-4">
         <div className="sclass-hero-body">
-          <div className="sclass-hero-eyebrow">🎬 Học liệu trực tuyến</div>
+          <div className="sclass-hero-eyebrow">Học liệu trực tuyến</div>
           <h1 className="sclass-hero-title">
             Kho <span className="text-cyan">video bài giảng</span> & hướng dẫn
           </h1>
@@ -108,7 +108,7 @@ export function StudentVideoPages() {
             <Col xs={12} md={5}>
               <Form.Control
                 type="search"
-                placeholder="🔍 Tìm kiếm video theo tiêu đề, nội dung..."
+                placeholder="Tìm kiếm video theo tiêu đề, nội dung..."
                 value={keyword}
                 onChange={(e) => {
                   setKeyword(e.target.value);
@@ -155,7 +155,7 @@ export function StudentVideoPages() {
       ) : videos.length === 0 ? (
         <Card className="border-0 shadow-sm text-center py-5 rounded-4">
           <Card.Body>
-            <div className="display-4 text-muted mb-3">🎥</div>
+            <div className="display-4 text-muted mb-3"><i className="bi bi-camera-video" aria-hidden="true" /></div>
             <h5 className="fw-bold text-dark">Chưa có video bài giảng nào</h5>
             <p className="text-secondary small mb-0">
               Hiện tại chưa có video nào phù hợp với bộ lọc tìm kiếm. Hãy chọn chuyên đề khác hoặc thử lại sau!
@@ -205,7 +205,7 @@ export function StudentVideoPages() {
                     <div className="d-flex flex-wrap gap-1 mb-2">
                       {v.categoryName && (
                         <Badge bg="primary-subtle" className="text-primary border border-primary-subtle fw-normal">
-                          📁 {v.categoryName}
+                          <i className="bi bi-folder2 me-1" aria-hidden="true" />{v.categoryName}
                         </Badge>
                       )}
                       <LessonClassBadges classrooms={v.classrooms} />
