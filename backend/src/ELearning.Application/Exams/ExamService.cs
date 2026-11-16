@@ -177,6 +177,13 @@ internal sealed class ExamService(
         }
 
         var details = request.ToDetails();
+
+        // Loại đề (D-33) chỉ đổi được khi đề chưa từng mở: đề đã mở có học viên làm theo quy tắc của loại hiện tại
+        if (details.Kind != exam.Kind && exam.Status != ExamStatus.Draft)
+        {
+            return Error.Conflict("EXAM_KIND_LOCKED", "Đề đã mở nên không đổi được loại đề (đề tính điểm / đề luyện).");
+        }
+
         if (details.RetakeScoringPolicy != exam.RetakeScoringPolicy && await db.ExamAttempts.AnyAsync(a => a.ExamId == id, ct))
         {
             return Error.Conflict(ErrorCodes.RetakePolicyLocked, "Không thể đổi cách tính điểm khi đề đã có lượt thi.");
@@ -399,12 +406,26 @@ internal sealed class ExamService(
             return Error.Validation(ErrorCodes.ValidationFailed, "Có lớp học không tồn tại.", "classroomIds");
         }
 
-        if (exam.Status != ExamStatus.Draft && exam.AccessMode == AccessMode.Assigned && groupIds.Count + userIds.Count + classroomIds.Count == 0)
+        if (request.AccessMode is { } requested && !Enum.IsDefined(requested))
+        {
+            return Error.Validation(ErrorCodes.ValidationFailed, "Chế độ người được thi không hợp lệ.", "accessMode");
+        }
+
+        var accessMode = request.AccessMode ?? exam.AccessMode;
+        if (exam.Status != ExamStatus.Draft && accessMode == AccessMode.Assigned && groupIds.Count + userIds.Count + classroomIds.Count == 0)
         {
             return Error.Business("NO_ASSIGNMENTS", "Đề đã publish ở chế độ giới hạn người thi phải được gán cho ít nhất một lớp, nhóm hoặc người.");
         }
 
-        if (exam.SetAssignments(groupIds, userIds, currentUser.RequiredUserId, Now, classroomIds))
+        var changed = exam.SetAssignments(groupIds, userIds, currentUser.RequiredUserId, Now, classroomIds);
+        if (accessMode != exam.AccessMode)
+        {
+            audit.Write(AuditActions.ExamUpdated, nameof(Exam), exam.Id, new { exam.AccessMode }, new { AccessMode = accessMode });
+            exam.ChangeAccessMode(accessMode, currentUser.RequiredUserId, Now);
+            changed = true;
+        }
+
+        if (changed)
         {
             audit.Write(AuditActions.ExamAssignmentsChanged, nameof(Exam), exam.Id, newValue: new { GroupIds = groupIds, UserIds = userIds, ClassroomIds = classroomIds });
             await db.SaveChangesAsync(ct);

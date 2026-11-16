@@ -95,6 +95,14 @@ public sealed class Exam : Entity, IHasRowVersion
         return exam;
     }
 
+    /// <summary>Đổi chế độ người được thi (công khai / chỉ người được gán).</summary>
+    public void ChangeAccessMode(AccessMode accessMode, Guid updatedBy, DateTime now)
+    {
+        AccessMode = accessMode;
+        UpdatedBy = updatedBy;
+        UpdatedAt = now;
+    }
+
     public void UpdateDetails(ExamDetails details, Guid updatedBy, DateTime now)
     {
         ApplyDetails(details);

@@ -323,7 +323,12 @@ public sealed record CloseExamRequest(bool ForceSubmitInProgress);
 
 public sealed record CloneExamRequest(string? Code, string? Name);
 
-public sealed record SetAssignmentsRequest(IReadOnlyList<Guid>? GroupIds, IReadOnlyList<Guid>? UserIds, IReadOnlyList<Guid>? ClassroomIds = null);
+/// <summary>
+/// Danh sách gán; <c>AccessMode</c> (tùy chọn) đổi luôn chế độ người được thi trong cùng một lần lưu, để đề đang mở
+/// chuyển sang "Chỉ người được gán" ngay khi gán người đầu tiên (không bao giờ ở trạng thái giới hạn mà chưa gán ai).
+/// </summary>
+public sealed record SetAssignmentsRequest(
+    IReadOnlyList<Guid>? GroupIds, IReadOnlyList<Guid>? UserIds, IReadOnlyList<Guid>? ClassroomIds = null, AccessMode? AccessMode = null);
 
 public sealed record SetUserOverrideRequest(int ExtraAttempts, string? Note);
 

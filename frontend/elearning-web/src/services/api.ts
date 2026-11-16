@@ -1,5 +1,6 @@
 import { apiClient, http, request, toApiError } from "./apiClient";
 import type {
+  AccessMode,
   AttendanceClass,
   AttendanceSession,
   AttendanceStudentHistory,
@@ -242,7 +243,8 @@ export const examsApi = {
   reopen: (id: string) => http.post<ExamDetail>(`/exams/${id}/reopen`),
   setReviewPolicy: (id: string, reviewPolicy: ReviewPolicy) => http.patch<ExamDetail>(`/exams/${id}/review-policy`, { reviewPolicy }),
   assignments: (id: string) => http.get<Assignments>(`/exams/${id}/assignments`),
-  setAssignments: (id: string, next: { groupIds: string[]; userIds: string[]; classroomIds: string[] }) =>
+  /** accessMode (tùy chọn): đổi luôn chế độ người được thi trong cùng lần lưu. */
+  setAssignments: (id: string, next: { groupIds: string[]; userIds: string[]; classroomIds: string[]; accessMode?: AccessMode }) =>
     http.put<Assignments>(`/exams/${id}/assignments`, next),
   userOverrides: (id: string, q: Query) => http.get<Paged<UserOverride>>(`/exams/${id}/user-overrides`, q),
   setUserOverride: (id: string, userId: string, extraAttempts: number, note?: string) =>

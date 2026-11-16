@@ -147,7 +147,23 @@ const toBody = (f: ExamForm): ExamDetailsBody => ({
   kind: f.kind,
 });
 
-function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: (p: Partial<ExamForm>) => void; errors: Record<string, string>; codeEditable: boolean }) {
+function ExamFields({
+  form,
+  set,
+  errors,
+  codeEditable,
+  kindLocked = false,
+  onAccessModeChange,
+}: {
+  form: ExamForm;
+  set: (p: Partial<ExamForm>) => void;
+  errors: Record<string, string>;
+  codeEditable: boolean;
+  /** Đề đã mở (D-33): không đổi loại đề. */
+  kindLocked?: boolean;
+  /** Có thì đổi "Người được thi" được lưu ngay (trang chi tiết đề), không chờ bấm Lưu. */
+  onAccessModeChange?: (mode: AccessMode) => void;
+}) {
   const { t } = useTranslation();
   const categories = useActiveCategories();
   const practice = form.kind === "PRACTICE";
@@ -165,13 +181,14 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
             <label
               key={value}
               htmlFor={`exam-kind-${value}`}
-              className={`border rounded p-2 flex-grow-1 ${form.kind === value ? "border-primary bg-primary-subtle" : ""}`}
-              style={{ cursor: "pointer", minWidth: 220 }}
+              className={`border rounded p-2 flex-grow-1 ${form.kind === value ? "border-primary bg-primary-subtle" : ""} ${kindLocked && form.kind !== value ? "opacity-50" : ""}`}
+              style={{ cursor: kindLocked ? "not-allowed" : "pointer", minWidth: 220 }}
             >
               <Form.Check
                 type="radio"
                 id={`exam-kind-${value}`}
                 name="exam-kind"
+                disabled={kindLocked}
                 checked={form.kind === value}
                 onChange={() => set({ kind: value })}
                 label={<span className="fw-semibold">{title}</span>}
@@ -180,6 +197,12 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
             </label>
           ))}
         </div>
+        {kindLocked && (
+          <Form.Text className="text-secondary">
+            <i className="bi bi-lock me-1" aria-hidden="true" />
+            Đề đã mở nên không đổi được loại đề.
+          </Form.Text>
+        )}
       </Col>
       <Col md={4}>
         <Form.Group controlId="exam-code">
@@ -261,7 +284,10 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
       <Col md={4}>
         <Form.Group controlId="exam-access">
           <Form.Label>Người được thi</Form.Label>
-          <Form.Select value={form.accessMode} onChange={(e) => set({ accessMode: e.target.value as AccessMode })}>
+          <Form.Select
+            value={form.accessMode}
+            onChange={(e) => (onAccessModeChange ? onAccessModeChange(e.target.value as AccessMode) : set({ accessMode: e.target.value as AccessMode }))}
+          >
             {(["ASSIGNED", "PUBLIC"] as const).map((m) => (
               <option key={m} value={m}>{t(`enums.accessMode.${m}`)}</option>
             ))}
@@ -681,6 +707,39 @@ export function ExamDetailPage() {
   const query = useQuery({ queryKey: ["exam", id], queryFn: () => examsApi.get(id) });
   const [dialog, setDialog] = useState<"close" | "delete" | "clone" | null>(null);
   const [forceSubmit, setForceSubmit] = useState(false);
+  // "Chỉ người được gán" chờ gán người đầu tiên (đề đã mở mà chưa gán ai thì chưa lưu được chế độ này)
+  const [pendingAccess, setPendingAccess] = useState<AccessMode | null>(null);
+  const saveAccess = useMutation({
+    mutationFn: async (mode: AccessMode) => {
+      const current = await examsApi.assignments(id);
+      return examsApi.setAssignments(id, {
+        groupIds: current.groups.map((g) => g.id),
+        userIds: current.users.map((u) => u.id),
+        classroomIds: current.classrooms.map((c) => c.id),
+        accessMode: mode,
+      });
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["assignments", id], data);
+      void queryClient.invalidateQueries({ queryKey: ["exam", id] });
+      void queryClient.invalidateQueries({ queryKey: ["exams"] });
+      setPendingAccess(null);
+      toast.success(data.accessMode === "PUBLIC" ? "Đã lưu: đề mở cho mọi học viên." : "Đã lưu: chỉ người được gán mới thi được.");
+    },
+    onError: (e) => toast.error(e),
+  });
+  const changeAccess = (mode: AccessMode, current: ExamDetail) => {
+    if (mode === current.accessMode) {
+      setPendingAccess(null);
+      return;
+    }
+    if (mode === "ASSIGNED" && current.status !== "DRAFT" && current.assignmentCount === 0) {
+      setPendingAccess("ASSIGNED");
+      toast.info("Chọn lớp / học viên ở mục \"Người được thi\": đề chuyển sang \"Chỉ người được gán\" ngay khi gán người đầu tiên.");
+      return;
+    }
+    saveAccess.mutate(mode);
+  };
 
   const onChanged = (exam?: ExamDetail) => {
     if (exam) {
@@ -752,7 +811,13 @@ export function ExamDetailPage() {
       <Row className="g-3">
         <Col xl={7}>
           {/* key theo rowVersion: dữ liệu đổi (lưu / tải lại) thì form khởi tạo lại từ dữ liệu mới */}
-          <ExamInfoForm key={exam.rowVersion} exam={exam} onSaved={(saved) => onChanged(saved)} />
+          <ExamInfoForm
+            key={exam.id}
+            exam={exam}
+            onSaved={(saved) => onChanged(saved)}
+            accessMode={pendingAccess ?? exam.accessMode}
+            onAccessModeChange={(mode) => changeAccess(mode, exam)}
+          />
         </Col>
         <Col xl={5}>
           {exam.status !== "DRAFT" && (
@@ -764,7 +829,7 @@ export function ExamDetailPage() {
             onRequestClose={() => setDialog("close")}
             onReopen={() => action.mutate(() => examsApi.reopen(id))}
           />
-          <AssignmentsCard exam={exam} />
+          <AssignmentsCard exam={exam} pendingAccessMode={pendingAccess} onAccessSaved={() => setPendingAccess(null)} />
           <UserOverridesCard exam={exam} />
         </Col>
       </Row>
@@ -879,7 +944,18 @@ function ReviewPolicyCard({ exam, onUpdated }: { exam: ExamDetail; onUpdated: (e
   );
 }
 
-function ExamInfoForm({ exam, onSaved }: { exam: ExamDetail; onSaved: (exam: ExamDetail) => void }) {
+function ExamInfoForm({
+  exam,
+  onSaved,
+  accessMode,
+  onAccessModeChange,
+}: {
+  exam: ExamDetail;
+  onSaved: (exam: ExamDetail) => void;
+  /** Chế độ người được thi đang hiển thị (gồm lựa chọn chờ gán người đầu tiên). */
+  accessMode: AccessMode;
+  onAccessModeChange: (mode: AccessMode) => void;
+}) {
   const { t } = useTranslation();
   const toast = useToast();
   const { hasPermission } = useAuth();
@@ -898,7 +974,8 @@ function ExamInfoForm({ exam, onSaved }: { exam: ExamDetail; onSaved: (exam: Exa
   }));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const save = useMutation({
-    mutationFn: () => examsApi.update(exam.id, { ...toBody(form), rowVersion: exam.rowVersion }),
+    // Người được thi được lưu riêng ngay khi chọn: gửi lại đúng giá trị đã lưu để không ghi đè
+    mutationFn: () => examsApi.update(exam.id, { ...toBody(form), accessMode: exam.accessMode, rowVersion: exam.rowVersion }),
     onSuccess: (saved) => {
       onSaved(saved);
       toast.success(t("common.saved"));
@@ -918,7 +995,14 @@ function ExamInfoForm({ exam, onSaved }: { exam: ExamDetail; onSaved: (exam: Exa
             save.mutate();
           }}
         >
-          <ExamFields form={form} set={(p) => setForm({ ...form, ...p })} errors={errors} codeEditable={exam.status === "DRAFT"} />
+          <ExamFields
+            form={{ ...form, accessMode }}
+            set={(p) => setForm({ ...form, ...p })}
+            errors={errors}
+            codeEditable={exam.status === "DRAFT"}
+            kindLocked={exam.status !== "DRAFT"}
+            onAccessModeChange={onAccessModeChange}
+          />
           {hasPermission(Permissions.ExamUpdate) && (
             <Button type="submit" className="mt-3" disabled={save.isPending}>{t("common.save")}</Button>
           )}
@@ -1278,7 +1362,16 @@ function UserOverridesCard({ exam }: { exam: ExamDetail }) {
   );
 }
 
-function AssignmentsCard({ exam }: { exam: ExamDetail }) {
+function AssignmentsCard({
+  exam,
+  pendingAccessMode = null,
+  onAccessSaved,
+}: {
+  exam: ExamDetail;
+  /** Đã chọn "Chỉ người được gán" nhưng chờ gán người đầu tiên mới lưu. */
+  pendingAccessMode?: AccessMode | null;
+  onAccessSaved?: () => void;
+}) {
   const toast = useToast();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
@@ -1304,10 +1397,21 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
   });
   const set = useMutation({
     mutationFn: (next: { groupIds?: string[]; userIds?: string[]; classroomIds?: string[] }) =>
-      examsApi.setAssignments(exam.id, { groupIds: next.groupIds ?? groupIds, userIds: next.userIds ?? userIds, classroomIds: next.classroomIds ?? classroomIds }),
+      examsApi.setAssignments(exam.id, {
+        groupIds: next.groupIds ?? groupIds,
+        userIds: next.userIds ?? userIds,
+        classroomIds: next.classroomIds ?? classroomIds,
+        // Gán người đầu tiên thì lưu luôn chế độ "Chỉ người được gán" đang chờ
+        ...(pendingAccessMode ? { accessMode: pendingAccessMode } : {}),
+      }),
     onSuccess: (data) => {
       queryClient.setQueryData(["assignments", exam.id], data);
       void queryClient.invalidateQueries({ queryKey: ["exam", exam.id] });
+      if (pendingAccessMode) {
+        void queryClient.invalidateQueries({ queryKey: ["exams"] });
+        onAccessSaved?.();
+        toast.success("Đã lưu: chỉ người được gán mới thi được.");
+      }
     },
     onError: (e) => toast.error(e),
   });
@@ -1321,7 +1425,13 @@ function AssignmentsCard({ exam }: { exam: ExamDetail }) {
     <Card>
       <Card.Body>
         <h2 className="h6">Người được thi</h2>
-        {exam.accessMode === "PUBLIC" ? (
+        {pendingAccessMode === "ASSIGNED" && (
+          <Alert variant="warning" className="py-2 small">
+            Đã chọn <strong>Chỉ người được gán</strong>: thêm lớp / học viên bên dưới — đề chuyển chế độ ngay khi gán người đầu tiên
+            (đề đang mở nên không để giới hạn mà chưa gán ai).
+          </Alert>
+        )}
+        {(pendingAccessMode ?? exam.accessMode) === "PUBLIC" ? (
           <Alert variant="info" className="py-2 small mb-0">Đề mở cho mọi học viên; danh sách gán không có hiệu lực.</Alert>
         ) : (
           <>
