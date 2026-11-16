@@ -4,6 +4,7 @@ import { formatDateOnly } from "../../utils/format";
 export const statusOptions: { value: AttendanceStatus; label: string; short: string; variant: string }[] = [
   { value: "PRESENT", label: "Có mặt", short: "Có mặt", variant: "success" },
   { value: "LATE", label: "Đi muộn", short: "Muộn", variant: "warning" },
+  { value: "ONLINE", label: "Online", short: "Online", variant: "primary" },
   { value: "EXCUSED", label: "Vắng có phép", short: "Có phép", variant: "info" },
   { value: "UNEXCUSED", label: "Vắng không phép", short: "Không phép", variant: "danger" },
 ];
@@ -48,8 +49,9 @@ export interface AttendanceStats {
   late: number;
   excused: number;
   unexcused: number;
+  online: number;
   unmarked: number;
-  /** Có mặt + đi muộn. */
+  /** Có mặt + đi muộn + online. */
   attended: number;
   /** % tham gia trên sĩ số. */
   rate: number;
@@ -59,6 +61,7 @@ export function computeStats(entries: AttendanceEntry[]): AttendanceStats {
   const count = (s: AttendanceStatus | null) => entries.filter((e) => e.status === s).length;
   const present = count("PRESENT");
   const late = count("LATE");
+  const online = count("ONLINE");
   const total = entries.length;
   return {
     total,
@@ -66,9 +69,10 @@ export function computeStats(entries: AttendanceEntry[]): AttendanceStats {
     late,
     excused: count("EXCUSED"),
     unexcused: count("UNEXCUSED"),
+    online,
     unmarked: count(null),
-    attended: present + late,
-    rate: total > 0 ? Math.round(((present + late) / total) * 100) : 0,
+    attended: present + late + online,
+    rate: total > 0 ? Math.round(((present + late + online) / total) * 100) : 0,
   };
 }
 
@@ -141,6 +145,8 @@ export function statusChips(status: AttendanceStatus | null): { label: string; t
   switch (status) {
     case "LATE":
       return [{ label: "Đi muộn 10p", text: "Đi muộn 10 phút" }];
+    case "ONLINE":
+      return [{ label: "Học online", text: "Tham gia học online qua video" }];
     case "EXCUSED":
       return [{ label: "Nghỉ ốm có phép", text: "PH đã nhắn xin phép nghỉ ốm, GV đã gửi bài giảng" }];
     case "UNEXCUSED":
@@ -198,6 +204,7 @@ export function buildZaloReport(students: ReportStudent[], o: ZaloReportOptions)
   if (o.style === "detailed") {
     const excused = listOf("EXCUSED", true);
     const late = listOf("LATE", true);
+    const online = listOf("ONLINE", true);
     const joined = (items: string[]) => (items.length ? items.join(", ") : "Không");
     lines.push("📋 BÁO CÁO TÌNH HÌNH BUỔI HỌC & BTVN", `🏫 ${o.className}`, `📅 Ngày học: ${date}`);
     if (o.topic.trim()) lines.push(`📖 Nội dung: ${o.topic.trim()}`);
@@ -208,6 +215,7 @@ export function buildZaloReport(students: ReportStudent[], o: ZaloReportOptions)
       `🔴 Vắng không phép (${unexcused.length}): ${joined(unexcused)}`,
       `🔵 Vắng có phép (${excused.length}): ${joined(excused)}`,
       `🟡 Đi muộn (${late.length}): ${joined(late)}`,
+      `💻 Học online (${online.length}): ${joined(online)}`,
       "",
       "🌟 TUYÊN DƯƠNG HỌC SINH BTVN XUẤT SẮC (≥ 8,5đ):",
       praised.length ? praised.map((s) => `- ${s.fullName}${scoreSuffix(s.homeworkScore)}`).join("\n") : "- Đang cập nhật",
@@ -243,7 +251,7 @@ export function monthlyStats(items: AttendanceHistoryItem[]): MonthlyStats {
   const scores = items.map((i) => i.homeworkScore).filter((s): s is number => s !== null);
   const rated = items.filter((i) => i.homeworkStatus !== null);
   const marked = items.filter((i) => i.status !== null);
-  const attended = marked.filter((i) => i.status === "PRESENT" || i.status === "LATE").length;
+  const attended = marked.filter((i) => i.status === "PRESENT" || i.status === "LATE" || i.status === "ONLINE").length;
   return {
     average: scores.length ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100 : null,
     max: scores.length ? Math.max(...scores) : null,

@@ -88,7 +88,7 @@ một khối code mới. Chép **nối tiếp** các khối vào cùng một fil
    chọn ảnh tự cắt có tên trùng tên ghi trong file `.md`.
 3. Xem trước: đề hiển thị đúng như học sinh thấy. **Bắt buộc đối chiếu với đề gốc**: ít nhất câu đầu, câu cuối và
    2–3 câu giữa mỗi phần, so **từng công thức, từng phương án** (đáp án khớp chưa đủ: AI bịa công thức vẫn giữ đúng
-   đáp án). Thấy câu khác đề → đừng sửa tay từng câu, làm lại từ bước A2 bằng file **`…-cho-AI.md`** (hoặc PDF). Đặt độ khó (Mức 1–4) từng
+   đáp án). Thấy câu khác đề → đừng sửa tay từng câu, làm lại từ bước A2 bằng file **`…-cho-AI.md`** (hoặc PDF). Đặt độ khó (Mức 1–5) từng
    câu hoặc cả đề nếu cần.
 4. Bấm **Import**: chọn chuyên đề và cách nhập (chỉ câu hỏi, hoặc tạo cả đề thi).
 
@@ -256,7 +256,7 @@ dấu `*`); (4) kết luận trong lời giải. Không có cả bốn → `@ans
 
 ### B5. Các cách trình bày đề hay gặp và cách chuyển
 
-**a) Mức độ ghi ở đầu câu** — `[MĐ1]`…`[MĐ4]`, `(NB)`, `[TH]`, `[VD]`, `[VDC]`, "Nhận biết"…: chuyển thành
+**a) Mức độ ghi ở đầu câu** — `[MĐ1]`…`[MĐ5]`, `(NB)`, `[TH]`, `[VD]`, `[VDC]`, "Nhận biết"…: chuyển thành
 `@difficulty` và **bỏ** nhãn khỏi `@content`.
 
 | Nhãn trong đề | `@difficulty` |
@@ -265,6 +265,7 @@ dấu `*`); (4) kết luận trong lời giải. Không có cả bốn → `@ans
 | `MĐ2`, `TH`, Thông hiểu | `2` |
 | `MĐ3`, `VD`, Vận dụng | `3` |
 | `MĐ4`, `VDC`, Vận dụng cao | `4` |
+| `MĐ5`, Mức 5 (nâng cao) | `5` |
 
 **b) Lời giải ngay dưới từng câu** (dòng "Lời giải" / "Hướng dẫn giải" / "Giải" sau các phương án):
 - Dòng "Chọn C" / "Chọn đáp án C" / "Đáp án C" → `@answer: C`, **không** chép dòng đó vào lời giải.
@@ -439,7 +440,7 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
 | `@answer: a đúng, b sai, c sai, d đúng` | `@answer: a=Đ, b=S, c=S, d=Đ` | Đúng mẫu `chữ=Đ/S`, đủ mọi ý |
 | `@answer: 2,1 cm` | `@answer: 2,1` | `NUMBER` chỉ là số, không đơn vị |
 | `@score: 0,25 điểm` | `@score: 0.25` | Chỉ số |
-| `@difficulty: Thông hiểu` | `@difficulty: 2` | Ghi số 1–4 |
+| `@difficulty: Thông hiểu` | `@difficulty: 2` | Ghi số 1–5 |
 | `@question: 13` (câu đầu phần II) | `@question: 1` | Đánh số lại từ 1 trong mỗi phần |
 | `![](hinh-p2-c1.png)` (câu in "Câu 13") | `![Hình câu 13](hinh-p2-c13.png)` | Tên ảnh theo **số in trong đề** |
 | Lời giải chép cả "Lời giải" và "Chọn C." | Chỉ nội dung giải; "Chọn C" → `@answer: C` | |
@@ -462,7 +463,7 @@ b) Theo quy tắc trung điểm, $\overrightarrow{CA} + \overrightarrow{CB} = 2\
 @score: 0.25
 
 @question: 1
-@difficulty: <1-4>
+@difficulty: <1-5>
 @content:
 <nội dung câu hỏi, công thức trong $…$>
 @option A: <…>

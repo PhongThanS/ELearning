@@ -749,7 +749,7 @@ export function QuestionFilters({ list, categories }: { list: ReturnType<typeof 
             value: c.id,
             label: c.name,
             code: c.code,
-            sublabel: c.questionCount ? `${c.questionCount} câu` : undefined,
+            sublabel: (c.totalQuestionCount ?? c.questionCount) ? `${c.totalQuestionCount ?? c.questionCount} câu` : undefined,
           }))}
           emptyLabel="Mọi danh mục"
           emptyValue=""
@@ -1696,7 +1696,7 @@ function TryNumber({ value, answer, tolerance }: { value: string; answer: number
   return ok ? <Badge bg="success">Đúng</Badge> : <Badge bg="danger">Sai</Badge>;
 }
 
-const DIFFICULTIES: QuestionDifficulty[] = ["LEVEL1", "LEVEL2", "LEVEL3", "LEVEL4"];
+const DIFFICULTIES: QuestionDifficulty[] = ["LEVEL1", "LEVEL2", "LEVEL3", "LEVEL4", "LEVEL5"];
 
 function parseTags(text: string): string[] {
   return [...new Set(text.split(/[,;]/).map((t) => t.trim().toLowerCase()).filter(Boolean))];

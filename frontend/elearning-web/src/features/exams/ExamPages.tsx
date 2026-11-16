@@ -213,7 +213,7 @@ function ExamFields({ form, set, errors, codeEditable }: { form: ExamForm; set: 
             id="exam-category"
             value={form.categoryId}
             onChange={(val) => set({ categoryId: val })}
-            options={(categories.data?.items ?? []).map((c) => ({ value: c.id, label: `${c.name} (${c.questionCount} câu)`, code: c.code }))}
+            options={(categories.data?.items ?? []).map((c) => ({ value: c.id, label: `${c.name} (${c.totalQuestionCount ?? c.questionCount} câu)`, code: c.code }))}
             placeholder="-- Không gắn chuyên đề (lấy câu từ mọi chuyên đề) --"
             searchPlaceholder="Tìm theo mã hoặc tên chuyên đề..."
             clearable={true}
@@ -499,7 +499,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                       onChange={(val) => qList.setFilter({ categoryId: val })}
                       options={(categoriesQuery.data?.items ?? []).map((c) => ({
                         value: c.id,
-                        label: `${c.name} (${c.questionCount} câu)`,
+                        label: `${c.name} (${c.totalQuestionCount ?? c.questionCount} câu)`,
                         code: c.code,
                       }))}
                       placeholder="-- Tất cả chuyên đề --"
@@ -541,6 +541,7 @@ function CreateExamModal({ show, onHide }: { show: boolean; onHide: () => void }
                       <option value="LEVEL2">Mức 2</option>
                       <option value="LEVEL3">Mức 3</option>
                       <option value="LEVEL4">Mức 4</option>
+                      <option value="LEVEL5">Mức 5</option>
                     </Form.Select>
                   </Col>
                 </Row>

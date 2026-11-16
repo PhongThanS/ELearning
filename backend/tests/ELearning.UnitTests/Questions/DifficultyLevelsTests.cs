@@ -21,6 +21,10 @@ public class DifficultyLevelsTests
     [InlineData("VD", QuestionDifficulty.Level3)]
     [InlineData("VDC", QuestionDifficulty.Level4)]
     [InlineData("Vận dụng cao", QuestionDifficulty.Level4)]
+    [InlineData("5", QuestionDifficulty.Level5)]
+    [InlineData("[MĐ5]", QuestionDifficulty.Level5)]
+    [InlineData("Mức 5", QuestionDifficulty.Level5)]
+    [InlineData("LEVEL5", QuestionDifficulty.Level5)]
     [InlineData("EASY", QuestionDifficulty.Level1)]
     [InlineData("Trung bình", QuestionDifficulty.Level2)]
     [InlineData("Khó", QuestionDifficulty.Level3)]
@@ -35,7 +39,7 @@ public class DifficultyLevelsTests
     {
         DifficultyLevels.TryParse("  ", out var blank).Should().BeTrue();
         blank.Should().BeNull();
-        DifficultyLevels.TryParse("5", out _).Should().BeFalse();
+        DifficultyLevels.TryParse("6", out _).Should().BeFalse();
         DifficultyLevels.TryParse("rất khó", out _).Should().BeFalse();
     }
 }

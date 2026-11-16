@@ -13,7 +13,7 @@ import { normalizeMarkdown, questionText, replaceQuestion, setQuestionDifficulty
 import { checkFormulas, wordQuestionBlocks } from "./formulaCheck";
 import { MarkdownImportDialog, type ImportChoice } from "./MarkdownImportDialog";
 
-const DIFFICULTY_LABEL: Record<Difficulty, string> = { LEVEL1: "Mức 1", LEVEL2: "Mức 2", LEVEL3: "Mức 3", LEVEL4: "Mức 4" };
+const DIFFICULTY_LABEL: Record<Difficulty, string> = { LEVEL1: "Mức 1", LEVEL2: "Mức 2", LEVEL3: "Mức 3", LEVEL4: "Mức 4", LEVEL5: "Mức 5" };
 
 const TYPE_LABEL: Record<string, string> = {
   SINGLE_CHOICE: "Chọn một",

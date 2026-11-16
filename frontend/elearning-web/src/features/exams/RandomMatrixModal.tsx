@@ -11,18 +11,19 @@ import type { MatrixDrawInput, MatrixDrawMode, MatrixTopicItem, QuestionType, Ve
 
 const TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
 
-type LevelField = "level1Count" | "level2Count" | "level3Count" | "level4Count";
+type LevelField = "level1Count" | "level2Count" | "level3Count" | "level4Count" | "level5Count";
 
-/** 4 mức độ của ma trận (Mức 1 … Mức 4), theo thứ tự cột. */
+/** 5 mức độ của ma trận (Mức 1 … Mức 5), theo thứ tự cột. */
 const LEVELS: { field: LevelField; label: string; header: string; text: string }[] = [
   { field: "level1Count", label: "Mức 1", header: "bg-success-subtle", text: "text-success" },
   { field: "level2Count", label: "Mức 2", header: "bg-info-subtle", text: "text-info-emphasis" },
   { field: "level3Count", label: "Mức 3", header: "bg-warning-subtle", text: "text-warning-emphasis" },
   { field: "level4Count", label: "Mức 4", header: "bg-danger-subtle", text: "text-danger" },
+  { field: "level5Count", label: "Mức 5", header: "bg-primary-subtle", text: "text-primary" },
 ];
 
-/** Số câu mặc định khi thêm một chuyên đề vào ma trận (Mức 1 … Mức 4). */
-const DEFAULT_COUNTS = [2, 1, 1, 0];
+/** Số câu mặc định khi thêm một chuyên đề vào ma trận (Mức 1 … Mức 5). */
+const DEFAULT_COUNTS = [2, 1, 1, 0, 0];
 
 interface TopicRow {
   key: string;
@@ -33,6 +34,7 @@ interface TopicRow {
   level2Count: number;
   level3Count: number;
   level4Count: number;
+  level5Count: number;
 }
 
 const counts = (row: TopicRow) => LEVELS.map((l) => row[l.field]);
@@ -82,20 +84,27 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
 
   const stats = statsQuery.data;
 
-  // Bản đồ thống kê khả dụng theo CategoryId
+  // Bản đồ thống kê khả dụng theo CategoryId. Chuyên đề cha (D-32) không chứa câu trực tiếp nhưng bốc được câu của
+  // các chuyên đề con, nên số câu của cha = câu trực thuộc + câu của mọi chuyên đề con (backend bốc theo cả nhánh).
   const categoryStatsMap = useMemo(() => {
+    const parentOf = new Map((categories.data?.items ?? []).map((c) => [c.id, c.parentId]));
     const map = new Map<string, { levels: number[]; total: number }>();
-    if (stats?.byCategory) {
-      for (const item of stats.byCategory) {
-        const key = item.categoryId ?? "uncategorized";
-        map.set(key, {
-          levels: [item.level1Candidates, item.level2Candidates, item.level3Candidates, item.level4Candidates],
-          total: item.totalCandidates,
-        });
-      }
+    const add = (key: string, levels: number[], total: number) => {
+      const current = map.get(key) ?? { levels: [0, 0, 0, 0, 0], total: 0 };
+      map.set(key, { levels: current.levels.map((n, i) => n + (levels[i] ?? 0)), total: current.total + total });
+    };
+    for (const item of stats?.byCategory ?? []) {
+      const levels = [item.level1Candidates, item.level2Candidates, item.level3Candidates, item.level4Candidates, item.level5Candidates ?? 0];
+      add(item.categoryId ?? "uncategorized", levels, item.totalCandidates);
+      const parentId = item.categoryId ? parentOf.get(item.categoryId) : null;
+      if (parentId) add(parentId, levels, item.totalCandidates);
     }
     return map;
-  }, [stats]);
+  }, [stats, categories.data]);
+
+  /** Câu khả dụng nhưng chưa đặt mức độ: không bốc được theo ma trận (ma trận chia theo Mức 1–4). */
+  const unrated = (stat: { levels: number[]; total: number } | undefined) =>
+    stat ? Math.max(0, stat.total - stat.levels.reduce((a, b) => a + b, 0)) : 0;
 
   // Thêm một chuyên đề vào ma trận
   const handleAddCategory = (catId: string) => {
@@ -137,7 +146,8 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
     const newRows: TopicRow[] = [];
     const addedIds = new Set<string>();
 
-    for (const cat of categoryItems) {
+    // Chỉ nạp chuyên đề không có chuyên đề con: chuyên đề cha đã gồm câu của các con, nạp cả hai sẽ bị đếm trùng
+    for (const cat of categoryItems.filter((c) => !c.childCount)) {
       const cStat = categoryStatsMap.get(cat.id);
       if (cStat && cStat.total > 0) {
         newRows.push({
@@ -193,7 +203,8 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
   const rowEvaluations = useMemo(() => {
     return topicRows.map((row) => {
       const catKey = row.categoryId ?? "uncategorized";
-      const catStat = categoryStatsMap.get(catKey) ?? { levels: [0, 0, 0, 0], total: 0 };
+      const catStat = categoryStatsMap.get(catKey) ?? { levels: [0, 0, 0, 0, 0], total: 0 };
+      const unratedCount = unrated(catStat);
       const wanted = counts(row);
       const available = LEVELS.map((_, i) => catStat.levels[i] ?? 0);
       const exceeded = wanted.map((n, i) => n > (available[i] ?? 0));
@@ -202,6 +213,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
         ...row,
         available,
         availTotal: catStat.total,
+        unratedCount,
         exceeded,
         hasExceeded: exceeded.some(Boolean),
         rowTotal: wanted.reduce((sum, n) => sum + n, 0),
@@ -292,7 +304,10 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
         value: c.id,
         label: c.name,
         code: c.code,
-        sublabel: cStat && cStat.total > 0 ? `${cStat.total} câu khả dụng` : undefined,
+        sublabel:
+          cStat && cStat.total > 0
+            ? `${cStat.total} câu khả dụng${unrated(cStat) > 0 ? `, ${unrated(cStat)} câu chưa có mức độ` : ""}`
+            : "Chưa có câu hỏi",
       };
     });
 
@@ -324,7 +339,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
             <div className="d-flex align-items-center gap-2">
               <i className="bi bi-info-circle-fill fs-5 text-primary" />
               <div>
-                <strong>Ma trận đa chuyên đề:</strong> Cho phép chọn nhiều chuyên đề cùng lúc và định lượng chi tiết số câu theo từng mức độ (<strong>Mức 1</strong>, <strong>Mức 2</strong>, <strong>Mức 3</strong>, <strong>Mức 4</strong>). Hệ thống kiểm tra trực tiếp số câu sẵn có trong ngân hàng để đảm bảo đề thi đủ câu và không bị trùng lặp.
+                <strong>Ma trận đa chuyên đề:</strong> Cho phép chọn nhiều chuyên đề cùng lúc và định lượng chi tiết số câu theo từng mức độ (<strong>Mức 1</strong>, <strong>Mức 2</strong>, <strong>Mức 3</strong>, <strong>Mức 4</strong>, <strong>Mức 5</strong>). Hệ thống kiểm tra trực tiếp số câu sẵn có trong ngân hàng để đảm bảo đề thi đủ câu và không bị trùng lặp.
               </div>
             </div>
           </Alert>
@@ -446,15 +461,16 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                     </span>
                     <div className="btn-group btn-group-sm">
                       {[
-                        [1, 1, 1, 1],
-                        [2, 1, 1, 0],
-                        [4, 3, 2, 1],
+                        [1, 1, 1, 1, 0],
+                        [2, 1, 1, 0, 0],
+                        [4, 3, 2, 1, 0],
+                        [1, 1, 1, 1, 1],
                       ].map((preset) => (
                         <Button key={preset.join("-")} variant="outline-secondary" size="sm" onClick={() => handleBulkPreset(preset)}>
                           {preset.map((n, i) => `${n} M${i + 1}`).join(" · ")}
                         </Button>
                       ))}
-                      <Button variant="outline-secondary" size="sm" onClick={() => handleBulkPreset([0, 0, 0, 0])}>
+                      <Button variant="outline-secondary" size="sm" onClick={() => handleBulkPreset([0, 0, 0, 0, 0])}>
                         Đặt lại về 0
                       </Button>
                     </div>
@@ -497,9 +513,15 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                                   Ngân hàng: <strong>{row.availTotal}</strong> câu khả dụng
                                 </span>
                               </div>
+                              {row.unratedCount > 0 && (
+                                <div className="small text-warning-emphasis" style={{ whiteSpace: "normal", maxWidth: 260 }}>
+                                  <i className="bi bi-exclamation-triangle me-1" aria-hidden="true" />
+                                  {row.unratedCount} câu chưa đặt mức độ nên không bốc theo ma trận được — đặt Mức 1–4 cho câu trong Ngân hàng câu hỏi.
+                                </div>
+                              )}
                             </td>
 
-                            {/* Cột Mức 1 … Mức 4 */}
+                            {/* Cột Mức 1 … Mức 5 */}
                             {LEVELS.map((level, i) => (
                               <td key={level.field} className="text-center">
                                 <div className="d-flex flex-column align-items-center gap-1">

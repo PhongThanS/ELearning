@@ -8,6 +8,10 @@ public sealed record ExamCategoryDetail(Guid Id, Guid? CategoryId, string? Categ
 
 public sealed record SubCategoryItem(Guid Id, Guid? ParentId, string? ParentName, int ChildCount, int QuestionCount, int TotalQuestionCount);
 
+public sealed record MatrixCategoryStatsView(Guid? CategoryId, int TotalCandidates, int Level1Candidates, int Level2Candidates);
+
+public sealed record MatrixStatsView(int TotalCandidates, List<MatrixCategoryStatsView> ByCategory);
+
 public sealed record ExamCategoryListItem(Guid Id, Guid? CategoryId, string? CategoryName);
 
 /// <summary>Chuyên đề của đề thi (D-30): mọi câu trong đề thuộc chuyên đề đã chọn; để trống thì không giới hạn.</summary>
@@ -129,6 +133,38 @@ public class ExamCategoryTests(ApiFactory factory)
         deleteParentBody.Errors.Should().Contain(e => e.Code == "CATEGORY_HAS_CHILDREN");
     }
 
+    [Fact]
+    public async Task Matrix_on_parent_category_draws_questions_of_its_subcategories_by_level()
+    {
+        var admin = await AdminAsync();
+        var parent = await CreateCategoryAsync(admin);
+        var childA = await CreateCategoryAsync(admin, parent.Id);
+        var childB = await CreateCategoryAsync(admin, parent.Id);
+        await CreateQuestionAsync(admin, childA.Id, "LEVEL1");
+        await CreateQuestionAsync(admin, childA.Id, "LEVEL2");
+        await CreateQuestionAsync(admin, childB.Id, "LEVEL1");
+        await CreateQuestionAsync(admin, childB.Id, null);
+        var exam = await CreateExamAsync(admin, parent.Id);
+        var versionUrl = $"/api/exams/{exam.Id}/versions/{exam.DraftVersionId}";
+
+        var (_, stats) = await admin.GetJsonAsync<MatrixStatsView>($"{versionUrl}/matrix-stats");
+        var (draw, drawBody) = await admin.PostJsonAsync<VersionDetail>($"{versionUrl}/matrix-draw", new
+        {
+            mode = "STATIC",
+            scorePerQuestion = 1,
+            topics = new[] { new { categoryId = parent.Id, level1Count = 2, level2Count = 1, level3Count = 0, level4Count = 0, scorePerQuestion = 1 } },
+        });
+
+        // Số liệu trả theo từng chuyên đề con (giao diện cộng lên chuyên đề cha); câu chưa có mức độ không thuộc Mức 1–4
+        var children = stats.Data!.ByCategory.Where(c => c.CategoryId == childA.Id || c.CategoryId == childB.Id).ToList();
+        children.Sum(c => c.TotalCandidates).Should().Be(4);
+        stats.Data.ByCategory.Should().NotContain(c => c.CategoryId == parent.Id, "chuyên đề cha không chứa câu trực tiếp");
+        children.Sum(c => c.Level1Candidates).Should().Be(2);
+        children.Sum(c => c.Level2Candidates).Should().Be(1);
+        draw.StatusCode.Should().Be(HttpStatusCode.OK, string.Join(",", drawBody.Errors.Select(e => e.Code)));
+        drawBody.Data!.Questions.Should().HaveCount(3, "chọn chuyên đề cha thì bốc được câu của các chuyên đề con");
+    }
+
     private static async Task<(HttpResponseMessage, Envelope<ExamCategoryDetail>)> UpdateAsync(HttpClient admin, Guid examId, Guid? categoryId)
     {
         var (_, current) = await admin.GetJsonAsync<ExamCategoryDetail>($"/api/exams/{examId}");
@@ -164,7 +200,7 @@ public class ExamCategoryTests(ApiFactory factory)
         return body.Data!;
     }
 
-    private static async Task<QuestionDetail> CreateQuestionAsync(HttpClient admin, Guid? categoryId)
+    private static async Task<QuestionDetail> CreateQuestionAsync(HttpClient admin, Guid? categoryId, string? difficulty = null)
     {
         var (response, body) = await admin.PostJsonAsync<QuestionDetail>("/api/questions", new
         {
@@ -173,6 +209,7 @@ public class ExamCategoryTests(ApiFactory factory)
             answerDataType = "NUMBER",
             correctAnswerNumber = 2,
             categoryId,
+            difficulty,
         });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return body.Data!;

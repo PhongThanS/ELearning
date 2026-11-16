@@ -12,6 +12,9 @@ public sealed record UserListQuery : PageRequest
 
     public Guid? GroupId { get; init; }
 
+    /// <summary>Chỉ người dùng thuộc lớp này: học viên trong lớp hoặc giáo viên chủ nhiệm lớp.</summary>
+    public Guid? ClassroomId { get; init; }
+
     public bool? IsActive { get; init; }
 }
 
@@ -24,7 +27,8 @@ public sealed record UserListItemDto(
     bool IsLockedOut,
     IReadOnlyList<string> Roles,
     DateTime? LastLoginAt,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    IReadOnlyList<RefDto>? Classes = null);
 
 public sealed record RefDto(Guid Id, string Code, string Name);
 

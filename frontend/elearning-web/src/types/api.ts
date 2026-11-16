@@ -67,6 +67,8 @@ export interface UserListItem {
   roles: string[];
   lastLoginAt: string | null;
   createdAt: string;
+  /** Lớp học viên đang học và lớp giáo viên chủ nhiệm. */
+  classes?: { id: string; code: string; name: string }[];
 }
 
 export interface UserDetail {
@@ -208,8 +210,8 @@ export interface Permission {
 
 export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "FILL_IN" | "ESSAY";
 export type AnswerDataType = "TEXT" | "NUMBER";
-/** Mức độ (độ khó) 1–4: Mức 1 nhận biết … Mức 4 vận dụng cao. */
-export type QuestionDifficulty = "LEVEL1" | "LEVEL2" | "LEVEL3" | "LEVEL4";
+/** Mức độ (độ khó) 1–5: Mức 1 nhận biết … Mức 4 vận dụng cao, Mức 5 nâng cao. */
+export type QuestionDifficulty = "LEVEL1" | "LEVEL2" | "LEVEL3" | "LEVEL4" | "LEVEL5";
 export type ContentFormat = "PLAIN" | "MARKDOWN";
 
 export interface Category {
@@ -443,6 +445,7 @@ export interface CategoryMatrixStats {
   level2Candidates: number;
   level3Candidates: number;
   level4Candidates: number;
+  level5Candidates?: number;
   unspecifiedCandidates: number;
 }
 
@@ -462,6 +465,7 @@ export interface MatrixTopicItem {
   level2Count: number;
   level3Count: number;
   level4Count: number;
+  level5Count: number;
   scorePerQuestion?: number | null;
 }
 
@@ -473,6 +477,7 @@ export interface MatrixDrawInput {
   level2Count?: number;
   level3Count?: number;
   level4Count?: number;
+  level5Count?: number;
   scorePerQuestion?: number | null;
   mode: MatrixDrawMode;
   topics?: MatrixTopicItem[];
@@ -1151,7 +1156,8 @@ export interface MarkdownImportResult {
 
 // ----- Điểm danh (D-31) -----
 
-export type AttendanceStatus = "PRESENT" | "LATE" | "EXCUSED" | "UNEXCUSED";
+/** ONLINE: học trực tuyến — tính là có tham gia buổi học. */
+export type AttendanceStatus = "PRESENT" | "LATE" | "ONLINE" | "EXCUSED" | "UNEXCUSED";
 
 export type HomeworkStatus = "EXCELLENT" | "DONE" | "PARTIAL" | "MISSING";
 

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import { attendanceApi } from "../../services/api";
 import { MonthlyHistoryView } from "./MonthlyHistoryView";
+import { DailyReportModal } from "./DailyReportModal";
 import type { AttendanceEntry, AttendanceSession, AttendanceStudent } from "../../types/api";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
@@ -186,6 +187,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
   const [filter, setFilter] = useState<AttendanceFilter>("ALL");
   const [sort, setSort] = useState<SortMode>("order");
   const [showZalo, setShowZalo] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -410,6 +412,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
     { filter: "ALL", label: "Sĩ số", value: `${stats.attended}/${stats.total}`, sub: `Tham gia ${stats.rate}%`, color: "secondary" },
     { filter: "PRESENT", label: "Có mặt", value: String(stats.present), color: "success" },
     { filter: "LATE", label: "Đi muộn", value: String(stats.late), color: "warning" },
+    { filter: "ONLINE", label: "Online", value: String(stats.online), color: "primary" },
     { filter: "EXCUSED", label: "Vắng có phép", value: String(stats.excused), color: "info" },
     { filter: "UNEXCUSED", label: "Vắng không phép", value: String(stats.unexcused), color: "danger" },
   ];
@@ -460,6 +463,10 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
             {exporting ? <Spinner size="sm" className="me-1" /> : <i className="bi bi-file-earmark-excel me-1" />}
             Xuất Excel
           </Button>
+          <Button size="sm" variant="outline-primary" onClick={() => setShowReport(true)}>
+            <i className="bi bi-file-earmark-image me-1" />
+            Báo cáo học tập
+          </Button>
           <Button size="sm" variant="info" className="text-white" onClick={() => setShowZalo(true)}>
             <i className="bi bi-send me-1" />
             Báo cáo Zalo PH
@@ -468,7 +475,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
       </div>
 
       {/* Thẻ thống kê (bấm để lọc) */}
-      <Row xs={2} md={3} xl={5} className="g-2 mb-3">
+      <Row xs={2} md={3} xl={6} className="g-2 mb-3">
         {statCards.map((c) => (
           <Col key={c.filter}>
             <Card
@@ -614,19 +621,20 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
                       </Button>
                     </td>
                     <td>
-                      <ButtonGroup size="sm" aria-label={`Điểm danh ${s.fullName}`} className="flex-wrap">
+                      <Form.Select
+                        size="sm"
+                        value={r.status ?? ""}
+                        aria-label={`Điểm danh ${s.fullName}`}
+                        className={`attendance-status-select ${r.status ? `is-${r.status.toLowerCase()}` : "is-unmarked"}`}
+                        onChange={(e) => update({ [s.studentId]: { status: (e.target.value || null) as AttendanceEntry["status"] } })}
+                      >
+                        <option value="">— Chưa điểm danh —</option>
                         {statusOptions.map((o) => (
-                          <Button
-                            key={o.value}
-                            variant={r.status === o.value ? o.variant : `outline-${o.variant}`}
-                            className={r.status === o.value && (o.variant === "warning" || o.variant === "info") ? "text-dark" : ""}
-                            aria-pressed={r.status === o.value}
-                            onClick={() => update({ [s.studentId]: { status: r.status === o.value ? null : o.value } })}
-                          >
-                            {o.short}
-                          </Button>
+                          <option key={o.value} value={o.value}>
+                            {o.label}
+                          </option>
                         ))}
-                      </ButtonGroup>
+                      </Form.Select>
                     </td>
                     <td>
                       <Form.Select
@@ -699,6 +707,23 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
           </Table>
         )}
       </Card>
+
+      <DailyReportModal
+        show={showReport}
+        onHide={() => setShowReport(false)}
+        classId={classId}
+        className={initial.classroomName}
+        date={date}
+        notes={notes}
+        onNotes={updateNotes}
+        students={students.map((s) => ({
+          studentId: s.studentId,
+          fullName: s.fullName,
+          inClass: s.inClass,
+          homeworkScore: rows[s.studentId]!.homeworkScore,
+          note: rows[s.studentId]!.note,
+        }))}
+      />
 
       <ZaloReportModal
         show={showZalo}

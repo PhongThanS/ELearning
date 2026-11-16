@@ -16,6 +16,8 @@ import { Features } from "../../constants/features";
 import { NameCell } from "../../components/common/TableCells";
 import { useAuth } from "../auth/useAuth";
 import { UserImportDialog } from "./UserImportDialog";
+import { SearchableSelect } from "../../components/common/SearchableSelect";
+import { useAllClassrooms } from "../../hooks/useClassrooms";
 import type { Group, GroupMember, UserListItem, UserWithPassword } from "../../types/api";
 
 // ======================= Người dùng =======================
@@ -30,6 +32,8 @@ export function UsersPage() {
   const toast = useToast();
   const template = useMutation({ mutationFn: usersApi.importTemplate, onError: (e) => toast.error(e) });
   const [created, setCreated] = useState<UserWithPassword | null>(null);
+  const canViewClasses = hasPermission(Permissions.ClassView);
+  const classrooms = useAllClassrooms(canViewClasses);
 
   const columns: Column<UserListItem>[] = [
     {
@@ -40,6 +44,30 @@ export function UsersPage() {
       render: (u) => <NameCell to={`/admin/users/${u.id}`} name={u.fullName || u.userName} code={u.userName} />,
     },
     { key: "email", header: t("auth.email"), sortKey: "email", render: (u) => u.email },
+    {
+      // Lớp học viên đang học / lớp giáo viên chủ nhiệm; bấm để mở lớp
+      key: "classes",
+      header: "Lớp học",
+      className: "cell-min-10",
+      render: (u) =>
+        u.classes && u.classes.length > 0 ? (
+          <div className="d-flex flex-wrap gap-1">
+            {u.classes.map((c) =>
+              canViewClasses ? (
+                <Link key={c.id} to={`/admin/classes/${c.id}`} className="cell-tag text-decoration-none" title={c.code}>
+                  {c.name}
+                </Link>
+              ) : (
+                <span key={c.id} className="cell-tag" title={c.code}>
+                  {c.name}
+                </span>
+              ),
+            )}
+          </div>
+        ) : (
+          <span className="text-secondary">—</span>
+        ),
+    },
     {
       key: "roles",
       header: t("nav.roles"),
@@ -86,10 +114,27 @@ export function UsersPage() {
       <UserImportDialog show={importing} onHide={() => setImporting(false)} />
       <RegistrationSettingCard />
       <Row className="g-2 mb-3">
-        <Col md={5}>
+        <Col md={4}>
           <SearchBox value={list.state.keyword ?? ""} onSearch={(keyword) => list.setFilter({ keyword })} placeholder="Tìm theo mã đăng nhập, họ tên, email..." />
         </Col>
-        <Col md={3}>
+        {canViewClasses && (
+          <Col md={3}>
+            <SearchableSelect
+              id="users-classroom"
+              size="sm"
+              value={String(list.state.classroomId ?? "")}
+              onChange={(val) => list.setFilter({ classroomId: val })}
+              options={(classrooms.data ?? []).map((c) => ({ value: c.id, label: c.name, code: c.code, sublabel: `${c.studentCount} học viên` }))}
+              emptyLabel="Mọi lớp học"
+              emptyValue=""
+              placeholder="Mọi lớp học"
+              searchPlaceholder="Tìm lớp theo mã hoặc tên..."
+              loading={classrooms.isLoading}
+              clearable
+            />
+          </Col>
+        )}
+        <Col md={canViewClasses ? 3 : 4}>
           <Form.Select size="sm" aria-label="Vai trò" value={String(list.state.roleCode ?? "")} onChange={(e) => list.setFilter({ roleCode: e.target.value })}>
             <option value="">Mọi vai trò</option>
             <option value="ADMIN">ADMIN</option>
@@ -97,7 +142,7 @@ export function UsersPage() {
             <option value="STUDENT">STUDENT</option>
           </Form.Select>
         </Col>
-        <Col md={3}>
+        <Col md={2}>
           <Form.Select size="sm" aria-label={t("common.status")} value={String(list.state.isActive ?? "")} onChange={(e) => list.setFilter({ isActive: e.target.value })}>
             <option value="">{t("common.all")}</option>
             <option value="true">{t("common.active")}</option>
@@ -135,6 +180,8 @@ function RegistrationSettingCard() {
     mutationFn: (allow: boolean) => usersApi.setRegistrationSetting(allow),
     onSuccess: (res) => {
       void queryClient.invalidateQueries({ queryKey: ["registrationSetting"] });
+      // Trang đăng nhập / đăng ký đọc trạng thái công khai: làm mới để ẩn / hiện link "Đăng ký" ngay
+      void queryClient.invalidateQueries({ queryKey: ["registrationStatus"] });
       if (res.allowSelfRegistration) {
         toast.success("Đã MỞ cho phép học sinh tự do đăng ký tài khoản trên web!");
       } else {

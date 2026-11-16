@@ -69,6 +69,12 @@ internal sealed class UserService(
             users = users.Where(u => db.UserGroupMembers.Any(m => m.GroupId == groupId && m.UserId == u.Id));
         }
 
+        if (query.ClassroomId is { } classroomId)
+        {
+            users = users.Where(u => db.ClassroomStudents.Any(s => s.ClassroomId == classroomId && s.UserId == u.Id)
+                || db.Classrooms.Any(c => c.Id == classroomId && c.HomeroomTeacherId == u.Id));
+        }
+
         if (query.IsActive is { } isActive)
         {
             users = users.Where(u => u.IsActive == isActive);
@@ -101,7 +107,13 @@ internal sealed class UserService(
                 u.LockoutEnd != null && u.LockoutEnd > now,
                 u.Roles.Select(r => r.Role.Code).OrderBy(c => c).ToList(),
                 u.LastLoginAt,
-                u.CreatedAt))
+                u.CreatedAt,
+                // Lớp học: lớp học viên đang học và lớp giáo viên chủ nhiệm
+                db.Classrooms
+                    .Where(c => c.HomeroomTeacherId == u.Id || db.ClassroomStudents.Any(s => s.ClassroomId == c.Id && s.UserId == u.Id))
+                    .OrderBy(c => c.Name)
+                    .Select(c => new RefDto(c.Id, c.Code, c.Name))
+                    .ToList()))
             .ToListAsync(ct);
 
         return new PagedResult<UserListItemDto>(items, query.Page, query.PageSize, total);

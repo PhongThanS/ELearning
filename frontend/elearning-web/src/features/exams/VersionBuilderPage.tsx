@@ -80,7 +80,7 @@ export function VersionBuilderPage() {
                   Tạo nhanh
                 </span>
                 <span className="small text-secondary">
-                  Tự động lấy số lượng câu hỏi theo chuyên đề và ma trận mức độ (Mức 1 – Mức 4)
+                  Tự động lấy số lượng câu hỏi theo chuyên đề và ma trận mức độ (Mức 1 – Mức 5)
                 </span>
               </div>
               <Button
@@ -163,7 +163,7 @@ function QuestionPicker({
   const categoryOptions = useMemo<SearchableOption[]>(() => {
     return (categories.data?.items ?? []).map((c) => ({
       value: c.id,
-      label: `${c.name} (${c.questionCount} câu)`,
+      label: `${c.name} (${c.totalQuestionCount ?? c.questionCount} câu)`,
       code: c.code,
     }));
   }, [categories.data?.items]);
@@ -354,6 +354,7 @@ function QuestionPicker({
                   <option value="LEVEL2">Mức 2</option>
                   <option value="LEVEL3">Mức 3</option>
                   <option value="LEVEL4">Mức 4</option>
+                  <option value="LEVEL5">Mức 5</option>
                 </Form.Select>
               </Col>
             </Row>

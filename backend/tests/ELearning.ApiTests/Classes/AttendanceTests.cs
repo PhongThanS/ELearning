@@ -14,6 +14,10 @@ public sealed record AttendanceStudentItem(
 public sealed record AttendanceSessionView(
     Guid ClassroomId, DateOnly SessionDate, bool Saved, string? Topic, string? NextHomework, List<AttendanceStudentItem> Students);
 
+public sealed record UserClassRef(Guid Id, string Code, string Name);
+
+public sealed record UserClassRow(Guid Id, string UserName, List<UserClassRef> Classes);
+
 public sealed record AttendanceHistoryItem(DateOnly SessionDate, string? Status, decimal? HomeworkScore);
 
 public sealed record AttendanceHistoryView(Guid StudentId, int Year, int Month, decimal? AverageScore, int? ClassRank, int RankedCount, List<AttendanceHistoryItem> Items);
@@ -227,6 +231,42 @@ public class AttendanceTests(ApiFactory factory)
         mineBody.Data.ClassRank.Should().Be(2);
         other.StatusCode.Should().Be(HttpStatusCode.NotFound, "học sinh không thuộc lớp");
         teacherApi.StatusCode.Should().BeOneOf(HttpStatusCode.Forbidden, HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task User_list_shows_classes_and_filters_by_class()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var (_, teacherId) = await CreateTeacherAsync(kit);
+        var (_, inClass, inClassName) = await kit.CreateStudentAsync();
+        var (_, other, _) = await kit.CreateStudentAsync();
+        var classId = await CreateClassAsync(kit, teacherId, inClass);
+
+        var (_, filtered) = await kit.Admin.GetJsonAsync<Paged<UserClassRow>>($"/api/users?classroomId={classId}&pageSize=100");
+        var (_, byName) = await kit.Admin.GetJsonAsync<Paged<UserClassRow>>($"/api/users?keyword={inClassName}");
+
+        filtered.Data!.Items.Select(u => u.Id).Should().BeEquivalentTo([inClass, teacherId], "học viên trong lớp và giáo viên chủ nhiệm");
+        filtered.Data.Items.Should().NotContain(u => u.Id == other);
+        byName.Data!.Items.Single().Classes.Should().ContainSingle(c => c.Id == classId);
+    }
+
+    [Fact]
+    public async Task Online_status_is_saved_and_exported()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var (_, student, _) = await kit.CreateStudentAsync();
+        var classId = await CreateClassAsync(kit, homeroomTeacherId: null, student);
+
+        var (save, saveBody) = await kit.Admin.SendJsonAsync<object>(HttpMethod.Put, $"/api/attendance/classes/{classId}/sessions/{Today}", new
+        {
+            records = new[] { new { studentId = student, status = "ONLINE" } },
+        });
+        var (_, session) = await kit.Admin.GetJsonAsync<AttendanceSessionView>($"/api/attendance/classes/{classId}/sessions/{Today}");
+        var export = await kit.Admin.GetAsync($"/api/attendance/classes/{classId}/sessions/{Today}/export");
+
+        save.StatusCode.Should().Be(HttpStatusCode.OK, string.Join(",", saveBody.Errors.Select(e => e.Code)));
+        session.Data!.Students.Single(s => s.StudentId == student).Status.Should().Be("ONLINE");
+        export.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     [Fact]

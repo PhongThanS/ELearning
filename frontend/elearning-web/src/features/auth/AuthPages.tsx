@@ -25,6 +25,13 @@ export function LoginPage() {
   const redirectState = location.state as LoginRedirectState | null;
   const notice = redirectState?.notice;
   const { register, handleSubmit, formState } = useForm<z.infer<typeof loginSchema>>({ resolver: zodResolver(loginSchema) });
+  // Quản trị khóa tự đăng ký (D-10) thì ẩn luôn lời mời "Chưa có tài khoản? Đăng ký"; chỉ hiện khi chắc chắn đang mở
+  const registration = useQuery({
+    queryKey: ["registrationStatus"],
+    queryFn: () => authApi.getRegistrationStatus(),
+    staleTime: 60_000,
+  });
+  const canRegister = registration.data?.allowSelfRegistration === true;
 
   if (status === "authenticated" && currentUser) {
     return <Navigate to={resolveLoginRedirect(redirectState, currentUser.id)} replace />;
@@ -64,11 +71,13 @@ export function LoginPage() {
             {!formState.isSubmitting && <i className="bi bi-arrow-right ms-2" aria-hidden="true" />}
           </Button>
         </Form>
-        <div className="d-flex justify-content-between mt-3 small">
+        <div className={`d-flex mt-3 small ${canRegister ? "justify-content-between" : "justify-content-center"}`}>
           <Link to="/forgot-password">{t("auth.forgotPassword")}</Link>
-          <span>
-            {t("auth.noAccount")} <Link to="/register">{t("auth.register")}</Link>
-          </span>
+          {canRegister && (
+            <span>
+              {t("auth.noAccount")} <Link to="/register">{t("auth.register")}</Link>
+            </span>
+          )}
         </div>
       </Card.Body>
     </Card>

@@ -355,7 +355,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_AttendanceRecords_Score", "\"HomeworkScore\" IS NULL OR (\"HomeworkScore\" >= 0 AND \"HomeworkScore\" <= 10)");
 
-                            t.HasCheckConstraint("CK_AttendanceRecords_Status", "\"Status\" IN ('PRESENT','LATE','EXCUSED','UNEXCUSED')");
+                            t.HasCheckConstraint("CK_AttendanceRecords_Status", "\"Status\" IN ('PRESENT','LATE','EXCUSED','UNEXCUSED','ONLINE')");
                         });
                 });
 
@@ -868,7 +868,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.ToTable("ExamPoolRules", null, t =>
                         {
-                            t.HasCheckConstraint("CK_ExamPoolRules_Difficulty", "\"Difficulty\" IN ('LEVEL1','LEVEL2','LEVEL3','LEVEL4')");
+                            t.HasCheckConstraint("CK_ExamPoolRules_Difficulty", "\"Difficulty\" IN ('LEVEL1','LEVEL2','LEVEL3','LEVEL4','LEVEL5')");
 
                             t.HasCheckConstraint("CK_ExamPoolRules_DrawCount", "\"DrawCount\" BETWEEN 1 AND 500");
 
@@ -1650,7 +1650,7 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("CK_Questions_ContentFormat", "\"ContentFormat\" IN ('PLAIN','MARKDOWN')");
 
-                            t.HasCheckConstraint("CK_Questions_Difficulty", "\"Difficulty\" IN ('LEVEL1','LEVEL2','LEVEL3','LEVEL4')");
+                            t.HasCheckConstraint("CK_Questions_Difficulty", "\"Difficulty\" IN ('LEVEL1','LEVEL2','LEVEL3','LEVEL4','LEVEL5')");
 
                             t.HasCheckConstraint("CK_Questions_FillIn", "(\"QuestionType\" = 'FILL_IN' AND \"AnswerDataType\" IS NOT NULL) OR (\"QuestionType\" <> 'FILL_IN' AND \"AnswerDataType\" IS NULL)");
 

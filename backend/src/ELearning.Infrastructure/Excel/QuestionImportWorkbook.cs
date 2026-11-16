@@ -75,7 +75,7 @@ internal sealed class QuestionImportWorkbook : IQuestionImportWorkbook
             [QuestionImportColumns.CaseSensitive, "Có / Không (mặc định Không)."],
             [QuestionImportColumns.IgnoreAccent, "Có / Không (mặc định Không). Có: \"ha noi\" được tính đúng với \"Hà Nội\"."],
             [QuestionImportColumns.Explanation, "Không bắt buộc. Hiển thị khi học viên xem lại bài (nếu chính sách cho phép)."],
-            [QuestionImportColumns.Difficulty, "Không bắt buộc: số 1, 2, 3 hoặc 4 (Mức 1 … Mức 4; MĐ1 … MĐ4 cũng được). Dùng để lập ma trận / pool ngẫu nhiên."],
+            [QuestionImportColumns.Difficulty, "Không bắt buộc: số 1, 2, 3, 4 hoặc 5 (Mức 1 … Mức 5; MĐ1 … MĐ5 cũng được). Dùng để lập ma trận / pool ngẫu nhiên."],
             [QuestionImportColumns.Tags, "Không bắt buộc: tối đa 10 tag, cách nhau bởi dấu phẩy. Không phân biệt hoa thường."],
             ["", ""],
             ["Lưu ý", $"Tối đa {QuestionImportColumns.MaxRows} câu mỗi lần. Có dòng lỗi thì không câu nào được tạo; sửa theo báo lỗi rồi import lại."],

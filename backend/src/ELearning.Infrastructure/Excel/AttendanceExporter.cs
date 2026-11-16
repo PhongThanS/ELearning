@@ -27,6 +27,7 @@ internal sealed class AttendanceExporter : IAttendanceExporter
         AttendanceStatus.Late => "Đi muộn",
         AttendanceStatus.Excused => "Vắng có phép",
         AttendanceStatus.Unexcused => "Vắng không phép",
+        AttendanceStatus.Online => "Online",
         _ => "Chưa điểm danh",
     };
 
@@ -45,6 +46,7 @@ internal sealed class AttendanceExporter : IAttendanceExporter
         AttendanceStatus.Late => "M",
         AttendanceStatus.Excused => "P",
         AttendanceStatus.Unexcused => "K",
+        AttendanceStatus.Online => "O",
         _ => string.Empty,
     };
 
@@ -76,6 +78,7 @@ internal sealed class AttendanceExporter : IAttendanceExporter
                 AttendanceStatus.Late => XLColor.FromHtml("#FEF3C7"),
                 AttendanceStatus.Excused => XLColor.FromHtml("#DBEAFE"),
                 AttendanceStatus.Unexcused => XLColor.FromHtml("#FFE4E6"),
+                AttendanceStatus.Online => XLColor.FromHtml("#EDE9FE"),
                 _ => XLColor.NoColor,
             };
         }
@@ -90,6 +93,7 @@ internal sealed class AttendanceExporter : IAttendanceExporter
             ("Đi muộn", session.Students.Count(s => s.Status == AttendanceStatus.Late)),
             ("Vắng có phép", session.Students.Count(s => s.Status == AttendanceStatus.Excused)),
             ("Vắng không phép", session.Students.Count(s => s.Status == AttendanceStatus.Unexcused)),
+            ("Online", session.Students.Count(s => s.Status == AttendanceStatus.Online)),
         };
         for (var i = 0; i < counts.Length; i++)
         {
@@ -110,12 +114,12 @@ internal sealed class AttendanceExporter : IAttendanceExporter
     {
         sheet.Cell(1, 1).Value = $"Tổng hợp tháng {month.Month:00}/{month.Year} — lớp {session.ClassroomCode} — {session.ClassroomName}";
         sheet.Cell(1, 1).Style.Font.Bold = true;
-        sheet.Cell(2, 1).Value = "Mỗi ô: điểm danh (C = có mặt, M = muộn, P = vắng có phép, K = vắng không phép) / điểm BTVN";
+        sheet.Cell(2, 1).Value = "Mỗi ô: điểm danh (C = có mặt, M = muộn, O = online, P = vắng có phép, K = vắng không phép) / điểm BTVN";
 
         const int headerRow = 4;
         var headers = new List<string> { "STT", "Tên đăng nhập", "Họ tên" };
         headers.AddRange(month.Dates.Select(d => d.ToString("dd/MM", CultureInfo.InvariantCulture)));
-        headers.AddRange(["Có mặt", "Đi muộn", "Vắng P", "Vắng K", "ĐTB BTVN"]);
+        headers.AddRange(["Có mặt", "Đi muộn", "Vắng P", "Vắng K", "Online", "ĐTB BTVN"]);
         WriteHeader(sheet, headerRow, [.. headers]);
 
         for (var i = 0; i < month.Rows.Count; i++)
@@ -139,8 +143,9 @@ internal sealed class AttendanceExporter : IAttendanceExporter
             sheet.Cell(row, col + 1).Value = cells.Count(c => c.Status == AttendanceStatus.Late);
             sheet.Cell(row, col + 2).Value = cells.Count(c => c.Status == AttendanceStatus.Excused);
             sheet.Cell(row, col + 3).Value = cells.Count(c => c.Status == AttendanceStatus.Unexcused);
+            sheet.Cell(row, col + 4).Value = cells.Count(c => c.Status == AttendanceStatus.Online);
             var scores = cells.Where(c => c.HomeworkScore is not null).Select(c => c.HomeworkScore!.Value).ToList();
-            sheet.Cell(row, col + 4).Value = scores.Count > 0 ? Math.Round(scores.Average(), 2) : Blank.Value;
+            sheet.Cell(row, col + 5).Value = scores.Count > 0 ? Math.Round(scores.Average(), 2) : Blank.Value;
         }
 
         sheet.Columns().AdjustToContents(headerRow, headerRow + Math.Min(month.Rows.Count, 200));

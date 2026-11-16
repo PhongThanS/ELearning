@@ -73,6 +73,17 @@ public class MatrixDrawValidatorTests
     }
 
     [Fact]
+    public void Level5_counts_toward_total_and_cannot_be_negative()
+    {
+        var onlyLevel5 = new MatrixDrawRequest(null, null, null, 0, 0, 0, 1m, MatrixDrawMode.Static, Level5Count: 3);
+        var negative = onlyLevel5 with { Level5Count = -1 };
+
+        onlyLevel5.TotalCount.Should().Be(3);
+        _validator.TestValidate(onlyLevel5).ShouldNotHaveAnyValidationErrors();
+        _validator.TestValidate(negative).ShouldHaveValidationErrorFor(r => r.Level5Count);
+    }
+
+    [Fact]
     public void Pool_mode_requires_score()
     {
         var request = new MatrixDrawRequest(

@@ -151,7 +151,8 @@
       "LEVEL1": "Mức 1",
       "LEVEL2": "Mức 2",
       "LEVEL3": "Mức 3",
-      "LEVEL4": "Mức 4"
+      "LEVEL4": "Mức 4",
+      "LEVEL5": "Mức 5"
     },
     "answerDataType": {
       "TEXT": "Chữ",

@@ -213,7 +213,7 @@ Index: `UQ_AttendanceSessions_Classroom_Date` (ClassroomId, SessionDate) UNIQUE 
 | Id | uuid PK | |
 | SessionId | uuid FK → AttendanceSessions | |
 | StudentId | uuid FK → Users | |
-| Status | varchar(40) NULL | `PRESENT` / `LATE` / `EXCUSED` / `UNEXCUSED`; NULL = chưa điểm danh (CHECK) |
+| Status | varchar(40) NULL | `PRESENT` / `LATE` / `ONLINE` / `EXCUSED` / `UNEXCUSED`; NULL = chưa điểm danh (CHECK) |
 | HomeworkStatus | varchar(40) NULL | `EXCELLENT` / `DONE` / `PARTIAL` / `MISSING` (CHECK) |
 | HomeworkScore | decimal(4,1) NULL | 0–10 (CHECK), bước 0,5 kiểm ở domain |
 | Note | varchar(1000) NULL | nhận xét |

@@ -7,4 +7,7 @@ public enum AttendanceStatus
     Late = 2,
     Excused = 3,
     Unexcused = 4,
+
+    /// <summary>Học trực tuyến (không đến lớp nhưng có tham gia buổi học) — tính là có mặt khi tính chuyên cần.</summary>
+    Online = 5,
 }

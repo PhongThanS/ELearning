@@ -186,7 +186,7 @@ CREATE TABLE Questions (
 CREATE INDEX IX_Questions_Category_Type ON Questions(CategoryId, QuestionType) INCLUDE (IsActive);
 
 -- (sau MVP) Questions có thêm cột:
---   Difficulty VARCHAR(40) NULL  -- LEVEL1 | LEVEL2 | LEVEL3 | LEVEL4 (Mức 1–4), CHECK CK_Questions_Difficulty
+--   Difficulty VARCHAR(40) NULL  -- LEVEL1 | LEVEL2 | LEVEL3 | LEVEL4 | LEVEL5 (Mức 1–5), CHECK CK_Questions_Difficulty
 --   PartialScoring BIT NOT NULL  -- chấm từng phần (chỉ MULTIPLE_CHOICE); ExamQuestions cũng có cột này (snapshot)
 --   QuestionType thêm giá trị ESSAY (Questions, ExamQuestions, ExamPoolRules)
 

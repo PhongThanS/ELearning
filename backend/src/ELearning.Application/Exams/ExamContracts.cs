@@ -134,7 +134,8 @@ public sealed record CategoryMatrixStatsDto(
     int Level2Candidates,
     int Level3Candidates,
     int Level4Candidates,
-    int UnspecifiedCandidates);
+    int UnspecifiedCandidates,
+    int Level5Candidates = 0);
 
 public sealed record MatrixStatsDto(
     int TotalCandidates,
@@ -143,18 +144,20 @@ public sealed record MatrixStatsDto(
     int Level3Candidates,
     int Level4Candidates,
     int UnspecifiedCandidates,
-    IReadOnlyList<CategoryMatrixStatsDto>? ByCategory = null);
+    IReadOnlyList<CategoryMatrixStatsDto>? ByCategory = null,
+    int Level5Candidates = 0);
 
-/// <summary>Số câu bốc theo từng mức độ (Mức 1 … Mức 4) của một chuyên đề.</summary>
+/// <summary>Số câu bốc theo từng mức độ (Mức 1 … Mức 5) của một chuyên đề.</summary>
 public sealed record MatrixTopicItem(
     Guid? CategoryId,
     int Level1Count,
     int Level2Count,
     int Level3Count,
     int Level4Count = 0,
-    decimal? ScorePerQuestion = null)
+    decimal? ScorePerQuestion = null,
+    int Level5Count = 0)
 {
-    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count;
+    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count + Level5Count;
 }
 
 public sealed record MatrixDrawRequest(
@@ -167,9 +170,10 @@ public sealed record MatrixDrawRequest(
     decimal? ScorePerQuestion,
     MatrixDrawMode Mode,
     IReadOnlyList<MatrixTopicItem>? Topics = null,
-    int Level4Count = 0)
+    int Level4Count = 0,
+    int Level5Count = 0)
 {
-    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count;
+    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count + Level5Count;
 }
 
 public sealed record VersionDetailDto(
@@ -423,6 +427,8 @@ public sealed class MatrixDrawRequestValidator : AbstractValidator<MatrixDrawReq
                     .WithErrorCode("LEVEL3_COUNT_INVALID").WithMessage("Số câu Mức 3 không được âm.");
                 topic.RuleFor(t => t.Level4Count).GreaterThanOrEqualTo(0)
                     .WithErrorCode("LEVEL4_COUNT_INVALID").WithMessage("Số câu Mức 4 không được âm.");
+                topic.RuleFor(t => t.Level5Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL5_COUNT_INVALID").WithMessage("Số câu Mức 5 không được âm.");
             });
 
             RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.TotalCount) > 0)
@@ -444,6 +450,8 @@ public sealed class MatrixDrawRequestValidator : AbstractValidator<MatrixDrawReq
                 .WithErrorCode("LEVEL3_COUNT_INVALID").WithMessage("Số câu Mức 3 không được âm.");
             RuleFor(r => r.Level4Count).GreaterThanOrEqualTo(0)
                 .WithErrorCode("LEVEL4_COUNT_INVALID").WithMessage("Số câu Mức 4 không được âm.");
+            RuleFor(r => r.Level5Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL5_COUNT_INVALID").WithMessage("Số câu Mức 5 không được âm.");
 
             RuleFor(r => r).Must(r => r.TotalCount > 0)
                 .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")
