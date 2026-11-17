@@ -77,8 +77,10 @@ Video.View  Video.Manage
 Attendance.Take (lớp mình chủ nhiệm)  Attendance.ManageAll (mọi lớp, cần kèm Attendance.Take)
 ```
 
+Nguồn chuẩn: `ELearning.Domain/Identity/Permissions.cs`. Vai trò hệ thống: `ADMIN` (mọi permission), `TEACHER` (mặc định `Attendance.Take`), `STUDENT` (không có permission, dùng policy `StudentOnly`).
+
 So với spec gốc:
-- Bỏ `User.Delete` và `Question.Delete` (D-16).
+- Bỏ `User.Delete` và `Question.Delete` (D-16). Xóa câu hỏi hiện dùng `Question.Update`, xóa chuyên đề dùng `Category.Manage`, xóa nhóm dùng `Group.Manage` (D-36).
 - Bỏ `Exam.Result`, vì tên khó hiểu; thay bằng `Result.View` và `Result.Export`.
 
 ## 5. Rate limit
@@ -114,10 +116,14 @@ Dùng `Microsoft.AspNetCore.RateLimiting`. Key theo IP với các endpoint chưa
 - Nếu sau này cho phép HTML: sanitize ở server theo whitelist tag (ví dụ `HtmlSanitizer`), sanitize thêm ở client, loại bỏ script và thuộc tính sự kiện.
 - **Content Security Policy** (qua Nginx):
   ```text
-  default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;
-  connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';
+  img-src 'self' data: https://img.youtube.com https://i.ytimg.com https://drive.google.com https://lh3.googleusercontent.com;
+  font-src 'self' data:; connect-src 'self'; media-src 'self' https: data: blob:;
+  frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://drive.google.com https://docs.google.com;
+  object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   ```
-- Header bổ sung: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
+  Nguồn ngoài (YouTube, Google Drive / Docs) chỉ phục vụ kho video bài giảng: ảnh bìa, khung phát và tài liệu đi kèm. Nguồn chuẩn: `deploy/nginx/snippets/security-headers.conf`.
+- Header bổ sung: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (tắt camera, micro, vị trí, thanh toán), `Cross-Origin-Opener-Policy: same-origin`.
 - SQL: chỉ dùng truy vấn tham số hóa (EF Core, Dapper với tham số). Không nối chuỗi từ input.
 - **Upload ảnh (D-27):**
   - Chỉ PNG / JPEG / GIF / WebP, nhận diện theo **chữ ký file** (magic bytes), không tin phần mở rộng hay `Content-Type` của client. **Không nhận SVG** (chứa được script).
@@ -125,7 +131,7 @@ Dùng `Microsoft.AspNetCore.RateLimiting`. Key theo IP với các endpoint chưa
   - Tải ảnh về qua **URL đã ký** HMAC-SHA256 (khóa dẫn xuất từ `Jwt:SigningKey` bằng HKDF), hết hạn sau 6–12 giờ, so sánh chữ ký thời gian cố định. Sai chữ ký / hết hạn đều trả 404 như ảnh không tồn tại.
   - Response ảnh có `X-Content-Type-Options: nosniff`, `Content-Security-Policy: default-src 'none'; sandbox`, `Cross-Origin-Resource-Policy: same-origin`, `Cache-Control: private`.
   - **Chống lộ đáp án:** server chỉ ký ảnh xuất hiện trong các trường của DTO đang trả về. Player không có ảnh của giải thích; trang kết quả chỉ có khi `ReviewPolicy` cho xem lại. Có API test khẳng định id ảnh giải thích không xuất hiện trong JSON khi đang thi và khi `ReviewPolicy = NEVER`.
-  - CSP giữ nguyên `img-src 'self' data:` vì ảnh phục vụ cùng origin; frontend không hiển thị ảnh ngoài.
+  - Ảnh câu hỏi phục vụ cùng origin nên không cần thêm nguồn vào `img-src`; `MarkdownView` không hiển thị ảnh ngoài trong nội dung câu hỏi.
 
 ## 8. CORS
 
@@ -139,11 +145,11 @@ Audit được ghi **trong cùng transaction** với thao tác. `OldValue` / `Ne
 | Nhóm | Action |
 |---|---|
 | Xác thực | `USER_LOGIN`, `USER_LOGIN_FAILED`, `USER_LOCKED_OUT`, `USER_LOGOUT`, `USER_REGISTER`, `PASSWORD_CHANGED`, `PASSWORD_RESET_BY_ADMIN`, `REFRESH_TOKEN_REUSE` |
-| Người dùng | `USER_CREATED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_ROLES_CHANGED`, `USER_ANONYMIZED` |
-| Nhóm / vai trò | `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_MEMBERS_CHANGED`, `CLASSROOM_CREATED`, `CLASSROOM_UPDATED`, `CLASSROOM_STUDENTS_CHANGED`, `CLASSROOM_DELETED`, `ATTENDANCE_SESSION_RESET`, `STUDENT_CONTACT_UPDATED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_PERMISSIONS_CHANGED` |
-| Ngân hàng câu hỏi | `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_STATUS_CHANGED`, `QUESTION_CREATED`, `QUESTION_UPDATED`, `QUESTION_STATUS_CHANGED` |
+| Người dùng | `USER_CREATED`, `USERS_IMPORTED`, `USER_UPDATED`, `USER_STATUS_CHANGED`, `USER_ROLES_CHANGED`, `USER_ANONYMIZED`, `REGISTRATION_POLICY_CHANGED` (bật / tắt tự đăng ký) |
+| Nhóm / vai trò | `GROUP_CREATED`, `GROUP_UPDATED`, `GROUP_DELETED`, `GROUP_MEMBERS_CHANGED`, `CLASSROOM_CREATED`, `CLASSROOM_UPDATED`, `CLASSROOM_STUDENTS_CHANGED`, `CLASSROOM_DELETED`, `ATTENDANCE_SESSION_RESET`, `STUDENT_CONTACT_UPDATED`, `ROLE_CREATED`, `ROLE_UPDATED`, `ROLE_PERMISSIONS_CHANGED` |
+| Ngân hàng câu hỏi | `CATEGORY_CREATED`, `CATEGORY_UPDATED`, `CATEGORY_DELETED`, `CATEGORY_STATUS_CHANGED`, `QUESTION_CREATED`, `QUESTION_UPDATED`, `QUESTION_DELETED`, `QUESTION_STATUS_CHANGED`, `QUESTIONS_IMPORTED`, `MEDIA_UPLOADED` |
 | Đề thi | `EXAM_CREATED`, `EXAM_UPDATED`, `EXAM_DELETED`, `EXAM_VERSION_CREATED`, `EXAM_PUBLISHED`, `EXAM_CLOSED`, `EXAM_REOPENED`, `EXAM_ASSIGNMENTS_CHANGED` |
-| Đáp án | `ANSWER_KEY_CORRECTED`, `QUESTION_VOIDED`, `EXAM_REGRADED` |
+| Đáp án | `ANSWER_KEY_CORRECTED`, `QUESTION_VOIDED`, `EXAM_REGRADED`, `ANSWER_MANUALLY_GRADED` (chấm tay tự luận) |
 | Lượt thi | `ATTEMPT_STARTED`, `ATTEMPT_SUBMITTED`, `ATTEMPT_AUTO_SUBMITTED`, `ATTEMPT_EXTENDED`, `ATTEMPT_FORCE_SUBMITTED`, `ATTEMPT_CANCELLED`, `ATTEMPTS_GRANTED` |
 | Kết quả | `RESULT_CREATED`, `RESULTS_EXPORTED` |
 
@@ -191,7 +197,7 @@ Tham chiếu: Nghị định 13/2023/NĐ-CP và Luật Bảo vệ dữ liệu c�
 - **D-14:** permission được tra ở server có cache, thay vì để trong JWT.
 - **D-15:** refresh token nằm trong cookie `SameSite=Strict`, access token trong bộ nhớ, như phương án "bảo mật cao" của spec gốc §79. Phương án này yêu cầu frontend và API cùng site; điều kiện đó được đảm bảo bằng Nginx và Vite proxy.
 - **Thêm `SecurityStamp`, khóa tài khoản, phát hiện dùng lại refresh token.** Spec gốc có yêu cầu xoay vòng nhưng chưa có cơ chế bảo vệ.
-- **D-10:** `Auth:AllowSelfRegistration = false` ở Production. Tài khoản do admin tạo (import Excel là tính năng sau MVP).
+- **D-10:** `Auth:AllowSelfRegistration = false` ở Production; admin có thể bật / tắt lúc chạy (`PATCH /api/users/registration-setting`, giá trị lưu ở `SystemSettings` thắng cấu hình). Tài khoản do admin tạo lẻ hoặc import từ Excel (`02-nghiep-vu.md` mục 5.3).
 - **Danh sách audit hợp nhất** từ spec gốc §31 và §119, bổ sung các thao tác mới (chấm lại, gán đề, thao tác trên lượt thi).
 - **Giới hạn rate limit và chính sách mật khẩu** là giả định *(cần xác nhận)*.
 - **(M9) Nâng giới hạn `auth-login` từ 10 lên 600, `auth-refresh` từ 30 lên 1200 request / phút / IP.**

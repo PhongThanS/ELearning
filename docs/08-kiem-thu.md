@@ -5,14 +5,14 @@
 | Tầng | Công cụ | Phạm vi |
 |---|---|---|
 | Unit (backend) | xUnit, AwesomeAssertions, NSubstitute, `FakeTimeProvider` | Domain, grader, chuẩn hóa, parse số, validator, chuyển trạng thái, chính sách hiển thị |
-| Integration | xUnit, Testcontainers (SQL Server thật), EF Core migration thật | Repository, transaction, khóa dòng, filtered unique index, job tự nộp, chấm lại |
+| Integration | xUnit, PostgreSQL thật (Testcontainers hoặc server có sẵn), EF Core migration thật | Schema, transaction, khóa dòng, unique index có điều kiện, job tự nộp, chấm lại |
 | API | `WebApplicationFactory` + Testcontainers | Hợp đồng HTTP, status, mã lỗi, phân quyền, DTO không lộ đáp án |
 | Frontend | Vitest, React Testing Library, MSW | Form, route guard, editor câu hỏi, exam player, autosave, timer |
 | E2E | Playwright | Luồng đầy đủ của admin và học viên |
 | Load | k6 (`load-tests/`) | Chỉ tiêu phi chức năng ở `01-tong-quan.md` mục 6 |
 
 **Quy tắc:**
-- Test integration và API chạy trên **SQL Server thật** (Testcontainers), **không** dùng EF InMemory hay SQLite. Filtered index, `UPDLOCK`, `ROWVERSION` và collation chỉ hoạt động đúng trên SQL Server.
+- Test integration và API chạy trên **PostgreSQL thật**, **không** dùng EF InMemory hay SQLite. Partial index, `SELECT … FOR UPDATE`, `ILIKE`, mã lỗi trùng khóa và cột `RowVersion` chỉ hoạt động đúng trên PostgreSQL.
 - Mọi test phụ thuộc thời gian đều dùng `FakeTimeProvider`. Cấm `DateTime.UtcNow` trong code nghiệp vụ.
 - Mỗi bug được sửa phải kèm một test tái hiện bug đó.
 
@@ -43,7 +43,7 @@
 
 **Luồng chính:**
 1. Đăng ký, đăng nhập, refresh (xoay vòng), logout.
-2. Tạo câu hỏi đủ 4 loại.
+2. Tạo câu hỏi đủ các loại (4 loại chấm tự động và tự luận).
 3. Tạo đề, thêm câu, publish.
 4. Học viên start, lưu đáp án, submit, xem kết quả.
 
@@ -126,12 +126,13 @@
 
 ## 8. Quyết định / Giả định
 
-- **(M1) Nguồn SQL Server cho test** (`tests/ELearning.TestSupport/SqlServerTestDatabase.cs`):
-  - Nếu có biến môi trường `ELEARNING_TEST_SQL`: dùng server đó, tạo database tạm `ELearningTest_<guid>`, áp migration, xóa khi xong.
-  - Nếu không có: dùng Testcontainers (cần Docker, như trên CI).
-  - Lý do: máy dev hiện có SQL Server local nhưng không có Docker. Vẫn đúng yêu cầu "SQL Server thật".
+- **(M1, D-35) Nguồn PostgreSQL cho test** (`tests/ELearning.TestSupport/SqlServerTestDatabase.cs` — tên class còn giữ từ bản SQL Server, bên trong đã là PostgreSQL):
+  - Nếu có biến môi trường `ELEARNING_TEST_POSTGRES` (connection string tới một PostgreSQL server, ví dụ `Host=localhost;Port=5432;Username=postgres;Password=…`): tạo database tạm `elearning_test_<guid>` trên server đó, áp migration, xóa (`DROP DATABASE … WITH (FORCE)`) khi xong.
+  - Nếu không có: khởi động `postgres:17-alpine` bằng Testcontainers (cần Docker, như trên CI).
+  - Biến cũ `ELEARNING_TEST_SQL` không còn được đọc.
 
-- **Bắt buộc SQL Server thật cho integration test.** Spec gốc cho phép "database kiểm thử" chung chung; chốt Testcontainers vì các cơ chế quan trọng chỉ có trên SQL Server.
+- **Bắt buộc database thật cho integration test.** Spec gốc cho phép "database kiểm thử" chung chung; chốt chạy trên đúng hệ quản trị của production vì các cơ chế quan trọng (khóa dòng, partial index) không có ở InMemory / SQLite.
+- **E2E (Playwright)** có 3 kịch bản ở `frontend/elearning-web/e2e/` (`admin-exam`, `student-exam`, `timeout`), chạy bằng `npm run e2e`. Script `e2e/scripts/start-api.mjs` build API, tạo lại database `ELearningE2E` rồi chạy API ở cổng 5236. **Phải đặt `E2E_SQL`** là connection string PostgreSQL (không kèm `Database`): giá trị mặc định trong script vẫn là chuỗi SQL Server và không chạy được. E2E chưa nằm trong CI.
 - **Thêm load test k6** (spec gốc không có) cùng các ca kiểm thử tương tranh (start / submit / lưu đáp án song song).
 - **(M9) Dữ liệu load test tạo qua API admin**, không ghi thẳng vào database: nhóm `LOADTEST` với học viên `lt.hv.0001…` (dùng lại giữa các lần chạy) và một đề mới mỗi lần chạy (1 lượt, gán cho nhóm). Nhờ vậy kịch bản cũng kiểm tra luôn API admin và không phụ thuộc schema.
 - **(M9) `expiry-sweep` dùng `EndAt`** để mọi lượt có cùng `ExpiredAt` (D-05), và đo `max(SubmittedAt) − EndAt` theo giờ server, gồm cả ân hạn 30 giây và chu kỳ quét 60 giây.

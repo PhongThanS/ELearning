@@ -10,7 +10,7 @@ Mọi AI agent làm việc trên repository này phải tuân thủ:
 4. Không đưa đáp án đúng hay giải thích vào DTO của học viên.
 5. Không tính điểm chính thức ở frontend.
 6. Không tin thời gian do client gửi để quyết định việc hết giờ.
-7. Không sửa version đã publish, trừ qua `IAnswerKeyService` (D-11).
+7. Không sửa version đã publish, trừ qua `IAnswerKeyService` (D-11) và đổi `ReviewPolicy` (D-37). Không thêm ngoại lệ mới.
 8. Không sửa câu trả lời hay kết quả lịch sử, trừ quy trình chấm lại (D-11).
 9. Mọi timestamp đều là UTC; JSON luôn có `Z`.
 10. Quy tắc nghiệp vụ nằm trong domain / application service, không nằm trong controller.
@@ -180,7 +180,7 @@ Admin đăng nhập → tạo danh mục → tạo đủ 4 loại câu hỏi (c�
 
 **Backend**
 - [ ] Solution build với `-warnaserror`; bật nullable.
-- [ ] Kết nối SQL Server; migration từ DB rỗng chạy được; không có model thay đổi mà thiếu migration.
+- [ ] Kết nối PostgreSQL; migration từ DB rỗng chạy được; không có model thay đổi mà thiếu migration.
 - [ ] Seed dev / prod tách riêng.
 - [ ] JWT, refresh cookie, permission policy, `FallbackPolicy` hoạt động.
 - [ ] OpenAPI (dev / staging), health check, exception middleware, Serilog đều hoạt động.
@@ -188,8 +188,8 @@ Admin đăng nhập → tạo danh mục → tạo đủ 4 loại câu hỏi (c�
 - [ ] `AttemptExpirationWorker` chạy.
 
 **Database** — mọi bảng trong `04a` và `04b`, gồm:
-- [ ] Filtered unique index: `UX_ExamVersions_OnePublished`, `UX_ExamVersions_OneDraft`, `UX_ExamAttempts_OneInProgress`, `UX_ExamQuestions_Source`.
-- [ ] CHECK constraint, `ROWVERSION`, FK `Restrict`.
+- [ ] Unique index có điều kiện (partial index): `UX_ExamVersions_OnePublished`, `UX_ExamVersions_OneDraft`, `UX_ExamAttempts_OneInProgress`, `UX_ExamQuestions_Source`.
+- [ ] CHECK constraint, cột `RowVersion` (`bytea`, concurrency token), FK `Restrict`.
 
 **Nghiệp vụ**
 - [ ] 4 loại câu, đáp án chấp nhận, chuẩn hóa NFC, parse số kiểu Việt.

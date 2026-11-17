@@ -5,7 +5,7 @@
 ELearning là nền tảng thi trực tuyến, có định hướng mở rộng thành LMS. Tài liệu này là đặc tả chuẩn để một kỹ sư hoặc AI agent có thể:
 
 1. Tạo repository và solution.
-2. Tạo database SQL Server bằng EF Core migration.
+2. Tạo database PostgreSQL bằng EF Core migration.
 3. Triển khai backend .NET 10 và frontend React.
 4. Triển khai xác thực, phân quyền, ngân hàng câu hỏi, đề thi / version, lượt làm bài và autosave, tính giờ phía server, chấm điểm tự động, kết quả và lịch sử.
 5. Viết kiểm thử tự động, chạy local và triển khai.
@@ -25,7 +25,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 | Mục tiêu | MVP sẵn sàng production, mở rộng được |
 | Backend | .NET 10, ASP.NET Core Web API |
 | Frontend | React + TypeScript + Vite |
-| Database | SQL Server |
+| Database | PostgreSQL 17 (D-35) |
 | ORM | EF Core 10; Dapper cho báo cáo |
 | UI | Bootstrap 5 (qua `react-bootstrap`) |
 | Xác thực | JWT access token + refresh token (cookie HttpOnly) |
@@ -49,8 +49,14 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 - Nộp bài; hệ thống tự nộp khi hết giờ.
 - Xem kết quả theo chính sách của đề; xem lịch sử.
 
+- Xem lớp của mình, điểm danh và điểm BTVN theo tháng (trang mặc định sau khi đăng nhập), xem video bài giảng.
+
+### TEACHER (giáo viên)
+- Vai trò hệ thống thứ ba (D-31). Mặc định chỉ có quyền `Attendance.Take`: điểm danh và chấm BTVN các lớp mình là giáo viên chủ nhiệm, sửa liên hệ phụ huynh, xuất Excel.
+- Admin có thể cấp thêm permission cho vai trò này (ví dụ quản lý câu hỏi, đề thi, video).
+
 ### Vai trò tương lai
-`TEACHER`, `EXAM_MANAGER`, `GRADER`, `CONTENT_EDITOR`. Hệ thống phân quyền theo **permission**, không hard-code theo hai vai trò (xem `07-bao-mat.md`).
+`EXAM_MANAGER`, `GRADER`, `CONTENT_EDITOR`. Hệ thống phân quyền theo **permission**, không hard-code theo vai trò (xem `07-bao-mat.md`); admin tạo được vai trò mới và gán permission.
 
 ## 4. Nguyên tắc cốt lõi
 
@@ -58,7 +64,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 2. **Version đã publish là bất biến.** Muốn thay đổi thì: `Version 1 (PUBLISHED) → tạo Version 2 (DRAFT) → sửa → publish`. Ngoại lệ duy nhất là quy trình chấm lại có kiểm soát (D-11).
 3. **Snapshot tại thời điểm publish.** Nội dung và đáp án được copy vào `ExamQuestions`. Lượt thi tham chiếu snapshot này, không bao giờ tham chiếu ngân hàng câu hỏi (D-01).
 4. **Backend chấm điểm.** `Câu trả lời → API → Grading Engine → Result`. Frontend không bao giờ tính điểm chính thức.
-5. **Modular monolith.** `React → ASP.NET Core → SQL Server`. Ranh giới module có thể tách sau này: Identity, Question/Exam, Attempt/Grading, Notification, Reporting.
+5. **Modular monolith.** `React → ASP.NET Core → PostgreSQL`. Ranh giới module có thể tách sau này: Identity, Question/Exam, Attempt/Grading, Notification, Reporting.
 
 ## 5. Phạm vi MVP
 
@@ -78,7 +84,7 @@ Khi có chi tiết chưa được đặc tả, ưu tiên theo thứ tự:
 **Sau MVP:**
 - ~~Ngẫu nhiên câu hỏi từ pool~~, ~~xáo thứ tự câu / đáp án~~, ~~độ khó, tag~~ — **đã làm** (xem `02-nghiep-vu.md` mục 4.7, 4.8). Chấm từng phần: xem mục 2.
 - ~~Import câu hỏi từ Excel~~ — **đã làm** (xem `02-nghiep-vu.md` mục 1.3).
-- Khóa học, lớp học, giáo viên; bảng xếp hạng, chứng chỉ.
+- ~~Lớp học, giáo viên~~ — **đã làm**: lớp học và gán đề theo lớp (D-28), điểm danh & BTVN (D-31), kho video bài giảng, chuyên đề 2 cấp (D-32), đề luyện (D-33), nhập đề từ file Markdown / Word (D-29), import tài khoản từ Excel. Khóa học, bảng xếp hạng, chứng chỉ: chưa làm.
 - Email, thông báo, SignalR, Redis.
 - Chống gian lận nâng cao, thống kê nâng cao.
 - ~~Câu tự luận và chấm tay~~, ~~chấm từng phần~~ — **đã làm** (xem `02-nghiep-vu.md` mục 2.2, 2.3). ~~Ảnh trong câu hỏi~~ — **đã làm** (đề, lựa chọn, giải thích; xem `02-nghiep-vu.md` mục 1.4). Đính kèm file khác (PDF, âm thanh): chưa làm.

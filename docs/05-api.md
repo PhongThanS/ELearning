@@ -74,7 +74,11 @@ Lỗi nghiệp vụ (422):
 | `FORBIDDEN` | 403 | Thiếu permission |
 | `NOT_FOUND` | 404 | Chung. Có thêm biến thể `EXAM_NOT_FOUND`, `ATTEMPT_NOT_FOUND`, `QUESTION_NOT_FOUND`, `CLASSROOM_NOT_FOUND` |
 | `CONCURRENCY_CONFLICT` | 409 | Dữ liệu đã bị người khác sửa |
-| `DUPLICATE_CODE` | 409 | Trùng `Code` |
+| `DUPLICATE_CODE` | 409 | Trùng `Code` (hoặc bất kỳ unique index nào: PostgreSQL SQLSTATE `23505`) |
+| `QUESTION_IN_USE` | 409 | Xóa câu hỏi đang nằm trong version đề; gọi lại với `?force=true` để xóa (D-36) |
+| `CATEGORY_HAS_QUESTIONS` | 409 | Xóa chuyên đề còn câu hỏi / đề; gọi lại với `?force=true` (D-36) |
+| `CATEGORY_HAS_CHILDREN` | 409 / 400 | Xóa chuyên đề còn chuyên đề con (409); thêm / sửa / import câu vào chuyên đề có con (400) (D-32) |
+| `CLASSROOM_IN_USE` | 409 | Xóa lớp còn gán cho đề, video hoặc đã có buổi điểm danh |
 | `ATTEMPT_NOT_IN_PROGRESS` | 409 | Lượt thi đã nộp hoặc đã hủy |
 | `VERSION_IMMUTABLE` | 409 | Sửa version không còn ở DRAFT |
 | `EXAM_NOT_DRAFT` | 409 | Thao tác chỉ cho phép khi đề ở DRAFT (ví dụ xóa đề) |
@@ -101,7 +105,7 @@ Lỗi nghiệp vụ (422):
 | `RATE_LIMITED` | 429 | Gửi quá nhiều request |
 | `INTERNAL_ERROR` | 500 | Lỗi hệ thống |
 
-Mã lỗi là hằng số trong `ELearning.Shared.ErrorCodes`. Frontend có file map tương ứng sang thông điệp i18n.
+Mã lỗi dùng chung là hằng số trong `ELearning.Shared.ErrorCodes`. Mã lỗi validation của từng trường (`CODE_REQUIRED`, `SCORE_INVALID`, `PARENT_INVALID`…) và một số mã nghiệp vụ riêng của một chức năng (`QUESTION_IN_USE`, `CATEGORY_HAS_QUESTIONS`, `POOL_TOO_LARGE`, `IMPORT_*`…) được khai báo ngay tại validator / service. Frontend map mã sang thông điệp ở `i18n/vi.json` (`errors.<CODE>`); mã chưa có bản dịch thì hiện `message` của server.
 
 ## 5. Phân trang, sắp xếp, lọc
 
@@ -113,7 +117,7 @@ Mã lỗi là hằng số trong `ELearning.Shared.ErrorCodes`. Frontend có file
 { "items": [], "page": 1, "pageSize": 20, "totalCount": 150, "totalPages": 8 }
 ```
 - Không endpoint nào được trả danh sách không giới hạn.
-- Tìm kiếm dùng tham số hóa (`LIKE @kw` với ký tự `%`, `_`, `[` đã được escape).
+- Tìm kiếm không phân biệt hoa thường, dùng tham số hóa (`ILIKE @kw`; ký tự `%`, `_`, `\` trong từ khóa được escape bằng `\` — `Application/Common/Like.cs`).
 
 ## 6. Endpoint
 
@@ -122,7 +126,8 @@ Ký hiệu cột "Quyền": `—` = không cần đăng nhập; `Auth` = đã đ
 ### 6.1 Xác thực
 | Method | Route | Quyền | Ghi chú |
 |---|---|---|---|
-| POST | `/api/auth/register` | — | Chỉ khi `AllowSelfRegistration = true`; gán role `STUDENT` |
+| GET | `/api/auth/registration-status` | — | `{ allowSelfRegistration }`: trang đăng nhập dùng để ẩn / hiện liên kết đăng ký |
+| POST | `/api/auth/register` | — | Chỉ khi đang bật tự đăng ký (nếu không: 403 `REGISTRATION_DISABLED`); gán role `STUDENT` |
 | POST | `/api/auth/login` | — | Trả access token; set cookie refresh token |
 | POST | `/api/auth/refresh` | cookie | Xoay vòng refresh token; yêu cầu header `X-Requested-With: XMLHttpRequest` |
 | POST | `/api/auth/logout` | cookie | Thu hồi refresh token hiện tại; 204 |
@@ -151,8 +156,12 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | PUT | `/api/users/{id}/roles` `{ roleIds }` | `Role.Assign` |
 | POST | `/api/users/{id}/reset-password` → trả mật khẩu tạm, bật `MustChangePassword` | `User.ResetPassword` |
 | POST | `/api/users/{id}/anonymize` `{ reason }` | `User.Anonymize` |
+| GET | `/api/users/{id}/exams`, `/api/users/{id}/history` (đề và lịch sử thi của một học viên, cùng DTO như `/api/student/exams` và `/api/student/history`) | `User.View` |
+| GET | `/api/users/registration-setting` → `{ allowSelfRegistration }` | `User.View` |
+| PATCH | `/api/users/registration-setting` `{ allowSelfRegistration }` (bật / tắt tự đăng ký lúc chạy, lưu ở `SystemSettings`, audit `REGISTRATION_POLICY_CHANGED`) | `User.Update` |
 | GET/POST | `/api/groups` | `Group.View` / `Group.Manage` |
 | GET/PUT | `/api/groups/{id}` | `Group.View` / `Group.Manage` |
+| DELETE | `/api/groups/{id}` → 204; xóa kèm thành viên và các dòng gán đề của nhóm (D-36) | `Group.Manage` |
 | PATCH | `/api/groups/{id}/status` | `Group.Manage` |
 | GET | `/api/groups/{id}/members` | `Group.View` |
 | POST | `/api/groups/{id}/members` `{ userIds }` | `Group.Manage` |
@@ -164,6 +173,7 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | GET | `/api/classes/{id}/students` | `Class.View` |
 | POST | `/api/classes/{id}/students` `{ userIds }` (chỉ role `STUDENT`, tối đa 500) | `Class.Manage` |
 | DELETE | `/api/classes/{id}/students/{userId}` | `Class.Manage` |
+| GET | `/api/classes/{id}/students/{userId}/progress` → `StudentClassProgressDto` (tiến độ làm các đề được gán cho lớp của một học viên) | `Class.View` |
 | GET | `/api/roles`, `/api/permissions` | `Role.View` |
 | POST/PUT | `/api/roles`, `/api/roles/{id}` | `Role.Manage` (không sửa được role `IsSystem`) |
 | PUT | `/api/roles/{id}/permissions` `{ permissionIds }` | `Role.Manage` |
@@ -174,12 +184,14 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | GET | `/api/question-categories` (có `isActive`, `parentId`, `rootOnly`, phân trang; DTO có `parentId`, `parentName`, `childCount`, `totalQuestionCount` — D-32) | `Category.View` |
 | GET/POST/PUT | `/api/question-categories[/{id}]` (POST/PUT nhận `parentId`; PUT bỏ trống `parentId` = chuyển thành chuyên đề gốc; lỗi `PARENT_INVALID`) | `Category.View` / `Category.Manage` |
 | PATCH | `/api/question-categories/{id}/status` | `Category.Manage` |
+| DELETE | `/api/question-categories/{id}?force=` → 204. Còn chuyên đề con → 409 `CATEGORY_HAS_CHILDREN`; còn câu hỏi / đề mà không có `force=true` → 409 `CATEGORY_HAS_QUESTIONS`; `force=true` xóa cả câu hỏi trực thuộc (`02` mục 10, D-36) | `Category.Manage` |
 | GET | `/api/questions` (lọc `categoryId`, `questionType`, `keyword`, `isActive`; sort `code`, `createdAt`, `updatedAt`) | `Question.View` |
 | GET | `/api/questions/{id}` | `Question.View` |
 | POST | `/api/questions` | `Question.Create` |
 | PUT | `/api/questions/{id}` (kèm `rowVersion`) | `Question.Update` |
 | PATCH | `/api/questions/{id}/status` | `Question.Update` |
 | POST | `/api/questions/{id}/clone` | `Question.Create` |
+| DELETE | `/api/questions/{id}?force=` → 204. Câu đang nằm trong version đề mà không có `force=true` → 409 `QUESTION_IN_USE`; `force=true` xóa câu, snapshot trong đề giữ nguyên (`02` mục 10, D-36) | `Question.Update` |
 | GET | `/api/questions/import/template` → file `.xlsx` | `Question.Create` |
 | POST | `/api/media` (multipart, trường `file`) → 201 `{ id, contentType, sizeBytes, url, markdown }`. PNG / JPEG / GIF / WebP nhận diện theo nội dung file, tối đa `Media:MaxBytes` (2 MB); cùng nội dung trả lại ảnh cũ. Lỗi 400 `MEDIA_FILE_REQUIRED` / `MEDIA_TOO_LARGE` / `MEDIA_TYPE_NOT_ALLOWED` | `Question.Create` |
 | GET | `/api/media/{id}?exp=&sig=` → file ảnh. URL do server ký (HMAC, hết hạn sau 6–12 giờ), không cần đăng nhập, không rate limit; sai chữ ký / hết hạn / không có → 404 `MEDIA_NOT_FOUND` | — |
@@ -188,7 +200,7 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | POST | `/api/questions/import-markdown/docx-for-ai` (multipart `file`, `.docx` ≤ 30 MB) → `DocxAiTextResult { text, formulas, unreadFormulas, pictures }`: chuyển đề Word thành văn bản cho AI đọc — chữ theo thứ tự, nhãn Word tự đánh ("Câu 13:") in ra, công thức MathType (OLE Equation.*) / công thức Word (OMML) đổi sang LaTeX `$…$` (không đọc được → `[?]`), bảng thành dòng `\| … \|`, hình thành `![hình](hinh-p<phần>-c<câu>.png)` đúng tên như `docx-images`. Giao diện dùng để tải `<tên>-cho-AI.md` và để đối chiếu công thức của file `.md` với file Word (`02` mục 1.5). Không lưu gì; file hỏng → 400 `IMPORT_FILE_INVALID` | `Question.Create` |
 | POST | `/api/questions/import?dryRun=` (multipart, trường `file`) → `QuestionImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, code, questionType, contentPreview, issues[{ field, code, message }] }] }`. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY` | `Question.Create` |
 
-Không có `DELETE` cho câu hỏi, danh mục và ảnh (D-16).
+Ảnh (`/api/media`) không có `DELETE` (D-16). Câu hỏi và chuyên đề có `DELETE` với cơ chế xác nhận `force` (D-36).
 
 **Ảnh trong nội dung (D-27):** nội dung Markdown chứa `![mô tả](media:<id>)`. Mọi DTO trả nội dung có thêm `media: { "<id>": "<url đã ký>" }`, chỉ gồm ảnh của các trường có trong DTO đó: `QuestionDetail`, `VersionDetail`, `ExamPreview`, `Attempt` (đề + lựa chọn), `StudentResult` (thêm giải thích khi `reviewAvailable`), `AdminAttemptDetail`, `ManualGradingItem`. Lưu câu hỏi có ảnh không tồn tại → 400 `MEDIA_NOT_FOUND`.
 
@@ -223,6 +235,8 @@ Ví dụ tạo câu hỏi:
 | POST | `/api/exams/{id}/clone` (**clone thành một đề mới**, lấy version mới nhất) | `Exam.Create` |
 | POST | `/api/exams/{id}/close` `{ forceSubmitInProgress }` | `Exam.Close` |
 | POST | `/api/exams/{id}/reopen` | `Exam.Close` |
+| PATCH | `/api/exams/{id}/review-policy` `{ reviewPolicy }` → `ExamDetail`. Đổi `ReviewPolicy` của **mọi version** của đề, kể cả đã publish (D-37) | `Exam.Update` |
+| GET | `/api/exams/{id}/preview` (xem trước version đang PUBLISHED của đề) | `Exam.View` |
 | GET | `/api/exams/{id}/versions` | `Exam.View` |
 | POST | `/api/exams/{id}/versions` `{ copyFromVersionId? }` (tạo version DRAFT mới) | `Exam.Update` |
 | GET | `/api/exams/{id}/versions/{versionId}` | `Exam.View` |
@@ -236,6 +250,8 @@ Ví dụ tạo câu hỏi:
 | POST | `/api/exams/{id}/versions/{versionId}/pool-rules` `{ categoryId?, difficulty?, tag?, questionType?, drawCount, scorePerQuestion }` → `VersionDetail` (có `poolRules[]`). Lỗi: `POOL_TOO_LARGE` | `Exam.Update` |
 | POST | `/api/exams/{id}/versions/{versionId}/pool-rules/{ruleId}/refresh` (snapshot lại câu ứng viên) | `Exam.Update` |
 | DELETE | `/api/exams/{id}/versions/{versionId}/pool-rules/{ruleId}` | `Exam.Update` |
+| GET | `/api/exams/{id}/versions/{versionId}/matrix-stats` (số câu đang có trong ngân hàng theo từng mức độ, theo bộ lọc chuyên đề / tag / loại câu — để nhập ma trận) | `Exam.View` |
+| POST | `/api/exams/{id}/versions/{versionId}/matrix-draw` (tạo đề theo ma trận: số câu mỗi mức `level1Count`…`level5Count`, theo chuyên đề / tag / loại câu, `mode` = bốc cố định ngay hoặc tạo quy tắc ngẫu nhiên; `02` mục 4.8). Chi tiết body: `MatrixDrawRequest` trong OpenAPI | `Exam.Update` |
 | GET | `/api/admin/exams/{examId}/manual-grading?status=PENDING\|GRADED\|ALL&examQuestionId=&page=` → câu tự luận cần / đã chấm | `Attempt.Grade` |
 | POST | `/api/admin/attempts/{attemptId}/questions/{attemptQuestionId}/manual-grade` `{ score, comment? }` → `{ totalScore, maxScore, percentage, passed, pendingManualCount }` | `Attempt.Grade` |
 | GET | `/api/exams/{id}/user-overrides?page=&pageSize=` | `Exam.View` | Học viên đang được cấp thêm lượt (`extraAttempts > 0`), mới nhất trước |
@@ -265,6 +281,7 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 ### 6.7 Học viên
 | Method | Route | Quyền |
 |---|---|---|
+| GET | `/api/student/categories` (chuyên đề đang hoạt động, tối đa 100, để lọc đề / video) | Student |
 | GET | `/api/student/classes` (lớp đang hoạt động của tôi, D-28) | Student |
 | GET | `/api/student/attendance/classes/{classId}/history?month=yyyy-MM` (điểm danh + điểm BTVN tháng của chính tôi, thứ hạng ĐTB trong lớp; lớp tôi không học → 404; không trả SĐT phụ huynh). Là trang mặc định của học viên sau khi đăng nhập | Student |
 | GET | `/api/student/exams` (`classroomId` tùy chọn: chỉ đề gán cho lớp đó, học viên phải thuộc lớp) | Student |
@@ -361,6 +378,7 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 | GET | `/api/videos/youtube-info?url=` → `YoutubeVideoInfo { videoId, title, authorName, thumbnailUrl }`: server hỏi YouTube oEmbed (chỉ dựng URL từ mã video 11 ký tự, nhớ 1 giờ, timeout 5 giây) để tự điền tiêu đề. Không phải link YouTube → 400 `INVALID_YOUTUBE_URL`; video riêng tư / đã xoá / không kết nối được YouTube → 422 `YOUTUBE_INFO_UNAVAILABLE` | `Video.Manage` |
 | DELETE | `/api/videos/{id}` | `Video.Manage` |
 | GET | `/api/student/videos` (bài đang bật: bài chung + bài gắn với bất kỳ lớp nào học viên tham gia) | Học viên |
+| GET | `/api/student/videos/{id}` (một bài giảng, cho trang xem toàn màn hình) | Học viên |
 
 `VideoLessonDto { id, title, videoUrl, documentUrl, youtubeVideoId, thumbnailUrl, description, categoryId, categoryName,
 classrooms: [{ id, code, name }], durationMinutes, displayOrder, isActive, createdAt, updatedAt, rowVersion }`
@@ -386,7 +404,7 @@ Mọi route cần `Attendance.Take`; lớp không do mình chủ nhiệm (và kh
 | Method | Route | Quyền |
 |---|---|---|
 | GET | `/health/live` | — (tiến trình còn sống) |
-| GET | `/health/ready` | — (kiểm tra SQL Server) |
+| GET | `/health/ready` | — (kiểm tra kết nối PostgreSQL) |
 | GET | `/health/alerts` | — (cảnh báo tối thiểu: `database`, `error-rate`, `attempt-backlog`, `expiration-worker`; 503 khi có lỗi; **Nginx chặn từ bên ngoài**, xem `09-van-hanh.md` mục 7.1) |
 | GET | `/openapi/v1.json`, `/swagger` | Chỉ ở Development / Staging |
 
@@ -418,7 +436,8 @@ ADMIN không thi thay học viên. Muốn thử đề thì dùng `preview`.
 - **D-13:** spec gốc lẫn lộn giữa `ApiResponse` và ProblemDetails; chốt dùng `ApiResponse` cho mọi response và thêm `traceId`.
 - **Thêm 429** vào bảng status, vì spec gốc có rate limit nhưng không có mã lỗi tương ứng.
 - **404 cho tài nguyên của người khác** thay vì 403, để không để lộ Id.
-- **`DELETE /api/questions/{id}` bị bỏ**, thay bằng `PATCH /status` (D-16).
+- **`DELETE /api/questions/{id}`** ban đầu bị bỏ (D-16), sau đó được thêm lại cùng `DELETE` chuyên đề và nhóm, có bước xác nhận `force` (D-36). `PATCH /status` vẫn là cách tắt câu hỏi mà không xóa.
+- **Danh sách endpoint ở mục 6 được đối chiếu với các controller** (11/2026). Hợp đồng chi tiết của từng request / response lấy từ OpenAPI (`/openapi/v1.json`, có ở môi trường không phải Production).
 - **`POST /api/exams/{id}/clone`** được chốt là clone thành đề mới. Tạo version mới dùng `POST /versions`.
 - **`/api/auth/refresh-token` đổi tên thành `/api/auth/refresh`.**
 - **Câu điền số gửi dạng chuỗi (`answerText`)**, không gửi JSON number, để server kiểm soát định dạng và giữ chuỗi gốc (D-12).

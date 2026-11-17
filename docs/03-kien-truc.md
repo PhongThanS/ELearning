@@ -6,17 +6,18 @@
 | Mục đích | Lựa chọn |
 |---|---|
 | Runtime | .NET 10, ASP.NET Core Web API (Controllers) |
-| ORM | EF Core 10 (SQL Server provider); Dapper cho báo cáo / truy vấn đọc phức tạp |
+| Database | PostgreSQL 17 (D-35) |
+| ORM | EF Core 10 (provider `Npgsql.EntityFrameworkCore.PostgreSQL`); Dapper cho báo cáo / truy vấn đọc phức tạp |
 | Validation | FluentValidation |
 | Xác thực | JWT Bearer (`Microsoft.AspNetCore.Authentication.JwtBearer`) + refresh token |
 | Mật khẩu | `Microsoft.AspNetCore.Identity.PasswordHasher<T>` (chỉ dùng hasher, không dùng toàn bộ Identity) |
 | Logging | Serilog (structured, xuất JSON) |
 | OpenAPI | `Microsoft.AspNetCore.OpenApi` để sinh tài liệu; `Swashbuckle.AspNetCore.SwaggerUI` để hiển thị, trỏ tới `/openapi/v1.json` |
 | Rate limit | `Microsoft.AspNetCore.RateLimiting` (có sẵn) |
-| Health check | `Microsoft.Extensions.Diagnostics.HealthChecks` + `AspNetCore.HealthChecks.SqlServer` |
+| Health check | `Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore` (`AddDbContextCheck`) |
 | Đồng hồ | `System.TimeProvider` (có sẵn trong .NET) |
-| Excel | `ClosedXML` (export kết quả) |
-| Kiểm thử | xUnit, AwesomeAssertions, NSubstitute, Testcontainers (MsSql), `Microsoft.AspNetCore.Mvc.Testing`, `Microsoft.Extensions.TimeProvider.Testing` |
+| Excel | `ClosedXML` (export kết quả, điểm danh; import câu hỏi, tài khoản) |
+| Kiểm thử | xUnit, AwesomeAssertions, NSubstitute, Testcontainers (PostgreSql), `Microsoft.AspNetCore.Mvc.Testing`, `Microsoft.Extensions.TimeProvider.Testing` |
 
 ### 1.2 Frontend
 | Mục đích | Lựa chọn |
@@ -28,7 +29,8 @@
 | Server state | TanStack Query |
 | Form | React Hook Form + Zod |
 | i18n | `react-i18next`, mặc định `vi` |
-| Markdown | `react-markdown` + `remark-gfm` (**không** dùng `rehype-raw`) |
+| Markdown | `react-markdown` + `remark-gfm` + `remark-math` / `rehype-katex` cho công thức LaTeX (**không** dùng `rehype-raw`) |
+| Lint | `oxlint` |
 | Ngày giờ | `Intl.DateTimeFormat` với `timeZone: 'Asia/Ho_Chi_Minh'` |
 | Kiểm thử | Vitest, React Testing Library, MSW, Playwright (E2E) |
 
@@ -57,20 +59,26 @@ ELearning/
 │   │   ├── ELearning.Domain/
 │   │   ├── ELearning.Infrastructure/
 │   │   └── ELearning.Shared/
-│   └── tests/
-│       ├── ELearning.UnitTests/
-│       ├── ELearning.IntegrationTests/
-│       └── ELearning.ApiTests/
+│   ├── tests/
+│   │   ├── ELearning.UnitTests/
+│   │   ├── ELearning.IntegrationTests/
+│   │   ├── ELearning.ApiTests/
+│   │   └── ELearning.TestSupport/   # Tạo database PostgreSQL tạm cho test
+│   └── Dockerfile                   # target api và migrator (EF migration bundle)
 ├── frontend/
-│   └── elearning-web/
-├── database/
-│   ├── scripts/                     # Script idempotent sinh từ migration
-│   └── seed/
+│   └── elearning-web/               # src/, e2e/ (Playwright), Dockerfile (build Vite → Nginx)
+├── deploy/
+│   ├── nginx/                       # Cấu hình Nginx (header bảo mật, proxy /api, TLS)
+│   ├── scripts/                     # backup / restore / monitor / demo-data
+│   ├── server/                      # Compose + script cập nhật cho máy chủ chỉ kéo image
+│   ├── monitor/                     # Dockerfile image giám sát
+│   └── sql/
 ├── load-tests/                      # Kịch bản k6
 ├── docs/
-├── docker/
-├── .github/workflows/
-├── docker-compose.yml
+├── .github/workflows/               # backend, frontend, docker, release
+├── docker-compose.yml               # Cả hệ thống build từ mã nguồn
+├── docker-compose.prod.yml          # Override HTTPS
+├── .env.example
 ├── README.md
 └── .gitignore
 ```
@@ -90,14 +98,19 @@ Chiều phụ thuộc: `Api → Application → Domain`, `Infrastructure → App
 ```text
 Application/
 ├── Auth/  Users/  Groups/  Roles/
-├── Categories/  Questions/
-├── Exams/            # Exam, ExamVersion, ExamQuestion, publish, regrade
-├── Attempts/         # start, save, submit, events, admin ops
+├── Classes/          # Lớp học (D-28)
+├── Attendance/       # Điểm danh & BTVN (D-31)
+├── Questions/        # Chuyên đề, câu hỏi, import Excel, nhập đề Markdown / Word (ExamMarkdown, DocxImageExtractor,
+│                     #   MathTypeLatex, OmmlLatex: chuyển công thức Word sang LaTeX)
+├── Exams/            # Exam, ExamVersion, câu hỏi trong version, pool ngẫu nhiên, publish
+├── Attempts/         # start, lưu đáp án, nộp, sự kiện, tự nộp (AttemptFinalizer, AttemptExpirationService)
 ├── Grading/
-├── Results/
-├── Reports/
+├── Admin/            # Thao tác trên lượt thi, kết quả, export, sửa đáp án / chấm lại, chấm tay, dashboard, audit log
+├── Media/            # Ảnh câu hỏi, ký URL (D-27)
+├── Videos/           # Kho video bài giảng
 ├── Monitoring/       # OperationalMetrics (meter ELearning), AlertRules, đếm lượt quá hạn (D-26)
-└── Audit/
+├── Audit/
+└── Common/           # Abstractions (IAppDbContext, ICurrentUser, IAttemptLock…), Options, Like (escape LIKE)
 ```
 
 ### 3.3 `ELearning.Domain`
@@ -113,13 +126,19 @@ Infrastructure/
 │   ├── Configurations/      # mỗi entity một IEntityTypeConfiguration
 │   ├── Converters/          # UtcDateTimeConverter, các enum converter
 │   ├── Migrations/
-│   └── Seed/
-├── Repositories/            # IExamRepository, IAttemptRepository, ...
-├── Queries/                 # Dapper: IExamReportQuery, IDashboardQuery
-├── Security/                # JwtTokenService, RefreshTokenService, PasswordHasher
+│   ├── Seed/
+│   ├── AttemptLock.cs       # IAttemptLock: SELECT … FOR UPDATE, nhận biết lỗi trùng khóa
+│   └── CodeGenerator.cs     # Mã câu hỏi từ sequence / theo chuyên đề
+├── Queries/                 # Dapper: ReportQuery (dashboard, thống kê câu hỏi)
+├── Security/                # TokenService, PasswordHasher, UserAccessService (cache quyền)
+├── Services/                # RegistrationSettingService (bật / tắt tự đăng ký)
+├── Media/                   # FileSystemMediaStore
+├── Videos/                  # YoutubeOEmbedClient
 ├── BackgroundJobs/          # AttemptExpirationWorker, MonitoringSnapshotWorker
-└── Excel/                   # ResultExporter
+└── Excel/                   # ResultExporter, AttendanceExporter, workbook import câu hỏi / tài khoản
 ```
+Không có thư mục `Repositories/`: service dùng `IAppDbContext` trực tiếp (D-23); thao tác cần SQL riêng nằm sau interface nhỏ (`IAttemptLock`, `ICodeGenerator`, `IReportQuery`).
+
 Không viết hàng trăm lệnh `.Has...()` trong `OnModelCreating`; dùng `ApplyConfigurationsFromAssembly`.
 
 ### 3.5 `ELearning.Shared`
@@ -141,6 +160,11 @@ Không viết hàng trăm lệnh `.Has...()` trong `OnModelCreating`; dùng `App
 | `IGradingService` | Tải dữ liệu chấm, chấm từng câu, tính tổng | Biết về HTTP, JWT, UI |
 | `IResultService` | Lưu kết quả, lịch sử điểm, áp chính sách hiển thị, export | |
 | `IAuditService` | Ghi audit trong cùng transaction với thao tác | |
+| `IClassroomService`, `IAttendanceService` | Lớp học; điểm danh & BTVN theo buổi (D-28, D-31) | |
+| `IMediaService`, `IVideoService` | Ảnh câu hỏi (D-27); kho video bài giảng | |
+| `IQuestionImportService`, `IExamMarkdownImportService`, `IUserImportService` | Import câu hỏi / đề / tài khoản từ file | Bỏ qua validator của chức năng tạo lẻ |
+
+Tên trong bảng là vai trò; tên interface thực tế có thể khác đôi chút (ví dụ `ICategoryService`, `IAdminAttemptService`, `IResultAdminService`). Xem `Application/DependencyInjection.cs` để có danh sách đăng ký đầy đủ.
 
 ## 5. Grading engine
 
@@ -190,7 +214,7 @@ public async Task<Result<StudentResultDto>> SubmitAsync(Guid attemptId, Guid use
     {
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        var attempt = await _attempts.GetForUpdateAsync(attemptId, ct);   // UPDLOCK, ROWLOCK
+        var attempt = await _attempts.GetForUpdateAsync(attemptId, ct);   // SELECT … FOR UPDATE (IAttemptLock)
         if (attempt is null || attempt.UserId != userId)
             return Result.NotFound<StudentResultDto>(ErrorCodes.AttemptNotFound);
 
@@ -216,20 +240,24 @@ Chi tiết có thể khác, nhưng bốn nguyên tắc phải giữ: transaction
 
 ```text
 src/
-├── app/            App.tsx, routes.tsx, providers/ (QueryClient, Auth, I18n)
-├── components/     common/, form/, table/, modal/, feedback/, markdown/
-├── layouts/        AdminLayout.tsx, StudentLayout.tsx, PublicLayout.tsx
+├── app/            App.tsx, routes.tsx, pageLoaders.ts (tách bundle theo trang), chunkReload.ts
+├── components/common/   DataTable, Feedback, MarkdownView, MediaUrls, SearchableSelect, MultiSearchableSelect, toast
+├── layouts/        Layouts.tsx (AdminLayout, StudentLayout, PlayerLayout, PublicLayout)
 ├── features/
-│   ├── auth/  users/  groups/  roles/
-│   ├── categories/  question-bank/
-│   ├── exams/            # builder, versions, publish, assignments, regrade
-│   ├── attempts/         # exam player
-│   ├── results/  reports/  audit/
-├── pages/
-├── services/       apiClient.ts + <feature>Api.ts
-├── hooks/  types/  utils/  constants/
-└── i18n/           vi.json, en.json
+│   ├── auth/             # AuthContext, guards (RequireAuth, RequirePermission, RequireStudent), trang đăng nhập / hồ sơ
+│   ├── admin/            # IdentityPages (người dùng, nhóm, vai trò), ClassPages, DashboardPage, UserImportDialog
+│   ├── questions/        # Chuyên đề, câu hỏi, import Excel, nhập đề Markdown / Word
+│   ├── exams/            # Danh sách / chi tiết đề, VersionBuilderPage, pool ngẫu nhiên, kết quả, chấm tay, audit log
+│   ├── attempts/         # ExamPlayerPage (+ playerState, playerHooks), các trang của học viên
+│   ├── attendance/       # Điểm danh (giáo viên) và lịch sử điểm danh (học viên)
+│   └── videos/           # Kho video bài giảng, trang xem
+├── services/       apiClient.ts (instance Axios duy nhất), api.ts (mọi lời gọi API theo nhóm)
+├── types/api.ts    Kiểu DTO viết tay, phải giữ khớp với backend
+├── hooks/  utils/  constants/
+├── i18n/           index.ts, vi.json
+└── theme.scss, styles*.css
 ```
+Mỗi file `*Pages.tsx` xuất nhiều trang của cùng một khu chức năng; `routes.tsx` tải chúng bằng `React.lazy` qua `pageLoaders`.
 
 - **Server state:** TanStack Query cho mọi dữ liệu từ API. Không copy dữ liệu API vào global store.
 - **State của exam player:** `useReducer` cục bộ (xem `06-frontend.md`).
@@ -251,7 +279,9 @@ MVP dùng `IMemoryCache` (chạy một instance). Khi scale nhiều instance ph�
 
 ## 9. Quyết định / Giả định
 
-- **(M2) D-23 — `IAppDbContext`:** application service làm việc trực tiếp với `DbSet` qua interface `IAppDbContext` (khai báo ở Application, `ELearningDbContext` implement). Vì vậy Application tham chiếu gói `Microsoft.EntityFrameworkCore`, nhưng không tham chiếu SQL Server provider. Repository chuyên biệt chỉ dùng cho thao tác cần SQL riêng (khóa dòng `UPDLOCK`, báo cáo Dapper).
+- **(M2) D-23 — `IAppDbContext`:** application service làm việc trực tiếp với `DbSet` qua interface `IAppDbContext` (khai báo ở Application, `ELearningDbContext` implement). Vì vậy Application tham chiếu gói `Microsoft.EntityFrameworkCore`. Interface chuyên biệt chỉ dùng cho thao tác cần SQL riêng (khóa dòng `FOR UPDATE`, sequence, báo cáo Dapper).
+- **(D-35) Application tham chiếu cả gói Npgsql** (`Npgsql.EntityFrameworkCore.PostgreSQL`) để gọi `EF.Functions.ILike` trong các truy vấn tìm kiếm (khoảng 12 service). Đây là chỗ tầng Application phụ thuộc provider; nếu muốn bỏ, gom `ILike` sau một helper ở Infrastructure. `GlobalExceptionHandler` (Api) cũng tham chiếu `PostgresException` để nhận lỗi trùng khóa.
+- **Cấu trúc thư mục ở mục 2, 3 và 7 mô tả code hiện tại**, không phải cấu trúc dự kiến ban đầu (đã bỏ `database/`, `docker/`, `Repositories/`, `Results/`, `Reports/`, `pages/`).
 - **(M2) Kiểm tra quyền:** `AccessAuthorizationHandler` đọc ảnh chụp quyền đã cache (`IUserAccessService`), không đọc role trong token. JwtBearer `OnTokenValidated` kiểm tra `IsActive` và `SecurityStamp`.
 
 - **D-19:** MediatR, AutoMapper và FluentAssertions v8+ bị loại vì license. Spec gốc chỉ ghi FluentAssertions; đổi sang AwesomeAssertions (API tương thích).

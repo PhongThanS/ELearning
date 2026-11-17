@@ -2,7 +2,7 @@
 
 ## 1. Loại câu hỏi
 
-MVP có đúng 4 loại. Mọi loại dùng chung một bảng; không tạo bảng riêng cho từng loại.
+Có 5 loại: 4 loại của MVP và `ESSAY` (tự luận, chấm tay — mục 2.3) thêm sau. Mọi loại dùng chung một bảng; không tạo bảng riêng cho từng loại.
 
 | `QuestionType` | Mô tả | Lưu đáp án đúng |
 |---|---|---|
@@ -10,6 +10,7 @@ MVP có đúng 4 loại. Mọi loại dùng chung một bảng; không tạo b�
 | `MULTIPLE_CHOICE` | Chọn nhiều | `IsCorrect` trên option |
 | `TRUE_FALSE` | Đúng / Sai | `IsCorrect` trên option |
 | `FILL_IN` | Điền đáp án | `AcceptedAnswers` (TEXT) hoặc `CorrectAnswerNumber` (NUMBER) |
+| `ESSAY` | Tự luận | Không có đáp án; `Explanation` là đáp án mẫu / hướng dẫn chấm |
 
 Với `FILL_IN`, trường `AnswerDataType` nhận `TEXT` hoặc `NUMBER`.
 
@@ -188,7 +189,7 @@ Publish không cho phép `MaxScore = 0`, nên phép chia luôn hợp lệ.
 
 ### 2.3 Câu tự luận và chấm tay (sau MVP, đã làm)
 
-- `ESSAY`: không có lựa chọn / đáp án chấp nhận; phần **Giải thích** dùng làm đáp án mẫu / hướng dẫn chấm. Bài làm tối đa 20.000 ký tự (`AttemptAnswers.AnswerText` là `NVARCHAR(MAX)`).
+- `ESSAY`: không có lựa chọn / đáp án chấp nhận; phần **Giải thích** dùng làm đáp án mẫu / hướng dẫn chấm. Bài làm tối đa 20.000 ký tự (`AttemptAnswers.AnswerText` kiểu `text`).
 - Khi nộp: câu tự luận bỏ trống → 0 điểm; có trả lời → **chờ chấm tay**, tạm tính 0 điểm. `ExamResults.PendingManualCount` = số câu chờ chấm; khác 0 thì `Passed = null`.
 - Người có quyền `Attempt.Grade` chấm từng bài: điểm từ 0 đến điểm tối đa của câu, bội số 0,25, kèm nhận xét (tối đa 2000 ký tự). Chấm trong transaction có khóa dòng lượt thi (D-21), sau đó **chấm lại cả lượt thi từ snapshot** và cập nhật `ExamResults`; ghi audit `ANSWER_MANUALLY_GRADED` (điểm cũ → mới). Chấm lại một câu đã chấm được phép (sửa điểm), cũng có audit.
 - Điểm chấm tay lưu ở `AttemptAnswers.ManualScore`, không bị mất khi chấm lại tự động (sửa đáp án câu khác, D-11). Câu tự luận **không sửa đáp án được**, chỉ **hủy câu** (mọi người được điểm tối đa).
@@ -259,7 +260,7 @@ Mỗi câu `FILL_IN` + `TEXT` có từ 1 đến 20 đáp án chấp nhận (bả
 DRAFT ──publish──► PUBLISHED ──(publish version mới)──► ARCHIVED
 ```
 
-- Mỗi đề có **tối đa 1 version DRAFT** và **tối đa 1 version PUBLISHED**, được enforce bằng filtered unique index.
+- Mỗi đề có **tối đa 1 version DRAFT** và **tối đa 1 version PUBLISHED**, được enforce bằng unique index có điều kiện (partial index).
 - Tạo version mới: `POST /api/exams/{id}/versions`, copy câu hỏi, điểm và cấu hình từ version PUBLISHED hiện tại (hoặc tạo trống).
 - Publish version N:
   - Version PUBLISHED cũ chuyển sang `ARCHIVED`.
@@ -273,7 +274,7 @@ DRAFT ──publish──► PUBLISHED ──(publish version mới)──► AR
 - Khi còn DRAFT:
   - Sửa được điểm và thứ tự.
   - Xóa được câu.
-  - Không thêm trùng một câu hỏi nguồn (filtered unique index).
+  - Không thêm trùng một câu hỏi nguồn (unique index có điều kiện).
 - Nếu câu hỏi trong ngân hàng thay đổi sau khi được thêm (so sánh `RowVersion`): UI hiển thị cảnh báo "Câu hỏi gốc đã thay đổi". Admin có thể chạy "Đồng bộ từ ngân hàng" cho từng câu hoặc toàn bộ.
 - Khi publish, `ExamQuestions` bị khóa. **Publish không tự động đồng bộ**: admin publish đúng những gì đang thấy trong preview.
 - **Chuyên đề của đề (D-30):** đề có thể gắn một chuyên đề (chọn khi tạo / sửa đề, hoặc theo danh mục khi nhập đề từ file
@@ -368,10 +369,12 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 - **Lịch sử tháng của học sinh:** mỗi buổi của lớp trong tháng một dòng; **ĐTB tháng** = trung bình điểm BTVN các buổi có điểm; **xếp hạng** trong lớp theo ĐTB tháng (bằng điểm thì cùng hạng; học sinh không có điểm nào không xếp hạng).
 - **Xuất Excel:** sheet buổi đang xem + sheet tổng hợp tháng (mỗi ô `C/M/P/K` / điểm).
 - **Báo cáo Zalo phụ huynh** (chi tiết / ngắn gọn, tuyên dương BTVN ≥ 8,5 hoặc Xuất sắc) và tổng kết tháng được soạn ở trình duyệt để giáo viên sao chép; hệ thống không gửi tin.
-- Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
-- Tự đăng ký được điều khiển bằng `Auth:AllowSelfRegistration`: mặc định `true` ở Development, `false` ở Production.
 
-### 5.2 Import tài khoản từ Excel
+**Quy tắc chung của quyền dự thi (mục 5):**
+- Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
+- Tự đăng ký: giá trị khởi đầu lấy từ cấu hình `Auth:AllowSelfRegistration` (`true` ở Development, `false` ở Production). Admin bật / tắt được lúc chạy ở trang Người dùng (`PATCH /api/users/registration-setting`); giá trị này lưu ở `SystemSettings` và **thắng cấu hình**, có audit `REGISTRATION_POLICY_CHANGED`.
+
+### 5.3 Import tài khoản từ Excel
 
 - File `.xlsx` (≤ 5 MB, tối đa **500** tài khoản): dòng đầu tiên có dữ liệu là tiêu đề, mỗi dòng bên dưới là một tài khoản.
   Cột nhận theo tiêu đề (không phân biệt hoa thường), thứ tự cột tùy ý. File mẫu có sheet `TaiKhoan`, `HuongDan`,
@@ -417,7 +420,7 @@ IN_PROGRESS ──submit──────────────────�
 - `MaxAttempts` nằm trong khoảng 1–50. MVP **không có** "không giới hạn".
 - Số lượt đã dùng = số lượt có trạng thái **khác** `CANCELLED`. Vì vậy admin hủy một lượt tương đương với trả lại lượt đó cho học viên.
 - Admin cấp thêm lượt cho từng người qua bảng `ExamUserOverrides.ExtraAttempts`.
-- Mỗi `(UserId, ExamId)` có **tối đa 1 lượt `IN_PROGRESS`**, được enforce bằng filtered unique index.
+- Mỗi `(UserId, ExamId)` có **tối đa 1 lượt `IN_PROGRESS`**, được enforce bằng unique index có điều kiện (partial index).
 - Gọi `start` khi đã có lượt đang làm → trả về lượt đó (HTTP 200, `resumed: true`) thay vì tạo mới. UI hiển thị nút "Tiếp tục bài đang làm".
 
 ### 6.4 Các bước start (một transaction)
@@ -457,12 +460,12 @@ Trước khi start, UI cảnh báo khi thời gian thực tế sẽ ít hơn `Du
   - Định dạng câu trả lời khớp loại câu hỏi.
 - **Thứ tự ghi (D-18):** mỗi lần ghi mang theo `clientSeq`, một số tăng dần do client sinh ra. Server chỉ áp dụng khi `clientSeq > AttemptAnswers.ClientSeq`; nếu không thì bỏ qua (`applied: false`). Điều này chống việc request cũ đến sau ghi đè request mới, và chống xung đột khi mở hai tab. `clientSeq` **chỉ dùng để sắp thứ tự**, không mang ý nghĩa thời gian.
 - Lưu `IsMarkedForReview` cùng câu trả lời.
-- Lưu đáp án và nộp bài **khóa dòng attempt** (`UPDLOCK`, D-21), nên hai thao tác này không chạy chen nhau.
+- Lưu đáp án và nộp bài **khóa dòng attempt** (`SELECT … FOR UPDATE` qua `IAttemptLock`, D-21), nên hai thao tác này không chạy chen nhau.
 
 ### 6.7 Nộp bài (idempotent)
 
 Trong một transaction:
-1. Khóa dòng attempt bằng `UPDLOCK, ROWLOCK`; kiểm tra quyền sở hữu.
+1. Khóa dòng attempt bằng `SELECT … FOR UPDATE`; kiểm tra quyền sở hữu.
 2. Nếu trạng thái khác `IN_PROGRESS` → trả về kết quả đã có. Không chấm lại, không báo lỗi.
 3. Nếu `now > ExpiredAt + grace` → trạng thái `AUTO_SUBMITTED` / `TIME_EXPIRED`; ngược lại là `SUBMITTED` / `STUDENT`.
 4. Chấm từng câu, lưu `IsCorrect`, `Score`, `GradedAt` vào `AttemptAnswers`.
@@ -492,6 +495,7 @@ Trong một transaction:
 
 **Quy tắc:**
 - Xem lại bài luôn kèm điểm. Nếu `ReviewPolicy` cho phép nhưng `ScoreVisibility` chưa cho phép, thì phải chờ cả hai.
+- **Mở xem lại sau khi thi (D-37):** `PATCH /api/exams/{id}/review-policy` đổi `ReviewPolicy` cho mọi version của đề, kể cả version đã publish (quyền `Exam.Update`, audit `EXAM_UPDATED`). Thao tác này không chạy lại các kiểm tra chéo lúc publish (ví dụ `AFTER_SUBMIT` với nhiều lượt), nên người đổi tự chịu trách nhiệm về thời điểm mở.
 - Trong khi lượt thi còn `IN_PROGRESS`, **không bao giờ** trả về: `IsCorrect`, đáp án chấp nhận, `CorrectAnswerNumber`, `NumericTolerance`, `Explanation`, điểm từng câu.
 - Admin luôn thấy đầy đủ.
 
@@ -527,13 +531,21 @@ Trong một transaction:
 
 Mọi thao tác đều yêu cầu lý do và ghi audit.
 
-## 10. Xóa dữ liệu (D-16)
+## 10. Xóa dữ liệu (D-16, D-36)
 
-- Câu hỏi, danh mục, người dùng, nhóm: **không xóa cứng**. Dùng `IsActive` (bật/tắt). Không có endpoint `DELETE` cho các đối tượng này.
-- Đề thi: xóa cứng được **chỉ khi chưa từng publish**. Sau đó chỉ đóng được.
-- Không bao giờ xóa: lượt thi, câu trả lời, kết quả, snapshot.
-- `Code` (câu hỏi, danh mục, đề) không bao giờ được dùng lại.
-- Khi user yêu cầu xóa dữ liệu cá nhân: **ẩn danh hóa** (xem `07-bao-mat.md`), giữ nguyên lượt thi.
+- **Không bao giờ xóa:** lượt thi, câu trả lời, kết quả, snapshot của version đã publish, ảnh (`MediaFiles`), audit log, người dùng.
+- **Người dùng:** tắt bằng `IsActive`. Khi user yêu cầu xóa dữ liệu cá nhân: **ẩn danh hóa** (xem `07-bao-mat.md`), giữ nguyên lượt thi.
+- **Đề thi:** xóa cứng được **chỉ khi chưa từng publish** (đã publish → 409 `EXAM_NOT_DRAFT`). Sau đó chỉ đóng được.
+- **Câu hỏi:** cách thường dùng là bật / tắt. Xóa cứng được qua `DELETE /api/questions/{id}` (quyền `Question.Update`):
+  - Câu đang nằm trong version của đề nào đó → 409 `QUESTION_IN_USE` kèm tên đề; gọi lại với `?force=true` mới xóa.
+  - Snapshot trong đề **giữ nguyên nội dung và đáp án**, chỉ mất liên kết về câu gốc (`ExamQuestions.SourceQuestionId = NULL`). Chấm điểm và xem lại bài không đổi (D-01).
+- **Chuyên đề:** xóa cứng được qua `DELETE /api/question-categories/{id}` (quyền `Category.Manage`):
+  - Còn chuyên đề con → 409 `CATEGORY_HAS_CHILDREN` (không có `force`; phải xóa hoặc chuyển chuyên đề con trước).
+  - Còn câu hỏi hoặc đề thuộc chuyên đề → 409 `CATEGORY_HAS_QUESTIONS`; gọi lại với `?force=true` thì **xóa luôn mọi câu hỏi trực thuộc** (theo quy tắc xóa câu hỏi ở trên), còn đề thi và quy tắc ngẫu nhiên chỉ mất chuyên đề (D-30).
+- **Nhóm người dùng:** xóa cứng được qua `DELETE /api/groups/{id}`, xóa kèm thành viên và các dòng gán đề của nhóm. Học viên chỉ thấy đề nhờ nhóm này sẽ không còn thấy đề; lượt thi đã có giữ nguyên.
+- **Lớp học, video bài giảng:** xem mục 5.1 và `04a` mục 3.2.
+- Mọi thao tác xóa đều ghi audit kèm mã và tên của thứ bị xóa (`QUESTION_DELETED`, `CATEGORY_DELETED`, `GROUP_DELETED`, `CLASSROOM_DELETED`, `EXAM_DELETED`).
+- `Code` là duy nhất trong các bản ghi đang tồn tại. Mã của câu hỏi / chuyên đề / nhóm đã xóa có thể được dùng lại.
 
 ## 11. Quyết định / Giả định
 

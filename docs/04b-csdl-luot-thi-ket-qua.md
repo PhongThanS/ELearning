@@ -1,6 +1,6 @@
 # 04b — Cơ sở dữ liệu (phần 2): lượt thi, kết quả, audit, index
 
-Quy ước chung xem `04a-csdl-danh-muc-de-thi.md` mục 1.
+Quy ước chung xem `04a-csdl-danh-muc-de-thi.md` mục 1. Database là **PostgreSQL**; các khối DDL dưới đây còn viết theo ký hiệu SQL Server, đọc kiểu dữ liệu theo bảng quy đổi ở `04a` mục 1 (`UNIQUEIDENTIFIER` = `uuid`, `DATETIME2(3)` = `timestamptz`, `BIT` = `boolean`, `ROWVERSION` = `bytea` do ứng dụng ghi, không có `DEFAULT` trong DB…).
 
 ## 1. Lượt thi
 
@@ -163,6 +163,8 @@ FROM (
 WHERE r.rn = 1;
 ```
 
+(Câu lệnh trên là minh họa logic; khi chạy trên PostgreSQL phải nháy kép tên bảng / cột. Trong code, điểm chính thức được tính bằng LINQ ở `ResultAdminService` và `AttemptService`.)
+
 Với `LATEST`, biểu thức `CASE` trả về NULL nên thứ tự chỉ còn theo `SubmittedAt DESC`. Với `HIGHEST`, nếu hai lượt bằng điểm thì lấy lượt nộp sau.
 
 ## 3. Audit log
@@ -246,7 +248,7 @@ Index: `UQ_AttendanceRecords_Session_Student` UNIQUE, `IX_AttendanceRecords_Stud
 - `IX_AttemptQuestions_Attempt`
 - `IX_AttemptAnswers_Question`
 
-Cũng bỏ `IX_ExamAttempts_Status` (độ chọn lọc thấp), thay bằng filtered index. EF Core sẽ không tạo thêm index cho FK khi đã có index bắt đầu bằng cột đó.
+Cũng bỏ `IX_ExamAttempts_Status` (độ chọn lọc thấp), thay bằng partial index (`WHERE "Status" = 'IN_PROGRESS'`). EF Core sẽ không tạo thêm index cho FK khi đã có index bắt đầu bằng cột đó.
 
 ## 5. Sơ đồ quan hệ
 

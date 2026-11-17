@@ -23,8 +23,20 @@ Bộ tài liệu này thay thế `ELearning_Design_Spec_VI.md` (v1.0). Nội dun
 | `07-bao-mat.md` | Xác thực, token, mật khẩu, phân quyền, rate limit, chống lộ đáp án, chống gian lận, dữ liệu cá nhân |
 | `08-kiem-thu.md` | Unit, integration, API, frontend, E2E, load test, các ca bắt buộc |
 | `09-van-hanh.md` | Cấu hình, môi trường, triển khai, migration, backup, giám sát, CI/CD |
-| `10-bay-ky-thuat.md` | Các lỗi kỹ thuật cụ thể (.NET / EF Core / SQL Server / JS) phải tránh, kèm cách làm đúng |
+| `10-bay-ky-thuat.md` | Các lỗi kỹ thuật cụ thể (.NET / EF Core / PostgreSQL / JS) phải tránh, kèm cách làm đúng |
 | `11-quy-trinh-phat-trien.md` | Quy tắc cho AI agent, mẫu giao việc, milestone, Definition of Done, checklist cuối |
+
+Tài liệu khác trong `docs/` (không thuộc bộ đặc tả, chỉ để tham khảo):
+
+| File | Nội dung |
+|---|---|
+| `HUONG_DAN_SU_DUNG_ELEARNING.md` / `.docx` | Hướng dẫn sử dụng cho người dùng cuối |
+| `tinh-nang-kho-video-bai-giang.md`, `dong-bo-du-lieu-chuyen-de-va-lop-hoc-cho-video.md` | Ghi chú thiết kế kho video bài giảng |
+| `CAP_NHAT_HE_THONG.md` | Nhật ký một đợt cập nhật (10/2026), gồm việc chuyển sang PostgreSQL |
+| `../deploy/server/README.md` | Hướng dẫn cài và cập nhật máy chủ bằng image dựng sẵn |
+| `../load-tests/README.md` | Cách chạy load test k6 |
+
+**Hệ quản trị CSDL là PostgreSQL 17 (D-35).** Bản thiết kế đầu dùng SQL Server; nơi nào trong tài liệu còn ký hiệu SQL Server (chủ yếu là DDL ở `04a` / `04b`) thì đọc theo bảng quy đổi ở `04a` mục 1.
 
 ## Góp ý nào được áp dụng vào file nào
 
@@ -74,12 +86,12 @@ Chi tiết và lý do nằm ở file được ghi trong ngoặc.
 | D-13 | Mọi response dùng wrapper `ApiResponse`; bảng ánh xạ HTTP status cố định (`05`) |
 | D-14 | Phân quyền theo permission, tra ở server có cache, không nhét permission vào JWT (`07`) |
 | D-15 | Access token giữ trong bộ nhớ; refresh token ở cookie HttpOnly, `SameSite=Strict`; xoay vòng và phát hiện dùng lại (`07`) |
-| D-16 | Không xóa cứng câu hỏi / danh mục / user (dùng bật-tắt); chỉ xóa được đề chưa từng publish; user bị xóa thì ẩn danh hóa (`02`, `07`) |
+| D-16 | Không bao giờ xóa lượt thi, câu trả lời, kết quả, snapshot, ảnh; user không xóa mà ẩn danh hóa; đề chỉ xóa được khi chưa từng publish. Câu hỏi / chuyên đề / nhóm ban đầu cũng không xóa cứng — phần này đã được nới bằng D-36 (`02`, `07`) |
 | D-17 | Nội dung câu hỏi hỗ trợ Markdown giới hạn (có code block), không cho HTML thô (`02`, `06`) |
 | D-18 | Autosave dùng `clientSeq`, lưu cờ "đánh dấu xem lại", có batch save, backup trong `sessionStorage` (`06`) |
 | D-19 | Không dùng MediatR / AutoMapper; dùng AwesomeAssertions thay FluentAssertions v8 (`03`) |
 | D-20 | `ExamResults` là nguồn điểm duy nhất; `ExamAttempts` không lưu điểm (`04a`/`04b`) |
-| D-21 | Lưu đáp án và nộp bài đều khóa dòng attempt bằng `UPDLOCK` trong transaction (`04a`/`04b`, `10`) |
+| D-21 | Lưu đáp án và nộp bài đều khóa dòng attempt trong transaction (`SELECT … FOR UPDATE` qua `IAttemptLock`) (`04a`/`04b`, `10`) |
 | D-22 | Nhóm người dùng và gán đề nằm trong MVP (`01`, `02`) |
 | D-23 | Application service dùng trực tiếp `IAppDbContext` (DbSet); repository riêng chỉ cho thao tác đặc biệt như khóa dòng. Application tham chiếu gói `Microsoft.EntityFrameworkCore` (`03`) |
 | D-24 | Dùng lại refresh token vừa xoay vòng trong 30 giây được coi là hai tab refresh song song, không thu hồi cả chuỗi (`07`) |
@@ -93,3 +105,6 @@ Chi tiết và lý do nằm ở file được ghi trong ngoặc.
 | D-32 | **Chuyên đề 2 cấp** (`QuestionCategories.ParentId`): chuyên đề gốc có hoặc không có chuyên đề con; chuyên đề con không có con, cha phải là chuyên đề gốc, chuyên đề đang có con không làm con được. Chuyên đề có con chỉ để gom nhóm: không chứa câu hỏi (thêm / sửa / import câu vào đó → `CATEGORY_HAS_CHILDREN`), chuyên đề đang có câu không nhận chuyên đề con (`PARENT_HAS_QUESTIONS`); đề thi vẫn gắn được chuyên đề cha. "Thuộc chuyên đề X" = thuộc X hoặc chuyên đề con của X: lọc câu hỏi / đề / video, quy tắc ngẫu nhiên, ma trận và kiểm tra D-30 đều tính cả chuyên đề con. Chuyên đề còn chuyên đề con không xóa được (`CATEGORY_HAS_CHILDREN`) (`04a`, `05`) |
 | D-33 | **Loại đề** (`Exams.Kind`): `GRADED` đề tính điểm (giữ nguyên lượt thi, thời lượng, lịch) và `PRACTICE` đề luyện: làm lại không giới hạn (bỏ qua `MaxAttempts` và lượt cấp thêm, API học viên trả `maxAttempts = 0`), không tính giờ (`ExpiredAt` như thời lượng 0: chỉ bị chặn bởi thời điểm đóng đề, API trả `durationMinutes = 0`), được phép "xem lại ngay sau khi nộp" dù làm nhiều lượt. Lịch mở / đóng đề, quyền dự thi, chấm điểm giữ nguyên (`04a`, `05`) |
 | D-34 | **Một lần đăng nhập tối đa `Jwt:SessionMaxHours` giờ (mặc định 12)**, tính từ lúc nhập mật khẩu: refresh token xoay vòng giữ nguyên mốc hết hạn của lần đăng nhập (không gia hạn trượt), hết mốc thì `POST /api/auth/refresh` trả `TOKEN_INVALID` và phải đăng nhập lại. `RefreshTokenDays` vẫn là trần; `SessionMaxHours = 0` = gia hạn trượt như trước (`07`, `09`) |
+| D-35 | **PostgreSQL 17 thay SQL Server** (commit `9dbd1e5`, 09/10/2026; migration bắt đầu lại từ `InitialPostgreSql`). Provider Npgsql; `timestamptz`; `RowVersion` là `bytea` do ứng dụng ghi; khóa dòng bằng `SELECT … FOR UPDATE`; trùng khóa nhận biết qua SQLSTATE `23505`; tìm kiếm bằng `ILIKE`; mã câu hỏi từ `nextval` và `pg_advisory_xact_lock`. Test chạy trên PostgreSQL thật (`ELEARNING_TEST_POSTGRES` hoặc Testcontainers). Tầng Application tham chiếu gói Npgsql để dùng `EF.Functions.ILike` (nới D-23). **Chưa chuyển xong:** script backup / khôi phục và tài khoản DB quyền tối thiểu (`09` mục 6, 10) (`03`, `04a`, `08`, `09`, `10`) |
+| D-36 | **Hiện trạng code — xóa cứng trong ngân hàng và danh mục** (nới D-16): `DELETE /api/questions/{id}` và `DELETE /api/question-categories/{id}` xóa cứng; đang được dùng thì trả 409 (`QUESTION_IN_USE`, `CATEGORY_HAS_QUESTIONS`) và chỉ xóa khi gọi lại với `?force=true`. Snapshot trong `ExamQuestions` giữ nguyên nội dung, chỉ mất liên kết `SourceQuestionId`; đề chỉ mất chuyên đề. `DELETE /api/groups/{id}` xóa nhóm kèm thành viên và các dòng gán đề của nhóm. Đều có audit (`QUESTION_DELETED`, `CATEGORY_DELETED`, `GROUP_DELETED`). Lượt thi, kết quả, snapshot, user, ảnh vẫn không bao giờ bị xóa (`02` mục 10, `05`) |
+| D-37 | **Hiện trạng code — đổi `ReviewPolicy` sau khi publish:** `PATCH /api/exams/{id}/review-policy` đặt `ReviewPolicy` cho mọi version của đề (kể cả PUBLISHED / ARCHIVED) để mở xem lại bài sau khi thi; không qua các kiểm tra chéo của publish, audit `EXAM_UPDATED`. Là ngoại lệ thứ hai của nguyên tắc version bất biến, bên cạnh D-11; không ảnh hưởng điểm (`02` mục 7, `04a`, `05`) |

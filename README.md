@@ -1,6 +1,6 @@
 # ELearning
 
-Nền tảng thi trực tuyến: .NET 10 Web API + EF Core 10 + SQL Server, frontend React + TypeScript + Vite.
+Nền tảng thi trực tuyến: .NET 10 Web API + EF Core 10 + PostgreSQL 17, frontend React + TypeScript + Vite.
 
 Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho AI agent nằm ở [`CLAUDE.md`](CLAUDE.md).
 
@@ -17,13 +17,15 @@ Thiết kế đầy đủ nằm ở [`docs/`](docs/00-muc-luc.md). Quy tắc cho
 | M8 | Vận hành admin: gia hạn / buộc nộp / hủy lượt, sửa đáp án / hủy câu + chấm lại, kết quả + export Excel, dashboard, thống kê câu hỏi, audit log | Xong |
 | M7 | Frontend React: đăng nhập, khu vực admin (user, nhóm, vai trò, câu hỏi, đề, publish, kết quả, chấm lại, audit), khu vực học viên (danh sách đề, làm bài có autosave / timer, kết quả, lịch sử) | Xong |
 | M9 | Kiểm thử: E2E Playwright (học viên, admin, hết giờ), load test k6 (`load-tests/`: start dồn dập, autosave liên tục, đợt nộp bài, job tự nộp) | Xong (cần chạy đo thật trên staging) |
-| M10 | Triển khai: Docker Compose (SQL Server, migration bundle, tài khoản DB quyền tối thiểu, API, Nginx + HTTPS), backup / thử khôi phục, giám sát (chỉ số, `/health/alerts`, container `monitor` gửi webhook) | Xong |
+| M10 | Triển khai: Docker Compose (PostgreSQL, migration bundle, API, Nginx + HTTPS / Cloudflare Tunnel), image dựng sẵn trên GHCR, giám sát (chỉ số, `/health/alerts`, container `monitor` gửi webhook) | Xong |
 | Sau MVP | Import câu hỏi Excel, xáo câu / đáp án, pool ngẫu nhiên, độ khó / tag, tự luận + chấm tay, chấm từng phần, ảnh trong đề / lựa chọn / giải thích | Xong |
+| Sau MVP | Lớp học, điểm danh & BTVN, kho video bài giảng, chuyên đề 2 cấp, đề luyện, nhập đề từ file Markdown / Word, import tài khoản Excel | Xong |
+| Còn nợ | Backup định kỳ / thử khôi phục và tài khoản DB quyền tối thiểu chưa chuyển sang PostgreSQL ([docs/09-van-hanh.md](docs/09-van-hanh.md) mục 6, 10) | Chưa làm |
 
 ## Yêu cầu
 
 - .NET SDK 10.0.x
-- SQL Server 2019 trở lên (local hoặc Docker)
+- PostgreSQL 17 (local hoặc Docker)
 - Node.js 24 (cho frontend, từ M7)
 
 ## Chạy backend
@@ -35,11 +37,11 @@ dotnet ef database update -p src/ELearning.Infrastructure -s src/ELearning.Api
 dotnet run --project src/ELearning.Api --launch-profile http
 ```
 
-- Connection string mặc định cho Development (`appsettings.Development.json`) dùng SQL Server local với Windows Authentication. Muốn dùng máy chủ khác thì ghi đè bằng user-secrets:
+- Connection string mặc định cho Development (`appsettings.Development.json`) trỏ tới PostgreSQL local: `Host=localhost;Port=5432;Database=elearning_db;Username=postgres;Password=postgres`. Chưa có PostgreSQL thì chạy nhanh bằng Docker: `docker run -d --name elearning-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:17-alpine`. Muốn dùng máy chủ khác thì ghi đè bằng user-secrets:
   ```bash
   dotnet user-secrets set "ConnectionStrings:DefaultConnection" "<connection string>" --project src/ELearning.Api
   ```
-- Tài khoản dev (tự seed): `admin` / `Admin@123456`, `student01` và `student02` / `Student@123456`.
+- Tài khoản dev (tự seed): `admin` / `Admin@123456`, `teacher01` / `Teacher@123456`, `student01` và `student02` / `Student@123456`.
 - Các URL:
   - Swagger UI: http://localhost:5136/swagger
   - OpenAPI: http://localhost:5136/openapi/v1.json
@@ -64,19 +66,19 @@ docker compose up -d --build
 ```
 
 - Mở http://localhost:8080, đăng nhập `admin` với `ADMIN_INITIAL_PASSWORD` trong `.env` (bắt buộc đổi mật khẩu lần đầu). Môi trường Production không có dữ liệu demo.
-- HTTPS, backup, thử khôi phục: xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 5.1 và 6.
+- HTTPS, sao lưu / khôi phục: xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 5.1 và 6. Cài máy chủ bằng image dựng sẵn và cập nhật một lệnh: [deploy/server/README.md](deploy/server/README.md).
 - Giám sát và cảnh báo: đặt `ALERT_WEBHOOK_URL` trong `.env`; container `monitor` gửi webhook khi API / Nginx lỗi, tỉ lệ 5xx cao, có lượt thi quá hạn chưa nộp hoặc thiếu backup. Xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 7.1.
 
 ## Chạy test
 
-Integration test và API test chạy trên **SQL Server thật**. Mỗi lần chạy, test tạo một database tạm `ELearningTest_<guid>` rồi xóa khi xong.
+Integration test và API test chạy trên **PostgreSQL thật**. Mỗi lần chạy, test tạo một database tạm `elearning_test_<guid>` rồi xóa khi xong.
 
-- **Có SQL Server local:** đặt biến môi trường `ELEARNING_TEST_SQL` là connection string tới server (không cần `Database`).
+- **Có PostgreSQL đang chạy:** đặt biến môi trường `ELEARNING_TEST_POSTGRES` là connection string tới server (không cần `Database`).
   ```bash
-  export ELEARNING_TEST_SQL="Server=localhost;Trusted_Connection=True;TrustServerCertificate=True"
+  export ELEARNING_TEST_POSTGRES="Host=localhost;Port=5432;Username=postgres;Password=postgres"
   dotnet test backend/ELearning.sln
   ```
-- **Không đặt biến:** test tự khởi động SQL Server bằng Testcontainers, nên cần Docker (CI dùng cách này).
+- **Không đặt biến:** test tự khởi động `postgres:17-alpine` bằng Testcontainers, nên cần Docker (CI dùng cách này).
 
 ## Load test
 
@@ -93,6 +95,7 @@ backend/
   src/ELearning.Shared          Result, mã lỗi, phân trang
   tests/                        Unit, Integration, Api, TestSupport
 frontend/elearning-web/          React + TypeScript + Vite
+deploy/                         Nginx, script vận hành, compose cho máy chủ (deploy/server/)
 load-tests/                     Kịch bản k6 (xem load-tests/README.md)
 docs/                           Thiết kế (nguồn chuẩn)
 .github/workflows/              CI

@@ -6,21 +6,20 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 
 - **Triệu chứng:** đồng hồ đếm ngược sai 7 giờ; đề hiện là "chưa mở" dù đã tới giờ.
 - **Nguyên nhân:**
-  - EF Core đọc `DATETIME2` ra `DateTimeKind.Unspecified`.
+  - `DateTime` mất `Kind` ở đâu đó trên đường đi (đọc qua Dapper, tạo bằng `new DateTime(...)`, parse chuỗi) thành `DateTimeKind.Unspecified`.
+  - Chiều ghi: Npgsql **từ chối** ghi `DateTime` có `Kind` khác `Utc` vào cột `timestamptz` (ném `ArgumentException`), nên converter phải ép về UTC trước khi ghi.
   - System.Text.Json serialize thành `"2026-09-26T03:00:00"`, không có `Z`.
   - JS `new Date(...)` hiểu chuỗi không có offset là **giờ địa phương**.
 - **Cách làm đúng:**
   ```csharp
   // ELearningDbContext.ConfigureConventions
-  configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
-  configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>();
+  configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>().HaveColumnType("timestamp with time zone");
+  configurationBuilder.Properties<DateTime?>().HaveConversion<NullableUtcDateTimeConverter>().HaveColumnType("timestamp with time zone");
 
-  public sealed class UtcDateTimeConverter() : ValueConverter<DateTime, DateTime>(
-      v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
-      v => DateTime.SpecifyKind(v, DateTimeKind.Utc));
+  // Ghi: Utc giữ nguyên, Local đổi sang UTC, Unspecified coi là UTC. Đọc: luôn gắn Kind = Utc.
   ```
-  Kèm một test API khẳng định mọi chuỗi thời gian trong JSON kết thúc bằng `Z`.
-- Với Dapper: dùng một `SqlMapper.TypeHandler<DateTime>` tương tự.
+  (`Infrastructure/Persistence/Converters/UtcDateTimeConverters.cs`.) Kèm một test API khẳng định mọi chuỗi thời gian trong JSON kết thúc bằng `Z`.
+- Với Dapper (`ReportQuery`): giá trị `DateTime` đọc ra phải được gắn lại `Kind = Utc` trước khi đưa vào DTO.
 
 ## 2. Enum lưu sai định dạng
 
@@ -48,7 +47,7 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 
 ## 5. Retry strategy và transaction tự mở
 
-- **Triệu chứng:** `InvalidOperationException: The configured execution strategy 'SqlServerRetryingExecutionStrategy' does not support user-initiated transactions.`
+- **Triệu chứng:** `InvalidOperationException: The configured execution strategy 'NpgsqlRetryingExecutionStrategy' does not support user-initiated transactions.` (DbContext bật `EnableRetryOnFailure(maxRetryCount: 3)`).
 - **Cách làm đúng:** bọc toàn bộ khối transaction:
   ```csharp
   var strategy = db.Database.CreateExecutionStrategy();
@@ -58,13 +57,13 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 
 ## 6. Khóa dòng khi nộp bài / lưu đáp án (D-21)
 
-- EF Core không có `SELECT ... FOR UPDATE`. Dùng:
+- EF Core không có API cho `SELECT ... FOR UPDATE`. Dùng `IAttemptLock.LockAsync` (`Infrastructure/Persistence/AttemptLock.cs`):
   ```csharp
-  var attempt = await db.ExamAttempts
-      .FromSqlInterpolated($"SELECT * FROM ExamAttempts WITH (UPDLOCK, ROWLOCK) WHERE Id = {attemptId}")
-      .SingleOrDefaultAsync(ct);
+  await db.Database.ExecuteSqlInterpolatedAsync(
+      $"SELECT 1 FROM \"ExamAttempts\" WHERE \"Id\" = {attemptId} FOR UPDATE", ct);
+  // sau đó mới đọc attempt bằng EF trong cùng transaction
   ```
-  Câu lệnh phải nằm **bên trong** transaction.
+  Câu lệnh phải nằm **bên trong** transaction; `LockAsync` ném lỗi nếu chưa mở transaction. Khóa giữ tới khi commit / rollback.
 - Hoặc với job tự nộp, dùng chuyển trạng thái nguyên tử:
   ```csharp
   var claimed = await db.ExamAttempts
@@ -74,22 +73,23 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
   ```
 - Không đọc trạng thái rồi kiểm tra ở C# mà không khóa, vì sẽ bị race condition.
 
-## 7. Filtered unique index và lỗi trùng khóa
+## 7. Unique index có điều kiện và lỗi trùng khóa
 
-- Khi 2 request `start` chạy song song, request thua nhận `SqlException` số **2601** hoặc **2627** (được bọc trong `DbUpdateException`).
-- **Cách làm đúng:** bắt đúng hai số lỗi này tại `IAttemptService.StartAsync`, tạo `DbContext` / transaction mới rồi trả về lượt đang làm. Không để lỗi lọt ra thành 500.
-- Xác định lỗi trùng `Code` cũng theo cách này, rồi trả 409 `DUPLICATE_CODE`.
-- EF: khai báo filtered index bằng `.HasFilter("[Status] = 'IN_PROGRESS'")`.
+- Khi 2 request `start` chạy song song, request thua nhận `PostgresException` có `SqlState = "23505"` (`PostgresErrorCodes.UniqueViolation`), được bọc trong `DbUpdateException`.
+- **Cách làm đúng:** nhận biết qua `IAttemptLock.IsUniqueViolation(ex)` tại `IAttemptService.StartAsync`, rồi trả về lượt đang làm. Không để lỗi lọt ra thành 500.
+- Lỗi trùng `Code` không được bắt riêng thì `GlobalExceptionHandler` chuyển mọi `23505` thành 409 `DUPLICATE_CODE`.
+- EF: khai báo partial index bằng `.HasFilter("\"Status\" = 'IN_PROGRESS'")` — tên cột trong filter phải nháy kép kiểu PostgreSQL, không dùng `[Status]`.
+- **Sau một lỗi trong transaction, PostgreSQL hủy cả transaction** (`25P02: current transaction is aborted`): không chạy tiếp được câu lệnh nào trên transaction đó. Phải rollback rồi làm lại trên transaction mới.
 
 ## 8. Sắp xếp lại thứ tự vi phạm unique
 
 - **Triệu chứng:** đổi chỗ câu 1 và câu 2 thì vi phạm `UQ_ExamQuestions_Order`.
-- **Nguyên nhân:** SQL Server kiểm tra ràng buộc theo từng câu lệnh, còn EF gửi nhiều câu `UPDATE` riêng lẻ.
+- **Nguyên nhân:** unique index của PostgreSQL được kiểm tra ngay ở từng dòng được ghi (không trì hoãn tới cuối transaction), còn EF gửi nhiều câu `UPDATE` riêng lẻ.
 - **Cách làm đúng:** trong một transaction, bước 1 đặt `QuestionOrder = QuestionOrder + 100000` (hoặc giá trị âm) cho mọi dòng bằng `ExecuteUpdateAsync`, bước 2 ghi thứ tự cuối cùng.
 
 ## 9. Multiple cascade paths
 
-- **Triệu chứng:** migration lỗi `may cause cycles or multiple cascade paths`.
+- **Triệu chứng (bản SQL Server):** migration lỗi `may cause cycles or multiple cascade paths`. PostgreSQL không báo lỗi này, nhưng quy tắc dưới đây vẫn giữ: không để DB tự xóa dây chuyền dữ liệu lượt thi / kết quả.
 - **Nguyên nhân:** convention của EF đặt `Cascade` cho FK bắt buộc; `ExamAttempts → Exams` và `ExamAttempts → ExamVersions → Exams` tạo thành hai đường cascade.
 - **Cách làm đúng:** trong `ConfigureConventions` / `OnModelCreating`, đặt mọi FK thành `DeleteBehavior.Restrict` (D-16):
   ```csharp
@@ -99,9 +99,9 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 
 ## 10. Khóa chính GUID
 
-- EF Core với SQL Server tự sinh GUID tuần tự phía client (`SequentialGuidValueGenerator`). Đây là cách đúng.
-- **Không** tự gán `Guid.NewGuid()` (ngẫu nhiên, gây phân mảnh index).
-- **Không** dùng `Guid.CreateVersion7()` làm khóa clustered. SQL Server so sánh `uniqueidentifier` bắt đầu từ **6 byte cuối**, nên UUIDv7 không còn tuần tự trong SQL Server.
+- Khóa cấu hình `ValueGeneratedOnAdd()`: EF Core (Npgsql) tự sinh `uuid` tuần tự theo thời gian phía client khi `Add`. Đây là cách đúng.
+- **Không** tự gán `Guid.NewGuid()` cho khóa chính (ngẫu nhiên, làm index B-tree phân mảnh).
+- Entity cần Id ngay trong domain (ví dụ `ExamPoolRule`) dùng `Guid.CreateVersion7()` kèm `ValueGeneratedNever()` (mục 19b). PostgreSQL sắp xếp `uuid` theo byte từ trái sang nên UUIDv7 vẫn tuần tự — hạn chế "không dùng UUIDv7" của bản SQL Server không còn áp dụng.
 - Nếu cần Id trước khi `SaveChanges`: gọi `db.Add(entity)` rồi đọc `entity.Id` (EF sinh ngay khi Add).
 
 ## 11. `DateTime.UtcNow` rải rác trong code
@@ -146,12 +146,14 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 
 - Không gọi `Database.Migrate()` khi khởi động ở Staging / Production (`09-van-hanh.md` mục 4).
 - Không sửa migration đã được áp dụng; tạo migration mới.
-- Filtered index, CHECK constraint và `ROWVERSION` phải được khai báo trong EF configuration (`HasFilter`, `ToTable(t => t.HasCheckConstraint(...))`, `IsRowVersion()`), không chèn tay vào migration, để model và DB không lệch nhau.
+- Partial index, CHECK constraint và cột `RowVersion` phải được khai báo trong EF configuration (`HasFilter`, `ToTable(t => t.HasCheckConstraint(...))`, `IsConcurrencyToken()`), không chèn tay vào migration, để model và DB không lệch nhau.
+- **`RowVersion` không tự tăng trên PostgreSQL** (không có kiểu tương đương `rowversion`; dự án không dùng cột hệ thống `xmin`). Cột là `bytea` + `IsConcurrencyToken()`, và `ELearningDbContext.SaveChanges[Async]` ghi 16 byte mới cho mọi entity `IHasRowVersion` đang `Added` / `Modified`. Hệ quả: `ExecuteUpdateAsync` và SQL tay bỏ qua bước này — nếu cần chặn người đang mở form thì tự gán `RowVersion` mới trong câu lệnh.
+- Lịch sử migration bắt đầu từ `InitialPostgreSql` (D-35). Database SQL Server cũ không nâng cấp được bằng migration; phải chuyển dữ liệu riêng.
 
 ## 17. Phát hiện khi triển khai M1
 
 - **Hai filtered index trên cùng cột bị EF gộp làm một.** `HasIndex(v => v.ExamId)` gọi hai lần trả về cùng một index builder, nên filter và tên của lần gọi sau ghi đè lần trước. Phải dùng overload có tên: `HasIndex(v => v.ExamId, "UX_ExamVersions_OnePublished")`.
-- **CHECK constraint trên cột enum không phân biệt hoa thường** khi DB dùng collation CI mặc định, nên `'Published'` lọt qua CHECK rồi làm EF ném lỗi khi đọc. Cách làm đúng: cột enum dùng `UseCollation("Latin1_General_100_BIN2")` (đã cấu hình chung trong `ConfigureConventions`).
+- **CHECK constraint trên cột enum:** trên PostgreSQL so sánh chuỗi phân biệt hoa thường nên `'Published'` bị CHECK chặn đúng, không cần collation riêng. (Bản SQL Server từng phải đặt collation nhị phân cho cột enum; hằng `EnumCollation` còn sót trong `ELearningDbContext` không được dùng.) CHECK sinh từ enum bằng `HasEnumCheck<TEnum>()`, tên cột trong biểu thức phải nháy kép.
 - **DB default với `bool` / `int`:** nếu cấu hình `HasDefaultValue(true)` cho `IsActive`, EF coi giá trị `false` là "chưa gán" và để DB ghi `true`. Không cấu hình DB default cho những cột này; gán giá trị trong constructor của entity.
 - **Code do EF sinh (migration) vi phạm analyzer**, ví dụ CA1861. Thư mục `Persistence/Migrations` được đánh dấu `generated_code` trong `.editorconfig`.
 - **`dotnet ef migrations script --no-build` dùng bản build cũ**: sau khi thêm migration phải build lại trước khi sinh script.
@@ -160,13 +162,19 @@ Danh sách các lỗi cụ thể, rất dễ mắc khi triển khai stack này. 
 
 - **Enum trên query string:** `JsonStringEnumConverter` chỉ áp dụng cho body JSON. `?questionType=FILL_IN` không bind được với model binding mặc định (nó chỉ hiểu `FillIn`). Đã thêm `SnakeCaseEnumModelBinderProvider` cho mọi enum ngoài body.
 - **Xóa dòng con khi thay collection:** với FK `Restrict`, bỏ một entity con (có khóa riêng) khỏi collection làm EF ném lỗi "relationship severed". Phải dùng `ClientCascade` cho bảng con thuần túy. Bảng nối có khóa ghép chứa FK (`UserRoles`) không bị lỗi này vì EF tự xóa.
-- **`NEXT VALUE FOR` không dùng được qua `SqlQueryRaw`**, vì EF bọc câu lệnh trong subquery. Dùng ADO command trực tiếp (`CodeGenerator`).
+- **Đọc sequence:** `CodeGenerator` chạy `SELECT nextval('"QuestionCodeSequence"')` bằng ADO command trực tiếp trên connection của DbContext (gắn transaction hiện tại nếu có). Tên sequence phải nháy kép bên trong chuỗi vì là PascalCase.
+- **Khóa theo tên thay cho khóa bảng:** sinh mã câu hỏi theo chuyên đề dùng `SELECT pg_advisory_xact_lock(hashtext(...))`, tự nhả khi transaction kết thúc; phải gọi trong transaction.
 - **Hạn của JWT phải kiểm tra bằng cùng `TimeProvider`** với nơi phát token (`LifetimeValidator`). Nếu không, test dùng `FakeTimeProvider` sẽ sinh token "chưa có hiệu lực".
-- **`AsSplitQuery` nằm trong gói relational**, không dùng được ở tầng Application (chỉ tham chiếu `Microsoft.EntityFrameworkCore`).
+- **`AsSplitQuery` nằm trong gói relational**; tầng Application hiện tham chiếu `Microsoft.EntityFrameworkCore.Relational` và gói Npgsql nên dùng được, nhưng mọi API riêng của provider (`EF.Functions.ILike`…) làm Application phụ thuộc PostgreSQL (D-35).
+- **Tìm kiếm không phân biệt hoa thường:** PostgreSQL `LIKE` phân biệt hoa thường. Dùng `EF.Functions.ILike(cột, Like.Contains(keyword))`; `Like.Escape` escape `\`, `%`, `_` bằng `\` (ký tự escape mặc định của PostgreSQL). So sánh bằng `ToLower()` trong LINQ được dịch thành `lower()`.
 
 ## 19. Phát hiện khi triển khai M4
 
-- **Nối chuỗi với cột enum trong SQL tay / Dapper:** cột enum dùng collation `Latin1_General_100_BIN2`, nên khi nối (`+`) hoặc so sánh với chuỗi collation mặc định sẽ gặp lỗi 457 "collation conflict". Phải thêm `COLLATE DATABASE_DEFAULT` vào biểu thức. So sánh với tham số hoặc hằng chuỗi thì không bị lỗi.
+- **SQL tay / Dapper trên PostgreSQL** (`ReportQuery`, các câu `ExecuteSql…`):
+  - Mọi tên bảng và cột phải **nháy kép** (`"ExamAttempts"."Status"`); quên nháy → `relation "examattempts" does not exist`.
+  - `COUNT(*)` và `SUM` của số nguyên trả `bigint`; ánh xạ vào thuộc tính `int` phải ép kiểu `COUNT(*)::int`.
+  - Giá trị boolean viết `TRUE` / `FALSE`, không phải `1` / `0`. Giới hạn số dòng dùng `LIMIT n`, không phải `TOP n`. Nối chuỗi dùng `||`.
+  - Alias không nháy (`AS TotalUsers`) bị hạ về chữ thường; Dapper ánh xạ không phân biệt hoa thường nên vẫn khớp. Alias trùng từ khóa phải nháy (`AS "Order"`).
 - **Publish version mới:** phải lưu (SaveChanges) việc chuyển version cũ sang ARCHIVED trước khi publish version mới, trong cùng transaction. Nếu không, `UX_ExamVersions_OnePublished` bị vi phạm giữa chừng.
 - **Unit test domain không có EF:** `Id` của entity là `Guid.Empty` cho tới khi được Add vào DbContext. Test dùng helper `WithId()` để mô phỏng entity đã lưu.
 

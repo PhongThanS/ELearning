@@ -9,43 +9,51 @@ Công khai
 /login
 /register                     (ẩn nếu tắt tự đăng ký)
 /forgot-password              (MVP: hướng dẫn liên hệ admin)
+
+Đã đăng nhập (mọi vai trò)
+/                             → chuyển hướng theo vai trò (HomeRedirect)
 /change-password              (bắt buộc khi mustChangePassword = true)
+/profile                      hồ sơ, đổi mật khẩu
 
 Học viên  (/student/*)
-/student                      → chuyển hướng tới /student/exams
+/student                      → chuyển hướng tới /student/attendance
+/student/attendance           điểm danh & BTVN theo tháng của tôi (trang mặc định, D-31)
 /student/exams                danh sách đề được thi
 /student/exams/:examId        chi tiết đề, hướng dẫn, nút Bắt đầu / Tiếp tục
-/student/attempts/:attemptId  exam player
+/student/attempts/:attemptId  exam player (PlayerLayout, không có menu)
 /student/results/:attemptId   kết quả / xem lại bài
 /student/history
 /student/classes              lớp của tôi (D-28)
 /student/classes/:classId     đề thi được gán cho lớp
-/student/profile
+/student/videos               kho video bài giảng
+/student/videos/:id/watch     xem bài giảng toàn màn hình (tab mới)
 
 Quản trị  (/admin/*)
-/admin                        → chuyển hướng tới /admin/dashboard
+/admin                        → trang đầu tiên mà tài khoản có quyền (AdminHome)
 /admin/dashboard
 /admin/users   /admin/users/:id
 /admin/groups  /admin/groups/:id              menu "Nhóm người dùng" (UserGroups)
 /admin/classes /admin/classes/:id            menu "Danh sách lớp học" (Classrooms): lớp học, thêm / rút học viên (D-28);
                                               flyout ở menu liệt kê toàn bộ lớp, ô tìm theo mã hoặc tên
+/admin/videos                                 kho video bài giảng
 /admin/videos/:id/watch                       xem bài giảng toàn màn hình (tab mới)
 /admin/attendance?class=&date=               menu "Điểm danh" (D-31); tài khoản chỉ có Attendance.Take vào thẳng trang này
 /admin/roles
 /admin/categories
 /admin/questions   /admin/questions/create   /admin/questions/:id/edit
 /admin/questions/import-markdown              nhập đề từ file .md (D-29); prompt + file mẫu ở /huong-dan/; chọn .docx gốc ở bước ảnh để lấy hình; sửa câu / chọn độ khó ngay lúc xem trước (`markdownBlocks.ts`)
-/admin/exams       /admin/exams/create       /admin/exams/:id
-/admin/exams/:id/versions/:versionId          exam builder (các bước)
-/admin/exams/:id/assignments
-/admin/exams/:id/attempts
-/admin/exams/:id/results
+/admin/exams       /admin/exams/:id           danh sách đề (tạo đề bằng hộp thoại); chi tiết đề gồm version, gán đề, lượt thi
+/admin/exams/:id/preview                      xem trước version đang publish
+/admin/exams/:id/versions/:versionId          exam builder
+/admin/exams/:id/results                      kết quả, chấm tự luận
 /admin/attempts/:attemptId                    chi tiết lượt thi, sự kiện, thao tác admin
 /admin/audit-logs
 ```
 
+Nguồn chuẩn của bảng route là `src/app/routes.tsx`. Route lạ chuyển về `/`.
+
 **Bảo vệ route:**
-- `ProtectedRoute` (đã đăng nhập), `RoleRoute`, `PermissionRoute` (dựa trên `permissions` từ `/api/auth/me`).
+- `RequireAuth` (đã đăng nhập), `RequireStudent`, `RequirePermission` (dựa trên `permissions` từ `/api/auth/me`), nằm ở `features/auth/guards.tsx`.
 - Đây **chỉ là UX**. Backend luôn kiểm tra quyền.
 - User có `mustChangePassword = true` bị chuyển hướng tới `/change-password` với mọi route khác.
 
@@ -267,7 +275,7 @@ type ExamPlayerState = {
 - **Bảng:** phân trang phía server, sắp xếp theo whitelist, cuộn ngang khi màn hình hẹp.
 - **Xử lý lỗi:** map `errors[].code` sang thông điệp i18n. Lỗi 409 `CONCURRENCY_CONFLICT` hiển thị "Dữ liệu đã được người khác cập nhật" kèm nút tải lại.
 - **Ngày giờ:** hiển thị theo `Asia/Ho_Chi_Minh`, định dạng `dd/MM/yyyy HH:mm`. Ô nhập ngày giờ được hiểu theo giờ Việt Nam rồi đổi sang UTC trước khi gửi.
-- **Markdown:** một component `MarkdownView` duy nhất dùng `react-markdown` + `remark-gfm`, không có `rehype-raw`. Liên kết mở tab mới với `rel="noopener noreferrer"`. Code block dùng font monospace, cuộn ngang được.
+- **Markdown:** một component `MarkdownView` duy nhất dùng `react-markdown` + `remark-gfm` + `remark-math` / `rehype-katex` (công thức LaTeX `$…$`), không có `rehype-raw`. Liên kết mở tab mới với `rel="noopener noreferrer"`. Code block dùng font monospace, cuộn ngang được.
 - **Ảnh (D-27):** `MarkdownView` chỉ hiển thị `![mô tả](media:<id>)` bằng URL trong bảng `media` của DTO (cung cấp qua `<MediaUrls value={dto.media}>` hoặc prop `media`); ảnh không có trong bảng hiện "(ảnh không hiển thị được)" và không tải gì; ảnh ngoài (`http…`) bị bỏ. Ảnh co theo chiều rộng khung (màn hình 360 px), lựa chọn đáp án hiển thị ảnh inline tối đa 10rem. Trình soạn câu hỏi có nút "Chèn ảnh" cho đề bài, từng lựa chọn và phần giải thích; tab Xem trước hiển thị cả lựa chọn và giải thích. Ảnh mới chọn là **ảnh chờ lưu** (`features/questions/pendingImages.ts`): xem trước bằng data URL (CSP đã cho `img-src data:`), có danh sách "Ảnh đã chọn — chưa lưu lên máy chủ" với nút Bỏ; bấm Lưu thì tải lên các ảnh còn dùng, thay mã tạm bằng id thật, rồi lưu câu hỏi (02-nghiep-vu mục 1.4).
 - **Giao diện (theme):** Bootstrap 5 biên dịch từ Sass (`src/theme.scss`) + `src/styles.css`. Giữ màu nhận diện SClass (navy `#0c2363`, cyan `#00d2ff`, đỏ ở khẩu hiệu) cho logo, thanh trên, nút chính; thêm mảng **pastel** (vàng chanh, tím nhạt, xanh trời, hồng…) cho nền loang, ô icon, đầu thẻ — tham khảo phong cách landing page giáo dục (bản cập nhật 2026-11). Màu nhấn theo khu chức năng: `.accent-blue|indigo|violet|pink|sky|teal|green|amber|orange` (đặt `--accent`, `--accent-soft`, `--accent-strong`). **Font:** tiêu đề, số liệu, nút, menu dùng **Be Vietnam Pro**; nội dung đọc (câu hỏi, bảng, form) giữ **Arial**. Font và **Bootstrap Icons** đóng gói trong bản build (không tải từ CDN nên CSP không đổi). Thành phần dùng chung: `page-title` (tiêu đề trang có gạch màu), `sclass-hero` / `page-hero` (banner navy có quầng cyan + hình nổi), `stat-card` + `stat-icon` (thẻ số liệu, icon trên nền màu nhạt), `exam-card` + `exam-card-band` (thẻ đề / lớp có mảng pastel phía trên, icon nổi ở mép), `section-title` + `section-title-icon`. Bố cục: admin có sidebar trắng, icon trong ô màu nhạt, mục đang chọn nền navy; Tổng quan có banner chào theo giờ + nút đi nhanh theo quyền; học viên có thanh điều hướng navy, banner chào, thẻ đề có thanh tiến độ lượt thi; trang đăng nhập / đăng ký: nền pastel loang, giới thiệu (tiêu đề có từ tô màu, 3 điểm nổi bật đánh số) bên trái, form bo lớn với nhãn nổi bên phải. Hiệu ứng trôi nhẹ tắt khi người dùng bật giảm chuyển động (`prefers-reduced-motion`). **Trang làm bài và trang kết quả** (`src/styles-exam.css`): thanh trên kính mờ có thanh tiến độ số câu đã trả lời, đồng hồ dạng viên (xanh trời → vàng khi còn ≤ 5 phút → đỏ nhấp nháy khi còn ≤ 1 phút), thẻ câu hỏi có dải màu trên cùng, phương án bấm chỗ nào trong ô cũng chọn, bảng câu dạng lưới (xanh mint: đã trả lời, chấm vàng: đánh dấu xem lại) kèm vòng tròn % đã làm, khối "Nộp bài" cuối trang; trang kết quả có phần đầu theo màu kết quả (xanh: đạt, hồng: chưa đạt, xanh dương: đề không xét đạt / chưa công bố điểm) với vòng tròn %, lời chúc / động viên, 4 thẻ số liệu (điểm, câu đúng, câu chưa đúng, đạt), dãy số câu để nhảy tới và thẻ xem lại có dải màu đúng / sai bên trái. **Video và bảng quản trị** (`src/styles-pages.css`): trang video của học viên dùng banner `sclass-hero` (kèm số bài giảng); thanh lọc `filter-bar`; thẻ video `video-card` nhấc lên khi rê chuột, ảnh phóng nhẹ, nút phát nổi lên, nền khung ảnh navy → tím, lớp tối dần ở đáy ảnh cho nhãn dễ đọc. Bảng `DataTable` / `.table-card`: bỏ sọc, hàng thoáng hơn, rê chuột nền tím nhạt, cột sắp xếp được có icon (`bi-arrow-down-up`, cột đang sắp xếp tô xanh), nhãn trạng thái dạng viên nền nhạt (thay nền đậm), nút thao tác bo góc nền trắng; `SearchBox` có icon kính lúp; phân trang (`Pager`, trang video) hiện tối đa 5 số trang quanh trang hiện tại (`pageWindow`), trang đang chọn nền navy; `Empty` có icon hộp thư trên nền tím nhạt. **Hiệu ứng chung** (`src/styles-effects.css`, áp cho mọi trang): hàng lọc (Row chứa `SearchBox`) và thẻ `.filter-bar` có nền pastel + viền gradient xanh → tím → vàng; ô nhập rê chuột viền tím nhạt, đang gõ viền tím chàm có quầng sáng. **Bảng theo phong cách "Data Table v3"**: tiêu đề cột chữ in hoa nhỏ màu xám tím trên nền `#f4f2ff`; hàng nền trắng chỉ kẻ ngang mảnh; rê chuột nền tím rất nhạt (đổi `--bs-table-bg-state`, không dùng bóng đổ — Bootstrap vẽ nền ô bằng `box-shadow` nên hiệu ứng bóng / chuyển tiếp bóng làm lóe mảng tím ở ô đầu); hàng có ô tích được chọn nền tím nhạt cả hàng (`:has(:checked)`); ô tích vuông bo góc màu tím chàm; mã / tên dạng liên kết màu tím chàm; nhãn trạng thái có chấm màu trước chữ; các hàng hiện mờ dần khi bảng tải / đổi trang / đổi lọc. **Màn hẹp (< 768px)**: `DataTable` (class `table-stack`) đổi mỗi hàng thành một thẻ, mỗi ô ghi tên cột bên trái (`data-label` = tiêu đề cột dạng chữ), ô trống bị ẩn, ô tích / nút thao tác không có nhãn; không còn cuộn ngang. Màn rộng: khung `.table-card` cuộn ngang bên trong khi bảng rộng hơn khung (không được để `overflow: hidden` — cột cuối bị cắt và cả trang tràn ngang); khung là container (`container-type: inline-size`) nên cột phụ `d-xxl-table-cell` / `d-xl-table-cell` ẩn khi **khung bảng** hẹp hơn 1360 / 1000px; khung phải có `position: relative` (chữ ẩn `.visually-hidden` và KaTeX MathML trong ô là `position: absolute`, thiếu khung chứa định vị thì thoát khỏi vùng cuộn và làm trang tràn ngang) (cửa sổ 1400px trừ menu trái 260px chỉ còn ~1140px cho bảng). Nút chính có vệt sáng lướt qua (trừ nút xổ menu); trang Điểm danh: thẻ thống kê nổi khi rê chuột / khi đang lọc, nút lọc đang chọn nền tím chàm, nhóm nút trạng thái bo viên. Khi bật giảm chuyển động: không có vệt sáng.
 
@@ -281,7 +289,7 @@ type ExamPlayerState = {
 
 ## 7. i18n
 
-- `react-i18next`; ngôn ngữ mặc định `vi`, có sẵn cấu trúc cho `en`.
+- `react-i18next`; ngôn ngữ mặc định `vi` (hiện chỉ có `i18n/vi.json`; thêm `en.json` khi cần).
 - Mọi chuỗi hiển thị nằm trong `i18n/*.json`. Enum từ API được map sang nhãn qua i18n; không hiển thị giá trị thô `SINGLE_CHOICE`.
 
 ## 8. Quyết định / Giả định
