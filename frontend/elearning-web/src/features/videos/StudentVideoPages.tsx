@@ -16,6 +16,8 @@ import type { VideoLesson } from "../../types/api";
 import { LessonThumbnail } from "./AdminVideoPages";
 import { lessonKind } from "./mediaLinks";
 import { openLessonInNewTab } from "./VideoWatchPage";
+import { PracticeButton } from "./PracticeButton";
+import { HomeworkButton } from "./HomeworkButton";
 import { LessonClassBadges } from "./LessonClassBadges";
 import { pageWindow } from "../../components/common/DataTable";
 
@@ -218,9 +220,13 @@ export function StudentVideoPages() {
                       </p>
                     )}
 
-                    {/* Watch now button */}
-                    <div className="pt-2 border-top mt-auto text-end">
-                      <span className="text-primary fw-semibold small d-inline-flex align-items-center gap-1">
+                    {/* Watch now button + Luyện đề (nếu video có đề luyện) */}
+                    <div className="pt-2 border-top mt-auto d-flex align-items-center justify-content-between gap-2">
+                      <div className="d-flex flex-wrap gap-2">
+                        <PracticeButton video={v} variant="outline-warning" className="fw-semibold" />
+                        <HomeworkButton video={v} variant="outline-success" className="fw-semibold" />
+                      </div>
+                      <span className="text-primary fw-semibold small d-inline-flex align-items-center gap-1 ms-auto">
                         <span>{isDoc ? "Xem tài liệu" : v.documentUrl ? "Xem video + tài liệu" : "Xem bài giảng"}</span>
                         <i className="bi bi-arrow-right"></i>
                       </span>

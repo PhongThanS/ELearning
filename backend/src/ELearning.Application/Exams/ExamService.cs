@@ -87,6 +87,11 @@ internal sealed class ExamService(
             exams = exams.Where(e => e.CategoryId != null && family.Contains(e.CategoryId.Value));
         }
 
+        if (query.Kind is { } kind)
+        {
+            exams = exams.Where(e => e.Kind == kind);
+        }
+
         exams = (query.SortBy?.ToLowerInvariant(), query.SortDescending) switch
         {
             ("code", false) => exams.OrderBy(e => e.Code),
@@ -254,6 +259,8 @@ internal sealed class ExamService(
         }
 
         db.ExamUserOverrides.RemoveRange(await db.ExamUserOverrides.Where(o => o.ExamId == id).ToListAsync(ct));
+        // Video đang dùng đề này làm đề luyện (D-38): chỉ bỏ liên kết, giữ video
+        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"VideoLessons\" SET \"PracticeExamId\" = NULL WHERE \"PracticeExamId\" = {id}", ct);
         db.Exams.Remove(exam);
         audit.Write(AuditActions.ExamDeleted, nameof(Exam), exam.Id, new { exam.Code, exam.Name });
         await db.SaveChangesAsync(ct);

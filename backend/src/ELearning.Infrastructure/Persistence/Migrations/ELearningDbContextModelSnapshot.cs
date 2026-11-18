@@ -1990,8 +1990,15 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.Property<int?>("DurationMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<string>("HomeworkUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<Guid?>("PracticeExamId")
+                        .HasColumnType("uuid");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -2030,6 +2037,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("IX_VideoLessons_CategoryId");
 
                     b.HasIndex("CreatedBy");
+
+                    b.HasIndex("PracticeExamId")
+                        .HasDatabaseName("IX_VideoLessons_PracticeExamId");
 
                     b.HasIndex("UpdatedBy");
 
@@ -2637,6 +2647,12 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_VideoLessons_CreatedBy");
+
+                    b.HasOne("ELearning.Domain.Exams.Exam", null)
+                        .WithMany()
+                        .HasForeignKey("PracticeExamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_VideoLessons_PracticeExam");
 
                     b.HasOne("ELearning.Domain.Identity.User", null)
                         .WithMany()

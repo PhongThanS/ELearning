@@ -8,6 +8,8 @@ import type { VideoLesson } from "../../types/api";
 import { extractYoutubeId, isDirectVideo, parseDriveLink } from "./mediaLinks";
 import { SplitView } from "./SplitView";
 import { LessonClassBadges } from "./LessonClassBadges";
+import { PracticeButton } from "./PracticeButton";
+import { HomeworkButton } from "./HomeworkButton";
 
 /** Mở trang xem bài giảng ở tab mới (base: "/admin/videos" hoặc "/student/videos"). */
 export function openLessonInNewTab(base: string, id: string): void {
@@ -62,7 +64,7 @@ function LessonMedia({ video }: { video: VideoLesson }) {
 }
 
 /** Thanh trên: tiêu đề và các nút mở nguồn gốc (YouTube / Drive / link). */
-function WatchHeader({ video }: { video: VideoLesson }) {
+function WatchHeader({ video, student = false }: { video: VideoLesson; student?: boolean }) {
   const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
   const drive = parseDriveLink(video.videoUrl);
   const attachment = video.documentUrl ? parseDriveLink(video.documentUrl) : null;
@@ -89,6 +91,20 @@ function WatchHeader({ video }: { video: VideoLesson }) {
         <a href={attachment.openUrl} target="_blank" rel="noreferrer" className={linkClass}>
           <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
           <span className="d-none d-md-inline">Mở tài liệu trong Drive</span>
+        </a>
+      )}
+      {student && <PracticeButton video={video} variant="warning" className="fw-semibold text-nowrap" />}
+      <HomeworkButton video={video} variant="success" className="fw-semibold text-nowrap" />
+      {!student && video.practiceExamId && (
+        <a
+          href={`/admin/exams/${video.practiceExamId}`}
+          target="_blank"
+          rel="noreferrer"
+          className="btn btn-sm btn-warning fw-semibold d-inline-flex align-items-center gap-1 text-nowrap"
+          title={`Xem đề luyện: ${video.practiceExamName ?? ""}`}
+        >
+          <i className="bi bi-pencil-square" aria-hidden="true"></i>
+          <span>Xem đề luyện</span>
         </a>
       )}
     </header>
@@ -118,7 +134,7 @@ function WatchInfo({ video }: { video: VideoLesson }) {
 }
 
 /** Trang xem bài giảng toàn màn hình: video + tài liệu song song (kéo thanh giữa), hoặc chỉ video / tài liệu. */
-export function LessonWatchView({ video }: { video: VideoLesson }) {
+export function LessonWatchView({ video, student = false }: { video: VideoLesson; student?: boolean }) {
   const attachment = video.documentUrl ? parseDriveLink(video.documentUrl) : null;
 
   useEffect(() => {
@@ -131,7 +147,7 @@ export function LessonWatchView({ video }: { video: VideoLesson }) {
 
   return (
     <div className="lesson-watch">
-      <WatchHeader video={video} />
+      <WatchHeader video={video} student={student} />
       <div className="lesson-watch-body">
         {attachment ? (
           <SplitView
@@ -173,7 +189,7 @@ function WatchPage({ load, scope }: { load: (id: string) => Promise<VideoLesson>
       </div>
     );
   }
-  return <LessonWatchView video={data} />;
+  return <LessonWatchView video={data} student={scope === "student"} />;
 }
 
 export function AdminVideoWatchPage() {

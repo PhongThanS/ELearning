@@ -14,6 +14,7 @@ internal sealed class VideoLessonConfiguration : IEntityTypeConfiguration<VideoL
         builder.Property(v => v.Title).HasMaxLength(VideoLesson.MaxTitleLength).IsRequired();
         builder.Property(v => v.VideoUrl).HasMaxLength(VideoLesson.MaxUrlLength).IsRequired();
         builder.Property(v => v.DocumentUrl).HasMaxLength(VideoLesson.MaxUrlLength);
+        builder.Property(v => v.HomeworkUrl).HasMaxLength(VideoLesson.MaxUrlLength);
         builder.Property(v => v.YoutubeVideoId).HasMaxLength(50).IsUnicode(false);
         builder.Property(v => v.ThumbnailUrl).HasMaxLength(VideoLesson.MaxUrlLength);
         builder.Property(v => v.Description).HasMaxLength(VideoLesson.MaxDescriptionLength);
@@ -33,6 +34,10 @@ internal sealed class VideoLessonConfiguration : IEntityTypeConfiguration<VideoL
         builder.HasUserReference(v => v.UpdatedBy, "FK_VideoLessons_UpdatedBy");
 
         builder.HasIndex(v => v.CategoryId).HasDatabaseName("IX_VideoLessons_CategoryId");
+
+        builder.HasOne<ELearning.Domain.Exams.Exam>().WithMany().HasForeignKey(v => v.PracticeExamId)
+            .HasConstraintName("FK_VideoLessons_PracticeExam").OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(v => v.PracticeExamId).HasDatabaseName("IX_VideoLessons_PracticeExamId");
     }
 }
 

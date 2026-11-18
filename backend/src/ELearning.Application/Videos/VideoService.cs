@@ -2,6 +2,7 @@ using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Questions;
+using ELearning.Domain.Enums;
 using ELearning.Domain.Videos;
 using ELearning.Shared;
 using ELearning.Shared.Paging;
@@ -98,6 +99,11 @@ internal sealed class VideoService(
             return Error.Validation("CLASSROOM_NOT_FOUND", "Có lớp học không tồn tại.", "classroomIds");
         }
 
+        if (await ValidatePracticeExamAsync(request.PracticeExamId, ct) is { } practiceError)
+        {
+            return practiceError;
+        }
+
         var video = new VideoLesson(
             request.Title,
             request.VideoUrl,
@@ -109,9 +115,13 @@ internal sealed class VideoService(
             request.DisplayOrder,
             currentUser.RequiredUserId,
             Now);
+        video.SetPracticeExam(request.PracticeExamId);
+        video.SetHomework(request.HomeworkUrl);
 
         db.VideoLessons.Add(video);
-        audit.Write("Video.Created", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl, ClassroomIds = classroomIds });
+        audit.Write(
+            "Video.Created", nameof(VideoLesson), video.Id,
+            newValue: new { video.Title, video.VideoUrl, video.DocumentUrl, ClassroomIds = classroomIds, video.PracticeExamId, video.HomeworkUrl });
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(video.Id, ct);
@@ -147,6 +157,11 @@ internal sealed class VideoService(
             return Error.Validation("CLASSROOM_NOT_FOUND", "Có lớp học không tồn tại.", "classroomIds");
         }
 
+        if (request.PracticeExamId != video.PracticeExamId && await ValidatePracticeExamAsync(request.PracticeExamId, ct) is { } practiceError)
+        {
+            return practiceError;
+        }
+
         video.Update(
             request.Title,
             request.VideoUrl,
@@ -160,7 +175,11 @@ internal sealed class VideoService(
             currentUser.RequiredUserId,
             Now);
 
-        audit.Write("Video.Updated", nameof(VideoLesson), video.Id, newValue: new { video.Title, video.VideoUrl, video.DocumentUrl, ClassroomIds = classroomIds });
+        video.SetPracticeExam(request.PracticeExamId);
+        video.SetHomework(request.HomeworkUrl);
+        audit.Write(
+            "Video.Updated", nameof(VideoLesson), video.Id,
+            newValue: new { video.Title, video.VideoUrl, video.DocumentUrl, ClassroomIds = classroomIds, video.PracticeExamId, video.HomeworkUrl });
         await db.SaveChangesAsync(ct);
 
         return await GetAsync(video.Id, ct);
@@ -254,6 +273,12 @@ internal sealed class VideoService(
     private async Task<bool> ClassroomsMissingAsync(List<Guid> classroomIds, CancellationToken ct) =>
         classroomIds.Count > 0 && await db.Classrooms.CountAsync(c => classroomIds.Contains(c.Id), ct) != classroomIds.Count;
 
+    /// <summary>Đề luyện của video phải tồn tại và là đề loại PRACTICE (D-38); null = bỏ đề luyện.</summary>
+    private async Task<Error?> ValidatePracticeExamAsync(Guid? examId, CancellationToken ct) =>
+        examId is { } id && !await db.Exams.AnyAsync(e => e.Id == id && e.Kind == ExamKind.Practice, ct)
+            ? Error.Validation("PRACTICE_EXAM_INVALID", "Đề luyện không tồn tại hoặc không phải đề loại \"Đề luyện\".", "practiceExamId")
+            : null;
+
     /// <summary>Video → DTO kèm tên chuyên đề và danh sách lớp được xem (sắp theo mã lớp).</summary>
     private IQueryable<VideoLessonDto> ToDto(IQueryable<VideoLesson> videos) =>
         from v in videos
@@ -278,5 +303,9 @@ internal sealed class VideoService(
             v.IsActive,
             v.CreatedAt,
             v.UpdatedAt,
-            v.RowVersion.ToBase64());
+            v.RowVersion.ToBase64(),
+            v.PracticeExamId,
+            db.Exams.Where(e => e.Id == v.PracticeExamId).Select(e => e.Code).FirstOrDefault(),
+            db.Exams.Where(e => e.Id == v.PracticeExamId).Select(e => e.Name).FirstOrDefault(),
+            v.HomeworkUrl);
 }

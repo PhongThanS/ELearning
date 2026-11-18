@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IExamVersionService, ExamVersionService>();
         services.AddScoped<IVideoService, VideoService>();
+        services.AddScoped<IVideoPracticeService, VideoPracticeService>();
         services.AddScoped<ELearning.Application.Attendance.IAttendanceService, ELearning.Application.Attendance.AttendanceService>();
 
         services.AddSingleton(GradingEngine.Default);

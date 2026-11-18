@@ -11,6 +11,7 @@ import type {
   DocxImageResult,
   YoutubeVideoInfo,
   VideoLesson,
+  VideoPractice,
   CreateVideoInput,
   UpdateVideoInput,
   VideoListQuery,
@@ -341,6 +342,9 @@ export const videosApi = {
   youtubeInfo: (url: string) => http.get<YoutubeVideoInfo>("/videos/youtube-info", { url }),
   getForStudent: (id: string) =>
     http.get<VideoLesson>(`/student/videos/${id}`),
+  /** Học viên bấm "Luyện đề" (D-38); restart = true: làm lại, hủy kết quả cũ. */
+  startPractice: (id: string, restart: boolean) =>
+    http.post<VideoPractice>(`/student/videos/${id}/practice`, { restart }),
 };
 
 

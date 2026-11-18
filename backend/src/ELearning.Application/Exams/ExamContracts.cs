@@ -14,6 +14,9 @@ public sealed record ExamListQuery : PageRequest
 
     /// <summary>Lọc theo chuyên đề của đề (D-30).</summary>
     public Guid? CategoryId { get; init; }
+
+    /// <summary>Lọc theo loại đề (D-33), ví dụ chỉ đề luyện khi gắn vào video.</summary>
+    public ExamKind? Kind { get; init; }
 }
 
 public sealed record ExamListItemDto(

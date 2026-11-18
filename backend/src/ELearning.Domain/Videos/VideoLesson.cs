@@ -76,6 +76,15 @@ public sealed class VideoLesson : Entity, IHasRowVersion
 
     public QuestionCategory? Category { get; private set; }
 
+    /// <summary>
+    /// Đề luyện đi kèm bài giảng (D-38): học viên bấm "Luyện đề" ở video thì được tự thêm vào đề này.
+    /// Chỉ nhận đề loại PRACTICE (kiểm tra ở VideoService); null = video không có đề luyện.
+    /// </summary>
+    public Guid? PracticeExamId { get; private set; }
+
+    /// <summary>Bài tập về nhà (D-39): link PDF trên Google Drive / Docs, học viên bấm "Bài tập về nhà" để mở.</summary>
+    public string? HomeworkUrl { get; private set; }
+
     /// <summary>Các lớp được xem bài giảng; rỗng = bài giảng chung.</summary>
     public IReadOnlyCollection<VideoLessonClassroom> Classrooms => _classrooms;
 
@@ -94,6 +103,11 @@ public sealed class VideoLesson : Entity, IHasRowVersion
     public DateTime? UpdatedAt { get; private set; }
 
     public byte[] RowVersion { get; private set; } = [];
+
+    public void SetPracticeExam(Guid? examId) => PracticeExamId = examId;
+
+    public void SetHomework(string? homeworkUrl) =>
+        HomeworkUrl = string.IsNullOrWhiteSpace(homeworkUrl) ? null : homeworkUrl.Trim();
 
     public void Update(
         string title,

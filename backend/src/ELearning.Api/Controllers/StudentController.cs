@@ -24,6 +24,7 @@ public sealed class StudentController(
     IClassroomService classrooms,
     ICategoryService categories,
     IVideoService videos,
+    IVideoPracticeService videoPractice,
     IAttendanceService attendance,
     ICurrentUser currentUser) : ApiControllerBase
 {
@@ -107,6 +108,16 @@ public sealed class StudentController(
     [ProducesResponseType<ApiResponse<PagedResult<VideoLessonDto>>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> ListVideos([FromQuery] VideoListQuery query, CancellationToken ct) =>
         Ok(ApiResponse.Ok(await videos.ListForStudentAsync(query, ct), TraceId));
+
+    /// <summary>
+    /// "Luyện đề" ở video (D-38): đưa đề luyện của video vào bài tập của học viên. Đã làm rồi thì trả AlreadyAttempted
+    /// (Ready = false) để giao diện hỏi; gửi lại Restart = true thì hủy các lượt cũ của chính học viên và sẵn sàng làm lại.
+    /// </summary>
+    [HttpPost("videos/{id:guid}/practice")]
+    [EnableRateLimiting(RateLimitPolicies.AttemptAction)]
+    [ProducesResponseType<ApiResponse<VideoPracticeDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> StartVideoPractice(Guid id, StartVideoPracticeRequest? request, CancellationToken ct) =>
+        ToResponse(await videoPractice.StartAsync(id, request ?? new StartVideoPracticeRequest(), ct));
 
     [HttpGet("videos/{id:guid}")]
     [ProducesResponseType<ApiResponse<VideoLessonDto>>(StatusCodes.Status200OK)]

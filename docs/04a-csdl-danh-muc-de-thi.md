@@ -278,6 +278,8 @@ CREATE TABLE VideoLessons (
     ThumbnailUrl    NVARCHAR(1000) NULL,
     Description     NVARCHAR(4000) NULL,
     CategoryId      UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_Category REFERENCES QuestionCategories(Id),
+    PracticeExamId  UNIQUEIDENTIFIER NULL CONSTRAINT FK_VideoLessons_PracticeExam REFERENCES Exams(Id), -- D-38: đề luyện (Kind = PRACTICE), index IX_VideoLessons_PracticeExamId
+    HomeworkUrl     NVARCHAR(1000) NULL, -- D-39: bài tập về nhà (PDF Google Drive / Docs)
     DurationMinutes INT            NULL,
     DisplayOrder    INT            NOT NULL,
     IsActive        BIT            NOT NULL,

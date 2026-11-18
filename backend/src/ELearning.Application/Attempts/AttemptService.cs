@@ -108,8 +108,9 @@ internal sealed class AttemptService(
         }
 
         var state = (await LoadUserExamStatesAsync(userId, [examId], ct))[examId];
+        // Lượt học viên tự hủy khi bấm "làm lại" đề luyện ở video (D-38) không hiện cho học viên
         var attempts = await db.ExamAttempts.AsNoTracking()
-            .Where(a => a.ExamId == examId && a.UserId == userId)
+            .Where(a => a.ExamId == examId && a.UserId == userId && !(a.Status == AttemptStatus.Cancelled && a.CancelledBy == userId))
             .OrderByDescending(a => a.AttemptNumber)
             .ToListAsync(ct);
         var results = await db.ExamResults.AsNoTracking()
@@ -416,7 +417,8 @@ internal sealed class AttemptService(
 
     public async Task<PagedResult<StudentHistoryItemDto>> HistoryAsync(Guid userId, StudentHistoryQuery query, CancellationToken ct)
     {
-        var attempts = db.ExamAttempts.AsNoTracking().Where(a => a.UserId == userId);
+        var attempts = db.ExamAttempts.AsNoTracking()
+            .Where(a => a.UserId == userId && !(a.Status == AttemptStatus.Cancelled && a.CancelledBy == userId));
         var total = await attempts.CountAsync(ct);
         var rows = await attempts
             .OrderByDescending(a => a.StartedAt)

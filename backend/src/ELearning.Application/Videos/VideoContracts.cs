@@ -20,7 +20,11 @@ public sealed record VideoLessonDto(
     bool IsActive,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    string RowVersion);
+    string RowVersion,
+    Guid? PracticeExamId = null,
+    string? PracticeExamCode = null,
+    string? PracticeExamName = null,
+    string? HomeworkUrl = null);
 
 /// <summary>Lớp được xem bài giảng.</summary>
 public sealed record VideoClassroomDto(Guid Id, string Code, string Name);
@@ -34,7 +38,9 @@ public sealed record CreateVideoRequest(
     IReadOnlyList<Guid>? ClassroomIds = null,
     int? DurationMinutes = null,
     int DisplayOrder = 0,
-    string? DocumentUrl = null);
+    string? DocumentUrl = null,
+    Guid? PracticeExamId = null,
+    string? HomeworkUrl = null);
 
 public sealed record UpdateVideoRequest(
     string Title,
@@ -46,7 +52,18 @@ public sealed record UpdateVideoRequest(
     int DisplayOrder,
     bool IsActive,
     string RowVersion,
-    string? DocumentUrl = null);
+    string? DocumentUrl = null,
+    Guid? PracticeExamId = null,
+    string? HomeworkUrl = null);
+
+/// <summary>Học viên bấm "Luyện đề" ở video. Restart = true: làm lại (hủy các lượt cũ của chính mình).</summary>
+public sealed record StartVideoPracticeRequest(bool Restart = false);
+
+/// <summary>
+/// Kết quả bấm "Luyện đề": <c>Ready</c> = đã sẵn sàng mở đề; <c>AlreadyAttempted</c> &amp;&amp; !Ready = học viên đã làm đề này,
+/// giao diện hỏi có muốn làm lại không rồi gọi lại với Restart = true.
+/// </summary>
+public sealed record VideoPracticeDto(Guid ExamId, string ExamCode, string ExamName, bool AlreadyAttempted, int AttemptCount, bool Ready);
 
 public sealed record VideoListQuery : PageRequest
 {
@@ -67,6 +84,9 @@ public sealed class CreateVideoRequestValidator : AbstractValidator<CreateVideoR
         RuleFor(r => r.DocumentUrl).MaximumLength(1000).WithMessage("Đường dẫn tài liệu không vượt quá 1000 ký tự.")
             .Must(url => VideoLinks.IsGoogleDocument(url!)).When(r => !string.IsNullOrWhiteSpace(r.DocumentUrl))
             .WithErrorCode("INVALID_DOCUMENT_URL").WithMessage(VideoLinks.DocumentUrlMessage);
+        RuleFor(r => r.HomeworkUrl).MaximumLength(1000).WithMessage("Đường dẫn bài tập về nhà không vượt quá 1000 ký tự.")
+            .Must(url => VideoLinks.IsGoogleDocument(url!)).When(r => !string.IsNullOrWhiteSpace(r.HomeworkUrl))
+            .WithErrorCode("INVALID_HOMEWORK_URL").WithMessage(VideoLinks.HomeworkUrlMessage);
         RuleFor(r => r.Description).MaximumLength(4000).WithMessage("Mô tả không vượt quá 4000 ký tự.");
         RuleFor(r => r.ClassroomIds).Must(ids => ids!.Count <= VideoLesson.MaxClassrooms).When(r => r.ClassroomIds is not null)
             .WithMessage($"Mỗi bài giảng gắn tối đa {VideoLesson.MaxClassrooms} lớp.");
@@ -86,6 +106,9 @@ public sealed class UpdateVideoRequestValidator : AbstractValidator<UpdateVideoR
         RuleFor(r => r.DocumentUrl).MaximumLength(1000).WithMessage("Đường dẫn tài liệu không vượt quá 1000 ký tự.")
             .Must(url => VideoLinks.IsGoogleDocument(url!)).When(r => !string.IsNullOrWhiteSpace(r.DocumentUrl))
             .WithErrorCode("INVALID_DOCUMENT_URL").WithMessage(VideoLinks.DocumentUrlMessage);
+        RuleFor(r => r.HomeworkUrl).MaximumLength(1000).WithMessage("Đường dẫn bài tập về nhà không vượt quá 1000 ký tự.")
+            .Must(url => VideoLinks.IsGoogleDocument(url!)).When(r => !string.IsNullOrWhiteSpace(r.HomeworkUrl))
+            .WithErrorCode("INVALID_HOMEWORK_URL").WithMessage(VideoLinks.HomeworkUrlMessage);
         RuleFor(r => r.Description).MaximumLength(4000).WithMessage("Mô tả không vượt quá 4000 ký tự.");
         RuleFor(r => r.ClassroomIds).Must(ids => ids!.Count <= VideoLesson.MaxClassrooms).When(r => r.ClassroomIds is not null)
             .WithMessage($"Mỗi bài giảng gắn tối đa {VideoLesson.MaxClassrooms} lớp.");
@@ -98,6 +121,9 @@ public sealed class UpdateVideoRequestValidator : AbstractValidator<UpdateVideoR
 /// <summary>Tài liệu đi kèm bài giảng phải là link Google Drive / Docs (trình duyệt chỉ cho nhúng các trang này, xem CSP frame-src).</summary>
 public static class VideoLinks
 {
+    public const string HomeworkUrlMessage =
+        "Link bài tập về nhà phải là file PDF trên Google Drive (https://drive.google.com/file/d/...) hoặc Google Docs, chia sẻ \"Bất kỳ ai có đường liên kết\".";
+
     public const string DocumentUrlMessage =
         "Link tài liệu phải là link Google Drive (https://drive.google.com/file/d/...) hoặc Google Docs, chia sẻ \"Bất kỳ ai có đường liên kết\".";
 

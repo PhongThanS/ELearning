@@ -1014,6 +1014,22 @@ export interface VideoLesson {
   createdAt: string;
   updatedAt?: string | null;
   rowVersion: string;
+  /** Đề luyện đi kèm (D-38): học viên bấm "Luyện đề" để làm. */
+  practiceExamId?: string | null;
+  practiceExamCode?: string | null;
+  practiceExamName?: string | null;
+  /** Bài tập về nhà (D-39): link PDF Google Drive / Docs. */
+  homeworkUrl?: string | null;
+}
+
+/** Kết quả bấm "Luyện đề" ở video. Ready = false và AlreadyAttempted = true: hỏi học viên có làm lại không. */
+export interface VideoPractice {
+  examId: string;
+  examCode: string;
+  examName: string;
+  alreadyAttempted: boolean;
+  attemptCount: number;
+  ready: boolean;
 }
 
 export interface VideoClassroom {
@@ -1038,6 +1054,8 @@ export interface CreateVideoInput {
   classroomIds?: string[];
   durationMinutes?: number | null;
   displayOrder?: number;
+  practiceExamId?: string | null;
+  homeworkUrl?: string | null;
 }
 
 export interface UpdateVideoInput {
@@ -1051,6 +1069,10 @@ export interface UpdateVideoInput {
   displayOrder: number;
   isActive: boolean;
   rowVersion: string;
+  /** Luôn gửi: null = bỏ đề luyện. */
+  practiceExamId: string | null;
+  /** Luôn gửi: null = bỏ bài tập về nhà. */
+  homeworkUrl: string | null;
 }
 
 export interface VideoListQuery extends PageQuery {

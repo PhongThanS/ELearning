@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useId, useState } from "react";
 import { Button, Col, Container, Nav, Navbar, NavDropdown, Row } from "react-bootstrap";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,11 @@ import { RECENT_LIMIT, rememberRecent, useRecent, type RecentItem } from "./rece
 import { QuickSearch, type QuickPage } from "./QuickSearch";
 import { prefetchPages } from "../app/pageLoaders";
 
+/**
+ * Logo SClass: khung chữ nhật viền mảnh bao chữ "Class", bên trái là cánh cửa mở (khối xanh) có chữ "S" trắng —
+ * "mở cánh cửa tri thức". Màu giữ như trước: cửa xanh #123788, chữ trắng trên nền tối / xanh đậm trên nền sáng.
+ * `size` là chiều cao phần logo (px); `showTagline` thêm khẩu hiệu bên dưới.
+ */
 export function SClassLogo({
   size = 36,
   showTagline = true,
@@ -22,64 +27,65 @@ export function SClassLogo({
   showTagline?: boolean;
   lightText?: boolean;
 }) {
+  const ink = lightText ? "#ffffff" : "#0c276b";
+  const height = Math.round(size * 1.05);
+  const width = Math.round(height * (330 / 126));
+  // id gradient riêng cho từng logo trên trang (có thể có nhiều logo cùng lúc)
+  const uid = useId().replace(/:/g, "");
+  const face = `sclass-door-${uid}`;
+  // Nền tối (thanh trên): cửa sáng hơn vài bậc trong cùng tông xanh để không chìm vào nền; nền sáng giữ #123788
+  const doorStops = lightText ? ["#5a82ea", "#3a63d2", "#2a4fb8"] : ["#2a4fb3", "#1a3f9e", "#123788"];
+  const doorEdge = lightText ? "#1c3d9a" : "#0b2463";
+  const font = "'Be Vietnam Pro', 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif";
   return (
-    <div className="sclass-brand-wrap d-inline-flex align-items-center gap-2">
-      <div
-        className="sclass-badge-box d-flex align-items-center justify-content-center flex-shrink-0"
-        style={{
-          width: size,
-          height: size,
-          minWidth: size,
-          borderRadius: Math.max(7, Math.round(size * 0.22)),
-          background: "#123788",
-          border: lightText ? "1.5px solid rgba(255, 255, 255, 0.4)" : "1.5px solid #123788",
-          boxShadow: lightText
-            ? "0 2px 8px rgba(0, 210, 255, 0.35)"
-            : "0 2px 8px rgba(18, 55, 136, 0.3)",
-        }}
+    <div className="sclass-brand-wrap d-inline-flex flex-column justify-content-center align-items-start lh-1" aria-label="SClass">
+      <svg
+        className="sclass-logo-mark flex-shrink-0"
+        width={width}
+        height={height}
+        viewBox="0 0 330 126"
+        role="img"
+        aria-hidden="true"
+        focusable="false"
+        shapeRendering="geometricPrecision"
+        textRendering="geometricPrecision"
       >
-        <svg
-          width={Math.round(size * 0.64)}
-          height={Math.round(size * 0.64)}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#ffffff"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
-          <path d="M6 12v5c3 3 9 3 12 0v-5" />
-        </svg>
-      </div>
-      <div className="d-flex flex-column justify-content-center lh-1">
+        <defs>
+          {/* Mặt cửa: tông xanh thương hiệu, sáng nhẹ ở mép trên để có chiều sâu */}
+          <linearGradient id={face} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor={doorStops[0]} />
+            <stop offset="0.55" stopColor={doorStops[1]} />
+            <stop offset="1" stopColor={doorStops[2]} />
+          </linearGradient>
+        </defs>
+        {/* Khung bao cả cánh cửa chữ S và chữ Class: viền trên bằng mũi nhọn trên của cửa */}
+        <rect x="4" y="3" width="320" height="101" fill="none" stroke={ink} strokeWidth="3.5" strokeLinejoin="miter" />
+        {/* Cánh cửa mở về phía người xem: cạnh trái trong khung, cạnh phải cao hơn; mũi nhọn dưới nhô ra ngoài khung */}
+        <polygon points="24,18 88,3 88,123 24,104" fill={`url(#${face})`} />
+        {/* Độ dày cánh cửa: dải tối mảnh ở cạnh phải */}
+        <polygon points="83,4.2 88,3 88,123 83,121.8" fill={doorEdge} />
+        <text x="54" y="84" textAnchor="middle" fill="#ffffff" fontSize="62" fontWeight="500" fontFamily={font}>
+          S
+        </text>
+        <text x="110" y="77" fill={ink} fontSize="64" fontWeight="400" letterSpacing="4" fontFamily={font}>
+          Class
+        </text>
+      </svg>
+      {showTagline && (
         <span
-          className="sclass-brand-text fw-bold"
+          className="sclass-tagline"
           style={{
-            fontSize: `${Math.round(size * 0.65)}px`,
-            color: lightText ? "#ffffff" : "#0c276b",
-            fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
-            letterSpacing: "-0.02em",
+            fontSize: `${Math.max(9, Math.round(size * 0.27))}px`,
+            color: lightText ? "#fda4af" : "#d92638",
+            fontWeight: 600,
+            marginTop: "3px",
+            whiteSpace: "nowrap",
+            letterSpacing: "-0.01em",
           }}
         >
-          SClass
+          Dạy học là truyền cảm hứng
         </span>
-        {showTagline && (
-          <span
-            className="sclass-tagline"
-            style={{
-              fontSize: `${Math.max(9, Math.round(size * 0.27))}px`,
-              color: lightText ? "#fda4af" : "#d92638",
-              fontWeight: 600,
-              marginTop: "2px",
-              whiteSpace: "nowrap",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            Dạy học là truyền cảm hứng
-          </span>
-        )}
-      </div>
+      )}
     </div>
   );
 }

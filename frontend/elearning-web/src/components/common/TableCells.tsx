@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { Fragment, type ReactNode } from "react";
 import { Dropdown } from "react-bootstrap";
 import { Link } from "react-router";
@@ -123,13 +124,18 @@ export function RowActions({ label, actions }: { label: string; actions: RowActi
       <Dropdown.Toggle as="button" type="button" className="row-actions-btn" aria-label={`Thao tác với ${label}`}>
         <i className="bi bi-three-dots" aria-hidden="true" />
       </Dropdown.Toggle>
-      <Dropdown.Menu popperConfig={{ strategy: "fixed" }}>
-        {normal.map(item)}
-        {normal.length > 0 && danger.length > 0 && <Dropdown.Divider />}
-        {danger.map((a) => (
-          <Fragment key={a.label}>{item(a)}</Fragment>
-        ))}
-      </Dropdown.Menu>
+      {/* Menu gắn vào <body>: khung bảng có container-type (container query) nên tọa độ "fixed" bên trong bị tính theo
+          khung bảng, menu nhảy lên đầu / xuống cuối trang. Ra ngoài body thì luôn bám đúng nút ⋯. */}
+      {createPortal(
+        <Dropdown.Menu popperConfig={{ strategy: "fixed" }} className="row-actions-menu">
+          {normal.map(item)}
+          {normal.length > 0 && danger.length > 0 && <Dropdown.Divider />}
+          {danger.map((a) => (
+            <Fragment key={a.label}>{item(a)}</Fragment>
+          ))}
+        </Dropdown.Menu>,
+        document.body,
+      )}
     </Dropdown>
   );
 }

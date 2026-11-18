@@ -1,4 +1,5 @@
 import { useEffect, useState, useId, useMemo } from "react";
+import { HomeworkButton } from "./HomeworkButton";
 import {
   Badge,
   Button,
@@ -11,7 +12,8 @@ import {
   Spinner,
 } from "react-bootstrap";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { videosApi, categoriesApi } from "../../services/api";
+import { Link } from "react-router";
+import { videosApi, categoriesApi, examsApi } from "../../services/api";
 import { useAllClassrooms } from "../../hooks/useClassrooms";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson, CreateVideoInput, UpdateVideoInput } from "../../types/api";
@@ -300,6 +302,12 @@ export function AdminVideoPages() {
                         </Badge>
                       )}
                       <LessonClassBadges classrooms={v.classrooms} />
+                      {v.practiceExamName && (
+                        <Badge bg="warning-subtle" text="dark" className="border border-warning-subtle fw-normal" title={`Đề luyện: ${v.practiceExamName}`}>
+                          <i className="bi bi-pencil-square me-1" aria-hidden="true" />
+                          Đề luyện
+                        </Badge>
+                      )}
                     </div>
 
                     {/* Description preview */}
@@ -331,6 +339,18 @@ export function AdminVideoPages() {
                         >
                           <i className="bi bi-eye"></i>
                         </Button>
+                        <HomeworkButton video={v} variant="outline-success" className="px-2 py-1" />
+                        {v.practiceExamId && (
+                          // Quản trị xem đề luyện của video (trang đề: xem trước, sửa) — không tạo lượt thi
+                          <Link
+                            to={`/admin/exams/${v.practiceExamId}`}
+                            className="btn btn-outline-warning btn-sm px-2 py-1"
+                            title={`Xem đề luyện: ${v.practiceExamName ?? ""}`}
+                            aria-label={`Xem đề luyện ${v.practiceExamName ?? ""}`}
+                          >
+                            <i className="bi bi-pencil-square" aria-hidden="true"></i>
+                          </Link>
+                        )}
                         <Button
                           variant="outline-secondary"
                           size="sm"
@@ -440,9 +460,22 @@ function VideoEditModal({
   const [videoUrl, setVideoUrl] = useState(video?.videoUrl ?? "");
   const [documentUrl, setDocumentUrl] = useState(video?.documentUrl ?? "");
   const attachment = parseDriveLink(documentUrl);
+  // Bài tập về nhà (D-39): PDF trên Google Drive, học viên bấm nút "Bài tập về nhà" để mở
+  const [homeworkUrl, setHomeworkUrl] = useState(video?.homeworkUrl ?? "");
+  const homework = parseDriveLink(homeworkUrl);
+  const homeworkId = useId();
   const [description, setDescription] = useState(video?.description ?? "");
   const [categoryId, setCategoryId] = useState(video?.categoryId ?? "");
   const [classroomIds, setClassroomIds] = useState<string[]>(video?.classrooms.map((c) => c.id) ?? []);
+  // Đề luyện đi kèm (D-38): chỉ chọn đề loại "Đề luyện"
+  const [practiceExamId, setPracticeExamId] = useState(video?.practiceExamId ?? "");
+  const practiceExamsQuery = useQuery({
+    queryKey: ["exams", "practice-options"],
+    queryFn: () => examsApi.list({ kind: "PRACTICE", pageSize: 100, sortBy: "name" }),
+    staleTime: 60_000,
+  });
+  const practiceExams = practiceExamsQuery.data?.items ?? [];
+  const practiceExamId_ = useId();
   const [errorMsg, setErrorMsg] = useState("");
 
   const ytId = extractYoutubeId(videoUrl);
@@ -483,6 +516,8 @@ function VideoEditModal({
           description: description.trim() || null,
           categoryId: categoryId || null,
           classroomIds,
+          practiceExamId: practiceExamId || null,
+          homeworkUrl: homeworkUrl.trim() || null,
           // Form không còn ô thời lượng / thứ tự: giữ nguyên giá trị đã lưu của video
           durationMinutes: video.durationMinutes ?? null,
           displayOrder: video.displayOrder,
@@ -498,6 +533,8 @@ function VideoEditModal({
           description: description.trim() || null,
           categoryId: categoryId || null,
           classroomIds,
+          practiceExamId: practiceExamId || null,
+          homeworkUrl: homeworkUrl.trim() || null,
         };
         return videosApi.create(input);
       }
@@ -520,6 +557,10 @@ function VideoEditModal({
     }
     if (documentUrl.trim() && !attachment) {
       setErrorMsg("Link tài liệu phải là link Google Drive (https://drive.google.com/file/d/...) hoặc Google Docs.");
+      return;
+    }
+    if (homeworkUrl.trim() && !homework) {
+      setErrorMsg("Link bài tập về nhà phải là file PDF trên Google Drive (https://drive.google.com/file/d/...) hoặc Google Docs.");
       return;
     }
     setErrorMsg("");
@@ -632,6 +673,27 @@ function VideoEditModal({
             </Form.Text>
           </Form.Group>
 
+          <Form.Group className="mb-3">
+            <Form.Label htmlFor={homeworkId} className="fw-semibold">
+              <i className="bi bi-file-earmark-pdf text-danger me-1" aria-hidden="true" />
+              Bài tập về nhà (PDF Google Drive)
+            </Form.Label>
+            <Form.Control
+              id={homeworkId}
+              type="text"
+              placeholder="https://drive.google.com/file/d/.../view"
+              value={homeworkUrl}
+              onChange={(e) => setHomeworkUrl(e.target.value)}
+              isInvalid={!!homeworkUrl.trim() && !homework}
+              isValid={!!homework}
+            />
+            <Form.Control.Feedback type="invalid">Chỉ nhận link Google Drive / Google Docs.</Form.Control.Feedback>
+            <Form.Text className="text-muted">
+              Không bắt buộc. Học viên sẽ có nút <strong>Bài tập về nhà</strong> cạnh nút Luyện đề, bấm vào mở file PDF. Chia sẻ tệp ở
+              chế độ <strong>"Bất kỳ ai có đường liên kết"</strong>; để trống khi sửa là gỡ bài tập.
+            </Form.Text>
+          </Form.Group>
+
           {/* Video Preview */}
           {(ytId || driveUrl || isDirect) && (
             <div className="mb-3 p-3 bg-light rounded border">
@@ -717,6 +779,33 @@ function VideoEditModal({
                   searchPlaceholder="Tìm theo mã hoặc tên lớp..."
                   emptyText="Chưa chọn lớp: mọi học sinh đều xem được (Chung)"
                 />
+              </Form.Group>
+            </Col>
+            <Col md={12}>
+              <Form.Group>
+                <Form.Label htmlFor={practiceExamId_} className="fw-semibold">
+                  <i className="bi bi-pencil-square me-1" aria-hidden="true" />
+                  Đề luyện đi kèm (không bắt buộc)
+                </Form.Label>
+                <SearchableSelect
+                  id={practiceExamId_}
+                  value={practiceExamId}
+                  onChange={(val) => setPracticeExamId(val)}
+                  options={practiceExams.map((e) => ({
+                    value: e.id,
+                    label: e.name,
+                    code: e.code,
+                    sublabel: e.status === "PUBLISHED" ? "Đang mở" : e.status === "DRAFT" ? "Nháp — chưa mở" : "Đã đóng",
+                  }))}
+                  placeholder="-- Không có đề luyện --"
+                  searchPlaceholder="Tìm đề luyện theo mã hoặc tên..."
+                  loading={practiceExamsQuery.isLoading}
+                  clearable={true}
+                />
+                <Form.Text className="text-secondary">
+                  Học viên xem video sẽ có nút <strong>Luyện đề</strong>: bấm vào thì đề này tự thêm vào danh sách bài tập của học viên.
+                  Chỉ chọn được đề loại "Đề luyện"; đề phải đang mở thì học viên mới làm được.
+                </Form.Text>
               </Form.Group>
             </Col>
           </Row>
