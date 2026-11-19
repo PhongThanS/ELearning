@@ -8,13 +8,52 @@ Một lệnh trên máy dev cập nhật bản mới nhất lên server.
 | `deploy.cmd` | máy Windows của dev | `git push` nhánh hiện tại, rồi gọi `update.sh` trên server qua SSH |
 | `update.sh` | server Linux | `pg_dump` trước khi cập nhật (giữ 10 bản), `git reset --hard origin/<nhánh>`, `docker compose up -d --build`, chờ `/health/ready`, dọn cache |
 
-## Cập nhật hằng ngày
+## Từ code đến server (quy trình cho mọi thành viên)
 
-1. Commit code. Chỉ code đã commit và push mới lên được server.
-2. Bấm đúp `deploy\linux\deploy.cmd` (hoặc chạy trong terminal ở thư mục gốc repo).
-3. Chờ dòng `OK: hệ thống đã chạy.` (2–5 phút).
+**Nguyên tắc:** server luôn chạy nhánh `main` của GitHub. Code chưa vào `main` thì chưa lên server.
 
-Không cập nhật khi đang có kỳ thi diễn ra: API khởi động lại vài giây (`docs/09-van-hanh.md` mục 5).
+### Lần đầu: lấy mã nguồn về máy
+
+```powershell
+git clone https://github.com/PhongThanS/ELearning.git
+cd ELearning
+git config user.name "Tên của bạn"
+git config user.email "email@cua-ban"
+```
+
+GitHub không nhận mật khẩu tài khoản khi push qua HTTPS. Khi được hỏi, đăng nhập bằng trình duyệt (Git Credential Manager) hoặc dùng Personal Access Token (GitHub → Settings → Developer settings → Personal access tokens, quyền `repo`). Người quản trị repo cần cấp cho bạn quyền ghi (Settings → Collaborators).
+
+### Mỗi lần có thay đổi
+
+1. **Cập nhật code mới nhất** trước khi làm:
+   ```powershell
+   git checkout main
+   git pull --rebase origin main
+   ```
+2. **Sửa code**, rồi kiểm tra trước khi đẩy (theo `CLAUDE.md`): backend `dotnet build ELearning.sln` và `dotnet test`, frontend `npm run lint && npm run typecheck && npm run test && npm run build`.
+3. **Commit** (thông điệp ngắn, nói rõ làm gì):
+   ```powershell
+   git add <các file đã sửa>
+   git commit -m "feat(api): mô tả ngắn"
+   ```
+   Không `git add .` bừa: dễ kéo theo file tạm, `.env`, file backup. Không commit bí mật.
+4. **Đẩy lên GitHub:**
+   ```powershell
+   git pull --rebase origin main
+   git push origin main
+   ```
+   Nếu `pull --rebase` báo xung đột: mở file bị báo, giữ phần đúng, `git add <file>`, `git rebase --continue`; muốn bỏ thì `git rebase --abort`. Không dùng `git push --force` trên `main`.
+5. **Cập nhật server:** bấm đúp `deploy\linux\deploy.cmd` (bước dưới).
+
+Làm việc theo nhánh riêng (khuyến nghị khi thay đổi lớn hoặc cần người khác xem): `git checkout -b feature/ten-ngan`, push nhánh đó, mở Pull Request vào `main`, chờ CI xanh (`backend`, `frontend`, `docker` trong tab Actions) rồi merge. Sau khi merge, `git checkout main && git pull` và chạy `deploy.cmd`. `deploy.cmd` từ chối chạy khi đang ở nhánh khác `main`.
+
+## Cập nhật server (bước deploy)
+
+1. Đảm bảo đang ở nhánh `main` và code đã commit.
+2. Bấm đúp `deploy\linux\deploy.cmd` (hoặc chạy trong terminal ở thư mục gốc repo). Script cảnh báo nếu còn file chưa commit, push `main`, rồi cập nhật server qua SSH.
+3. Chờ dòng `OK: hệ thống đã chạy.` (2–5 phút). Thấy `LỖI` thì xem mục "Lưu ý" bên dưới.
+
+Không cập nhật khi đang có kỳ thi diễn ra: API khởi động lại vài giây (`docs/09-van-hanh.md` mục 5). Trước khi deploy nên xem tab Actions trên GitHub để chắc commit mới nhất đã xanh, vì server không tự kiểm tra test.
 
 ## Cài đặt cho một người mới (làm một lần)
 

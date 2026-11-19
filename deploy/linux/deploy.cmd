@@ -11,6 +11,14 @@ cd /d "%~dp0\..\.."
 for /f %%b in ('git rev-parse --abbrev-ref HEAD') do set BRANCH=%%b
 echo === Nhanh hien tai: %BRANCH% ===
 
+if /i not "%BRANCH%"=="main" (
+  echo.
+  echo DUNG: server chi chay nhanh main. Hay merge nhanh %BRANCH% vao main truoc, roi chay lai tren nhanh main.
+  echo Xem deploy/linux/README.md muc "Tu code den server".
+  pause
+  exit /b 1
+)
+
 git status --porcelain | findstr /r "." >nul
 if %errorlevel%==0 (
   echo.
