@@ -12,6 +12,11 @@ if [ -f deploy/certs/fullchain.pem ]; then
   COMPOSE+=(-f docker-compose.prod.yml)
 fi
 
+# Override riêng của server (không commit), ví dụ mở cổng DB cho SSH tunnel
+if [ -f docker-compose.override.yml ]; then
+  COMPOSE+=(-f docker-compose.override.yml)
+fi
+
 set -a; . ./.env; set +a
 HTTP_PORT="${HTTP_PORT:-8080}"
 BACKUP_DIR="${BACKUP_DIR:-./backups}"

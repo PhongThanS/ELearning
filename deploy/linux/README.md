@@ -111,3 +111,28 @@ docker compose up -d --build
 - Cập nhật lỗi: `ssh -p 24700 root@<server> "cd /opt/elearning && docker compose logs --tail=100 api"`.
 - Quay lại bản cũ: trên server `git reset --hard <commit>` rồi `docker compose up -d --build`; nếu migration mới không tương thích thì khôi phục từ file `.dump` (`docs/09-van-hanh.md` mục 6).
 - Dung lượng ổ đĩa: `update.sh` đã dọn image và build cache cũ; không dùng `docker system prune --volumes` vì sẽ xóa database.
+
+## Kết nối DB từ máy local (SSH tunnel)
+
+Không mở cổng 5432 ra Internet. Mở cổng chỉ trên `127.0.0.1` của server rồi đi qua SSH.
+
+1. Trên server, tạo `/opt/elearning/docker-compose.override.yml` (file này nằm ngoài git, `update.sh` tự nạp):
+
+   ```yaml
+   services:
+     postgres:
+       ports:
+         - "127.0.0.1:5432:5432"
+   ```
+
+   Áp dụng: `cd /opt/elearning && docker compose -f docker-compose.yml -f docker-compose.override.yml up -d postgres`
+
+2. Trên máy local, mở tunnel (giữ cửa sổ này mở):
+
+   ```powershell
+   ssh -p 24700 -N -L 15432:127.0.0.1:5432 root@<server>
+   ```
+
+3. Kết nối bằng DBeaver / pgAdmin / psql tới `Host=localhost Port=15432 Database=elearning_db`, user `postgres`, mật khẩu là `POSTGRES_PASSWORD` trong `.env` của server.
+
+Chỉ nên đọc dữ liệu hoặc chạy truy vấn chẩn đoán; không sửa dữ liệu bằng tay (xem `CLAUDE.md`, quy tắc về snapshot và lịch sử).

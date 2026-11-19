@@ -500,3 +500,6 @@ backups/
 # Ảnh câu hỏi (Media:RootPath, D-27): dữ liệu, không commit
 media/
 deploy/certs/
+
+# Override riêng của server (mở cổng DB cho SSH tunnel...)
+docker-compose.override.yml
