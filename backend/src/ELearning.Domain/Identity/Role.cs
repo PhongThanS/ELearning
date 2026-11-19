@@ -8,6 +8,9 @@ public sealed class Role : Entity
     public const string StudentCode = "STUDENT";
     public const string TeacherCode = "TEACHER";
 
+    /// <summary>Trợ giảng (D-42): không có quyền mặc định, quản trị tự phân quyền ở trang Vai trò và quyền.</summary>
+    public const string TeachingAssistantCode = "TEACHING_ASSISTANT";
+
     private readonly List<RolePermission> _permissions = [];
 
     private Role()

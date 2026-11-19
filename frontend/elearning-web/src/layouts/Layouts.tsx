@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useId, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Button, Col, Container, Nav, Navbar, NavDropdown, Row } from "react-bootstrap";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
@@ -18,6 +18,9 @@ import { prefetchPages } from "../app/pageLoaders";
  * "mở cánh cửa tri thức". Màu giữ như trước: cửa xanh #123788, chữ trắng trên nền tối / xanh đậm trên nền sáng.
  * `size` là chiều cao phần logo (px); `showTagline` thêm khẩu hiệu bên dưới.
  */
+/** Huy hiệu Chấm điểm tự động ở trang đăng nhập / đăng ký (tạm ẩn). */
+const SHOW_GRADING_BADGE = false;
+
 export function SClassLogo({
   size = 36,
   showTagline = true,
@@ -27,66 +30,20 @@ export function SClassLogo({
   showTagline?: boolean;
   lightText?: boolean;
 }) {
-  const ink = lightText ? "#ffffff" : "#0c276b";
-  const height = Math.round(size * 1.05);
-  const width = Math.round(height * (330 / 126));
-  // id gradient riêng cho từng logo trên trang (có thể có nhiều logo cùng lúc)
-  const uid = useId().replace(/:/g, "");
-  const face = `sclass-door-${uid}`;
-  // Nền tối (thanh trên): cửa sáng hơn vài bậc trong cùng tông xanh để không chìm vào nền; nền sáng giữ #123788
-  const doorStops = lightText ? ["#5a82ea", "#3a63d2", "#2a4fb8"] : ["#2a4fb3", "#1a3f9e", "#123788"];
-  const doorEdge = lightText ? "#1c3d9a" : "#0b2463";
-  const font = "'Be Vietnam Pro', 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif";
+  // Logo gốc (public/brand/sclass-logo.png, 1394×702, một màu trên nền trong suốt) dùng làm mặt nạ:
+  // màu logo ăn theo nền phần mềm — trắng trên thanh tối, xanh đậm thương hiệu trên nền sáng.
+  const color = lightText ? "#ffffff" : "#0c276b";
+  const width = Math.round(size * 3.2);
+  // Phần khung + cửa + chữ Class chiếm ~78% chiều cao ảnh; phần dưới là câu "Dạy học là truyền cảm hứng"
+  const height = Math.round(width * (showTagline ? 702 / 1394 : 548 / 1394));
+  const mask = "url(/brand/sclass-logo.png?v=2) top left / 100% auto no-repeat";
   return (
-    <div className="sclass-brand-wrap d-inline-flex flex-column justify-content-center align-items-start lh-1" aria-label="SClass">
-      <svg
-        className="sclass-logo-mark flex-shrink-0"
-        width={width}
-        height={height}
-        viewBox="0 0 330 126"
-        role="img"
-        aria-hidden="true"
-        focusable="false"
-        shapeRendering="geometricPrecision"
-        textRendering="geometricPrecision"
-      >
-        <defs>
-          {/* Mặt cửa: tông xanh thương hiệu, sáng nhẹ ở mép trên để có chiều sâu */}
-          <linearGradient id={face} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor={doorStops[0]} />
-            <stop offset="0.55" stopColor={doorStops[1]} />
-            <stop offset="1" stopColor={doorStops[2]} />
-          </linearGradient>
-        </defs>
-        {/* Khung bao cả cánh cửa chữ S và chữ Class: viền trên bằng mũi nhọn trên của cửa */}
-        <rect x="4" y="3" width="320" height="101" fill="none" stroke={ink} strokeWidth="3.5" strokeLinejoin="miter" />
-        {/* Cánh cửa mở về phía người xem: cạnh trái trong khung, cạnh phải cao hơn; mũi nhọn dưới nhô ra ngoài khung */}
-        <polygon points="24,18 88,3 88,123 24,104" fill={`url(#${face})`} />
-        {/* Độ dày cánh cửa: dải tối mảnh ở cạnh phải */}
-        <polygon points="83,4.2 88,3 88,123 83,121.8" fill={doorEdge} />
-        <text x="54" y="84" textAnchor="middle" fill="#ffffff" fontSize="62" fontWeight="500" fontFamily={font}>
-          S
-        </text>
-        <text x="110" y="77" fill={ink} fontSize="64" fontWeight="400" letterSpacing="4" fontFamily={font}>
-          Class
-        </text>
-      </svg>
-      {showTagline && (
-        <span
-          className="sclass-tagline"
-          style={{
-            fontSize: `${Math.max(9, Math.round(size * 0.27))}px`,
-            color: lightText ? "#fda4af" : "#d92638",
-            fontWeight: 600,
-            marginTop: "3px",
-            whiteSpace: "nowrap",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Dạy học là truyền cảm hứng
-        </span>
-      )}
-    </div>
+    <span
+      className="sclass-brand-wrap sclass-logo-mark d-inline-block flex-shrink-0"
+      role="img"
+      aria-label="SClass — Dạy học là truyền cảm hứng"
+      style={{ width, height, backgroundColor: color, WebkitMask: mask, mask }}
+    />
   );
 }
 
@@ -584,10 +541,13 @@ export function PublicLayout() {
           </Col>
           <Col lg={6}>
             <div className="auth-form-wrap">
-              <div className="auth-float auth-float-top d-none d-sm-flex" aria-hidden="true">
-                <span className="auth-float-icon accent-green"><i className="bi bi-patch-check-fill" /></span>
-                {t("landing.badgeGrading")}
-              </div>
+              {/* Tạm ẩn huy hiệu Chấm điểm tự động ở trang đăng nhập; bật lại: đổi SHOW_GRADING_BADGE = true */}
+              {SHOW_GRADING_BADGE && (
+                <div className="auth-float auth-float-top d-none d-sm-flex" aria-hidden="true">
+                  <span className="auth-float-icon accent-green"><i className="bi bi-patch-check-fill" /></span>
+                  {t("landing.badgeGrading")}
+                </div>
+              )}
               <div className="auth-float auth-float-bottom d-none d-sm-flex" aria-hidden="true">
                 <span className="auth-float-icon accent-amber"><i className="bi bi-cloud-check-fill" /></span>
                 {t("landing.badgeTimer")}

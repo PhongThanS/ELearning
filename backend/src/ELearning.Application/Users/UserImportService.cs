@@ -3,6 +3,7 @@ using ELearning.Application.Audit;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Questions;
+using ELearning.Domain.Attendance;
 using ELearning.Domain.Identity;
 using ELearning.Shared;
 using ELearning.Shared.Results;
@@ -106,6 +107,12 @@ internal sealed class UserImportService(
                     users[i].SetPassword(hashes[i], mustChangePassword: false, now);
                     users[i].SetRoles(row.Request!.RoleIds!, now);
                     db.Users.Add(users[i]);
+                    if (row.StudentPhone is not null || row.ParentName is not null || row.ParentPhone is not null)
+                    {
+                        var contact = new StudentContact(users[i].Id);
+                        contact.Update(row.ParentName, row.ParentPhone, row.StudentPhone, currentUser.RequiredUserId, now);
+                        db.StudentContacts.Add(contact);
+                    }
                 }
 
                 var classIds = rows.SelectMany(r => r.ClassIds).Distinct().ToList();
@@ -182,6 +189,25 @@ internal sealed class UserImportService(
         }
 
         row.ClassCodes.AddRange(Split(Get(UserImportColumns.Classes)).Distinct(StringComparer.OrdinalIgnoreCase));
+
+        // Liên hệ (D-43): SĐT học sinh, tên và SĐT phụ huynh — không bắt buộc
+        row.StudentPhone = Blank(Get(UserImportColumns.StudentPhone));
+        row.ParentName = Blank(Get(UserImportColumns.ParentName));
+        row.ParentPhone = Blank(Get(UserImportColumns.ParentPhone));
+        foreach (var (column, phone) in new[] { (UserImportColumns.StudentPhone, row.StudentPhone), (UserImportColumns.ParentPhone, row.ParentPhone) })
+        {
+            if (phone is not null && !StudentContact.IsValidPhone(phone))
+            {
+                row.Issues.Add(new QuestionImportIssue(
+                    column, "PHONE_INVALID", $"Số điện thoại \"{phone}\" không hợp lệ (8–20 ký tự: chữ số, +, khoảng trắng, dấu chấm, gạch ngang)."));
+            }
+        }
+
+        if (row.ParentName?.Length > StudentContact.MaxParentNameLength)
+        {
+            row.Issues.Add(new QuestionImportIssue(
+                UserImportColumns.ParentName, "PARENT_NAME_TOO_LONG", $"Tên phụ huynh tối đa {StudentContact.MaxParentNameLength} ký tự."));
+        }
 
         row.Request = new CreateUserRequest(userName, email, fullName, password, roleIds, null);
         return row;
@@ -286,6 +312,8 @@ internal sealed class UserImportService(
         }
     }
 
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
     private static string[] Split(string? value) =>
         string.IsNullOrWhiteSpace(value)
             ? []
@@ -303,6 +331,12 @@ internal sealed class UserImportService(
         public CreateUserRequest? Request { get; set; }
 
         public bool IsStudent { get; set; }
+
+        public string? StudentPhone { get; set; }
+
+        public string? ParentName { get; set; }
+
+        public string? ParentPhone { get; set; }
 
         public List<string> RoleNames { get; } = [];
 

@@ -157,14 +157,15 @@ export function UserImportDialog({ show, onHide }: { show: boolean; onHide: () =
           <ul className="small mt-2 mb-0 ps-3">
             <li>
               Dòng 1 là tiêu đề, mỗi dòng bên dưới là một tài khoản:{" "}
-              <strong>Tên đăng nhập, Mật khẩu, Họ tên, Email, Vai trò, Lớp</strong>. Điền vào sheet <code>TaiKhoan</code> (ví dụ cách
+              <strong>Tên đăng nhập, Mật khẩu, Họ tên, Email, Vai trò, Lớp, SĐT học sinh, Tên phụ huynh, SĐT phụ huynh</strong>. Điền vào sheet <code>TaiKhoan</code> (ví dụ cách
               điền ở sheet <code>HuongDan</code>).
             </li>
             <li>
-              <strong>Vai trò</strong> ghi số: <strong>0</strong> = Quản trị viên, <strong>1</strong> = Giáo viên, <strong>2</strong> = Học viên
+              <strong>Vai trò</strong> ghi số: <strong>0</strong> = Quản trị viên, <strong>1</strong> = Giáo viên, <strong>2</strong> = Học viên, <strong>3</strong> = Trợ giảng
               (để trống = Học viên). <strong>Lớp</strong> ghi mã lớp (xem sheet <code>Lop</code>), chỉ xếp lớp cho Học viên.
             </li>
             <li>Bắt buộc: Tên đăng nhập, Họ tên. Mật khẩu trống → hệ thống sinh mật khẩu tạm. Email trống → tự tạo.</li>
+            <li>SĐT học sinh, Tên phụ huynh, SĐT phụ huynh: không bắt buộc; số điện thoại 8–20 ký tự (chữ số, +, khoảng trắng, dấu chấm, gạch ngang).</li>
             <li>Không bắt đổi mật khẩu: người dùng đăng nhập rồi tự đổi mật khẩu khi muốn.</li>
           </ul>
         </div>

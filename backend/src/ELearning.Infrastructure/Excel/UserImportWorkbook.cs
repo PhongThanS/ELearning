@@ -50,6 +50,9 @@ internal sealed class UserImportWorkbook : IUserImportWorkbook
             [UserImportColumns.Email, $"Không bắt buộc. Không trùng tài khoản đã có. Để trống: dùng <tên đăng nhập>@{UserImportColumns.PlaceholderEmailDomain}."],
             [UserImportColumns.Roles, $"Không bắt buộc. Ghi số: {UserImportColumns.RoleNumbersText} (xem sheet VaiTro). Để trống = 2 (Học viên)."],
             [UserImportColumns.Classes, "Không bắt buộc. Ghi mã lớp (xem sheet Lop), không ghi tên lớp; nhiều lớp cách nhau bởi dấu phẩy. Chỉ xếp lớp cho Học viên (vai trò 2); cần quyền quản lý lớp học."],
+            [UserImportColumns.StudentPhone, "Không bắt buộc. Số điện thoại của học sinh, 8–20 ký tự: chữ số, +, khoảng trắng, dấu chấm, gạch ngang (VD: 0912 345 678)."],
+            [UserImportColumns.ParentName, "Không bắt buộc. Tên phụ huynh, tối đa 200 ký tự (VD: Mẹ Nguyễn Thị Lan)."],
+            [UserImportColumns.ParentPhone, "Không bắt buộc. Số điện thoại phụ huynh (dùng cho nút gọi / Zalo ở trang Điểm danh), cùng quy tắc với SĐT học sinh."],
             ["", ""],
             ["Lưu ý", $"Dòng 1 là tiêu đề, mỗi dòng bên dưới là một tài khoản. Tối đa {UserImportColumns.MaxRows} tài khoản mỗi lần. Có dòng lỗi thì không tài khoản nào được tạo; sửa theo báo lỗi rồi import lại."],
         ];
@@ -71,10 +74,11 @@ internal sealed class UserImportWorkbook : IUserImportWorkbook
         string[][] examples =
         [
             [.. headers],
-            ["hs.nguyenvana", "MatKhau@2026", "Nguyễn Văn A", "", "2", classCode],
-            ["hs.tranthib", "", "Trần Thị B", "tranthib@example.com", "", classCode],
-            ["gv.lethic", "GiaoVien@2026", "Lê Thị C", "lethic@example.com", "1", ""],
-            ["admin.pham", "QuanTri@2026", "Phạm Văn D", "", "0", ""],
+            ["hs.nguyenvana", "MatKhau@2026", "Nguyễn Văn A", "", "2", classCode, "0912 345 678", "Mẹ Nguyễn Thị Lan", "0987 654 321"],
+            ["hs.tranthib", "", "Trần Thị B", "tranthib@example.com", "", classCode, "", "Bố Trần Văn Hùng", "0903 111 222"],
+            ["gv.lethic", "GiaoVien@2026", "Lê Thị C", "lethic@example.com", "1", "", "", "", ""],
+            ["tg.hoangd", "TroGiang@2026", "Hoàng Văn D", "", "3", "", "", "", ""],
+            ["admin.pham", "QuanTri@2026", "Phạm Văn E", "", "0", "", "", "", ""],
         ];
         for (var r = 0; r < examples.Length; r++)
         {

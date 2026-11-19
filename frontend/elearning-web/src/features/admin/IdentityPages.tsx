@@ -16,6 +16,8 @@ import { Features } from "../../constants/features";
 import { NameCell } from "../../components/common/TableCells";
 import { useAuth } from "../auth/useAuth";
 import { UserImportDialog } from "./UserImportDialog";
+import { UserBulkStatusBar } from "./UserBulkStatusBar";
+import { UserContactCard } from "./UserContactCard";
 import { SearchableSelect } from "../../components/common/SearchableSelect";
 import { useAllClassrooms } from "../../hooks/useClassrooms";
 import type { Group, GroupMember, UserListItem, UserWithPassword } from "../../types/api";
@@ -24,9 +26,34 @@ import type { Group, GroupMember, UserListItem, UserWithPassword } from "../../t
 
 export function UsersPage() {
   const { t } = useTranslation();
-  const { hasPermission } = useAuth();
+  const { hasPermission, user: me } = useAuth();
   const list = useListQuery({ sortBy: "userName", sortDir: "asc" });
   const query = useQuery({ queryKey: ["users", list.params], queryFn: () => usersApi.list(list.params) });
+  // Khóa hàng loạt (D-40): id → tên các tài khoản đang được tích (giữ qua các trang / bộ lọc)
+  const canBulk = hasPermission(Permissions.UserUpdate);
+  const [selected, setSelected] = useState<Map<string, string>>(() => new Map());
+  // Tích theo lớp: chỉ một lớp; tích lớp nào thì bảng lọc luôn học viên lớp đó (đúng danh sách đang tích)
+  const [pickedClassId, setPickedClassId] = useState("");
+  const pickClass = (classId: string, users: { id: string; name: string }[]) => {
+    setPickedClassId(classId);
+    setSelected(new Map(users.filter((u) => u.id !== me?.id).map((u) => [u.id, u.name])));
+    list.setFilter({ classroomId: classId, roleCode: classId ? "STUDENT" : "" });
+  };
+  const addSelected = (users: { id: string; name: string }[]) =>
+    setSelected((prev) => {
+      const next = new Map(prev);
+      users.filter((u) => u.id !== me?.id).forEach((u) => next.set(u.id, u.name));
+      return next;
+    });
+  const removeSelected = (ids: string[]) =>
+    setSelected((prev) => {
+      const next = new Map(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+  const pageUsers = (query.data?.items ?? []).filter((u) => u.id !== me?.id);
+  const pageAllChecked = pageUsers.length > 0 && pageUsers.every((u) => selected.has(u.id));
+  const pageSomeChecked = pageUsers.some((u) => selected.has(u.id));
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const toast = useToast();
@@ -35,7 +62,37 @@ export function UsersPage() {
   const canViewClasses = hasPermission(Permissions.ClassView);
   const classrooms = useAllClassrooms(canViewClasses);
 
+  const selectColumn: Column<UserListItem> = {
+    key: "select",
+    className: "text-center",
+    header: (
+      <Form.Check
+        aria-label="Chọn tất cả trên trang"
+        checked={pageAllChecked}
+        ref={(el: HTMLInputElement | null) => {
+          if (el) el.indeterminate = !pageAllChecked && pageSomeChecked;
+        }}
+        disabled={pageUsers.length === 0}
+        onChange={() =>
+          pageAllChecked
+            ? removeSelected(pageUsers.map((u) => u.id))
+            : addSelected(pageUsers.map((u) => ({ id: u.id, name: u.fullName || u.userName })))
+        }
+      />
+    ),
+    render: (u) => (
+      <Form.Check
+        aria-label={`Chọn ${u.fullName || u.userName}`}
+        checked={selected.has(u.id)}
+        disabled={u.id === me?.id}
+        title={u.id === me?.id ? "Không thể khóa tài khoản của chính mình" : undefined}
+        onChange={(e) => (e.target.checked ? addSelected([{ id: u.id, name: u.fullName || u.userName }]) : removeSelected([u.id]))}
+      />
+    ),
+  };
+
   const columns: Column<UserListItem>[] = [
+    ...(canBulk ? [selectColumn] : []),
     {
       // Họ tên (bấm để mở) + tên đăng nhập bên dưới
       key: "user",
@@ -123,7 +180,10 @@ export function UsersPage() {
               id="users-classroom"
               size="sm"
               value={String(list.state.classroomId ?? "")}
-              onChange={(val) => list.setFilter({ classroomId: val })}
+              onChange={(val) => {
+                list.setFilter({ classroomId: val });
+                if (val !== pickedClassId) setPickedClassId("");
+              }}
               options={(classrooms.data ?? []).map((c) => ({ value: c.id, label: c.name, code: c.code, sublabel: `${c.studentCount} học viên` }))}
               emptyLabel="Mọi lớp học"
               emptyValue=""
@@ -139,6 +199,7 @@ export function UsersPage() {
             <option value="">Mọi vai trò</option>
             <option value="ADMIN">ADMIN</option>
             <option value="TEACHER">TEACHER</option>
+            <option value="TEACHING_ASSISTANT">TRỢ GIẢNG</option>
             <option value="STUDENT">STUDENT</option>
           </Form.Select>
         </Col>
@@ -150,6 +211,19 @@ export function UsersPage() {
           </Form.Select>
         </Col>
       </Row>
+      {canBulk && (
+        <UserBulkStatusBar
+          selected={selected}
+          pickedClassId={pickedClassId}
+          onPickClass={pickClass}
+          onClear={() => {
+            setSelected(new Map());
+            setPickedClassId("");
+          }}
+          classrooms={classrooms.data ?? []}
+          classroomsLoading={classrooms.isLoading}
+        />
+      )}
       <DataTable
         data={query.data}
         columns={columns}
@@ -439,6 +513,7 @@ export function UserDetailPage() {
               </dl>
             </Card.Body>
           </Card>
+          <UserContactCard user={u} canEdit={hasPermission(Permissions.UserUpdate)} />
         </Col>
         <Col lg={6}>
           {hasPermission(Permissions.RoleAssign) && roles.data && (
@@ -487,7 +562,11 @@ export function UserDetailPage() {
       <ConfirmDialog
         show={dialog === "status"}
         title={u.isActive ? "Vô hiệu hóa tài khoản" : "Kích hoạt tài khoản"}
-        body={u.isActive ? "Người dùng sẽ bị đăng xuất khỏi mọi thiết bị." : undefined}
+        body={
+          u.isActive
+            ? "Người dùng sẽ bị đăng xuất khỏi mọi thiết bị. Khóa quá 90 ngày sẽ bị XÓA VĨNH VIỄN cùng bài thi, điểm, điểm danh."
+            : undefined
+        }
         requireReason={u.isActive}
         busy={run.isPending}
         onCancel={() => setDialog(null)}

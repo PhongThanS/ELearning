@@ -1,5 +1,7 @@
 import { useEffect, useState, useId, useMemo } from "react";
 import { HomeworkButton } from "./HomeworkButton";
+import { VideoImportDialog } from "./VideoImportDialog";
+import { useToast } from "../../components/common/toast";
 import {
   Badge,
   Button,
@@ -69,6 +71,9 @@ export function LessonThumbnail({ video }: { video: VideoLesson }) {
 
 export function AdminVideoPages() {
   const queryClient = useQueryClient();
+  const toast = useToast();
+  // Tải file Excel mẫu thêm video (D-44), giống trang Người dùng
+  const template = useMutation({ mutationFn: videosApi.importTemplate, onError: (e) => toast.error(e) });
   const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -78,6 +83,7 @@ export function AdminVideoPages() {
   // Modal thêm / sửa
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingVideo, setEditingVideo] = useState<VideoLesson | null>(null);
+  const [importing, setImporting] = useState(false);
 
   // Xem bài giảng: mở trang xem ở tab mới
   const watch = (v: VideoLesson) => openLessonInNewTab("/admin/videos", v.id);
@@ -168,10 +174,21 @@ export function AdminVideoPages() {
             Quản lý danh sách video bài học, hướng dẫn giải đề bằng link YouTube theo chuyên đề hoặc lớp học.
           </p>
         </div>
-        <Button variant="primary" className="d-flex align-items-center gap-2 shadow-sm" onClick={handleOpenAdd}>
-          <i className="bi bi-plus-lg"></i>
-          <span>Thêm video mới</span>
-        </Button>
+        <div className="d-flex flex-wrap gap-2">
+          <Button variant="outline-success" className="d-flex align-items-center gap-2" disabled={template.isPending} onClick={() => template.mutate()}>
+            <i className="bi bi-file-earmark-arrow-down" aria-hidden="true"></i>
+            <span>{template.isPending ? "Đang tạo file mẫu…" : "Tải file Excel mẫu"}</span>
+          </Button>
+          <Button variant="outline-primary" className="d-flex align-items-center gap-2" onClick={() => setImporting(true)}>
+            <i className="bi bi-file-earmark-excel" aria-hidden="true"></i>
+            <span>Import Excel</span>
+          </Button>
+          <Button variant="primary" className="d-flex align-items-center gap-2 shadow-sm" onClick={handleOpenAdd}>
+            <i className="bi bi-plus-lg"></i>
+            <span>Thêm video mới</span>
+          </Button>
+        </div>
+        <VideoImportDialog show={importing} onHide={() => setImporting(false)} />
       </div>
 
       {/* Filter Bar */}

@@ -224,7 +224,7 @@ Index: `UQ_AttendanceSessions_Classroom_Date` (ClassroomId, SessionDate) UNIQUE 
 Index: `UQ_AttendanceRecords_Session_Student` UNIQUE, `IX_AttendanceRecords_Student`.
 "Làm mới buổi" chỉ đặt các cột về NULL, không xóa dòng.
 
-**StudentContacts** — liên hệ phụ huynh, PK = `UserId` (FK → Users): `ParentName` varchar(200) NULL, `ParentPhone` varchar(20) NULL,
+**StudentContacts** — liên hệ phụ huynh, PK = `UserId` (FK → Users): `ParentName` varchar(200) NULL, `ParentPhone` varchar(20) NULL, `StudentPhone` varchar(20) NULL (D-43),
 `UpdatedBy`, `UpdatedAt`. Tách khỏi `Users` để không đụng luồng tài khoản; ẩn danh hóa user xóa trắng tên và số điện thoại phụ huynh.
 
 ## 4. Tổng hợp index

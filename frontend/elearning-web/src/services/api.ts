@@ -24,6 +24,7 @@ import type {
   MatrixStatsQuery,
   QuestionImportResult,
   UserImportResult,
+  VideoImportResult,
   MarkdownImportResult,
   AnswerKeyCorrection,
   UserOverride,
@@ -66,6 +67,7 @@ import type {
   StudentHistoryItem,
   StudentResult,
   UserDetail,
+  BulkUserStatusResult,
   UserListItem,
   UserWithPassword,
   VersionDetail,
@@ -95,6 +97,12 @@ export const usersApi = {
     http.post<UserWithPassword>("/users", body),
   update: (id: string, body: { email: string; fullName: string; rowVersion: string }) => http.put<UserDetail>(`/users/${id}`, body),
   setStatus: (id: string, isActive: boolean, reason?: string) => http.patch<UserDetail>(`/users/${id}/status`, { isActive, reason }),
+  /** Khóa / mở khóa hàng loạt (D-40). */
+  bulkSetStatus: (userIds: string[], isActive: boolean, reason?: string) =>
+    http.post<BulkUserStatusResult>("/users/bulk-status", { userIds, isActive, reason }),
+  /** SĐT học sinh, tên và SĐT phụ huynh (D-43). */
+  updateContact: (id: string, body: { studentPhone: string | null; parentName: string | null; parentPhone: string | null }) =>
+    http.put<UserDetail>(`/users/${id}/contact`, body),
   setRoles: (id: string, roleIds: string[]) => http.put<UserDetail>(`/users/${id}/roles`, { roleIds }),
   resetPassword: (id: string) => http.post<UserWithPassword>(`/users/${id}/reset-password`),
   anonymize: (id: string, reason: string) => http.post<UserDetail>(`/users/${id}/anonymize`, { reason }),
@@ -324,6 +332,14 @@ export const adminApi = {
 };
 
 export const videosApi = {
+  /** File mẫu thêm video từ Excel (D-44). */
+  importTemplate: () => downloadFile("/videos/import/template", undefined, "mau-import-video.xlsx"),
+  /** dryRun: chỉ kiểm tra. Tất cả hoặc không: có dòng lỗi thì không thêm video nào. */
+  import: (file: File, dryRun: boolean) => {
+    const form = new FormData();
+    form.append("file", file);
+    return http.post<VideoImportResult>(`/videos/import?dryRun=${dryRun}`, form);
+  },
   list: (query?: VideoListQuery) =>
     http.get<Paged<VideoLesson>>("/videos", query),
   get: (id: string) =>
@@ -358,7 +374,11 @@ export const attendanceApi = {
   reset: (classId: string, date: string) => http.post<AttendanceSession>(`/attendance/classes/${classId}/sessions/${date}/reset`),
   export: (classId: string, date: string) =>
     downloadFile(`/attendance/classes/${classId}/sessions/${date}/export`, undefined, `diem-danh-${date}.xlsx`),
-  updateContact: (classId: string, studentId: string, data: { parentName: string | null; parentPhone: string | null }) =>
+  updateContact: (
+    classId: string,
+    studentId: string,
+    data: { parentName: string | null; parentPhone: string | null; studentPhone: string | null },
+  ) =>
     http.put<StudentContact>(`/attendance/classes/${classId}/students/${studentId}/contact`, data),
   history: (classId: string, studentId: string, month: string) =>
     http.get<AttendanceStudentHistory>(`/attendance/classes/${classId}/students/${studentId}/history`, { month }),

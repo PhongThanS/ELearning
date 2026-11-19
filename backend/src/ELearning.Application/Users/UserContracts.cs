@@ -46,7 +46,10 @@ public sealed record UserDetailDto(
     DateTime? UpdatedAt,
     IReadOnlyList<RefDto> Roles,
     IReadOnlyList<RefDto> Groups,
-    string RowVersion);
+    string RowVersion,
+    string? StudentPhone = null,
+    string? ParentName = null,
+    string? ParentPhone = null);
 
 /// <summary>Mật khẩu tạm chỉ được trả về một lần, ngay trong response này.</summary>
 public sealed record UserWithPasswordDto(UserDetailDto User, string? TemporaryPassword);
@@ -62,6 +65,21 @@ public sealed record CreateUserRequest(
 public sealed record UpdateUserRequest(string Email, string FullName, string RowVersion);
 
 public sealed record SetUserStatusRequest(bool IsActive, string? Reason);
+
+/// <summary>Thông tin liên hệ của học sinh (D-43): SĐT học sinh, tên và SĐT phụ huynh. Gửi rỗng = xóa.</summary>
+public sealed record UpdateUserContactRequest(string? StudentPhone, string? ParentName, string? ParentPhone);
+
+/// <summary>Khóa / mở khóa hàng loạt (D-40): tối đa <see cref="MaxUsers"/> tài khoản mỗi lần.</summary>
+public sealed record BulkSetUserStatusRequest(IReadOnlyList<Guid> UserIds, bool IsActive, string? Reason)
+{
+    public const int MaxUsers = 1000;
+}
+
+/// <summary>
+/// Changed: số tài khoản đổi trạng thái; Unchanged: đã ở trạng thái đó sẵn;
+/// Skipped: bỏ qua (tài khoản của chính mình, không tồn tại, hoặc đã ẩn danh hóa khi mở khóa).
+/// </summary>
+public sealed record BulkUserStatusResult(int Changed, int Unchanged, int Skipped);
 
 public sealed record SetUserRolesRequest(IReadOnlyList<Guid> RoleIds);
 

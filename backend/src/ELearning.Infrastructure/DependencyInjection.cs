@@ -50,6 +50,7 @@ public static class DependencyInjection
         services.AddSingleton<ELearning.Application.Attendance.IAttendanceExporter, AttendanceExporter>();
         services.AddSingleton<IQuestionImportWorkbook, QuestionImportWorkbook>();
         services.AddSingleton<IUserImportWorkbook, UserImportWorkbook>();
+        services.AddSingleton<IVideoImportWorkbook, VideoImportWorkbook>();
         services.AddSingleton<IMediaStore, FileSystemMediaStore>();
         services.AddHttpClient<IYoutubeMetadataClient, ELearning.Infrastructure.Videos.YoutubeOEmbedClient>(client =>
         {
@@ -58,6 +59,7 @@ public static class DependencyInjection
         });
         services.AddHostedService<AttemptExpirationWorker>();
         services.AddHostedService<MonitoringSnapshotWorker>();
+        services.AddHostedService<LockedUserCleanupWorker>();
 
         services.AddSingleton<IPasswordHasher, PasswordHasher>();
         services.AddSingleton<ITokenService, TokenService>();

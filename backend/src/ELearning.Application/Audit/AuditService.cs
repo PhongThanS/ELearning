@@ -70,6 +70,7 @@ public static class AuditActions
     public const string UserStatusChanged = "USER_STATUS_CHANGED";
     public const string UserRolesChanged = "USER_ROLES_CHANGED";
     public const string UserAnonymized = "USER_ANONYMIZED";
+    public const string UserDeleted = "USER_DELETED";
 
     public const string GroupCreated = "GROUP_CREATED";
     public const string GroupUpdated = "GROUP_UPDATED";

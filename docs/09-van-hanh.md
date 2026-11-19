@@ -31,6 +31,7 @@
   Máy khác thì ghi đè bằng user-secrets hoặc biến môi trường `ConnectionStrings__DefaultConnection`.
 - `Include Error Detail=true` đưa giá trị dữ liệu vào thông báo lỗi của PostgreSQL (và vào log). Hữu ích khi dev; các file compose hiện cũng bật ở Production — nên tắt khi dữ liệu thật nhạy cảm.
 - Tùy chọn ít dùng: `Exam:ExpirationWorkerEnabled` (tắt job tự nộp trên một instance), `Monitoring:SnapshotEnabled`.
+- `UserRetention:DeleteLockedAfterDays` (mặc định 90, 0 = tắt), `UserRetention:SweepIntervalMinutes` (360), `UserRetention:BatchSize` (100): tự động **xóa vĩnh viễn** tài khoản khóa quá hạn cùng toàn bộ bài thi, điểm, điểm danh của họ (D-41). Muốn giữ lịch sử của học sinh nghỉ thì đặt 0 hoặc không khóa tài khoản.
 
 ## 2. Thứ tự khởi động backend
 

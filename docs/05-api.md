@@ -153,7 +153,9 @@ Refresh token **không nằm trong body**; nó được set qua `Set-Cookie` (xe
 | POST | `/api/users/import?dryRun=` (multipart, trường `file`) → `UserImportResult { dryRun, imported, totalRows, validRows, importedCount, rows[{ rowNumber, userName, fullName, roles, classes, temporaryPassword, issues[{ field, code, message }] }] }`. `temporaryPassword` chỉ có sau import thật, với dòng để trống mật khẩu. Lỗi file: 400 `IMPORT_FILE_REQUIRED` / `IMPORT_FILE_INVALID` / `IMPORT_COLUMNS_MISSING` / `IMPORT_EMPTY`. Quy tắc: `02` mục 5.2 | `User.Create` (+ `Class.Manage` nếu xếp lớp) |
 | PUT | `/api/users/{id}` | `User.Update` |
 | PATCH | `/api/users/{id}/status` `{ isActive, reason }` | `User.Update` |
+| POST | `/api/users/bulk-status` `{ userIds, isActive, reason? }` → `{ changed, unchanged, skipped }` (D-40): khóa / mở khóa hàng loạt, tối đa 1000 id; rỗng hoặc quá 1000 → 400 `VALIDATION_FAILED`. `skipped` = tài khoản của chính mình, không tồn tại, hoặc đã ẩn danh hóa khi mở khóa | `User.Update` |
 | PUT | `/api/users/{id}/roles` `{ roleIds }` | `Role.Assign` |
+| PUT | `/api/users/{id}/contact` `{ studentPhone, parentName, parentPhone }` → `UserDetailDto` (D-43): rỗng = xóa; SĐT sai → 400 `PHONE_INVALID` | `User.Update` |
 | POST | `/api/users/{id}/reset-password` → trả mật khẩu tạm, bật `MustChangePassword` | `User.ResetPassword` |
 | POST | `/api/users/{id}/anonymize` `{ reason }` | `User.Anonymize` |
 | GET | `/api/users/{id}/exams`, `/api/users/{id}/history` (đề và lịch sử thi của một học viên, cùng DTO như `/api/student/exams` và `/api/student/history`) | `User.View` |
@@ -373,6 +375,8 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 | GET | `/api/videos` (lọc `categoryId`, `classroomId`, `keyword`, `isActive`) | `Video.View` |
 | GET | `/api/videos/{id}` | `Video.View` |
 | POST | `/api/videos` `{ title, videoUrl, documentUrl?, homeworkUrl?, practiceExamId?, description?, categoryId?, classroomIds?, durationMinutes?, displayOrder }` (`classroomIds` rỗng = bài chung; tối đa 200; lớp không tồn tại → 400 `CLASSROOM_NOT_FOUND`) | `Video.Manage` |
+| GET | `/api/videos/import/template` → file .xlsx mẫu (sheet Video, HuongDan, Lop, ChuyenDe, DeLuyen) (D-44) | `Video.Manage` |
+| POST | `/api/videos/import?dryRun=` multipart `file` (.xlsx ≤ 5 MB, ≤ 200 dòng) → `{ dryRun, imported, totalRows, validRows, importedCount, rows: [{ rowNumber, title, videoUrl, categoryName, classes, practiceExamName, issues }] }` (D-44). Có dòng lỗi thì không thêm video nào | `Video.Manage` |
 | PUT | `/api/videos/{id}` `{ …như POST, isActive, rowVersion }` | `Video.Manage` |
 | PATCH | `/api/videos/{id}/status` `{ isActive }` | `Video.Manage` |
 | GET | `/api/videos/youtube-info?url=` → `YoutubeVideoInfo { videoId, title, authorName, thumbnailUrl }`: server hỏi YouTube oEmbed (chỉ dựng URL từ mã video 11 ký tự, nhớ 1 giờ, timeout 5 giây) để tự điền tiêu đề. Không phải link YouTube → 400 `INVALID_YOUTUBE_URL`; video riêng tư / đã xoá / không kết nối được YouTube → 422 `YOUTUBE_INFO_UNAVAILABLE` | `Video.Manage` |

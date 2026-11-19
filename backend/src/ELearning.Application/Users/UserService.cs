@@ -2,6 +2,7 @@ using ELearning.Application.Audit;
 using ELearning.Application.Auth;
 using ELearning.Application.Common;
 using ELearning.Application.Common.Abstractions;
+using ELearning.Domain.Attendance;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Identity;
 using ELearning.Shared;
@@ -23,6 +24,10 @@ public interface IUserService
     Task<Result<UserDetailDto>> UpdateAsync(Guid id, UpdateUserRequest request, CancellationToken ct);
 
     Task<Result<UserDetailDto>> SetStatusAsync(Guid id, SetUserStatusRequest request, CancellationToken ct);
+
+    Task<Result<UserDetailDto>> UpdateContactAsync(Guid id, UpdateUserContactRequest request, CancellationToken ct);
+
+    Task<Result<BulkUserStatusResult>> BulkSetStatusAsync(BulkSetUserStatusRequest request, CancellationToken ct);
 
     Task<Result<UserDetailDto>> SetRolesAsync(Guid id, SetUserRolesRequest request, CancellationToken ct);
 
@@ -237,6 +242,112 @@ internal sealed class UserService(
         return await ToDetailAsync(user, ct);
     }
 
+    public async Task<Result<UserDetailDto>> UpdateContactAsync(Guid id, UpdateUserContactRequest request, CancellationToken ct)
+    {
+        var user = await db.Users.SingleOrDefaultAsync(u => u.Id == id, ct);
+        if (user is null)
+        {
+            return UserNotFound;
+        }
+
+        if (user.IsAnonymized)
+        {
+            return Error.Business(ErrorCodes.UserAnonymized, "Người dùng đã bị ẩn danh hóa.");
+        }
+
+        var errors = new List<Error>();
+        if (!string.IsNullOrWhiteSpace(request.StudentPhone) && !StudentContact.IsValidPhone(request.StudentPhone.Trim()))
+        {
+            errors.Add(Error.Validation("PHONE_INVALID", "Số điện thoại học sinh không hợp lệ (8–20 ký tự: chữ số, +, khoảng trắng, dấu chấm, gạch ngang).", "studentPhone"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ParentPhone) && !StudentContact.IsValidPhone(request.ParentPhone.Trim()))
+        {
+            errors.Add(Error.Validation("PHONE_INVALID", "Số điện thoại phụ huynh không hợp lệ (8–20 ký tự: chữ số, +, khoảng trắng, dấu chấm, gạch ngang).", "parentPhone"));
+        }
+
+        if (request.ParentName?.Trim().Length > StudentContact.MaxParentNameLength)
+        {
+            errors.Add(Error.Validation("PARENT_NAME_TOO_LONG", $"Tên phụ huynh tối đa {StudentContact.MaxParentNameLength} ký tự.", "parentName"));
+        }
+
+        if (errors.Count > 0)
+        {
+            return Result<UserDetailDto>.Failure(errors);
+        }
+
+        var contact = await db.StudentContacts.SingleOrDefaultAsync(c => c.UserId == id, ct);
+        if (contact is null)
+        {
+            contact = new StudentContact(id);
+            db.StudentContacts.Add(contact);
+        }
+
+        var old = new { contact.StudentPhone, contact.ParentName, contact.ParentPhone };
+        contact.Update(request.ParentName, request.ParentPhone, request.StudentPhone, currentUser.RequiredUserId, Now);
+        audit.Write(AuditActions.StudentContactUpdated, "User", id, old, new { contact.StudentPhone, contact.ParentName, contact.ParentPhone });
+        await db.SaveChangesAsync(ct);
+        return await ToDetailAsync(user, ct);
+    }
+
+    public async Task<Result<BulkUserStatusResult>> BulkSetStatusAsync(BulkSetUserStatusRequest request, CancellationToken ct)
+    {
+        var ids = (request.UserIds ?? []).Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return Error.Validation(ErrorCodes.ValidationFailed, "Chưa chọn tài khoản nào.", "userIds");
+        }
+
+        if (ids.Count > BulkSetUserStatusRequest.MaxUsers)
+        {
+            return Error.Validation(
+                ErrorCodes.ValidationFailed, $"Mỗi lần chỉ khóa / mở khóa tối đa {BulkSetUserStatusRequest.MaxUsers} tài khoản.", "userIds");
+        }
+
+        // Không tự khóa chính mình (giống thao tác từng tài khoản)
+        var targetIds = ids.Where(id => id != currentUser.UserId).ToList();
+        var users = await db.Users.Where(u => targetIds.Contains(u.Id)).ToListAsync(ct);
+        var changed = new List<User>();
+        var unchanged = 0;
+        foreach (var user in users)
+        {
+            if (user.IsActive == request.IsActive)
+            {
+                unchanged++;
+                continue;
+            }
+
+            if (request.IsActive && user.IsAnonymized)
+            {
+                continue;
+            }
+
+            user.SetActive(request.IsActive, Now);
+            changed.Add(user);
+            audit.Write(
+                AuditActions.UserStatusChanged,
+                nameof(User),
+                user.Id,
+                new { IsActive = !request.IsActive },
+                new { request.IsActive, Bulk = true },
+                request.Reason);
+        }
+
+        if (!request.IsActive && changed.Count > 0)
+        {
+            // Khóa: thu hồi mọi phiên đăng nhập còn hiệu lực của các tài khoản vừa khóa
+            var changedIds = changed.Select(u => u.Id).ToList();
+            var tokens = await db.RefreshTokens
+                .Where(t => changedIds.Contains(t.UserId) && t.RevokedAt == null && t.ExpiresAt > Now)
+                .ToListAsync(ct);
+            tokens.ForEach(t => t.Revoke(RefreshTokenRevokedReason.UserDisabled, Now));
+        }
+
+        await db.SaveChangesAsync(ct);
+        changed.ForEach(u => userAccess.Invalidate(u.Id));
+        return new BulkUserStatusResult(changed.Count, unchanged, ids.Count - changed.Count - unchanged);
+    }
+
     public async Task<Result<UserDetailDto>> SetRolesAsync(Guid id, SetUserRolesRequest request, CancellationToken ct)
     {
         var roleIds = request.RoleIds.Distinct().ToList();
@@ -342,7 +453,8 @@ internal sealed class UserService(
                 .ExecuteUpdateAsync(s => s.SetProperty(a => a.IpAddress, (string?)null).SetProperty(a => a.UserAgent, (string?)null), ct);
             // Liên hệ phụ huynh là dữ liệu cá nhân (D-31)
             await db.StudentContacts.Where(c => c.UserId == id)
-                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ParentName, (string?)null).SetProperty(c => c.ParentPhone, (string?)null), ct);
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ParentName, (string?)null).SetProperty(c => c.ParentPhone, (string?)null)
+                    .SetProperty(c => c.StudentPhone, (string?)null), ct);
 
             await tx.CommitAsync(ct);
         });
@@ -358,6 +470,8 @@ internal sealed class UserService(
         var groups = await db.UserGroupMembers.AsNoTracking().Where(m => m.UserId == user.Id)
             .Join(db.UserGroups, m => m.GroupId, g => g.Id, (m, g) => new RefDto(g.Id, g.Code, g.Name))
             .ToListAsync(ct);
+        var contact = await db.StudentContacts.AsNoTracking().Where(c => c.UserId == user.Id)
+            .Select(c => new { c.StudentPhone, c.ParentName, c.ParentPhone }).SingleOrDefaultAsync(ct);
 
         return new UserDetailDto(
             user.Id,
@@ -373,6 +487,9 @@ internal sealed class UserService(
             user.UpdatedAt,
             roles.OrderBy(r => r.Code, StringComparer.Ordinal).ToList(),
             groups.OrderBy(g => g.Code, StringComparer.Ordinal).ToList(),
-            user.RowVersion.ToBase64());
+            user.RowVersion.ToBase64(),
+            contact?.StudentPhone,
+            contact?.ParentName,
+            contact?.ParentPhone);
     }
 }

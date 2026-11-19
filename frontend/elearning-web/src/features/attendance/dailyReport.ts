@@ -20,8 +20,21 @@ export interface DailyReportRow {
   lastName: string;
   firstName: string;
   score: number | null;
+  /** Trạng thái điểm danh hiển thị (Có mặt, Đi muộn, Vắng có phép...). */
+  attendance: string;
+  /** Màu chữ của ô điểm danh. */
+  attendanceColor?: string;
   comment: string;
 }
+
+/** Màu ô điểm danh theo trạng thái (vắng đỏ, muộn cam, online xanh dương, có mặt xanh lá). */
+export const REPORT_ATTENDANCE_COLORS: Record<string, string> = {
+  PRESENT: "#2e7d32",
+  LATE: "#d97706",
+  ONLINE: "#1d4ed8",
+  EXCUSED: "#0e7490",
+  UNEXCUSED: "#c62828",
+};
 
 /** "Nguyễn Thị Minh Hà" → ["Nguyễn Thị Minh", "Hà"]: tên là chữ cuối, còn lại là họ và tên đệm. */
 export function splitVietnameseName(fullName: string): [string, string] {
@@ -75,8 +88,9 @@ const COLS = [
   { key: "order", title: "STT", width: 64, align: "center" as const },
   { key: "lastName", title: "HỌ VÀ TÊN ĐỆM", width: 230, align: "left" as const },
   { key: "firstName", title: "TÊN", width: 130, align: "center" as const },
-  { key: "score", title: "ĐIỂM BTVN", width: 130, align: "center" as const },
-  { key: "comment", title: "NHẬN XÉT", width: WIDTH - 2 * MARGIN - 64 - 230 - 130 - 130, align: "left" as const },
+  { key: "attendance", title: "ĐIỂM DANH", width: 150, align: "center" as const },
+  { key: "score", title: "ĐIỂM BTVN", width: 120, align: "center" as const },
+  { key: "comment", title: "NHẬN XÉT", width: WIDTH - 2 * MARGIN - 64 - 230 - 130 - 150 - 120, align: "left" as const },
 ];
 const LINE = 22;
 const CELL_PAD_X = 10;
@@ -191,10 +205,12 @@ function layoutReport(ctx: CanvasRenderingContext2D, info: DailyReportInfo, rows
   // Các dòng học sinh
   rows.forEach((row, index) => {
     ctx.font = font(400, 15);
-    const commentLines = wrap(ctx, row.comment || "", COLS[4]!.width - 2 * CELL_PAD_X);
+    const commentLines = wrap(ctx, row.comment || "", COLS[5]!.width - 2 * CELL_PAD_X);
+    ctx.font = font(700, 15);
+    const attendanceLines = wrap(ctx, row.attendance, COLS[3]!.width - 2 * CELL_PAD_X);
     ctx.font = font(700, 15);
     const lastLines = wrap(ctx, row.lastName, COLS[1]!.width - 2 * CELL_PAD_X);
-    const lines = Math.max(commentLines.length, lastLines.length, 1);
+    const lines = Math.max(commentLines.length, lastLines.length, attendanceLines.length, 1);
     const h = Math.max(40, lines * LINE + 2 * CELL_PAD_Y);
     const top = y;
     ops.push((c) => {
@@ -203,10 +219,11 @@ function layoutReport(ctx: CanvasRenderingContext2D, info: DailyReportInfo, rows
       c.strokeStyle = COLORS.border;
       c.lineWidth = 1;
       let x = MARGIN;
-      const cells: { text: string[]; weight: number }[] = [
+      const cells: { text: string[]; weight: number; color?: string }[] = [
         { text: [String(row.order)], weight: 700 },
         { text: lastLines, weight: 700 },
         { text: [row.firstName], weight: 700 },
+        { text: attendanceLines, weight: 700, color: row.attendanceColor },
         { text: [formatReportScore(row.score)], weight: 700 },
         { text: commentLines, weight: 400 },
       ];
@@ -214,7 +231,7 @@ function layoutReport(ctx: CanvasRenderingContext2D, info: DailyReportInfo, rows
         c.strokeRect(x + 0.5, top + 0.5, col.width, h);
         const cell = cells[i]!;
         c.font = font(cell.weight, 15);
-        c.fillStyle = COLORS.value;
+        c.fillStyle = cell.color ?? COLORS.value;
         c.textBaseline = "middle";
         const blockH = cell.text.length * LINE;
         const startY = top + (h - blockH) / 2 + LINE / 2;

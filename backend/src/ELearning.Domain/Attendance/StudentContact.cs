@@ -24,22 +24,31 @@ public sealed class StudentContact
     /// <summary>Số điện thoại phụ huynh (dùng cho nút gọi / Zalo).</summary>
     public string? ParentPhone { get; private set; }
 
+    /// <summary>Số điện thoại của chính học sinh (D-43).</summary>
+    public string? StudentPhone { get; private set; }
+
     public Guid? UpdatedBy { get; private set; }
 
     public DateTime? UpdatedAt { get; private set; }
 
-    public void Update(string? parentName, string? parentPhone, Guid updatedBy, DateTime now)
+    public void Update(string? parentName, string? parentPhone, string? studentPhone, Guid updatedBy, DateTime now)
     {
         ParentName = AttendanceSession.Clean(parentName, MaxParentNameLength);
-        var phone = AttendanceSession.Clean(parentPhone, MaxPhoneLength);
+        ParentPhone = CleanPhone(parentPhone);
+        StudentPhone = CleanPhone(studentPhone);
+        UpdatedBy = updatedBy;
+        UpdatedAt = now;
+    }
+
+    private static string? CleanPhone(string? value)
+    {
+        var phone = AttendanceSession.Clean(value, MaxPhoneLength);
         if (phone is not null && !IsValidPhone(phone))
         {
             throw new DomainException(DomainErrorCodes.InvalidAttendance, "Số điện thoại chỉ gồm chữ số, dấu +, khoảng trắng, dấu chấm, gạch ngang.");
         }
 
-        ParentPhone = phone;
-        UpdatedBy = updatedBy;
-        UpdatedAt = now;
+        return phone;
     }
 
     public static bool IsValidPhone(string phone) =>

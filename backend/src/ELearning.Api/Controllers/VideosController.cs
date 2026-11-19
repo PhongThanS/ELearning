@@ -3,13 +3,46 @@ using ELearning.Api.Security;
 using ELearning.Application.Videos;
 using ELearning.Domain.Identity;
 using ELearning.Shared.Paging;
+using ELearning.Shared.Results;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ELearning.Api.Controllers;
 
 [Route("api/videos")]
-public sealed class VideosController(IVideoService videos) : ApiControllerBase
+public sealed class VideosController(IVideoService videos, IVideoImportService imports) : ApiControllerBase
 {
+    private const long MaxImportBytes = 5 * 1024 * 1024;
+    private const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    /// <summary>File mẫu import video (D-44): kèm hướng dẫn, mã lớp, mã chuyên đề, mã đề luyện.</summary>
+    [HttpGet("import/template")]
+    [HasPermission(Permissions.VideoManage)]
+    [ProducesResponseType<FileContentResult>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ImportTemplate(CancellationToken ct) =>
+        File(await imports.CreateTemplateAsync(ct), XlsxContentType, "mau-import-video.xlsx");
+
+    /// <summary>Thêm video từ .xlsx (tối đa 5 MB, 200 video). dryRun=true chỉ kiểm tra. Tất cả hoặc không.</summary>
+    [HttpPost("import")]
+    [HasPermission(Permissions.VideoManage)]
+    [RequestSizeLimit(MaxImportBytes + 64 * 1024)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxImportBytes + 64 * 1024)]
+    [ProducesResponseType<ApiResponse<VideoImportResult>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> Import(IFormFile? file, [FromQuery] bool dryRun, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_REQUIRED", "Vui lòng chọn file Excel.", "file")));
+        }
+
+        if (file.Length > MaxImportBytes || !file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+        {
+            return Failure(Result.Failure(Error.Validation("IMPORT_FILE_INVALID", "Chỉ nhận file .xlsx, tối đa 5 MB.", "file")));
+        }
+
+        await using var stream = file.OpenReadStream();
+        return ToResponse(await imports.ImportAsync(stream, dryRun, ct));
+    }
+
     [HttpGet]
     [HasPermission(Permissions.VideoView)]
     [ProducesResponseType<ApiResponse<PagedResult<VideoLessonDto>>>(StatusCodes.Status200OK)]

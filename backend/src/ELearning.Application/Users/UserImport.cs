@@ -15,6 +15,9 @@ public static class UserImportColumns
     public const string Email = "Email";
     public const string Roles = "Vai trò";
     public const string Classes = "Lớp";
+    public const string StudentPhone = "SĐT học sinh";
+    public const string ParentName = "Tên phụ huynh";
+    public const string ParentPhone = "SĐT phụ huynh";
 
     /// <summary>Cột "Vai trò" ghi bằng số; để trống = Học viên.</summary>
     public static IReadOnlyList<(int Number, string Code, string Label)> RoleNumbers { get; } =
@@ -22,6 +25,7 @@ public static class UserImportColumns
         (0, Role.AdminCode, "Quản trị viên"),
         (1, Role.TeacherCode, "Giáo viên"),
         (2, Role.StudentCode, "Học viên"),
+        (3, Role.TeachingAssistantCode, "Trợ giảng"),
     ];
 
     /// <summary>"0 = Quản trị viên, 1 = Giáo viên, 2 = Học viên" cho thông báo lỗi và hướng dẫn.</summary>
@@ -34,7 +38,7 @@ public static class UserImportColumns
     public const string PlaceholderEmailDomain = "elearning.local";
 
     public static IReadOnlyList<string> TemplateHeaders { get; } =
-        [UserName, Password, FullName, Email, Roles, Classes];
+        [UserName, Password, FullName, Email, Roles, Classes, StudentPhone, ParentName, ParentPhone];
 
     public static string Normalize(string header) => QuestionImportColumns.Normalize(header);
 }

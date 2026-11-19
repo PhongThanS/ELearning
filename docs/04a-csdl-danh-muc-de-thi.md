@@ -53,6 +53,7 @@ CREATE TABLE Users (
     LockoutEnd          DATETIME2(3)   NULL,
     LastLoginAt         DATETIME2(3)   NULL,
     AnonymizedAt        DATETIME2(3)   NULL,
+    DeactivatedAt       DATETIME2(3)   NULL,      -- D-41: lúc bị khóa; khóa quá UserRetention:DeleteLockedAfterDays ngày thì bị xóa cứng
     CreatedAt           DATETIME2(3)   NOT NULL CONSTRAINT DF_Users_CreatedAt DEFAULT SYSUTCDATETIME(),
     UpdatedAt           DATETIME2(3)   NULL,
     RowVersion          ROWVERSION     NOT NULL,

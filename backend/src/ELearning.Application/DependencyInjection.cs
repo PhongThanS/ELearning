@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditService, AuditService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<ILockedUserCleanupService, LockedUserCleanupService>();
         services.AddScoped<IGroupService, GroupService>();
         services.AddScoped<IClassroomService, ClassroomService>();
         services.AddScoped<IRoleService, RoleService>();
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.AddScoped<IQuestionService, QuestionService>();
         services.AddScoped<IQuestionImportService, QuestionImportService>();
         services.AddScoped<IUserImportService, UserImportService>();
+        services.AddScoped<IVideoImportService, VideoImportService>();
         services.AddScoped<IExamMarkdownImportService, ExamMarkdownImportService>();
         services.AddScoped<IExamService, ExamService>();
         services.AddScoped<IExamVersionService, ExamVersionService>();

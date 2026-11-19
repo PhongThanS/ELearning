@@ -31,6 +31,13 @@ export interface PageQuery {
 
 // ----- Auth / identity -----
 
+/** Kết quả khóa / mở khóa hàng loạt: skipped = tài khoản của chính mình / không tồn tại / đã ẩn danh. */
+export interface BulkUserStatusResult {
+  changed: number;
+  unchanged: number;
+  skipped: number;
+}
+
 export interface AuthUser {
   id: string;
   userName: string;
@@ -86,6 +93,10 @@ export interface UserDetail {
   roles: RefItem[];
   groups: RefItem[];
   rowVersion: string;
+  /** Liên hệ (D-43): SĐT học sinh, tên và SĐT phụ huynh. */
+  studentPhone?: string | null;
+  parentName?: string | null;
+  parentPhone?: string | null;
 }
 
 export interface UserWithPassword {
@@ -929,6 +940,26 @@ export interface UserImportRow {
   issues: QuestionImportIssue[];
 }
 
+export interface VideoImportRow {
+  rowNumber: number;
+  title: string | null;
+  videoUrl: string | null;
+  categoryName: string | null;
+  classes: string[];
+  practiceExamName: string | null;
+  issues: QuestionImportIssue[];
+}
+
+/** Kết quả thêm video từ Excel (D-44); imported = false thì không video nào được thêm. */
+export interface VideoImportResult {
+  dryRun: boolean;
+  imported: boolean;
+  totalRows: number;
+  validRows: number;
+  importedCount: number;
+  rows: VideoImportRow[];
+}
+
 /** Kết quả import tài khoản từ Excel; imported = false thì không tài khoản nào được tạo. */
 export interface UserImportResult {
   dryRun: boolean;
@@ -1206,6 +1237,7 @@ export interface AttendanceStudent extends AttendanceEntry {
   fullName: string;
   parentName: string | null;
   parentPhone: string | null;
+  studentPhone?: string | null;
   /** false: học sinh đã rời lớp nhưng còn dữ liệu ở buổi này. */
   inClass: boolean;
 }
@@ -1238,6 +1270,7 @@ export interface StudentContact {
   studentId: string;
   parentName: string | null;
   parentPhone: string | null;
+  studentPhone?: string | null;
 }
 
 export interface AttendanceHistoryItem {

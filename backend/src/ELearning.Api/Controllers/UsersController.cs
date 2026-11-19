@@ -99,6 +99,20 @@ public sealed class UsersController(
     public async Task<ActionResult> SetStatus(Guid id, SetUserStatusRequest request, CancellationToken ct) =>
         ToResponse(await users.SetStatusAsync(id, request, ct));
 
+    /// <summary>Khóa / mở khóa hàng loạt (D-40): các tài khoản được tích chọn, hoặc cả lớp (frontend gửi danh sách học viên của lớp).</summary>
+    [HttpPost("bulk-status")]
+    [HasPermission(Permissions.UserUpdate)]
+    [ProducesResponseType<ApiResponse<BulkUserStatusResult>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> BulkSetStatus(BulkSetUserStatusRequest request, CancellationToken ct) =>
+        ToResponse(await users.BulkSetStatusAsync(request, ct));
+
+    /// <summary>SĐT học sinh, tên và SĐT phụ huynh (D-43).</summary>
+    [HttpPut("{id:guid}/contact")]
+    [HasPermission(Permissions.UserUpdate)]
+    [ProducesResponseType<ApiResponse<UserDetailDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> UpdateContact(Guid id, UpdateUserContactRequest request, CancellationToken ct) =>
+        ToResponse(await users.UpdateContactAsync(id, request, ct));
+
     [HttpPut("{id:guid}/roles")]
     [HasPermission(Permissions.RoleAssign)]
     [ProducesResponseType<ApiResponse<UserDetailDto>>(StatusCodes.Status200OK)]

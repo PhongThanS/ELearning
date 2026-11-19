@@ -35,7 +35,8 @@ public sealed record AttendanceStudentDto(
     HomeworkStatus? HomeworkStatus,
     decimal? HomeworkScore,
     string? Note,
-    bool InClass);
+    bool InClass,
+    string? StudentPhone = null);
 
 /// <summary>Buổi học của lớp trong một ngày. <c>Saved = false</c>: chưa lưu lần nào (mọi học sinh chưa điểm danh).</summary>
 public sealed record AttendanceSessionDto(
@@ -58,9 +59,9 @@ public sealed record SaveAttendanceRequest(string? Topic, string? NextHomework, 
 
 public sealed record SaveAttendanceResultDto(DateTime UpdatedAt, int SavedRecords);
 
-public sealed record UpdateStudentContactRequest(string? ParentName, string? ParentPhone);
+public sealed record UpdateStudentContactRequest(string? ParentName, string? ParentPhone, string? StudentPhone = null);
 
-public sealed record StudentContactDto(Guid StudentId, string? ParentName, string? ParentPhone);
+public sealed record StudentContactDto(Guid StudentId, string? ParentName, string? ParentPhone, string? StudentPhone = null);
 
 public sealed record AttendanceHistoryItemDto(
     DateOnly SessionDate, string? Topic, AttendanceStatus? Status, HomeworkStatus? HomeworkStatus, decimal? HomeworkScore, string? Note);
@@ -147,6 +148,8 @@ internal sealed class UpdateStudentContactRequestValidator : AbstractValidator<U
             .WithErrorCode("PARENT_NAME_TOO_LONG").WithMessage($"Tên phụ huynh tối đa {StudentContact.MaxParentNameLength} ký tự.");
         RuleFor(r => r.ParentPhone).Must(p => string.IsNullOrWhiteSpace(p) || StudentContact.IsValidPhone(p.Trim()))
             .WithErrorCode("PHONE_INVALID").WithMessage("Số điện thoại không hợp lệ (8–20 ký tự: chữ số, +, khoảng trắng, dấu chấm, gạch ngang).");
+        RuleFor(r => r.StudentPhone).Must(p => string.IsNullOrWhiteSpace(p) || StudentContact.IsValidPhone(p.Trim()))
+            .WithErrorCode("PHONE_INVALID").WithMessage("Số điện thoại học sinh không hợp lệ (8–20 ký tự: chữ số, +, khoảng trắng, dấu chấm, gạch ngang).");
     }
 }
 
@@ -315,11 +318,11 @@ internal sealed class AttendanceService(
             db.StudentContacts.Add(contact);
         }
 
-        var old = new { contact.ParentName, contact.ParentPhone };
-        contact.Update(request.ParentName, request.ParentPhone, currentUser.RequiredUserId, Now);
-        audit.Write(AuditActions.StudentContactUpdated, "User", studentId, old, new { contact.ParentName, contact.ParentPhone });
+        var old = new { contact.ParentName, contact.ParentPhone, contact.StudentPhone };
+        contact.Update(request.ParentName, request.ParentPhone, request.StudentPhone, currentUser.RequiredUserId, Now);
+        audit.Write(AuditActions.StudentContactUpdated, "User", studentId, old, new { contact.ParentName, contact.ParentPhone, contact.StudentPhone });
         await db.SaveChangesAsync(ct);
-        return new StudentContactDto(studentId, contact.ParentName, contact.ParentPhone);
+        return new StudentContactDto(studentId, contact.ParentName, contact.ParentPhone, contact.StudentPhone);
     }
 
     public async Task<Result<AttendanceStudentHistoryDto>> GetStudentHistoryAsync(
@@ -482,6 +485,7 @@ internal sealed class AttendanceService(
                     u.FullName,
                     ParentName = c != null ? c.ParentName : null,
                     ParentPhone = c != null ? c.ParentPhone : null,
+                    StudentPhone = c != null ? c.StudentPhone : null,
                     InClass = classStudentIds.Contains(u.Id),
                 })
             .Take(MaxStudents)
@@ -494,7 +498,8 @@ internal sealed class AttendanceService(
             {
                 var r = records.GetValueOrDefault(s.Id);
                 return new AttendanceStudentDto(
-                    s.Id, s.UserName, s.FullName, s.ParentName, s.ParentPhone, r?.Status, r?.HomeworkStatus, r?.HomeworkScore, r?.Note, s.InClass);
+                    s.Id, s.UserName, s.FullName, s.ParentName, s.ParentPhone, r?.Status, r?.HomeworkStatus, r?.HomeworkScore, r?.Note, s.InClass,
+                    s.StudentPhone);
             })
             .ToList();
 

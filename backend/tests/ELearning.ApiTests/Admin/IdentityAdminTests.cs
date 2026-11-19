@@ -17,6 +17,10 @@ public sealed record GroupItem(Guid Id, string Code, string Name, bool IsActive,
 
 public sealed record RoleItem(Guid Id, string Code, string Name, bool IsSystem, bool IsActive, List<string> Permissions);
 
+public sealed record BulkStatusResult(int Changed, int Unchanged, int Skipped);
+
+public sealed record UserContactView(Guid Id, string? StudentPhone, string? ParentName, string? ParentPhone);
+
 public sealed record PermissionItem(Guid Id, string Code, string Name);
 
 /// <summary>Quản trị người dùng / nhóm / vai trò và các quy tắc phân quyền.</summary>
@@ -97,6 +101,72 @@ public class IdentityAdminTests(ApiFactory factory)
         meBody.Errors.Single().Code.Should().Be("TOKEN_INVALID");
         login.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         loginBody.Errors.Single().Code.Should().Be("ACCOUNT_DISABLED");
+    }
+
+    [Fact]
+    public async Task Bulk_status_locks_selected_users_skips_self_and_unlocks_again()
+    {
+        var admin = factory.CreateHttpsClient();
+        var login = await admin.LoginAsync(ApiFactory.AdminUserName, ApiFactory.AdminPassword);
+        var (first, firstName, firstPassword) = await CreateUserAsync(admin);
+        var (second, _, _) = await CreateUserAsync(admin);
+        var user = factory.CreateHttpsClient();
+        await user.LoginAsync(firstName, firstPassword);
+
+        var (locked, lockedBody) = await admin.PostJsonAsync<BulkStatusResult>(
+            "/api/users/bulk-status", new { userIds = new[] { first, second, first, login.User.Id }, isActive = false, reason = "Hết khóa học" });
+        var (me, _) = await user.GetJsonAsync<object>("/api/auth/me");
+        var (_, againBody) = await admin.PostJsonAsync<BulkStatusResult>(
+            "/api/users/bulk-status", new { userIds = new[] { first, second }, isActive = false });
+        var (_, adminSelf) = await admin.GetJsonAsync<UserDetail>($"/api/users/{login.User.Id}");
+        var (_, unlockedBody) = await admin.PostJsonAsync<BulkStatusResult>(
+            "/api/users/bulk-status", new { userIds = new[] { first, second }, isActive = true });
+        var (_, firstDetail) = await admin.GetJsonAsync<UserDetail>($"/api/users/{first}");
+        var (empty, _) = await admin.PostJsonAsync<object>("/api/users/bulk-status", new { userIds = Array.Empty<Guid>(), isActive = false });
+
+        locked.StatusCode.Should().Be(HttpStatusCode.OK);
+        lockedBody.Data.Should().Be(new BulkStatusResult(2, 0, 1), "trùng id gộp lại, bỏ qua tài khoản của chính mình");
+        me.StatusCode.Should().Be(HttpStatusCode.Unauthorized, "khóa thì phiên đăng nhập cũ hết hiệu lực ngay");
+        againBody.Data.Should().Be(new BulkStatusResult(0, 2, 0));
+        adminSelf.Data!.IsActive.Should().BeTrue();
+        unlockedBody.Data.Should().Be(new BulkStatusResult(2, 0, 0));
+        firstDetail.Data!.IsActive.Should().BeTrue();
+        empty.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task Teaching_assistant_role_is_seeded_without_permissions_and_can_be_assigned()
+    {
+        var admin = await AdminAsync();
+        var (_, rolesBody) = await admin.GetJsonAsync<List<RoleItem>>("/api/roles");
+        var assistant = rolesBody.Data!.Single(r => r.Code == Role.TeachingAssistantCode);
+        var (userId, _, _) = await CreateUserAsync(admin);
+
+        var (assigned, assignedBody) = await admin.SendJsonAsync<UserDetail>(
+            HttpMethod.Put, $"/api/users/{userId}/roles", new { roleIds = new[] { assistant.Id } });
+
+        assistant.Name.Should().Be("Trợ giảng");
+        assistant.Permissions.Should().BeEmpty("quản trị tự phân quyền cho trợ giảng");
+        assigned.StatusCode.Should().Be(HttpStatusCode.OK);
+        assignedBody.Data!.Roles.Should().ContainSingle(r => r.Code == Role.TeachingAssistantCode);
+    }
+
+    [Fact]
+    public async Task Student_and_parent_phone_are_saved_in_user_detail()
+    {
+        var admin = await AdminAsync();
+        var (userId, _, _) = await CreateUserAsync(admin);
+
+        var (saved, savedBody) = await admin.SendJsonAsync<UserContactView>(
+            HttpMethod.Put, $"/api/users/{userId}/contact", new { studentPhone = "0912 345 678", parentName = "Mẹ An", parentPhone = "0987654321" });
+        var (_, detail) = await admin.GetJsonAsync<UserContactView>($"/api/users/{userId}");
+        var (bad, badBody) = await admin.SendJsonAsync<object>(
+            HttpMethod.Put, $"/api/users/{userId}/contact", new { studentPhone = "abc", parentName = (string?)null, parentPhone = (string?)null });
+
+        saved.StatusCode.Should().Be(HttpStatusCode.OK, string.Join(",", savedBody.Errors.Select(e => e.Code)));
+        detail.Data.Should().Be(new UserContactView(userId, "0912 345 678", "Mẹ An", "0987654321"));
+        bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        badBody.Errors.Should().Contain(e => e.Code == "PHONE_INVALID");
     }
 
     [Fact]

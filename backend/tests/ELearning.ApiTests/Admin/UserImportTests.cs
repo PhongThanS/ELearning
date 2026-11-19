@@ -19,7 +19,8 @@ public sealed record UserImportView(bool DryRun, bool Imported, int TotalRows, i
 [Collection(ApiCollection.Name)]
 public class UserImportTests(ApiFactory factory)
 {
-    private static readonly string[] Headers = ["Tên đăng nhập", "Mật khẩu", "Họ tên", "Email", "Vai trò", "Lớp"];
+    private static readonly string[] Headers =
+        ["Tên đăng nhập", "Mật khẩu", "Họ tên", "Email", "Vai trò", "Lớp", "SĐT học sinh", "Tên phụ huynh", "SĐT phụ huynh"];
 
     [Fact]
     public async Task Template_has_the_columns()
@@ -77,6 +78,29 @@ public class UserImportTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Phone_and_parent_columns_are_imported_and_validated()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var (student, assistant) = (Unique("hs."), Unique("tg."));
+        var bad = Xlsx([Unique("hs."), "", "Học sinh lỗi", "", "", "", "abc", "", "12"]);
+        var good = Xlsx(
+            [student, "", "Nguyễn Văn A", "", "2", "", "0912 345 678", "Mẹ Nguyễn Thị Lan", "0987654321"],
+            [assistant, "", "Hoàng Văn D", "", "3", "", "", "", ""]);
+
+        var (_, badBody) = await ImportAsync(kit.Admin, bad, dryRun: true);
+        var (_, goodBody) = await ImportAsync(kit.Admin, good, dryRun: false);
+        var (_, found) = await kit.Admin.GetJsonAsync<Paged<JsonElement>>($"/api/users?keyword={student}");
+        var id = found.Data!.Items.Single().GetProperty("id").GetGuid();
+        var (_, detail) = await kit.Admin.GetJsonAsync<UserContactView>($"/api/users/{id}");
+
+        badBody.Data!.Rows.Single().Issues.Where(i => i.Code == "PHONE_INVALID").Select(i => i.Field)
+            .Should().BeEquivalentTo(["SĐT học sinh", "SĐT phụ huynh"]);
+        goodBody.Data!.Imported.Should().BeTrue(string.Join(" | ", goodBody.Data.Rows.SelectMany(r => r.Issues).Select(i => i.Field + ": " + i.Message)));
+        goodBody.Data.Rows[1].Roles.Should().Equal("Trợ giảng");
+        detail.Data.Should().Be(new UserContactView(id, "0912 345 678", "Mẹ Nguyễn Thị Lan", "0987654321"));
+    }
+
+    [Fact]
     public async Task Any_invalid_row_blocks_the_whole_file_and_reports_each_problem()
     {
         var kit = await AttemptTestKit.CreateAsync(factory);
@@ -85,7 +109,7 @@ public class UserImportTests(ApiFactory factory)
             [good, "MatKhau@2026", "Hợp lệ", "", "", ""],
             [ApiFactory.AdminUserName, "MatKhau@2026", "Trùng tài khoản có sẵn", "", "", ""],
             [good.ToUpperInvariant(), "MatKhau@2026", "Trùng trong file", $"{Guid.NewGuid():N}@example.com", "", ""],
-            [Unique("x."), "ngan", "", "", "3", "KHONG-CO-LOP"],
+            [Unique("x."), "ngan", "", "", "9", "KHONG-CO-LOP"],
             [Unique("gv."), "", "Giáo viên xếp lớp", "", "1", "KHONG-CO-LOP"]);
 
         var (response, body) = await ImportAsync(kit.Admin, file, dryRun: false);

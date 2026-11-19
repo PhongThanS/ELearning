@@ -55,6 +55,9 @@ public sealed class User : Entity, IHasRowVersion
 
     public DateTime? AnonymizedAt { get; private set; }
 
+    /// <summary>Thời điểm bị khóa (IsActive = false); khóa quá hạn thì bị tự động xóa (D-41). Mở khóa thì về null.</summary>
+    public DateTime? DeactivatedAt { get; private set; }
+
     public DateTime CreatedAt { get; private set; }
 
     public DateTime? UpdatedAt { get; private set; }
@@ -130,6 +133,7 @@ public sealed class User : Entity, IHasRowVersion
         }
 
         IsActive = isActive;
+        DeactivatedAt = isActive ? null : now;
         RotateSecurityStamp(now);
     }
 
@@ -158,6 +162,7 @@ public sealed class User : Entity, IHasRowVersion
         FullName = "Người dùng đã xóa";
         PasswordHash = null;
         IsActive = false;
+        DeactivatedAt ??= now;
         EmailConfirmed = false;
         MustChangePassword = false;
         LastLoginAt = null;

@@ -59,6 +59,7 @@ internal sealed class StudentContactConfiguration : IEntityTypeConfiguration<Stu
         builder.ToTable("StudentContacts");
         builder.HasKey(c => c.UserId).HasName("PK_StudentContacts");
         builder.Property(c => c.ParentName).HasMaxLength(StudentContact.MaxParentNameLength);
+        builder.Property(c => c.StudentPhone).HasMaxLength(StudentContact.MaxPhoneLength).IsUnicode(false);
         builder.Property(c => c.ParentPhone).HasMaxLength(StudentContact.MaxPhoneLength).IsUnicode(false);
         builder.HasOne<User>().WithOne().HasForeignKey<StudentContact>(c => c.UserId).HasConstraintName("FK_StudentContacts_User");
         builder.HasUserReference(c => c.UpdatedBy, "FK_StudentContacts_UpdatedBy");

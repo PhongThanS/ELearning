@@ -12,12 +12,17 @@ import {
   splitVietnameseName,
   type DailyReportInfo,
   type DailyReportRow,
+  REPORT_ATTENDANCE_COLORS,
 } from "./dailyReport";
+import { statusLabel } from "./attendanceLogic";
+import type { AttendanceStatus } from "../../types/api";
 
 export interface DailyReportStudent {
   studentId: string;
   fullName: string;
   inClass: boolean;
+  /** Trạng thái điểm danh buổi này; null = chưa điểm danh (không đưa vào báo cáo). */
+  status: AttendanceStatus | null;
   homeworkScore: number | null;
   note: string | null;
 }
@@ -83,10 +88,20 @@ export function DailyReportModal({
 
   const rows = useMemo<DailyReportRow[]>(() => {
     const base = students
-      .filter((s) => s.inClass && (!onlyScored || s.homeworkScore !== null))
+      // Chưa điểm danh thì không ghi vào báo cáo
+      .filter((s) => s.inClass && s.status !== null && (!onlyScored || s.homeworkScore !== null))
       .map((s) => {
         const [lastName, firstName] = splitVietnameseName(s.fullName);
-        return { key: s.studentId, order: 0, lastName, firstName, score: s.homeworkScore, comment: s.note ?? "" };
+        return {
+          key: s.studentId,
+          order: 0,
+          lastName,
+          firstName,
+          score: s.homeworkScore,
+          attendance: statusLabel(s.status),
+          attendanceColor: s.status ? REPORT_ATTENDANCE_COLORS[s.status] : undefined,
+          comment: s.note ?? "",
+        };
       });
     return (sortByScore ? sortReportRows(base) : base).map((r, i) => ({ ...r, order: i + 1 }));
   }, [students, sortByScore, onlyScored]);
@@ -170,6 +185,7 @@ export function DailyReportModal({
                   <th style={{ width: 56 }}>STT</th>
                   <th style={{ width: 200 }}>HỌ VÀ TÊN ĐỆM</th>
                   <th style={{ width: 110 }}>TÊN</th>
+                  <th style={{ width: 130 }}>ĐIỂM DANH</th>
                   <th style={{ width: 110 }}>ĐIỂM BTVN</th>
                   <th>NHẬN XÉT</th>
                   <th style={{ width: 56 }} aria-label="Chụp ảnh dòng" />
@@ -178,8 +194,8 @@ export function DailyReportModal({
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="text-center text-secondary py-4">
-                      Chưa có học sinh nào để báo cáo.
+                    <td colSpan={7} className="text-center text-secondary py-4">
+                      Chưa có học sinh nào được điểm danh để báo cáo.
                     </td>
                   </tr>
                 )}
@@ -188,6 +204,9 @@ export function DailyReportModal({
                     <td className="text-center fw-bold">{r.order}</td>
                     <td className="fw-bold">{r.lastName}</td>
                     <td className="text-center fw-bold">{r.firstName}</td>
+                    <td className="text-center fw-bold" style={{ color: r.attendanceColor }}>
+                      {r.attendance}
+                    </td>
                     <td className="text-center fw-bold">{formatReportScore(r.score)}</td>
                     <td className="daily-report-comment">{r.comment}</td>
                     <td className="text-center">

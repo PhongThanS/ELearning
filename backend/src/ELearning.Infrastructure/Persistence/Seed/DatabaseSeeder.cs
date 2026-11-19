@@ -68,6 +68,7 @@ public sealed class DatabaseSeeder(
         await EnsureRoleAsync(Role.AdminCode, "Quản trị viên", ct);
         await EnsureRoleAsync(Role.StudentCode, "Học viên", ct);
         await EnsureRoleAsync(Role.TeacherCode, "Giáo viên", ct);
+        await EnsureRoleAsync(Role.TeachingAssistantCode, "Trợ giảng", ct);
         await db.SaveChangesAsync(ct);
 
         // TEACHER nhận quyền mặc định khi permission vừa được tạo (D-31); admin bỏ đi thì lần seed sau không cấp lại

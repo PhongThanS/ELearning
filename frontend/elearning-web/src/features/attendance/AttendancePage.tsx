@@ -600,6 +600,13 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
                         )}
                       </div>
                       <div className="small text-secondary">
+                        {s.studentPhone && (
+                          <>
+                            HS: {s.studentPhone}
+                            <ContactLinks phone={s.studentPhone} />
+                            {" · "}
+                          </>
+                        )}
                         {s.parentName || s.parentPhone ? (
                           <>
                             PH: {s.parentName ?? "—"}
@@ -720,6 +727,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
           studentId: s.studentId,
           fullName: s.fullName,
           inClass: s.inClass,
+          status: rows[s.studentId]!.status,
           homeworkScore: rows[s.studentId]!.homeworkScore,
           note: rows[s.studentId]!.note,
         }))}
@@ -907,10 +915,10 @@ function ContactModal({
   student: AttendanceStudent | null;
   classId: string;
   onHide: () => void;
-  onSaved: (c: { studentId: string; parentName: string | null; parentPhone: string | null }) => void;
+  onSaved: (c: { studentId: string; parentName: string | null; parentPhone: string | null; studentPhone?: string | null }) => void;
 }) {
   const toast = useToast();
-  const [form, setForm] = useState({ parentName: "", parentPhone: "" });
+  const [form, setForm] = useState({ parentName: "", parentPhone: "", studentPhone: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -922,9 +930,10 @@ function ContactModal({
       const saved = await attendanceApi.updateContact(classId, student.studentId, {
         parentName: form.parentName.trim() || null,
         parentPhone: form.parentPhone.trim() || null,
+        studentPhone: form.studentPhone.trim() || null,
       });
       onSaved(saved);
-      toast.success("Đã lưu liên hệ phụ huynh.");
+      toast.success("Đã lưu thông tin liên hệ.");
       onHide();
     } catch (e) {
       setError(e);
@@ -939,23 +948,33 @@ function ContactModal({
       onHide={onHide}
       centered
       onShow={() => {
-        setForm({ parentName: student?.parentName ?? "", parentPhone: student?.parentPhone ?? "" });
+        setForm({ parentName: student?.parentName ?? "", parentPhone: student?.parentPhone ?? "", studentPhone: student?.studentPhone ?? "" });
         setError(null);
       }}
     >
       <Modal.Header closeButton>
         <Modal.Title as="h2" className="h5">
-          Liên hệ phụ huynh — {student?.fullName}
+          Liên hệ — {student?.fullName}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {error !== null && <ErrorAlert error={error} />}
+        <Form.Group className="mb-3" controlId="contact-student-phone">
+          <Form.Label>SĐT học sinh</Form.Label>
+          <Form.Control
+            value={form.studentPhone}
+            maxLength={20}
+            inputMode="tel"
+            placeholder="VD: 0912 345 678"
+            onChange={(e) => setForm((f) => ({ ...f, studentPhone: e.target.value }))}
+          />
+        </Form.Group>
         <Form.Group className="mb-3" controlId="contact-parent-name">
           <Form.Label>Tên phụ huynh</Form.Label>
           <Form.Control value={form.parentName} maxLength={200} onChange={(e) => setForm((f) => ({ ...f, parentName: e.target.value }))} />
         </Form.Group>
         <Form.Group controlId="contact-parent-phone">
-          <Form.Label>Số điện thoại (dùng cho nút gọi / Zalo)</Form.Label>
+          <Form.Label>SĐT phụ huynh (dùng cho nút gọi / Zalo)</Form.Label>
           <Form.Control
             value={form.parentPhone}
             maxLength={20}
