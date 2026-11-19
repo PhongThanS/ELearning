@@ -5,6 +5,7 @@ rem Đổi server bằng biến môi trường DEPLOY_SERVER (ví dụ: setx DEP
 setlocal
 if "%DEPLOY_SERVER%"=="" (set SERVER=root@103.56.162.22) else (set SERVER=%DEPLOY_SERVER%)
 set REMOTE_SCRIPT=/opt/elearning/deploy/linux/update.sh
+if "%DEPLOY_PORT%"=="" (set PORT=24700) else (set PORT=%DEPLOY_PORT%)
 
 cd /d "%~dp0\..\.."
 
@@ -38,7 +39,7 @@ if errorlevel 1 (
 )
 
 echo === Cap nhat server ===
-ssh %SERVER% "bash %REMOTE_SCRIPT%"
+ssh -p %PORT% %SERVER% "bash %REMOTE_SCRIPT%"
 if errorlevel 1 (
   echo Cap nhat server that bai.
   pause

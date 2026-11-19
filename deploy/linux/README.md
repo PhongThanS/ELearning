@@ -76,14 +76,15 @@ Mỗi người dùng **khóa SSH riêng**; không chia sẻ chung một khóa ha
    Hoặc nếu bạn đã vào được server bằng mật khẩu:
 
    ```powershell
-   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh root@<server> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh -p 24700 root@<server> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
    ```
 
-5. Kiểm tra: `ssh root@<server> echo ok` in `ok` mà không hỏi mật khẩu là xong.
+5. Kiểm tra: `ssh -p 24700 root@<server> echo ok` in `ok` mà không hỏi mật khẩu là xong.
 6. Server khác mặc định? Đặt biến môi trường một lần (mở lại terminal để có hiệu lực):
 
    ```powershell
    setx DEPLOY_SERVER root@<ip-hoac-domain>
+   setx DEPLOY_PORT <cong-ssh>   # mặc định 24700
    ```
 
 Thu hồi quyền: xóa dòng khóa của người đó trong `/root/.ssh/authorized_keys` trên server.
@@ -107,6 +108,6 @@ docker compose up -d --build
 
 - `.env`, `media/`, `backups/` nằm ngoài git nên không bị `git reset --hard` ảnh hưởng. **Không sửa file trực tiếp trong `/opt/elearning`**: mọi thay đổi code phải qua git.
 - Migration tự chạy ở mỗi lần cập nhật (service `migrate`). Bản `.dump` trước cập nhật nằm ở `/opt/elearning/backups/before-update-*.dump`.
-- Cập nhật lỗi: `ssh root@<server> "cd /opt/elearning && docker compose logs --tail=100 api"`.
+- Cập nhật lỗi: `ssh -p 24700 root@<server> "cd /opt/elearning && docker compose logs --tail=100 api"`.
 - Quay lại bản cũ: trên server `git reset --hard <commit>` rồi `docker compose up -d --build`; nếu migration mới không tương thích thì khôi phục từ file `.dump` (`docs/09-van-hanh.md` mục 6).
 - Dung lượng ổ đĩa: `update.sh` đã dọn image và build cache cũ; không dùng `docker system prune --volumes` vì sẽ xóa database.
