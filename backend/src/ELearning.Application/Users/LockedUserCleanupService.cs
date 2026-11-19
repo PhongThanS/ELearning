@@ -107,6 +107,7 @@ internal sealed class LockedUserCleanupService(
                 OR EXISTS (SELECT 1 FROM "UserGroups" WHERE "CreatedBy" = {u})
                 OR EXISTS (SELECT 1 FROM "VideoLessons" WHERE "CreatedBy" = {u})
                 OR EXISTS (SELECT 1 FROM "AttendanceSessions" WHERE "CreatedBy" = {u})
+                OR EXISTS (SELECT 1 FROM "ZaloBroadcasts" WHERE "CreatedBy" = {u})
                 OR EXISTS (SELECT 1 FROM "AnswerKeyCorrections" WHERE "CorrectedBy" = {u})
                 OR EXISTS (SELECT 1 FROM "ExamAssignments" WHERE "CreatedBy" = {u} AND ("UserId" IS NULL OR "UserId" <> {u}))
                 OR EXISTS (SELECT 1 FROM "ExamUserOverrides" WHERE "UpdatedBy" = {u} AND "UserId" <> {u})
@@ -164,6 +165,7 @@ internal sealed class LockedUserCleanupService(
 
         await sql.ExecuteSqlAsync($"""DELETE FROM "ExamAttempts" WHERE "UserId" = {u}""", ct);
         await sql.ExecuteSqlAsync($"""DELETE FROM "AttendanceRecords" WHERE "StudentId" = {u}""", ct);
+        await sql.ExecuteSqlAsync($"""DELETE FROM "ZaloMessages" WHERE "StudentId" = {u}""", ct);
         await sql.ExecuteSqlAsync($"""DELETE FROM "StudentContacts" WHERE "UserId" = {u}""", ct);
         await sql.ExecuteSqlAsync($"""DELETE FROM "ClassroomStudents" WHERE "UserId" = {u}""", ct);
         await sql.ExecuteSqlAsync($"""DELETE FROM "UserGroupMembers" WHERE "UserId" = {u}""", ct);

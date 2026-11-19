@@ -404,7 +404,23 @@ Mọi route cần `Attendance.Take`; lớp không do mình chủ nhiệm (và kh
 | POST | `/api/attendance/classes/{classId}/sessions/{date}/reset` | Làm mới buổi → `AttendanceSessionDto` |
 | GET | `/api/attendance/classes/{classId}/sessions/{date}/export` | File .xlsx (buổi + tổng hợp tháng) |
 | PUT | `/api/attendance/classes/{classId}/students/{studentId}/contact` `{ parentName, parentPhone }` | → `{ studentId, parentName, parentPhone }`; SĐT sai → 400 `PHONE_INVALID`; học sinh không trong lớp → 404 |
-| GET | `/api/attendance/classes/{classId}/students/{studentId}/history?month=yyyy-MM` | `{ studentId, userName, fullName, parentName, parentPhone, classroomName, year, month, averageScore, classRank, rankedCount, items: [{ sessionDate, topic, status, homeworkStatus, homeworkScore, note }] }` |
+| GET | `/api/attendance/classes/{classId}/students/{studentId}/history?month=yyyy-MM` (xem thêm mục "Gửi tin Zalo" ngay dưới bảng này) | `{ studentId, userName, fullName, parentName, parentPhone, classroomName, year, month, averageScore, classRank, rankedCount, items: [{ sessionDate, topic, status, homeworkStatus, homeworkScore, note }] }` |
+
+### 6.8b Gửi tin Zalo cho phụ huynh (D-45)
+
+Mọi route cần `Zalo.Send`; lớp không do mình chủ nhiệm (và không có `Attendance.ManageAll`) → 404 `CLASSROOM_NOT_FOUND`. Gửi thật là bất đồng bộ: tạo đợt chỉ đưa tin vào hàng đợi, job nền gửi dần.
+
+`ZaloBroadcastRequest { kind: DAILY_REPORT | ANNOUNCEMENT, sessionDate?: yyyy-MM-dd (báo cáo), content?: string (thông báo, ≤ 200 ký tự), deadline?, attention? (≤ 200), studentIds?: uuid[] (trống = cả lớp), force?: bool }`.
+
+| Method | Route | Mô tả |
+|---|---|---|
+| GET | `/api/zalo/status` | `{ enabled, provider, sandboxMode, missingTemplates: [] }` — `enabled = false` khi `Zalo:Provider = Disabled` |
+| POST | `/api/zalo/classes/{classId}/preview` `ZaloBroadcastRequest` | `{ kind, sendableCount, alreadySent, recipients: [{ studentId, studentName, parentName, parentPhone, skipReason, data }] }`; `data` là các tham số điền mẫu (null nếu bị bỏ qua); `skipReason`: `NO_PHONE` / `INVALID_PHONE` / `NOT_MARKED` / `DUPLICATE_PHONE` / `NOT_SELECTED`. Buổi chưa điểm danh → danh sách rỗng |
+| POST | `/api/zalo/classes/{classId}/broadcasts` `ZaloBroadcastRequest` | **201** `{ broadcast, skipped: [...] }`; `broadcast = { id, kind, sessionDate, content, createdAt, createdByName, total, pending, sent, failed, cancelled }`. Lỗi: 400 (thiếu `sessionDate` / `content`, quá dài); 409 `ZALO_ALREADY_SENT` (báo cáo buổi này đã gửi, trừ khi `force = true`); 422 `ZALO_NOT_CONFIGURED` (provider tắt hoặc thiếu mẫu ZNS), 422 `ZALO_NO_RECIPIENTS` |
+| GET | `/api/zalo/classes/{classId}/broadcasts` | 30 đợt gần nhất của lớp, mới nhất trước: `[broadcast]` |
+| GET | `/api/zalo/classes/{classId}/broadcasts/{id}` | `{ broadcast, messages: [{ id, studentId, studentName, recipientName, phone, status, attempts, sentAt, errorCode, errorMessage }] }`; đợt không thuộc lớp → 404 |
+| POST | `/api/zalo/classes/{classId}/broadcasts/{id}/retry` | Đưa các tin `FAILED` về `PENDING` → `broadcast`; không có tin lỗi → 422 `ZALO_NO_RECIPIENTS` |
+| POST | `/api/zalo/classes/{classId}/broadcasts/{id}/cancel` | Hủy các tin `PENDING` → `broadcast`; không còn tin chờ → 422 `ZALO_NO_RECIPIENTS`; job vừa nhận tin lúc đó → 409 |
 
 ### 6.9 Hệ thống
 | Method | Route | Quyền |
@@ -430,7 +446,7 @@ Kiểm tra quyền luôn dựa trên **permission**. Bảng dưới chỉ thể 
 | Tất cả kết quả, export, thao tác trên lượt thi | Có | Không |
 | Báo cáo, dashboard, audit log | Có | Không |
 
-Vai trò `TEACHER` (seed): chỉ `Attendance.Take` — điểm danh lớp mình chủ nhiệm (D-31). ADMIN có thêm `Attendance.ManageAll`.
+Vai trò `TEACHER` (seed): `Attendance.Take` — điểm danh lớp mình chủ nhiệm (D-31) — và `Zalo.Send` — gửi tin Zalo cho phụ huynh lớp đó (D-45); cả hai chỉ được cấp một lần khi permission được tạo. ADMIN có thêm `Attendance.ManageAll`, mở rộng cả hai ra mọi lớp.
 
 ADMIN không thi thay học viên. Muốn thử đề thì dùng `preview`.
 

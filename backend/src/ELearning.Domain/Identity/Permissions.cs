@@ -55,6 +55,9 @@ public static class Permissions
     /// <summary>Mở rộng Attendance.Take ra mọi lớp (không cần là giáo viên chủ nhiệm).</summary>
     public const string AttendanceManageAll = "Attendance.ManageAll";
 
+    /// <summary>Gửi tin Zalo cho phụ huynh các lớp mình chủ nhiệm (D-45); Attendance.ManageAll mở rộng ra mọi lớp.</summary>
+    public const string ZaloSend = "Zalo.Send";
+
     /// <summary>Mã → tên hiển thị tiếng Việt, dùng khi seed.</summary>
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -94,11 +97,12 @@ public static class Permissions
         [VideoManage] = "Quản lý video bài giảng",
         [AttendanceTake] = "Điểm danh lớp mình chủ nhiệm",
         [AttendanceManageAll] = "Điểm danh mọi lớp (cần kèm Attendance.Take)",
+        [ZaloSend] = "Gửi tin Zalo cho phụ huynh lớp mình chủ nhiệm",
     };
 
     /// <summary>
     /// Quyền mặc định của vai trò TEACHER: chỉ được cấp đúng lúc permission được tạo lần đầu,
     /// nên admin bỏ quyền khỏi vai trò thì lần seed sau không cấp lại.
     /// </summary>
-    public static IReadOnlyList<string> TeacherDefaults { get; } = [AttendanceTake];
+    public static IReadOnlyList<string> TeacherDefaults { get; } = [AttendanceTake, ZaloSend];
 }

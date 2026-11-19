@@ -368,7 +368,20 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 - **Liên hệ phụ huynh** (`StudentContacts`: tên, số điện thoại 8–20 ký tự gồm chữ số `+ . -` khoảng trắng) do giáo viên sửa cho học sinh **đang trong lớp** mình; audit `STUDENT_CONTACT_UPDATED`. Dùng cho nút gọi (`tel:`) và Zalo (`zalo.me/<số>`).
 - **Lịch sử tháng của học sinh:** mỗi buổi của lớp trong tháng một dòng; **ĐTB tháng** = trung bình điểm BTVN các buổi có điểm; **xếp hạng** trong lớp theo ĐTB tháng (bằng điểm thì cùng hạng; học sinh không có điểm nào không xếp hạng).
 - **Xuất Excel:** sheet buổi đang xem + sheet tổng hợp tháng (mỗi ô `C/M/P/K` / điểm).
-- **Báo cáo Zalo phụ huynh** (chi tiết / ngắn gọn, tuyên dương BTVN ≥ 8,5 hoặc Xuất sắc) và tổng kết tháng được soạn ở trình duyệt để giáo viên sao chép; hệ thống không gửi tin.
+- **Báo cáo Zalo phụ huynh** (chi tiết / ngắn gọn, tuyên dương BTVN ≥ 8,5 hoặc Xuất sắc) và tổng kết tháng được soạn ở trình duyệt để giáo viên sao chép; nút này vẫn có và không gửi tin. Việc **gửi tự động** nằm ở mục 5.2a.
+
+### 5.2a Gửi tin Zalo tự động cho phụ huynh (D-45)
+
+- **Ai gửi:** người có `Zalo.Send` (vai trò `TEACHER` có mặc định) cho lớp mình chủ nhiệm; `Attendance.ManageAll` mở rộng ra mọi lớp. Lớp ngoài phạm vi → 404 `CLASSROOM_NOT_FOUND`. Nút "Gửi Zalo tự động" nằm ở trang Điểm danh và chờ lưu xong điểm danh trước khi mở.
+- **Kênh:** ZNS của Zalo OA, gửi theo số điện thoại phụ huynh; mỗi tin điền các tham số của mẫu đã được Zalo duyệt. Hệ thống không gửi tin tự do ngoài mẫu.
+- **Loại tin:**
+  - `DAILY_REPORT` — cần `sessionDate`. Mỗi học sinh **đang trong lớp và đã điểm danh** một tin riêng, dữ liệu lấy từ buổi học: tên phụ huynh, tên học sinh, lớp, ngày, trạng thái điểm danh, điểm BTVN, nhận xét, nội dung buổi học, BTVN giao thêm; giáo viên nhập thêm hạn nộp và chú ý.
+  - `ANNOUNCEMENT` — cần `content` (≤ `Zalo:MaxParamLength`, mặc định 200 ký tự), gửi cả lớp; phụ huynh dùng chung một số điện thoại chỉ nhận **một** tin.
+- **Người nhận:** số điện thoại phải là di động Việt Nam (`0912…`, `+84912…`, `84912…` đều được; chuẩn hóa thành `84` + 9 số). Bị bỏ qua và báo lý do: `NO_PHONE`, `INVALID_PHONE` (số bàn / sai), `NOT_MARKED` (chưa điểm danh), `DUPLICATE_PHONE` (thông báo chung), `NOT_SELECTED` (khi chỉ chọn một số học sinh). Không còn ai đủ điều kiện → 422 `ZALO_NO_RECIPIENTS`.
+- **Xem trước** (`preview`) trả danh sách người nhận và dữ liệu điền mẫu của từng người trước khi gửi; giao diện bắt xác nhận ("không thu hồi được, có thể tính phí").
+- **Chống gửi trùng:** báo cáo của một buổi đã có đợt gửi (còn tin chưa hủy) thì tạo đợt mới trả 409 `ZALO_ALREADY_SENT` trừ khi `force = true` (giao diện hỏi lại). Tin lỗi **không** tự gửi lại; giáo viên bấm "Gửi lại tin lỗi". Giá trị tham số dài hơn giới hạn bị cắt kèm "…"; trường trống thành "-" vì ZNS không nhận tham số rỗng.
+- **Vòng đời tin:** `PENDING → SENDING → SENT | FAILED`; `PENDING → CANCELLED` (giáo viên hủy đợt); `FAILED → PENDING` (gửi lại). Job nhận tin bằng `UPDATE … WHERE Status = 'PENDING'` nên hủy và gửi lại không đua với nhau (cột `Status` là concurrency token → 409 nếu trùng lúc). Tin `SENDING` quá 5 phút (job chết giữa chừng) → `FAILED` / `INTERRUPTED`.
+- **Dữ liệu cá nhân:** audit (`ZALO_BROADCAST_CREATED` / `_RETRIED` / `_CANCELLED`) chỉ ghi số lượng, không ghi số điện thoại hay nội dung. Log `Log`-provider che số điện thoại.
 
 **Quy tắc chung của quyền dự thi (mục 5):**
 - Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).

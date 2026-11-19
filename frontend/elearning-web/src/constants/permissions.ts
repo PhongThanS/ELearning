@@ -36,6 +36,7 @@ export const Permissions = {
   VideoManage: "Video.Manage",
   AttendanceTake: "Attendance.Take",
   AttendanceManageAll: "Attendance.ManageAll",
+  ZaloSend: "Zalo.Send",
 } as const;
 
 export type PermissionCode = (typeof Permissions)[keyof typeof Permissions];

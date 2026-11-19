@@ -227,6 +227,43 @@ Index: `UQ_AttendanceRecords_Session_Student` UNIQUE, `IX_AttendanceRecords_Stud
 **StudentContacts** — liên hệ phụ huynh, PK = `UserId` (FK → Users): `ParentName` varchar(200) NULL, `ParentPhone` varchar(20) NULL, `StudentPhone` varchar(20) NULL (D-43),
 `UpdatedBy`, `UpdatedAt`. Tách khỏi `Users` để không đụng luồng tài khoản; ẩn danh hóa user xóa trắng tên và số điện thoại phụ huynh.
 
+## 3b. Gửi tin Zalo cho phụ huynh (D-45)
+
+**ZaloBroadcasts** — một đợt gửi của giáo viên cho một lớp. Không sửa sau khi tạo.
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| Id | uuid PK | |
+| ClassroomId | uuid FK → Classrooms | |
+| Kind | varchar(40) | `DAILY_REPORT` / `ANNOUNCEMENT` (CHECK) |
+| SessionDate | date NULL | ngày buổi học (báo cáo) |
+| Content | varchar(400) NULL | nội dung thông báo chung |
+| CreatedBy / CreatedAt | uuid FK → Users / timestamptz | |
+| CancelledAt | timestamptz NULL | lúc giáo viên hủy các tin đang chờ |
+
+Index: `IX_ZaloBroadcasts_Classroom_CreatedAt` (ClassroomId, CreatedAt).
+
+**ZaloMessages** — một tin tới một phụ huynh (một học sinh), cũng là hàng đợi gửi.
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| Id | uuid PK | |
+| BroadcastId | uuid FK → ZaloBroadcasts | |
+| StudentId | uuid FK → Users | |
+| RecipientName | varchar(200) NULL | tên phụ huynh lúc gửi (bản chụp) |
+| Phone | varchar(15) | dạng `84912345678`, không dấu `+` |
+| TemplateId | varchar(100) | mã mẫu ZNS lúc tạo (bản chụp) |
+| TemplateData | text | JSON `{tham số: giá trị}` đã soạn sẵn |
+| TrackingId | varchar(40) | mã gửi cho Zalo, UNIQUE |
+| Status | varchar(40) | `PENDING` / `SENDING` / `SENT` / `FAILED` / `CANCELLED` (CHECK); **concurrency token** |
+| Attempts | int | số lần đã thử (kể cả gửi lại) |
+| CreatedAt / SendingAt / SentAt | timestamptz (2 cột sau NULL) | |
+| ProviderMessageId | varchar(100) NULL | `msg_id` Zalo trả về |
+| ErrorCode / ErrorMessage | varchar(50) / varchar(500) NULL | `ZNS_<mã Zalo>`, `ZALO_AUTH`, `SEND_ERROR`, `INTERRUPTED` |
+
+Index: `UQ_ZaloMessages_TrackingId`, `IX_ZaloMessages_Broadcast`, `IX_ZaloMessages_Queue` (Status, CreatedAt) có filter `Status IN ('PENDING','SENDING')`.
+Token Zalo OA lưu ở `SystemSettings` khóa `Zalo.OaToken` (JSON; xem `09` mục 7b). Không xóa cứng (D-16). Ẩn danh hóa user hủy các tin `PENDING` của học sinh đó, đặt `Phone` = `ANONYMIZED`, xóa `RecipientName` và `TemplateData` (dữ liệu cá nhân). Job xóa tài khoản khóa quá hạn (D-41) xóa `ZaloMessages` của học sinh; tài khoản là người tạo `ZaloBroadcasts` thì được giữ lại như tác giả nội dung chung.
+
 ## 4. Tổng hợp index
 
 | Index | Mục đích |

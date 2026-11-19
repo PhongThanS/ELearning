@@ -262,6 +262,7 @@ type ExamPlayerState = {
 - "Tất cả có mặt" / "100% Đạt BTVN" chỉ áp cho học sinh chưa điểm danh / chưa chấm, không ghi đè lựa chọn đã có.
 - Nhận xét nhanh (chip) theo trạng thái và học lực; không thêm câu đã có.
 - Báo cáo Zalo, tổng kết tháng: soạn ở client (`attendanceLogic.ts`), giáo viên sao chép.
+- **Gửi Zalo tự động (D-45):** nút "Gửi Zalo tự động" (cần `Zalo.Send`) trên trang Điểm danh, bị khóa khi điểm danh đang lưu / lỗi; bấm thì chờ `flush()` xong mới mở `ZaloBroadcastModal` (`features/attendance/`). Ba tab: "Báo cáo buổi học" (hạn nộp, chú ý), "Thông báo chung" (nội dung ≤ 200 ký tự), "Đã gửi" (tiến độ từng đợt, tự làm mới 5 giây khi còn tin chờ, gửi lại tin lỗi, hủy tin chờ). Luôn xem trước người nhận + lý do bị bỏ qua và bắt xác nhận trước khi gửi; chuỗi hiển thị ở `i18n/vi.json` khối `zalo`. `GET /api/zalo/status` báo `enabled = false` thì chỉ hiện hướng dẫn cấu hình.
 - Biểu đồ tháng: SVG tự vẽ, dải màu ≥ 8 / 6,5 / 5 / < 5 (không thêm thư viện biểu đồ).
 
 ## 5. Quy tắc UX chung

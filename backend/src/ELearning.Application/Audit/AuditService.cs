@@ -82,6 +82,9 @@ public static class AuditActions
     public const string ClassroomDeleted = "CLASSROOM_DELETED";
     public const string AttendanceSessionReset = "ATTENDANCE_SESSION_RESET";
     public const string StudentContactUpdated = "STUDENT_CONTACT_UPDATED";
+    public const string ZaloBroadcastCreated = "ZALO_BROADCAST_CREATED";
+    public const string ZaloBroadcastRetried = "ZALO_BROADCAST_RETRIED";
+    public const string ZaloBroadcastCancelled = "ZALO_BROADCAST_CANCELLED";
     public const string RoleCreated = "ROLE_CREATED";
     public const string RoleUpdated = "ROLE_UPDATED";
     public const string RolePermissionsChanged = "ROLE_PERMISSIONS_CHANGED";

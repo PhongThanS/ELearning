@@ -27,7 +27,7 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
         typeof(ExamVersionStatus), typeof(AccessMode), typeof(ExamKind), typeof(RetakeScoringPolicy), typeof(ScoreVisibility),
         typeof(ReviewPolicy), typeof(AttemptStatus), typeof(SubmitReason), typeof(AttemptEventType),
         typeof(RefreshTokenRevokedReason), typeof(AnswerKeyCorrectionType), typeof(QuestionDifficulty),
-        typeof(AttendanceStatus), typeof(HomeworkStatus),
+        typeof(AttendanceStatus), typeof(HomeworkStatus), typeof(ZaloMessageKind), typeof(ZaloMessageStatus),
     ];
 
     public DbSet<User> Users => Set<User>();
@@ -93,6 +93,10 @@ public sealed class ELearningDbContext(DbContextOptions<ELearningDbContext> opti
     public DbSet<AttendanceRecord> AttendanceRecords => Set<AttendanceRecord>();
 
     public DbSet<StudentContact> StudentContacts => Set<StudentContact>();
+
+    public DbSet<ELearning.Domain.Zalo.ZaloBroadcast> ZaloBroadcasts => Set<ELearning.Domain.Zalo.ZaloBroadcast>();
+
+    public DbSet<ELearning.Domain.Zalo.ZaloMessage> ZaloMessages => Set<ELearning.Domain.Zalo.ZaloMessage>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {

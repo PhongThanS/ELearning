@@ -57,6 +57,20 @@ public static class DependencyInjection
             client.BaseAddress = new Uri(ELearning.Infrastructure.Videos.YoutubeOEmbedClient.BaseAddress);
             client.Timeout = TimeSpan.FromSeconds(5);
         });
+        services.AddHttpClient(ELearning.Infrastructure.Zalo.ZaloTokenProvider.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(20));
+        services.AddSingleton<ELearning.Infrastructure.Zalo.ZaloTokenProvider>();
+        services.AddScoped<ELearning.Infrastructure.Zalo.ZnsZaloSender>();
+        services.AddScoped<ELearning.Infrastructure.Zalo.LogZaloSender>();
+        services.AddScoped<ELearning.Application.Zalo.IZaloSender>(sp =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ELearning.Application.Zalo.ZaloOptions>>().Value;
+            return options.IsZns
+                ? sp.GetRequiredService<ELearning.Infrastructure.Zalo.ZnsZaloSender>()
+                : options.IsEnabled
+                    ? sp.GetRequiredService<ELearning.Infrastructure.Zalo.LogZaloSender>()
+                    : new ELearning.Infrastructure.Zalo.DisabledZaloSender();
+        });
+        services.AddHostedService<ZaloSendWorker>();
         services.AddHostedService<AttemptExpirationWorker>();
         services.AddHostedService<MonitoringSnapshotWorker>();
         services.AddHostedService<LockedUserCleanupWorker>();

@@ -75,9 +75,10 @@ Report.View
 Audit.View
 Video.View  Video.Manage
 Attendance.Take (lớp mình chủ nhiệm)  Attendance.ManageAll (mọi lớp, cần kèm Attendance.Take)
+Zalo.Send (gửi tin Zalo cho phụ huynh lớp mình chủ nhiệm; Attendance.ManageAll mở rộng ra mọi lớp)
 ```
 
-Nguồn chuẩn: `ELearning.Domain/Identity/Permissions.cs`. Vai trò hệ thống: `ADMIN` (mọi permission), `TEACHER` (mặc định `Attendance.Take`), `STUDENT` (không có permission, dùng policy `StudentOnly`), `TEACHING_ASSISTANT` — Trợ giảng (D-42, không có permission mặc định, quản trị tự phân quyền).
+Nguồn chuẩn: `ELearning.Domain/Identity/Permissions.cs`. Vai trò hệ thống: `ADMIN` (mọi permission), `TEACHER` (mặc định `Attendance.Take` và `Zalo.Send`), `STUDENT` (không có permission, dùng policy `StudentOnly`), `TEACHING_ASSISTANT` — Trợ giảng (D-42, không có permission mặc định, quản trị tự phân quyền).
 
 So với spec gốc:
 - Bỏ `User.Delete` và `Question.Delete` (D-16). Xóa câu hỏi hiện dùng `Question.Update`, xóa chuyên đề dùng `Category.Manage`, xóa nhóm dùng `Group.Manage` (D-36).

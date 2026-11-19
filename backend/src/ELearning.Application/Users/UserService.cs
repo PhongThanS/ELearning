@@ -455,6 +455,12 @@ internal sealed class UserService(
             await db.StudentContacts.Where(c => c.UserId == id)
                 .ExecuteUpdateAsync(s => s.SetProperty(c => c.ParentName, (string?)null).SetProperty(c => c.ParentPhone, (string?)null)
                     .SetProperty(c => c.StudentPhone, (string?)null), ct);
+            // Tin Zalo gửi phụ huynh (D-45): hủy tin chưa gửi, xóa số điện thoại, tên và nội dung đã soạn khỏi mọi tin
+            await db.ZaloMessages.Where(m => m.StudentId == id && m.Status == ZaloMessageStatus.Pending)
+                .ExecuteUpdateAsync(s => s.SetProperty(m => m.Status, ZaloMessageStatus.Cancelled), ct);
+            await db.ZaloMessages.Where(m => m.StudentId == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(m => m.Phone, "ANONYMIZED").SetProperty(m => m.RecipientName, (string?)null)
+                    .SetProperty(m => m.TemplateData, "{}"), ct);
 
             await tx.CommitAsync(ct);
         });

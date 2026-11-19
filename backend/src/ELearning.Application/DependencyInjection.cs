@@ -43,6 +43,10 @@ public static class DependencyInjection
         services.AddScoped<IVideoPracticeService, VideoPracticeService>();
         services.AddScoped<ELearning.Application.Attendance.IAttendanceService, ELearning.Application.Attendance.AttendanceService>();
 
+        services.AddSingleton<ELearning.Application.Zalo.ZaloMessageComposer>();
+        services.AddScoped<ELearning.Application.Zalo.IZaloBroadcastService, ELearning.Application.Zalo.ZaloBroadcastService>();
+        services.AddScoped<ELearning.Application.Zalo.IZaloDispatchService, ELearning.Application.Zalo.ZaloDispatchService>();
+
         services.AddSingleton(GradingEngine.Default);
         services.AddScoped<IGradingService, GradingService>();
         services.AddScoped<IAttemptFinalizer, AttemptFinalizer>();

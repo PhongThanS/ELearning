@@ -5,6 +5,8 @@ import { Link, useSearchParams } from "react-router";
 import { attendanceApi } from "../../services/api";
 import { MonthlyHistoryView } from "./MonthlyHistoryView";
 import { DailyReportModal } from "./DailyReportModal";
+import { ZaloBroadcastModal } from "./ZaloBroadcastModal";
+import { useTranslation } from "react-i18next";
 import type { AttendanceEntry, AttendanceSession, AttendanceStudent } from "../../types/api";
 import { Permissions } from "../../constants/permissions";
 import { useAuth } from "../auth/useAuth";
@@ -169,6 +171,7 @@ type SortMode = "order" | "scoreDesc" | "scoreAsc";
 
 function SessionEditor({ classId, date, initial }: { classId: string; date: string; initial: AttendanceSession }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const copy = useCopy();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
@@ -187,6 +190,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
   const [filter, setFilter] = useState<AttendanceFilter>("ALL");
   const [sort, setSort] = useState<SortMode>("order");
   const [showZalo, setShowZalo] = useState(false);
+  const [showAutoZalo, setShowAutoZalo] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -471,6 +475,18 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
             <i className="bi bi-send me-1" />
             Báo cáo Zalo PH
           </Button>
+          {hasPermission(Permissions.ZaloSend) && (
+            <Button
+              size="sm"
+              variant="success"
+              // Chờ lưu xong để tin gửi đi dùng đúng điểm danh, điểm và nội dung buổi học vừa nhập
+              disabled={saveState.kind === "pending" || saveState.kind === "saving" || saveState.kind === "error"}
+              onClick={() => void flush().then(() => setShowAutoZalo(true))}
+            >
+              <i className="bi bi-send-check me-1" />
+              {t("zalo.open")}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -743,6 +759,16 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
         students={students.map((s) => ({ ...rows[s.studentId]!, fullName: s.fullName }))}
         onCopy={(text) => void copy(text, "Đã sao chép tin nhắn Zalo.")}
       />
+
+      {hasPermission(Permissions.ZaloSend) && (
+        <ZaloBroadcastModal
+          show={showAutoZalo}
+          onHide={() => setShowAutoZalo(false)}
+          classId={classId}
+          className={initial.classroomName}
+          date={date}
+        />
+      )}
 
       <ContactModal
         student={contactFor}

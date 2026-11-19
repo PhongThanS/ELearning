@@ -28,6 +28,15 @@ public static class ApiServiceCollectionExtensions
             .ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<UserRetentionOptions>().BindConfiguration(UserRetentionOptions.SectionName)
             .ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<ELearning.Application.Zalo.ZaloOptions>().BindConfiguration(ELearning.Application.Zalo.ZaloOptions.SectionName)
+            .ValidateDataAnnotations()
+            .Validate(
+                o => !o.IsEnabled || string.Equals(o.Provider, ELearning.Application.Zalo.ZaloOptions.ProviderLog, StringComparison.OrdinalIgnoreCase) || o.IsZns,
+                "Zalo:Provider phải là Disabled, Log hoặc Zns.")
+            .Validate(
+                o => !o.IsZns || (!string.IsNullOrWhiteSpace(o.AppId) && !string.IsNullOrWhiteSpace(o.SecretKey)),
+                "Zalo:Provider = Zns cần Zalo:AppId và Zalo:SecretKey.")
+            .ValidateOnStart();
         return services;
     }
 

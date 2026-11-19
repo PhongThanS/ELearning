@@ -1296,3 +1296,80 @@ export interface AttendanceStudentHistory {
   rankedCount: number;
   items: AttendanceHistoryItem[];
 }
+
+// ---------------------------------------------------------------- Gửi tin Zalo cho phụ huynh (D-45)
+
+export type ZaloMessageKind = "DAILY_REPORT" | "ANNOUNCEMENT";
+export type ZaloMessageStatus = "PENDING" | "SENDING" | "SENT" | "FAILED" | "CANCELLED";
+/** Lý do bỏ qua một phụ huynh khi lập danh sách gửi. */
+export type ZaloSkipReason = "NO_PHONE" | "INVALID_PHONE" | "NOT_MARKED" | "DUPLICATE_PHONE" | "NOT_SELECTED";
+
+export interface ZaloStatus {
+  enabled: boolean;
+  provider: string;
+  sandboxMode: boolean;
+  missingTemplates: string[];
+}
+
+export interface ZaloBroadcastInput {
+  kind: ZaloMessageKind;
+  sessionDate?: string | null;
+  content?: string | null;
+  deadline?: string | null;
+  attention?: string | null;
+  studentIds?: string[] | null;
+  force?: boolean;
+}
+
+export interface ZaloRecipient {
+  studentId: string;
+  studentName: string;
+  parentName: string | null;
+  parentPhone: string | null;
+  skipReason: ZaloSkipReason | null;
+  data: Record<string, string> | null;
+}
+
+export interface ZaloPreview {
+  kind: ZaloMessageKind;
+  sendableCount: number;
+  alreadySent: boolean;
+  recipients: ZaloRecipient[];
+}
+
+export interface ZaloBroadcast {
+  id: string;
+  kind: ZaloMessageKind;
+  sessionDate: string | null;
+  content: string | null;
+  createdAt: string;
+  createdByName: string | null;
+  total: number;
+  pending: number;
+  sent: number;
+  failed: number;
+  cancelled: number;
+}
+
+export interface ZaloBroadcastCreated {
+  broadcast: ZaloBroadcast;
+  skipped: ZaloRecipient[];
+}
+
+export interface ZaloMessage {
+  id: string;
+  studentId: string;
+  studentName: string;
+  recipientName: string | null;
+  phone: string;
+  status: ZaloMessageStatus;
+  attempts: number;
+  sentAt: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+export interface ZaloBroadcastDetail {
+  broadcast: ZaloBroadcast;
+  messages: ZaloMessage[];
+}

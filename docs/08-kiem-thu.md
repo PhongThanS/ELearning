@@ -124,6 +124,12 @@
 - Ngoài ngưỡng độ trễ, mọi kịch bản còn có ngưỡng về tính đúng: không có 5xx, không có lượt thi sai (start lần hai trả lượt khác, lưu đáp án không được áp dụng, nộp lại ra kết quả khác, thiếu / thừa lượt), mọi `check` đạt.
 - CI (`docker.yml`) chạy cả 4 kịch bản ở chế độ `SMOKE=1` (10 VU, thời gian ngắn, bỏ ngưỡng độ trễ) trên stack Docker Compose, để kịch bản luôn khớp với API.
 
+## 7a. Gửi tin Zalo (D-45)
+
+- **Unit** (`ZaloDomainTests`): chuẩn hóa số điện thoại (`0912…`, `+84…`, số bàn, sai định dạng); soạn tham số mẫu (ánh xạ tên tham số, trường trống → "-", cắt độ dài, gọn khoảng trắng, dấu phẩy thập phân); chuyển trạng thái tin (`PENDING → SENDING → SENT | FAILED`, gửi lại, hủy).
+- **API** (`ZaloBroadcastTests`, cần PostgreSQL; `FakeZaloSender` thay `IZaloSender`, test tự gọi `IZaloDispatchService` thay cho job nền): quyền `Zalo.Send` của TEACHER và học viên bị 403; giáo viên chỉ thấy lớp mình (404); báo cáo buổi học tạo đúng một tin cho mỗi học sinh đủ điều kiện và đúng dữ liệu điền mẫu; lý do bỏ qua; gửi lại cùng buổi → 409 `ZALO_ALREADY_SENT`, `force` thì được; tin lỗi không tự gửi lại, "gửi lại" gửi đúng một lần; thông báo chung chỉ một tin cho số dùng chung; hủy tin chờ; thông báo rỗng → 400, lớp không SĐT → 422.
+- **Chưa có:** test gọi ZNS thật (cần OA, mẫu đã duyệt, tính phí) — `ZnsZaloSender` và `ZaloTokenProvider` chỉ kiểm bằng thử tay ở chế độ `Mode = development` (`09` mục 7b); test D-41 / ẩn danh hóa với dữ liệu Zalo.
+
 ## 8. Quyết định / Giả định
 
 - **(M1, D-35) Nguồn PostgreSQL cho test** (`tests/ELearning.TestSupport/SqlServerTestDatabase.cs` — tên class còn giữ từ bản SQL Server, bên trong đã là PostgreSQL):

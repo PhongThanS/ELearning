@@ -2071,6 +2071,144 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                     b.ToTable("VideoLessonClassrooms", (string)null);
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Zalo.ZaloBroadcast", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ClassroomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateOnly?>("SessionDate")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ZaloBroadcasts");
+
+                    b.HasIndex("CreatedBy");
+
+                    b.HasIndex("ClassroomId", "CreatedAt")
+                        .HasDatabaseName("IX_ZaloBroadcasts_Classroom_CreatedAt");
+
+                    b.ToTable("ZaloBroadcasts", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ZaloBroadcasts_Kind", "\"Kind\" IN ('DAILY_REPORT','ANNOUNCEMENT')");
+                        });
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Zalo.ZaloMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("BroadcastId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ErrorCode")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasMaxLength(15)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(15)");
+
+                    b.Property<string>("ProviderMessageId")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("RecipientName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("SendingAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Status")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("StudentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TemplateData")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("TemplateId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("TrackingId")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ZaloMessages");
+
+                    b.HasIndex("BroadcastId")
+                        .HasDatabaseName("IX_ZaloMessages_Broadcast");
+
+                    b.HasIndex("StudentId");
+
+                    b.HasIndex("TrackingId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_ZaloMessages_TrackingId");
+
+                    b.HasIndex("Status", "CreatedAt")
+                        .HasDatabaseName("IX_ZaloMessages_Queue")
+                        .HasFilter("\"Status\" IN ('PENDING','SENDING')");
+
+                    b.ToTable("ZaloMessages", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ZaloMessages_Status", "\"Status\" IN ('PENDING','SENDING','SENT','FAILED','CANCELLED')");
+                        });
+                });
+
             modelBuilder.Entity("ELearning.Domain.Attempts.AttemptAnswer", b =>
                 {
                     b.HasOne("ELearning.Domain.Attempts.AttemptQuestion", null)
@@ -2688,6 +2826,40 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasConstraintName("FK_VideoLessonClassrooms_VideoLesson");
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Zalo.ZaloBroadcast", b =>
+                {
+                    b.HasOne("ELearning.Domain.Classes.Classroom", null)
+                        .WithMany()
+                        .HasForeignKey("ClassroomId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ZaloBroadcasts_Classroom");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ZaloBroadcasts_CreatedBy");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Zalo.ZaloMessage", b =>
+                {
+                    b.HasOne("ELearning.Domain.Zalo.ZaloBroadcast", null)
+                        .WithMany("Messages")
+                        .HasForeignKey("BroadcastId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ZaloMessages_Broadcast");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("StudentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ZaloMessages_Student");
+                });
+
             modelBuilder.Entity("ELearning.Domain.Attempts.AttemptAnswer", b =>
                 {
                     b.Navigation("SelectedOptions");
@@ -2767,6 +2939,11 @@ namespace ELearning.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("ELearning.Domain.Videos.VideoLesson", b =>
                 {
                     b.Navigation("Classrooms");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Zalo.ZaloBroadcast", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

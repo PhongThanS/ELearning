@@ -26,6 +26,8 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 
     public FakeTimeProvider Time { get; } = new(DateTimeOffset.UtcNow);
 
+    public Classes.FakeZaloSender ZaloSender { get; } = new();
+
     /// <summary>Giới hạn login mỗi phút; test rate limit dùng factory riêng với giá trị thấp.</summary>
     protected virtual int LoginRateLimitPerMinute => 10_000;
 
@@ -65,10 +67,17 @@ public class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Exam:ExpirationWorkerEnabled", "false");
         builder.UseSetting("Monitoring:SnapshotEnabled", "false");
         builder.UseSetting("Media:RootPath", MediaRoot);
+        // Gửi Zalo: bật provider Log nhưng thay sender bằng bản giả; test tự gọi IZaloDispatchService thay cho job nền
+        builder.UseSetting("Zalo:Provider", "Log");
+        builder.UseSetting("Zalo:WorkerEnabled", "false");
+        builder.UseSetting("Zalo:SendIntervalMs", "0");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(Time);
+
+            services.RemoveAll<ELearning.Application.Zalo.IZaloSender>();
+            services.AddSingleton<ELearning.Application.Zalo.IZaloSender>(ZaloSender);
 
             // Không gọi YouTube thật khi test
             services.RemoveAll<ELearning.Application.Videos.IYoutubeMetadataClient>();

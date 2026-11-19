@@ -82,6 +82,10 @@ public interface IAppDbContext
 
     DbSet<ELearning.Domain.Attendance.StudentContact> StudentContacts { get; }
 
+    DbSet<ELearning.Domain.Zalo.ZaloBroadcast> ZaloBroadcasts { get; }
+
+    DbSet<ELearning.Domain.Zalo.ZaloMessage> ZaloMessages { get; }
+
     DatabaseFacade Database { get; }
 
     ChangeTracker ChangeTracker { get; }

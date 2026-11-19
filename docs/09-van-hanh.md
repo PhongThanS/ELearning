@@ -30,6 +30,7 @@
   `Host=localhost;Port=5432;Database=elearning_db;Username=postgres;Password=postgres;Include Error Detail=true`
   Máy khác thì ghi đè bằng user-secrets hoặc biến môi trường `ConnectionStrings__DefaultConnection`.
 - `Include Error Detail=true` đưa giá trị dữ liệu vào thông báo lỗi của PostgreSQL (và vào log). Hữu ích khi dev; các file compose hiện cũng bật ở Production — nên tắt khi dữ liệu thật nhạy cảm.
+- Gửi tin Zalo: section `Zalo` (mặc định tắt) — xem mục 7b.
 - Tùy chọn ít dùng: `Exam:ExpirationWorkerEnabled` (tắt job tự nộp trên một instance), `Monitoring:SnapshotEnabled`.
 - `UserRetention:DeleteLockedAfterDays` (mặc định 90, 0 = tắt), `UserRetention:SweepIntervalMinutes` (360), `UserRetention:BatchSize` (100): tự động **xóa vĩnh viễn** tài khoản khóa quá hạn cùng toàn bộ bài thi, điểm, điểm danh của họ (D-41). Muốn giữ lịch sử của học sinh nghỉ thì đặt 0 hoặc không khóa tài khoản.
 
@@ -244,6 +245,31 @@ Chỉ `pg_dump` theo lịch thì RPO bằng khoảng cách giữa hai lần dump
 - Container `monitor` (`deploy/scripts/monitor.sh`, image `curlimages/curl`) mỗi phút kiểm tra `/health/ready`, `/health/alerts`, trang chủ qua Nginx, và có file backup mới (`BACKUP_FULL_MAX_AGE_HOURS`, `BACKUP_LOG_MAX_AGE_MINUTES`). **Phần kiểm tra backup còn tìm file `<DB>_full_*.bak` / `<DB>_log_*.trn` của SQL Server**, nên hiện phải để rỗng hai biến này (bỏ qua kiểm tra); `.env.example` ở gốc repo vẫn ghi 26 / 30 và cần xóa giá trị khi dùng. Khi một mục chuyển sang lỗi, còn lỗi sau mỗi 30 phút, hoặc hết lỗi, nó gửi webhook `ALERT_WEBHOOK_URL` (Slack, Mattermost, Google Chat, Teams; Discord đặt `ALERT_WEBHOOK_FIELD=content`). Không đặt webhook thì cảnh báo nằm trong `docker compose logs monitor`.
 - `deploy/scripts/notify.sh` gửi một cảnh báo qua webhook (dùng được độc lập). Cảnh báo "backup thất bại" phụ thuộc `backup.sh`, hiện chưa hoạt động (mục 6).
 - Kiểm tra nhanh: `docker compose run --rm -e MONITOR_ONCE=1 monitor` (thoát 1 nếu có mục lỗi; CI chạy bước này).
+
+## 7b. Gửi tin Zalo cho phụ huynh (D-45)
+
+Mặc định **tắt** (`Zalo:Provider = Disabled`): nút "Gửi Zalo tự động" chỉ hiện hướng dẫn. Bật thật cần những thứ không nằm trong code:
+
+1. **Zalo Official Account** đã xác thực, có đăng ký **ZNS** và nạp tiền (mỗi tin tính phí theo bảng giá của Zalo).
+2. **Ứng dụng Zalo** (developers.zalo.me) liên kết với OA: lấy `AppId`, `SecretKey`; cấp quyền gửi ZNS; lấy **refresh token** của OA.
+3. **Mẫu ZNS** đã được Zalo duyệt cho hai loại tin. Mỗi mẫu có các tham số (tên do mẫu quy định); khai ánh xạ tên tham số → trường của hệ thống ở `Zalo:Templates`. Trường có sẵn: `parentName`, `studentName`, `className`, `date`, `attendance`, `score`, `topic`, `homework`, `deadline`, `attention`, `note`, `content`. Để trống `Params` thì tên tham số phải trùng tên trường. Tham số dài hơn `Zalo:MaxParamLength` (200) bị cắt; kiểm giới hạn từng tham số trong mẫu đã duyệt.
+
+```json
+"Zalo": {
+  "Provider": "Zns",
+  "Templates": {
+    "DailyReport": { "TemplateId": "123456", "Params": { "customer_name": "parentName", "student_name": "studentName", "class_name": "className", "date": "date", "attendance": "attendance", "score": "score", "content": "topic", "homework": "homework" } },
+    "Announcement": { "TemplateId": "123457", "Params": { "customer_name": "parentName", "class_name": "className", "content": "content" } }
+  }
+}
+```
+Bí mật đặt bằng biến môi trường, không commit: `Zalo__AppId`, `Zalo__SecretKey`, `Zalo__RefreshToken`. Thêm `Zalo__Mode=development` để gửi thử trong chế độ phát triển của Zalo (tin chỉ tới tài khoản thử nghiệm); bỏ biến này khi chạy thật.
+
+- **Provider:** `Disabled` (tắt) / `Log` (không gửi gì ra ngoài, chỉ ghi log — để thử luồng giao diện) / `Zns` (gửi thật; thiếu `AppId` / `SecretKey` thì ứng dụng không khởi động).
+- **Token:** access token Zalo sống khoảng 25 giờ và refresh token **dùng một lần** (mỗi lần đổi Zalo cấp cặp mới). `ZaloTokenProvider` đổi token khi gần hết hạn (hoặc khi Zalo trả lỗi token) và lưu cặp mới ngay vào `SystemSettings` khóa `Zalo.OaToken`. `Zalo:RefreshToken` chỉ để khởi tạo; đổi giá trị này thì hệ thống bỏ cặp cũ và dùng giá trị mới (cách lấy lại khi refresh token hết hạn / bị thu hồi — lỗi `ZALO_AUTH`). Token nằm **dạng rõ** trong DB (không giống refresh token người dùng, không có băm vì phải gửi lại cho Zalo): hạn chế quyền đọc bảng `SystemSettings` và backup; API không bao giờ trả giá trị này.
+- **Job** `ZaloSendWorker` chạy mỗi `Zalo:PollSeconds` (5 giây), mỗi lượt tối đa `Zalo:BatchSize` (50) tin, nghỉ `Zalo:SendIntervalMs` (250 ms) giữa hai tin. `Zalo:WorkerEnabled = false` tắt job trên một instance. Chạy nhiều instance API vẫn an toàn: tin được nhận bằng `UPDATE … WHERE Status = 'PENDING'` nên mỗi tin chỉ một instance gửi.
+- **Không tự thử lại** tin lỗi (tránh phụ huynh nhận trùng khi Zalo đã nhận mà phản hồi bị mất). Tin `SENDING` quá 5 phút → `FAILED` / `INTERRUPTED`. Theo dõi: log `Zalo` (không có số điện thoại đầy đủ), truy vấn `SELECT "ErrorCode", count(*) FROM "ZaloMessages" WHERE "Status" = 'FAILED' GROUP BY 1`.
+- **Phần chưa thử với Zalo thật** (code viết theo tài liệu công khai của Zalo, chưa chạy với OA thật): endpoint đổi token `https://oauth.zaloapp.com/v4/oa/access_token`, endpoint gửi `https://business.openapi.zalo.me/message/template`, mã lỗi token `-124`. Lần đầu bật phải gửi thử bằng `Zalo__Mode=development` tới số quản trị, đối chiếu với tài liệu ZNS hiện hành và các mã lỗi `ZNS_<mã>` ở trang "Đã gửi".
 
 ## 8. CI/CD
 

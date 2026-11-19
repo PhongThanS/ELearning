@@ -6,6 +6,12 @@ import type {
   AttendanceStudentHistory,
   SaveAttendanceInput,
   SaveAttendanceResult,
+  ZaloBroadcast,
+  ZaloBroadcastCreated,
+  ZaloBroadcastDetail,
+  ZaloBroadcastInput,
+  ZaloPreview,
+  ZaloStatus,
   StudentContact,
   DocxAiTextResult,
   DocxImageResult,
@@ -401,3 +407,14 @@ async function downloadFile(url: string, params: object | undefined, fallbackNam
   }
 }
 
+
+/** Gửi tin Zalo cho phụ huynh cả lớp (D-45). */
+export const zaloApi = {
+  status: () => http.get<ZaloStatus>("/zalo/status"),
+  preview: (classId: string, data: ZaloBroadcastInput) => http.post<ZaloPreview>(`/zalo/classes/${classId}/preview`, data),
+  create: (classId: string, data: ZaloBroadcastInput) => http.post<ZaloBroadcastCreated>(`/zalo/classes/${classId}/broadcasts`, data),
+  list: (classId: string) => http.get<ZaloBroadcast[]>(`/zalo/classes/${classId}/broadcasts`),
+  get: (classId: string, broadcastId: string) => http.get<ZaloBroadcastDetail>(`/zalo/classes/${classId}/broadcasts/${broadcastId}`),
+  retry: (classId: string, broadcastId: string) => http.post<ZaloBroadcast>(`/zalo/classes/${classId}/broadcasts/${broadcastId}/retry`),
+  cancel: (classId: string, broadcastId: string) => http.post<ZaloBroadcast>(`/zalo/classes/${classId}/broadcasts/${broadcastId}/cancel`),
+};
