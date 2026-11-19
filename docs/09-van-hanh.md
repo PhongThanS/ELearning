@@ -143,6 +143,8 @@ docker compose up -d --build
 
 **Máy chủ chỉ kéo image (không cần mã nguồn):** GitHub Actions `release.yml` build `elearning-api`, `elearning-migrator`, `elearning-web`, `elearning-monitor` và đẩy lên `ghcr.io/phongthans/*` (tag `latest`, `sha-xxxxxxx`, `x.y.z` khi đẩy tag `v*`). Máy chủ chỉ cần thư mục `deploy/server/` (compose + `.env`) rồi `docker compose pull && docker compose up -d`; chi tiết `deploy/server/README.md`. Template HTTPS và script giám sát nằm sẵn trong image.
 
+**Máy chủ Linux build từ mã nguồn (cập nhật một cú bấm):** server giữ bản clone ở `/opt/elearning`; trên máy dev Windows bấm `deploy\linux\deploy.cmd` để `git push` rồi chạy `deploy/linux/update.sh` trên server qua SSH (sao lưu `pg_dump` → `git reset --hard` → `docker compose up -d --build` → chờ `/health/ready`). Mỗi người dùng khóa SSH riêng; cài đặt và quy trình ở `deploy/linux/README.md`.
+
 **Cập nhật phiên bản:**
 - Build từ mã nguồn: `docker compose build` → `docker compose up -d`.
 - Máy chủ kéo image: `docker compose pull && docker compose up -d`, hoặc trên Windows chạy `update.cmd` / `update.ps1` (chờ GitHub Actions build xong image của commit mới nhất → `pg_dump` database vào `BACKUP_DIR/before-update-*.dump`, giữ 10 bản → tải compose mới → pull → up → kiểm tra `/health/ready` và đúng phiên bản).

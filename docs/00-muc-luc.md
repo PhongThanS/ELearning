@@ -34,6 +34,7 @@ Tài liệu khác trong `docs/` (không thuộc bộ đặc tả, chỉ để th
 | `tinh-nang-kho-video-bai-giang.md`, `dong-bo-du-lieu-chuyen-de-va-lop-hoc-cho-video.md` | Ghi chú thiết kế kho video bài giảng |
 | `CAP_NHAT_HE_THONG.md` | Nhật ký một đợt cập nhật (10/2026), gồm việc chuyển sang PostgreSQL |
 | `../deploy/server/README.md` | Hướng dẫn cài và cập nhật máy chủ bằng image dựng sẵn |
+| `../deploy/linux/README.md` | Máy chủ Linux build từ mã nguồn; cập nhật một lệnh bằng `deploy.cmd`; cấp quyền SSH cho thành viên |
 | `../load-tests/README.md` | Cách chạy load test k6 |
 
 **Hệ quản trị CSDL là PostgreSQL 17 (D-35).** Bản thiết kế đầu dùng SQL Server; nơi nào trong tài liệu còn ký hiệu SQL Server (chủ yếu là DDL ở `04a` / `04b`) thì đọc theo bảng quy đổi ở `04a` mục 1.

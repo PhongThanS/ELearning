@@ -101,6 +101,12 @@ docker compose exec -T postgres pg_dump -U postgres -d elearning_db -Fc -f /back
 docker compose run --rm -e MONITOR_ONCE=1 monitor   # một vòng kiểm tra giám sát (docs/09 mục 7.1)
 ```
 
+Cập nhật server Linux (Windows, thư mục gốc repo; push nhánh hiện tại rồi build lại trên server qua SSH; cài đặt ở `deploy/linux/README.md`):
+
+```bash
+deploy/linux/deploy.cmd
+```
+
 Load test k6 (chạy trên staging, chi tiết `load-tests/README.md`; `SMOKE=1` để kiểm tra nhanh kịch bản):
 
 ```bash

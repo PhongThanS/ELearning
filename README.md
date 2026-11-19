@@ -66,7 +66,7 @@ docker compose up -d --build
 ```
 
 - Mở http://localhost:8080, đăng nhập `admin` với `ADMIN_INITIAL_PASSWORD` trong `.env` (bắt buộc đổi mật khẩu lần đầu). Môi trường Production không có dữ liệu demo.
-- HTTPS, sao lưu / khôi phục: xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 5.1 và 6. Cài máy chủ bằng image dựng sẵn và cập nhật một lệnh: [deploy/server/README.md](deploy/server/README.md).
+- HTTPS, sao lưu / khôi phục: xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 5.1 và 6. Cài máy chủ bằng image dựng sẵn và cập nhật một lệnh: [deploy/server/README.md](deploy/server/README.md). Máy chủ Linux build từ mã nguồn và cập nhật bằng `deploy\linux\deploy.cmd`: [deploy/linux/README.md](deploy/linux/README.md).
 - Giám sát và cảnh báo: đặt `ALERT_WEBHOOK_URL` trong `.env`; container `monitor` gửi webhook khi API / Nginx lỗi, tỉ lệ 5xx cao, có lượt thi quá hạn chưa nộp hoặc thiếu backup. Xem [docs/09-van-hanh.md](docs/09-van-hanh.md) mục 7.1.
 
 ## Chạy test
