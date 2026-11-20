@@ -1373,3 +1373,66 @@ export interface ZaloBroadcastDetail {
   broadcast: ZaloBroadcast;
   messages: ZaloMessage[];
 }
+
+/* ---------- Báo câu hỏi lỗi (D-46) ---------- */
+
+export type QuestionReportReason = "WRONG_ANSWER" | "WRONG_CONTENT" | "TYPO" | "MISSING_MEDIA" | "OTHER";
+export type QuestionReportStatus = "OPEN" | "RESOLVED" | "REJECTED";
+
+export interface MyQuestionReport {
+  id: string;
+  questionOrder: number;
+  reason: QuestionReportReason;
+  note: string | null;
+  status: QuestionReportStatus;
+  createdAt: string;
+  resolutionNote: string | null;
+}
+
+export interface ReportedQuestion {
+  examQuestionId: string;
+  examId: string;
+  examVersionId: string;
+  examCode: string;
+  examName: string;
+  versionNumber: number;
+  questionOrder: number;
+  contentPreview: string;
+  questionType: QuestionType;
+  sourceQuestionId: string | null;
+  isVoided: boolean;
+  reportCount: number;
+  openCount: number;
+  lastReportedAt: string;
+  reasons: QuestionReportReason[];
+}
+
+export interface QuestionReportItem {
+  id: string;
+  attemptId: string;
+  userId: string;
+  userName: string;
+  fullName: string;
+  questionOrder: number;
+  reason: QuestionReportReason;
+  note: string | null;
+  status: QuestionReportStatus;
+  createdAt: string;
+  resolvedAt: string | null;
+  resolvedByName: string | null;
+  resolutionNote: string | null;
+}
+
+export interface ReportedQuestionDetail {
+  summary: ReportedQuestion;
+  content: string;
+  contentFormat: ContentFormat;
+  answerDataType: string | null;
+  score: number;
+  options: { code: string; content: string; isCorrect: boolean }[];
+  acceptedAnswers: string[];
+  correctAnswerNumber: number | null;
+  explanation: string | null;
+  reports: QuestionReportItem[];
+  media: Record<string, string>;
+}

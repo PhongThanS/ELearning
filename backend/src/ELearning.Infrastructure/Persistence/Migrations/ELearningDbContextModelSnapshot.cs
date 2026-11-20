@@ -1193,6 +1193,87 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("ELearning.Domain.Exams.QuestionReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ExamQuestionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("QuestionOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("ReportedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ResolvedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id")
+                        .HasName("PK_QuestionReports");
+
+                    b.HasIndex("ExamId");
+
+                    b.HasIndex("ExamQuestionId")
+                        .HasDatabaseName("IX_QuestionReports_ExamQuestion");
+
+                    b.HasIndex("ReportedBy")
+                        .HasDatabaseName("IX_QuestionReports_ReportedBy");
+
+                    b.HasIndex("ResolvedBy");
+
+                    b.HasIndex("AttemptId", "ExamQuestionId")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_QuestionReports_Attempt_Question");
+
+                    b.HasIndex("Status", "ExamQuestionId")
+                        .HasDatabaseName("IX_QuestionReports_Status_Question");
+
+                    b.ToTable("QuestionReports", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_QuestionReports_Reason", "\"Reason\" IN ('WRONG_ANSWER','WRONG_CONTENT','TYPO','MISSING_MEDIA','OTHER')");
+
+                            t.HasCheckConstraint("CK_QuestionReports_Status", "\"Status\" IN ('OPEN','RESOLVED','REJECTED')");
+                        });
+                });
+
             modelBuilder.Entity("ELearning.Domain.Identity.Permission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2576,6 +2657,43 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PublishedBy")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("FK_ExamVersions_PublishedBy");
+                });
+
+            modelBuilder.Entity("ELearning.Domain.Exams.QuestionReport", b =>
+                {
+                    b.HasOne("ELearning.Domain.Attempts.ExamAttempt", null)
+                        .WithMany()
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_QuestionReports_Attempt");
+
+                    b.HasOne("ELearning.Domain.Exams.Exam", null)
+                        .WithMany()
+                        .HasForeignKey("ExamId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_QuestionReports_Exam");
+
+                    b.HasOne("ELearning.Domain.Exams.ExamQuestion", null)
+                        .WithMany()
+                        .HasForeignKey("ExamQuestionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_QuestionReports_ExamQuestion");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ReportedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_QuestionReports_ReportedBy");
+
+                    b.HasOne("ELearning.Domain.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("ResolvedBy")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_QuestionReports_ResolvedBy");
                 });
 
             modelBuilder.Entity("ELearning.Domain.Identity.RefreshToken", b =>

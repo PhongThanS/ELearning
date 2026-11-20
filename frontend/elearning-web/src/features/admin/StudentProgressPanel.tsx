@@ -6,6 +6,7 @@ import { classesApi } from "../../services/api";
 import { ErrorAlert, Loading } from "../../components/common/Feedback";
 import { formatDateTime, formatNumber } from "../../utils/format";
 import type { StudentClassExamItem } from "../../types/api";
+import { useBackState } from "../../components/common/BackLink";
 import "../../components/common/tableCells.css";
 
 type Filter = "all" | "done" | "notStarted" | "inProgress";
@@ -28,10 +29,11 @@ function StatusBadge({ item }: { item: StudentClassExamItem }) {
 
 /**
  * Danh sách bài tập (đề được giao) của một học sinh trong lớp: đã làm / chưa làm / đang làm.
- * Bấm tên bài hoặc "Xem kết quả" để mở bài làm và kết quả ở tab mới (giữ nguyên cửa sổ đang xem).
+ * Bấm tên bài hoặc "Xem kết quả" để mở bài làm và kết quả; trang đó có nút "← Quay lại" về đây.
  */
 export function StudentProgressPanel({ classroomId, userId }: { classroomId: string; userId: string }) {
   const [filter, setFilter] = useState<Filter>("all");
+  const back = useBackState("Quay lại");
   const query = useQuery({
     queryKey: ["class-student-progress", classroomId, userId],
     queryFn: () => classesApi.studentProgress(classroomId, userId),
@@ -100,7 +102,7 @@ export function StudentProgressPanel({ classroomId, userId }: { classroomId: str
                     <td>
                       <div className="name-cell">
                         <div className="name-cell__name">
-                          <Link to={target.to} target="_blank" rel="noopener noreferrer" title={`${target.label} (mở tab mới)`}>
+                          <Link to={target.to} state={back} title={target.label}>
                             {item.name}
                           </Link>
                         </div>
@@ -129,9 +131,8 @@ export function StudentProgressPanel({ classroomId, userId }: { classroomId: str
                       {item.usedAttempts} / {item.maxAttempts === 0 ? "∞" : item.maxAttempts}
                     </td>
                     <td className="text-end text-nowrap">
-                      <Link to={target.to} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-outline-secondary">
+                      <Link to={target.to} state={back} className="btn btn-sm btn-outline-secondary">
                         {target.label}
-                        <i className="bi bi-box-arrow-up-right ms-1 small" aria-hidden="true" />
                       </Link>
                     </td>
                   </tr>

@@ -149,6 +149,12 @@ internal sealed class LockedUserCleanupService(
             DELETE FROM "ExamResults" WHERE "UserId" = {u} OR "AttemptId" IN (SELECT "Id" FROM "ExamAttempts" WHERE "UserId" = {u})
             """, ct);
 
+        // Báo lỗi câu hỏi (D-46) của chính học sinh, hoặc gắn với lượt thi của học sinh
+        await sql.ExecuteSqlAsync($"""
+            DELETE FROM "QuestionReports" WHERE "ReportedBy" = {u} OR "AttemptId" IN (SELECT "Id" FROM "ExamAttempts" WHERE "UserId" = {u})
+            """, ct);
+        await sql.ExecuteSqlAsync($"""UPDATE "QuestionReports" SET "ResolvedBy" = NULL WHERE "ResolvedBy" = {u}""", ct);
+
         // Cột tham chiếu cho phép NULL (người sửa / hủy / chấm / chủ nhiệm) ở dữ liệu còn lại
         await sql.ExecuteSqlAsync($"""UPDATE "ExamAttempts" SET "CancelledBy" = NULL WHERE "CancelledBy" = {u}""", ct);
         await sql.ExecuteSqlAsync($"""UPDATE "AttemptAnswers" SET "ManualGradedBy" = NULL WHERE "ManualGradedBy" = {u}""", ct);

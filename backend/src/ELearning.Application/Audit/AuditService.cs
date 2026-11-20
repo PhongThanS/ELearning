@@ -85,6 +85,8 @@ public static class AuditActions
     public const string ZaloBroadcastCreated = "ZALO_BROADCAST_CREATED";
     public const string ZaloBroadcastRetried = "ZALO_BROADCAST_RETRIED";
     public const string ZaloBroadcastCancelled = "ZALO_BROADCAST_CANCELLED";
+    public const string QuestionReportResolved = "QUESTION_REPORT_RESOLVED";
+    public const string QuestionReportReopened = "QUESTION_REPORT_REOPENED";
     public const string RoleCreated = "ROLE_CREATED";
     public const string RoleUpdated = "ROLE_UPDATED";
     public const string RolePermissionsChanged = "ROLE_PERMISSIONS_CHANGED";

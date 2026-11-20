@@ -64,6 +64,9 @@ public static class ErrorCodes
     public const string ZaloNotConfigured = "ZALO_NOT_CONFIGURED";
     public const string ZaloNoRecipients = "ZALO_NO_RECIPIENTS";
     public const string ZaloAlreadySent = "ZALO_ALREADY_SENT";
+    public const string QuestionReportNotAllowed = "QUESTION_REPORT_NOT_ALLOWED";
+    public const string QuestionReportClosed = "QUESTION_REPORT_CLOSED";
+    public const string QuestionReportNotFound = "QUESTION_REPORT_NOT_FOUND";
 
     // 429 / 500
     public const string RateLimited = "RATE_LIMITED";

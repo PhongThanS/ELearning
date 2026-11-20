@@ -19,13 +19,14 @@ export const pageLoaders = {
   studentAttendance: () => import("../features/attendance/StudentAttendancePage"),
   videoWatch: () => import("../features/videos/VideoWatchPage"),
   attendance: () => import("../features/attendance/AttendancePage"),
+  questionReports: () => import("../features/questionReports/QuestionReportsPage"),
 } satisfies Record<string, () => Promise<unknown>>;
 
 type PageKey = keyof typeof pageLoaders;
 
 /** Thứ tự tải ngầm: trang hay dùng trước. Học viên: phòng thi trước để vào thi không phải chờ. */
 const prefetchOrder: Record<"admin" | "student", PageKey[]> = {
-  admin: ["questions", "exams", "classes", "attendance", "videos", "dashboard", "markdownImport", "builder", "results", "examPreview", "identity", "videoWatch"],
+  admin: ["questions", "exams", "classes", "attendance", "videos", "dashboard", "markdownImport", "builder", "results", "examPreview", "identity", "videoWatch", "questionReports"],
   student: ["player", "student", "studentAttendance", "studentVideos", "videoWatch"],
 };
 

@@ -422,6 +422,24 @@ Mọi route cần `Zalo.Send`; lớp không do mình chủ nhiệm (và không c
 | POST | `/api/zalo/classes/{classId}/broadcasts/{id}/retry` | Đưa các tin `FAILED` về `PENDING` → `broadcast`; không có tin lỗi → 422 `ZALO_NO_RECIPIENTS` |
 | POST | `/api/zalo/classes/{classId}/broadcasts/{id}/cancel` | Hủy các tin `PENDING` → `broadcast`; không còn tin chờ → 422 `ZALO_NO_RECIPIENTS`; job vừa nhận tin lúc đó → 409 |
 
+### 6.8c Câu hỏi bị báo lỗi (D-46)
+
+Học viên (policy `StudentOnly`; lượt của người khác → 404 `ATTEMPT_NOT_FOUND`):
+
+| Method | Route | Ghi chú |
+|---|---|---|
+| GET | `/api/student/attempts/{attemptId}/question-reports` | `[{ id, questionOrder, reason, note, status, createdAt, resolutionNote }]` — các câu mình đã báo trong lượt |
+| POST | `/api/student/attempts/{attemptId}/question-reports` `{ questionOrder, reason, note? }` | 200 báo lỗi (tạo mới hoặc cập nhật nếu còn `OPEN`). 422 `QUESTION_REPORT_NOT_ALLOWED` (chưa nộp / đã hủy), 422 `QUESTION_REPORT_CLOSED` (đã xử lý), 400 `QUESTION_ORDER_INVALID` / `NOTE_REQUIRED` (lý do `OTHER` không có mô tả) / `NOTE_TOO_LONG` |
+
+Người xử lý (quyền `QuestionReport.Manage`):
+
+| Method | Route | Ghi chú |
+|---|---|---|
+| GET | `/api/question-reports?status=&examId=&keyword=&page=&pageSize=` | Phân trang, **mỗi dòng một câu** trong snapshot đề: `{ examQuestionId, examId, examVersionId, examCode, examName, versionNumber, questionOrder, contentPreview, questionType, sourceQuestionId, isVoided, reportCount, openCount, lastReportedAt, reasons[] }`. `status` lọc theo báo lỗi ở trạng thái đó; sắp theo số lượt báo giảm dần |
+| GET | `/api/question-reports/open-count` | Số câu có báo lỗi `OPEN` (huy hiệu trên menu) |
+| GET | `/api/question-reports/{examQuestionId}` | `{ summary, content, contentFormat, answerDataType, score, options: [{ code, content, isCorrect }], acceptedAnswers, correctAnswerNumber, explanation, reports: [{ id, attemptId, userId, userName, fullName, questionOrder, reason, note, status, createdAt, resolvedAt, resolvedByName, resolutionNote }], media }`. Có đáp án: chỉ cho người có quyền |
+| POST | `/api/question-reports/{examQuestionId}/resolve` `{ status: RESOLVED \| REJECTED \| OPEN, note? }` | `{ changed }`. RESOLVED / REJECTED đóng mọi báo lỗi `OPEN` của câu; `OPEN` mở lại các báo lỗi đã đóng. Không đổi đề hay điểm (sửa đáp án / hủy câu ở mục 6.6) |
+
 ### 6.9 Hệ thống
 | Method | Route | Quyền |
 |---|---|---|

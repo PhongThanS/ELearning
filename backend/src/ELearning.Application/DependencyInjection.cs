@@ -45,6 +45,7 @@ public static class DependencyInjection
 
         services.AddSingleton<ELearning.Application.Zalo.ZaloMessageComposer>();
         services.AddScoped<ELearning.Application.Zalo.IZaloBroadcastService, ELearning.Application.Zalo.ZaloBroadcastService>();
+        services.AddScoped<ELearning.Application.Questions.IQuestionReportService, ELearning.Application.Questions.QuestionReportService>();
         services.AddScoped<ELearning.Application.Zalo.IZaloDispatchService, ELearning.Application.Zalo.ZaloDispatchService>();
 
         services.AddSingleton(GradingEngine.Default);

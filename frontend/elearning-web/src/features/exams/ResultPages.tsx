@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, ProgressBar, Row, Tab, Table, Tabs } from "react-bootstrap";
 import { Link, useParams } from "react-router";
+import { BackLink } from "../../components/common/BackLink";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApi, examsApi } from "../../services/api";
@@ -348,7 +349,7 @@ export function AttemptAdminPage() {
 
   return (
     <>
-      <Link to={`/admin/exams/${a.examId}/results`} className="small">← {a.examName}</Link>
+      <BackLink to={`/admin/exams/${a.examId}/results`} label={a.examName} />
       <PageHeader
         title={`${a.fullName} (${a.userName}) — lượt #${a.attemptNumber}`}
         actions={

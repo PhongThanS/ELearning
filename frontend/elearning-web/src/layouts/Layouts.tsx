@@ -4,6 +4,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { Permissions, StudentRole } from "../constants/permissions";
+import { OpenQuestionReportsBadge } from "../features/questionReports/OpenQuestionReportsBadge";
 import { Features } from "../constants/features";
 import { useAuth } from "../features/auth/useAuth";
 import { categoriesApi } from "../services/api";
@@ -159,6 +160,7 @@ const adminNav: AdminNavItem[] = [
     children: [{ to: "/admin/questions/import-markdown", label: "nav.importExam", icon: "bi-file-earmark-arrow-up", permission: Permissions.QuestionCreate }],
   },
   { to: "/admin/categories", label: "nav.categories", icon: "bi-folder2", permission: Permissions.CategoryView, isCategoriesDropdown: true, end: true },
+  { to: "/admin/question-reports", label: "nav.questionReports", icon: "bi-flag", permission: Permissions.QuestionReportManage },
   // Nhóm người dùng đang ẩn (Features.userGroups)
   ...(Features.userGroups ? [{ to: "/admin/groups", label: "nav.groups", icon: "bi-people", permission: Permissions.GroupView } as AdminNavItem] : []),
   {
@@ -399,6 +401,7 @@ export function AdminLayout() {
                   <Nav.Link as={NavLink} to={item.to!} end={item.end} className="d-flex align-items-center gap-2">
                     <i className={`nav-item-icon bi ${item.icon}`} aria-hidden="true" />
                     <span className="nav-item-label">{t(item.label)}</span>
+                    {item.to === "/admin/question-reports" && <OpenQuestionReportsBadge />}
                   </Nav.Link>
                 )}
               </Fragment>
@@ -428,20 +431,17 @@ export function StudentLayout() {
           <Navbar.Toggle aria-controls="student-nav" />
           <Navbar.Collapse id="student-nav">
             <Nav className="me-auto">
-              <Nav.Link as={NavLink} to="/student/attendance" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <i className="bi bi-calendar-check" aria-hidden="true" /> {t("nav.myAttendance")}
+              <Nav.Link as={NavLink} to="/student/attendance" className="text-nowrap">
+                {t("nav.myAttendance")}
               </Nav.Link>
-              <Nav.Link as={NavLink} to="/student/exams" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <i className="bi bi-file-earmark-text" aria-hidden="true" /> {t("nav.studentExams")}
+              <Nav.Link as={NavLink} to="/student/exams" className="text-nowrap">
+                {t("nav.studentExams")}
               </Nav.Link>
-              <Nav.Link as={NavLink} to="/student/classes" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <i className="bi bi-mortarboard" aria-hidden="true" /> {t("nav.myClasses")}
+              <Nav.Link as={NavLink} to="/student/videos" className="text-nowrap">
+                {t("nav.videos", "Video bài giảng")}
               </Nav.Link>
-              <Nav.Link as={NavLink} to="/student/videos" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <i className="bi bi-play-btn" aria-hidden="true" /> {t("nav.videos", "Video bài giảng")}
-              </Nav.Link>
-              <Nav.Link as={NavLink} to="/student/history" className="d-flex align-items-center gap-1.5 text-nowrap">
-                <i className="bi bi-clock-history" aria-hidden="true" /> {t("nav.history")}
+              <Nav.Link as={NavLink} to="/student/history" className="text-nowrap">
+                {t("nav.history")}
               </Nav.Link>
             </Nav>
             <Nav>
@@ -561,11 +561,20 @@ export function PublicLayout() {
   );
 }
 
+/** Quay lại trang trước trong ứng dụng; mở thẳng (không có lịch sử) thì về trang chủ. */
 export function BackButton() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) {
+      void navigate(-1);
+    } else {
+      void navigate("/");
+    }
+  };
   return (
-    <Button variant="link" className="px-0" onClick={() => navigate(-1)}>
+    <Button variant="link" size="sm" className="px-0 mb-2" onClick={goBack}>
       ← {t("common.back")}
     </Button>
   );

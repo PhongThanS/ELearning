@@ -26,6 +26,7 @@ public sealed class StudentController(
     IVideoService videos,
     IVideoPracticeService videoPractice,
     IAttendanceService attendance,
+    IQuestionReportService questionReports,
     ICurrentUser currentUser) : ApiControllerBase
 {
     private Guid UserId => currentUser.RequiredUserId;
@@ -98,6 +99,19 @@ public sealed class StudentController(
     [ProducesResponseType<ApiResponse<StudentResultDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> GetResult(Guid attemptId, CancellationToken ct) =>
         ToResponse(await attempts.GetResultAsync(UserId, attemptId, ct));
+
+    /// <summary>Các câu học sinh đã báo lỗi trong lượt thi này (D-46).</summary>
+    [HttpGet("attempts/{attemptId:guid}/question-reports")]
+    [ProducesResponseType<ApiResponse<IReadOnlyList<MyQuestionReportDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ListQuestionReports(Guid attemptId, CancellationToken ct) =>
+        ToResponse(await questionReports.ListMineAsync(UserId, attemptId, ct));
+
+    /// <summary>Báo một câu hỏi bị lỗi; chỉ sau khi đã nộp bài (D-46).</summary>
+    [HttpPost("attempts/{attemptId:guid}/question-reports")]
+    [EnableRateLimiting(RateLimitPolicies.AttemptAction)]
+    [ProducesResponseType<ApiResponse<MyQuestionReportDto>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ReportQuestion(Guid attemptId, ReportQuestionRequest request, CancellationToken ct) =>
+        ToResponse(await questionReports.ReportAsync(UserId, attemptId, request, ct));
 
     [HttpGet("history")]
     [ProducesResponseType<ApiResponse<PagedResult<StudentHistoryItemDto>>>(StatusCodes.Status200OK)]

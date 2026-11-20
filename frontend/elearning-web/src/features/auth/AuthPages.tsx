@@ -10,6 +10,7 @@ import { authApi } from "../../services/api";
 import { toApiError } from "../../services/apiClient";
 import { describeError } from "../../utils/errors";
 import { resolveLoginRedirect, useAuth, type LoginRedirectState } from "./useAuth";
+import { BackButton } from "../../layouts/Layouts";
 
 const loginSchema = z.object({
   userName: z.string().trim().min(1, "Vui lòng nhập tên đăng nhập."),
@@ -207,7 +208,9 @@ export function ChangePasswordPage() {
   });
 
   return (
-    <Card className="mx-auto" style={{ maxWidth: 440 }}>
+    <>
+      {!user?.mustChangePassword && <BackButton />}
+      <Card className="mx-auto" style={{ maxWidth: 440 }}>
       <Card.Body>
         <h2 className="h5 mb-3">{t("auth.changePassword")}</h2>
         {user?.mustChangePassword && <Alert variant="warning">{t("auth.mustChangePassword")}</Alert>}
@@ -231,7 +234,8 @@ export function ChangePasswordPage() {
           </Button>
         </Form>
       </Card.Body>
-    </Card>
+      </Card>
+    </>
   );
 }
 
@@ -276,7 +280,9 @@ export function ProfilePage() {
     return null;
   }
   return (
-    <Card style={{ maxWidth: 560 }}>
+    <>
+      <BackButton />
+      <Card style={{ maxWidth: 560 }}>
       <Card.Body>
         <h1 className="h5">{t("nav.profile")}</h1>
         <dl className="row mb-3">
@@ -293,6 +299,7 @@ export function ProfilePage() {
           {t("auth.changePassword")}
         </Link>
       </Card.Body>
-    </Card>
+      </Card>
+    </>
   );
 }

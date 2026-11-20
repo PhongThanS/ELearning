@@ -533,6 +533,14 @@ Trong một transaction:
 - Nếu một version có tới 2.000 lượt thi: chấm lại đồng bộ, chia lô 200 lượt, mỗi lô một transaction. Nhiều hơn thì sau MVP chuyển sang job nền.
 - Ghi audit `EXAM_REGRADED`.
 
+### 8.1 Học sinh báo câu hỏi lỗi (D-46)
+
+- **Chỉ sau khi nộp bài.** Lượt `IN_PROGRESS` hoặc `CANCELLED` không báo được (422 `QUESTION_REPORT_NOT_ALLOWED`): trong giờ thi học sinh vẫn làm bài bình thường; muốn quay lại câu nào thì dùng cờ "đánh dấu xem lại" (chỉ học sinh thấy).
+- Ở trang kết quả có hộp **"Báo câu hỏi lỗi"**: chọn số câu (theo thứ tự câu trong bài của chính học sinh), lý do (sai đáp án / sai đề / lỗi chính tả – hiển thị / thiếu hình / khác) và mô tả (bắt buộc khi chọn "khác", tối đa 1.000 ký tự). Đề cho xem lại bài thì mỗi câu có thêm nút "Báo lỗi".
+- Mỗi lượt thi báo một câu tối đa **một** lần; báo lại khi còn chờ xử lý thì cập nhật lý do / mô tả. Đã xử lý thì không sửa được (422 `QUESTION_REPORT_CLOSED`).
+- Người có quyền `QuestionReport.Manage` mở trang **"Câu hỏi bị báo lỗi"**: mỗi dòng là một câu trong một phiên bản đề (nhiều học sinh báo cùng câu thì gộp), sắp theo số lượt báo. Mở một câu để xem nội dung, đáp án, các báo lỗi; sửa lỗi bằng **sửa đáp án / hủy câu** ở trang phiên bản đề (mục 8, cần `Exam.Regrade`) — báo lỗi **không** tự đổi đề hay điểm. Xong thì đánh dấu **Đã sửa** (`RESOLVED`) hoặc **Câu không lỗi** (`REJECTED`) cho mọi báo lỗi đang chờ của câu, kèm ghi chú gửi học sinh; bấm nhầm thì **mở lại**. Học sinh thấy kết quả xử lý ở trang kết quả.
+- Audit: `QUESTION_REPORT_RESOLVED`, `QUESTION_REPORT_REOPENED`.
+
 ## 9. Thao tác admin trên lượt thi
 
 | Thao tác | Điều kiện | Hiệu ứng |

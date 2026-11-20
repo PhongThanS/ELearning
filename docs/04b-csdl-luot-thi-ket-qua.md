@@ -264,6 +264,27 @@ Index: `IX_ZaloBroadcasts_Classroom_CreatedAt` (ClassroomId, CreatedAt).
 Index: `UQ_ZaloMessages_TrackingId`, `IX_ZaloMessages_Broadcast`, `IX_ZaloMessages_Queue` (Status, CreatedAt) có filter `Status IN ('PENDING','SENDING')`.
 Token Zalo OA lưu ở `SystemSettings` khóa `Zalo.OaToken` (JSON; xem `09` mục 7b). Không xóa cứng (D-16). Ẩn danh hóa user hủy các tin `PENDING` của học sinh đó, đặt `Phone` = `ANONYMIZED`, xóa `RecipientName` và `TemplateData` (dữ liệu cá nhân). Job xóa tài khoản khóa quá hạn (D-41) xóa `ZaloMessages` của học sinh; tài khoản là người tạo `ZaloBroadcasts` thì được giữ lại như tác giả nội dung chung.
 
+## 3c. Báo câu hỏi lỗi (D-46)
+
+**QuestionReports** — học sinh báo một câu bị lỗi sau khi nộp bài. Không xóa cứng (D-16), trừ khi tài khoản học sinh bị xóa tự động (D-41).
+
+| Cột | Kiểu | Ghi chú |
+|---|---|---|
+| Id | uuid PK | |
+| AttemptId | uuid FK → ExamAttempts | lượt thi đã nộp |
+| ExamId | uuid FK → Exams | để lọc theo đề |
+| ExamQuestionId | uuid FK → ExamQuestions | câu trong **snapshot đề**, không phải câu ngân hàng |
+| QuestionOrder | int | số câu học sinh thấy trong bài của mình |
+| ReportedBy | uuid FK → Users | học sinh |
+| Reason | varchar(40) | `WRONG_ANSWER` / `WRONG_CONTENT` / `TYPO` / `MISSING_MEDIA` / `OTHER` (CHECK) |
+| Note | varchar(1000) NULL | mô tả của học sinh |
+| Status | varchar(40) | `OPEN` / `RESOLVED` / `REJECTED` (CHECK) |
+| CreatedAt / UpdatedAt | timestamptz | |
+| ResolvedBy / ResolvedAt | uuid FK → Users NULL / timestamptz NULL | người xử lý |
+| ResolutionNote | varchar(1000) NULL | ghi chú gửi học sinh |
+
+Index: `UQ_QuestionReports_Attempt_Question` (AttemptId, ExamQuestionId) UNIQUE — mỗi lượt báo một câu một lần; `IX_QuestionReports_Status_Question` (Status, ExamQuestionId); `IX_QuestionReports_ExamQuestion`; `IX_QuestionReports_ReportedBy`.
+
 ## 4. Tổng hợp index
 
 | Index | Mục đích |

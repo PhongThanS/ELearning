@@ -12,6 +12,12 @@ import { MediaUrls } from "../../components/common/MediaUrls";
 import { Pager, SearchBox } from "../../components/common/DataTable";
 import { formatDateRange, formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
 import { useAuth } from "../auth/useAuth";
+import {
+  QuestionReportCard,
+  QuestionReportDialog,
+  ReportQuestionButton,
+  useMyQuestionReports,
+} from "../questionReports/StudentQuestionReports";
 import type { ExamAvailability, StudentExamDetail, StudentExamItem } from "../../types/api";
 
 /** Màu nhấn cố định theo đề (cùng đề luôn cùng màu), xem .accent-* trong theme.scss. */
@@ -374,6 +380,11 @@ export function ResultPage() {
   const { t } = useTranslation();
   const { attemptId = "" } = useParams();
   const query = useQuery({ queryKey: ["result", attemptId], queryFn: () => studentApi.result(attemptId) });
+  // Báo câu hỏi lỗi chỉ sau khi đã nộp bài (D-46); undefined = hộp thoại đóng, null = học sinh tự chọn câu
+  const canReport = query.data?.status === "SUBMITTED" || query.data?.status === "AUTO_SUBMITTED";
+  const myReports = useMyQuestionReports(attemptId, canReport);
+  const reports = myReports.data ?? [];
+  const [reportOrder, setReportOrder] = useState<number | null | undefined>(undefined);
 
   if (query.error) {
     return <ErrorAlert error={query.error} onRetry={() => void query.refetch()} />;
@@ -494,6 +505,8 @@ export function ResultPage() {
         </Card.Body>
       </Card>
 
+      {canReport && <QuestionReportCard reports={reports} onReport={setReportOrder} />}
+
       {r.reviewAvailable && r.questions && (
         <MediaUrls value={r.media}>
           <div className="d-flex align-items-center justify-content-between mb-3 mt-4">
@@ -545,8 +558,17 @@ export function ResultPage() {
                       </Badge>
                     )}
                   </div>
-                  <div className={`fs-4 ${q.isCorrect ? "text-success" : "text-danger"}`} title={q.isCorrect ? "Đúng" : "Sai"}>
-                    <i className={`bi ${q.isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`} />
+                  <div className="d-flex align-items-center gap-2">
+                    {canReport && (
+                      <ReportQuestionButton
+                        order={q.order}
+                        report={reports.find((x) => x.questionOrder === q.order)}
+                        onReport={setReportOrder}
+                      />
+                    )}
+                    <div className={`fs-4 ${q.isCorrect ? "text-success" : "text-danger"}`} title={q.isCorrect ? "Đúng" : "Sai"}>
+                      <i className={`bi ${q.isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`} />
+                    </div>
                   </div>
                 </div>
 
@@ -711,6 +733,17 @@ export function ResultPage() {
             </Card>
           ))}
         </MediaUrls>
+      )}
+
+      {canReport && (
+        <QuestionReportDialog
+          attemptId={attemptId}
+          show={reportOrder !== undefined}
+          order={reportOrder ?? null}
+          totalQuestion={r.totalQuestion}
+          reports={reports}
+          onHide={() => setReportOrder(undefined)}
+        />
       )}
     </>
   );

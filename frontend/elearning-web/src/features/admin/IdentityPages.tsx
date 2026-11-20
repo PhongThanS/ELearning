@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, Modal, Row, Table } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
+import { useBackState } from "../../components/common/BackLink";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { groupsApi, rolesApi, usersApi } from "../../services/api";
@@ -557,7 +558,7 @@ export function UserDetailPage() {
         </Col>
       </Row>
 
-      <UserExamsSection userId={id} />
+      <UserExamsSection userId={id} userLabel={u.fullName || u.userName} />
 
       <ConfirmDialog
         show={dialog === "status"}
@@ -601,7 +602,8 @@ export function UserDetailPage() {
   );
 }
 
-function UserExamsSection({ userId }: { userId: string }) {
+function UserExamsSection({ userId, userLabel }: { userId: string; userLabel: string }) {
+  const back = useBackState(userLabel);
   const [filter, setFilter] = useState<"all" | "completed" | "notStarted" | "history">("all");
 
   const examsQuery = useQuery({
@@ -720,12 +722,11 @@ function UserExamsSection({ userId }: { userId: string }) {
                           <td>
                             <Link
                               to={`/admin/attempts/${h.attemptId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              state={back}
                               className="fw-semibold text-primary text-decoration-none"
-                              title="Mở bài làm chi tiết ở tab mới"
+                              title="Mở bài làm chi tiết"
                             >
-                              {h.examName} <i className="bi bi-box-arrow-up-right small text-muted ms-1" />
+                              {h.examName}
                             </Link>
                             <div className="text-muted small font-monospace">{h.examCode}</div>
                           </td>
@@ -751,10 +752,9 @@ function UserExamsSection({ userId }: { userId: string }) {
                           <td className="text-center">
                             <Link
                               to={`/admin/attempts/${h.attemptId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              state={back}
                               className="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1"
-                              title="Mở bài làm chi tiết ở tab mới"
+                              title="Mở bài làm chi tiết"
                             >
                               <i className="bi bi-file-earmark-check" />
                               <span>Xem bài</span>
@@ -799,18 +799,17 @@ function UserExamsSection({ userId }: { userId: string }) {
                           <td>
                             <Link
                               to={targetUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                              state={back}
                               className="fw-semibold text-primary text-decoration-none"
                               title={
                                 isCompleted
-                                  ? "Mở xem bài làm và đáp án chi tiết ở tab mới"
+                                  ? "Mở xem bài làm và đáp án chi tiết"
                                   : isInProgress
-                                  ? "Mở xem bài đang làm dở ở tab mới"
-                                  : "Mở xem đề bài (chế độ chỉ đọc) ở tab mới"
+                                  ? "Mở xem bài đang làm dở"
+                                  : "Mở xem đề bài (chế độ chỉ đọc)"
                               }
                             >
-                              {e.name} <i className="bi bi-box-arrow-up-right small text-muted ms-1" />
+                              {e.name}
                             </Link>
                             <div className="text-muted small font-monospace">{e.code}</div>
                           </td>
@@ -849,10 +848,9 @@ function UserExamsSection({ userId }: { userId: string }) {
                             {isCompleted && attemptId ? (
                               <Link
                                 to={`/admin/attempts/${attemptId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                state={back}
                                 className="btn btn-sm btn-success d-inline-flex align-items-center gap-1"
-                                title="Xem đáp án và bài làm chi tiết (mở tab mới)"
+                                title="Xem đáp án và bài làm chi tiết"
                               >
                                 <i className="bi bi-file-earmark-check" />
                                 <span>Xem bài làm</span>
@@ -860,10 +858,9 @@ function UserExamsSection({ userId }: { userId: string }) {
                             ) : isInProgress && e.inProgressAttemptId ? (
                               <Link
                                 to={`/admin/attempts/${e.inProgressAttemptId}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                state={back}
                                 className="btn btn-sm btn-warning d-inline-flex align-items-center gap-1"
-                                title="Xem bài đang làm dở (mở tab mới)"
+                                title="Xem bài đang làm dở"
                               >
                                 <i className="bi bi-hourglass-split" />
                                 <span>Xem bài dở</span>
@@ -871,10 +868,9 @@ function UserExamsSection({ userId }: { userId: string }) {
                             ) : (
                               <Link
                                 to={`/admin/exams/${e.examId}/preview`}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                state={back}
                                 className="btn btn-sm btn-outline-secondary d-inline-flex align-items-center gap-1"
-                                title="Mở đề bài lên xem ở chế độ chỉ đọc (mở tab mới)"
+                                title="Mở đề bài lên xem ở chế độ chỉ đọc"
                               >
                                 <i className="bi bi-eye" />
                                 <span>Xem đề bài</span>

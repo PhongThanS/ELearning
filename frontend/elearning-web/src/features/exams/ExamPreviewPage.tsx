@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Alert, Badge, Card, Col, Container, Row, Spinner } from "react-bootstrap";
+import { Alert, Badge, Card, Col, Row, Spinner } from "react-bootstrap";
 import { useParams } from "react-router";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { examsApi } from "../../services/api";
 import { formatScore } from "../../utils/format";
+import { BackLink } from "../../components/common/BackLink";
 
 export function ExamPreviewPage() {
   const { id = "" } = useParams();
@@ -16,28 +17,32 @@ export function ExamPreviewPage() {
 
   if (query.isLoading) {
     return (
-      <Container className="py-5 text-center">
+      <div className="py-5 text-center">
         <Spinner animation="border" variant="primary" />
         <div className="text-muted mt-2">Đang tải đề thi...</div>
-      </Container>
+      </div>
     );
   }
 
   if (query.error || !query.data) {
     return (
-      <Container className="py-4">
-        <Alert variant="danger">
+      <div>
+        <BackLink to={`/admin/exams/${id}`} label="Đề thi" />
+        <Alert variant="danger" className="mt-2">
           <i className="bi bi-exclamation-triangle-fill me-2" />
           Không thể tải nội dung đề bài này hoặc đề thi chưa được xuất bản.
         </Alert>
-      </Container>
+      </div>
     );
   }
 
   const p = query.data;
 
   return (
-    <Container className="py-4" style={{ maxWidth: 1000 }}>
+    <div>
+      <div className="mb-2">
+        <BackLink to={`/admin/exams/${id}`} label={p.examName} />
+      </div>
       {/* Banner chế độ xem */}
       <Alert variant="info" className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
         <div className="d-flex align-items-center gap-2">
@@ -140,6 +145,6 @@ export function ExamPreviewPage() {
           </Card>
         ))}
       </div>
-    </Container>
+    </div>
   );
 }

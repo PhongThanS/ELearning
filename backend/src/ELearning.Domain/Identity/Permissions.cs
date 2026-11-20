@@ -58,6 +58,9 @@ public static class Permissions
     /// <summary>Gửi tin Zalo cho phụ huynh các lớp mình chủ nhiệm (D-45); Attendance.ManageAll mở rộng ra mọi lớp.</summary>
     public const string ZaloSend = "Zalo.Send";
 
+    /// <summary>Xem danh sách câu hỏi bị học sinh báo lỗi và đánh dấu đã xử lý (D-46).</summary>
+    public const string QuestionReportManage = "QuestionReport.Manage";
+
     /// <summary>Mã → tên hiển thị tiếng Việt, dùng khi seed.</summary>
     public static IReadOnlyDictionary<string, string> All { get; } = new Dictionary<string, string>(StringComparer.Ordinal)
     {
@@ -98,6 +101,7 @@ public static class Permissions
         [AttendanceTake] = "Điểm danh lớp mình chủ nhiệm",
         [AttendanceManageAll] = "Điểm danh mọi lớp (cần kèm Attendance.Take)",
         [ZaloSend] = "Gửi tin Zalo cho phụ huynh lớp mình chủ nhiệm",
+        [QuestionReportManage] = "Xem và xử lý câu hỏi bị báo lỗi",
     };
 
     /// <summary>

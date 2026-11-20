@@ -1,6 +1,11 @@
 import { apiClient, http, request, toApiError } from "./apiClient";
 import type {
   AccessMode,
+  MyQuestionReport,
+  QuestionReportReason,
+  QuestionReportStatus,
+  ReportedQuestion,
+  ReportedQuestionDetail,
   AttendanceClass,
   AttendanceSession,
   AttendanceStudentHistory,
@@ -314,6 +319,9 @@ export const studentApi = {
   submit: (id: string) => http.post<StudentResult>(`/student/attempts/${id}/submit`),
   result: (id: string) => http.get<StudentResult>(`/student/attempts/${id}/result`),
   history: (q: Query) => http.get<Paged<StudentHistoryItem>>("/student/history", q),
+  questionReports: (attemptId: string) => http.get<MyQuestionReport[]>(`/student/attempts/${attemptId}/question-reports`),
+  reportQuestion: (attemptId: string, body: { questionOrder: number; reason: QuestionReportReason; note?: string }) =>
+    http.post<MyQuestionReport>(`/student/attempts/${attemptId}/question-reports`, body),
   attendance: (classId: string, month: string) =>
     http.get<AttendanceStudentHistory>(`/student/attendance/classes/${classId}/history`, { month }),
 };
@@ -417,4 +425,13 @@ export const zaloApi = {
   get: (classId: string, broadcastId: string) => http.get<ZaloBroadcastDetail>(`/zalo/classes/${classId}/broadcasts/${broadcastId}`),
   retry: (classId: string, broadcastId: string) => http.post<ZaloBroadcast>(`/zalo/classes/${classId}/broadcasts/${broadcastId}/retry`),
   cancel: (classId: string, broadcastId: string) => http.post<ZaloBroadcast>(`/zalo/classes/${classId}/broadcasts/${broadcastId}/cancel`),
+};
+
+/** Câu hỏi bị học sinh báo lỗi (D-46), quyền QuestionReport.Manage. */
+export const questionReportsApi = {
+  list: (q: Query) => http.get<Paged<ReportedQuestion>>("/question-reports", q),
+  openCount: () => http.get<number>("/question-reports/open-count"),
+  get: (examQuestionId: string) => http.get<ReportedQuestionDetail>(`/question-reports/${examQuestionId}`),
+  resolve: (examQuestionId: string, body: { status: QuestionReportStatus; note?: string }) =>
+    http.post<{ changed: number }>(`/question-reports/${examQuestionId}/resolve`, body),
 };

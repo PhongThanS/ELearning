@@ -36,6 +36,7 @@ const {
   studentAttendance,
   videoWatch,
   attendance,
+  questionReports,
 } = pageLoaders;
 
 const guard = (permission: string, element: ReactNode) => <RequirePermission permission={permission}>{element}</RequirePermission>;
@@ -113,6 +114,7 @@ export const routes: RouteObject[] = [
           { path: "exams/:id/versions/:versionId", element: guard(Permissions.ExamView, page(builder, "VersionBuilderPage")) },
           { path: "exams/:id/results", element: guard(Permissions.ResultView, page(results, "ExamResultsPage")) },
           { path: "attempts/:attemptId", element: guard(Permissions.AttemptView, page(results, "AttemptAdminPage")) },
+          { path: "question-reports", element: guard(Permissions.QuestionReportManage, page(questionReports, "QuestionReportsPage")) },
           { path: "audit-logs", element: guard(Permissions.AuditView, page(results, "AuditLogsPage")) },
           { path: "videos", element: guard(Permissions.VideoView, page(videos, "AdminVideoPages")) },
           { path: "attendance", element: guard(Permissions.AttendanceTake, page(attendance, "AttendancePage")) },

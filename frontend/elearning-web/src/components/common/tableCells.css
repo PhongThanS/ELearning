@@ -132,3 +132,10 @@
 .name-cell__btn:hover {
   text-decoration: underline;
 }
+/* Nội dung câu hỏi ở ngân hàng câu hỏi là link mở câu hỏi: rê chuột đổi màu để thấy bấm được */
+.table-card .table > tbody > tr > td .name-cell a.question-cell-link {
+  display: block;
+}
+.table-card .table > tbody > tr > td .name-cell a.question-cell-link:hover {
+  color: var(--bs-primary);
+}

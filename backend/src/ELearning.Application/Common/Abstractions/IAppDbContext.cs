@@ -86,6 +86,8 @@ public interface IAppDbContext
 
     DbSet<ELearning.Domain.Zalo.ZaloMessage> ZaloMessages { get; }
 
+    DbSet<ELearning.Domain.Exams.QuestionReport> QuestionReports { get; }
+
     DatabaseFacade Database { get; }
 
     ChangeTracker ChangeTracker { get; }

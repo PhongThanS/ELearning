@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Badge, Button, Card, Col, Form, InputGroup, Modal, Row, Tab, Tabs } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
+import { BackLink, useBackState } from "../../components/common/BackLink";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { categoriesApi, questionsApi } from "../../services/api";
@@ -482,6 +483,8 @@ export function QuestionsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
+  // Mở câu hỏi rồi bấm "←" quay về đúng trang / bộ lọc đang xem
+  const back = useBackState(t("nav.questions"));
   const initialCategory = new URLSearchParams(window.location.search).get("categoryId") ?? undefined;
   const list = useListQuery({ categoryId: initialCategory });
   const query = useQuery({ queryKey: ["questions", list.params], queryFn: () => questionsApi.list(list.params) });
@@ -568,11 +571,17 @@ export function QuestionsPage() {
           <NameCell
             plain
             name={
-              <div className="cell-clamp-2" title={excerpt}>
-                <MarkdownView content={excerpt} inline />
-              </div>
+              <Link to={`/admin/questions/${q.id}/edit`} state={back} className="question-cell-link" title={excerpt}>
+                <div className="cell-clamp-2">
+                  <MarkdownView content={excerpt} inline />
+                </div>
+              </Link>
             }
-            code={<Link to={`/admin/questions/${q.id}/edit`}>{q.code}</Link>}
+            code={
+              <Link to={`/admin/questions/${q.id}/edit`} state={back}>
+                {q.code}
+              </Link>
+            }
             separator={false}
             meta={q.categoryName && <span className="d-xxl-none"> · {q.categoryName}</span>}
           />
@@ -1015,7 +1024,7 @@ function QuestionEditor({ id, existing }: { id: string | undefined; existing: Qu
 
   return (
     <>
-      <Link to="/admin/questions" className="small">← {t("nav.questions")}</Link>
+      <BackLink to="/admin/questions" label={t("nav.questions")} />
       <PageHeader title={id ? `Sửa câu hỏi ${existing?.code ?? ""}` : "Tạo câu hỏi"}>
         {existing && <ActiveBadge active={existing.isActive} />}
       </PageHeader>
