@@ -22,7 +22,8 @@ public class AuthTests(ApiFactory factory)
         body.Data.User.Permissions.Should().BeEquivalentTo(Permissions.All.Keys);
 
         var cookie = response.Headers.GetValues(HeaderNames.SetCookie).Single(c => c.StartsWith("elearning_rt=", StringComparison.Ordinal));
-        cookie.Should().ContainEquivalentOf("httponly").And.ContainEquivalentOf("secure")
+        // Test chạy HTTP nên cookie không có Secure (Secure ép trên http làm trình duyệt bỏ cookie, gây mất phiên khi F5).
+        cookie.Should().ContainEquivalentOf("httponly").And.NotContainEquivalentOf("secure")
             .And.ContainEquivalentOf("samesite=strict").And.ContainEquivalentOf("path=/api/auth");
         (await response.Content.ReadAsStringAsync()).Should().NotContain("refreshToken", "refresh token chỉ nằm trong cookie");
     }

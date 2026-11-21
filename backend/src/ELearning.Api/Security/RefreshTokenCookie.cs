@@ -17,10 +17,10 @@ public sealed class RefreshTokenCookie(IOptions<AppOptions> appOptions)
     public static string? Read(HttpRequest request) => request.Cookies.TryGetValue(CookieName, out var value) ? value : null;
 
     public static void Write(HttpResponse response, string token, DateTime expiresAt) =>
-        response.Cookies.Append(CookieName, token, BuildOptions(expiresAt));
+        response.Cookies.Append(CookieName, token, BuildOptions(response.HttpContext.Request, expiresAt));
 
     public static void Clear(HttpResponse response) =>
-        response.Cookies.Delete(CookieName, BuildOptions(DateTime.UnixEpoch));
+        response.Cookies.Delete(CookieName, BuildOptions(response.HttpContext.Request, DateTime.UnixEpoch));
 
     /// <summary>Header X-Requested-With bắt buộc; nếu có Origin thì phải là origin frontend hoặc chính host API.</summary>
     public bool PassesCsrfCheck(HttpRequest request)
@@ -41,10 +41,12 @@ public sealed class RefreshTokenCookie(IOptions<AppOptions> appOptions)
             || string.Equals(origin, self, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static CookieOptions BuildOptions(DateTime expiresAt) => new()
+    // Secure chỉ khi request là HTTPS (qua X-Forwarded-Proto của proxy tin cậy). Ép Secure trên server chạy
+    // http (vd http://IP:8080) thì trình duyệt bỏ cookie => F5 / mở tab mới bị đăng xuất.
+    private static CookieOptions BuildOptions(HttpRequest request, DateTime expiresAt) => new()
     {
         HttpOnly = true,
-        Secure = true,
+        Secure = request.IsHttps,
         SameSite = SameSiteMode.Strict,
         Path = CookiePath,
         Expires = new DateTimeOffset(DateTime.SpecifyKind(expiresAt, DateTimeKind.Utc)),
