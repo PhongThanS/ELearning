@@ -59,6 +59,7 @@ Không cập nhật khi đang có kỳ thi diễn ra: API khởi động lại v
 
 Mỗi người dùng **khóa SSH riêng**; không chia sẻ chung một khóa hay mật khẩu root.
 
+0. Cách nhanh: chạy `deploy\linux\setup-ssh-key.cmd` một lần (tạo khóa và cài lên server, chỉ hỏi mật khẩu root một lần), rồi bỏ qua các bước 3–5 bên dưới.
 1. Máy Windows cần có Git và OpenSSH Client (có sẵn trong Windows 10/11).
 2. Có quyền ghi (push) vào repo GitHub.
 3. Tạo khóa SSH (bỏ qua nếu đã có `~/.ssh/id_ed25519`):

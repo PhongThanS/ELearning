@@ -39,7 +39,7 @@ if errorlevel 1 (
 )
 
 echo === Cap nhat server ===
-ssh -p %PORT% %SERVER% "bash %REMOTE_SCRIPT%"
+ssh -p %PORT% -o StrictHostKeyChecking=accept-new %SERVER% "bash %REMOTE_SCRIPT%"
 if errorlevel 1 (
   echo Cap nhat server that bai.
   pause
