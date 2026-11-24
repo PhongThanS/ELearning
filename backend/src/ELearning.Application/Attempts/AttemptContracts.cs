@@ -186,7 +186,11 @@ public sealed record StudentExamListQuery : PageRequest
     public Guid? ClassroomId { get; init; }
 }
 
-public sealed record StudentHistoryQuery : PageRequest;
+public sealed record StudentHistoryQuery : PageRequest
+{
+    /// <summary>Lọc theo loại đề: đề luyện hoặc đề chấm điểm (null = tất cả).</summary>
+    public ExamKind? Kind { get; init; }
+}
 
 internal sealed class SaveAnswersRequestValidator : AbstractValidator<SaveAnswersRequest>
 {

@@ -22,7 +22,7 @@ public interface IExamService
 
     Task<Result<ExamDetailDto>> UpdateAsync(Guid id, UpdateExamRequest request, CancellationToken ct);
 
-    Task<Result> DeleteAsync(Guid id, CancellationToken ct);
+    Task<Result> DeleteAsync(Guid id, bool force, CancellationToken ct);
 
     Task<Result<ExamDetailDto>> CloneAsync(Guid id, CloneExamRequest request, CancellationToken ct);
 
@@ -240,7 +240,7 @@ internal sealed class ExamService(
         return await ToDetailAsync(exam, ct);
     }
 
-    public async Task<Result> DeleteAsync(Guid id, CancellationToken ct)
+    public async Task<Result> DeleteAsync(Guid id, bool force, CancellationToken ct)
     {
         var exam = await db.Exams
             .Include(e => e.Assignments)
@@ -253,17 +253,63 @@ internal sealed class ExamService(
             return ExamNotFound;
         }
 
-        if (exam.Status != ExamStatus.Draft)
+        var activeCount = await db.ExamAttempts.CountAsync(a => a.ExamId == id && a.Status == AttemptStatus.InProgress, ct);
+        if (activeCount > 0)
         {
-            return Error.Conflict(ErrorCodes.ExamNotDraft, "Chỉ xóa được đề chưa từng publish.");
+            return Error.Conflict(ErrorCodes.ExamHasActiveAttempts,
+                $"Đề thi đang có {activeCount} học sinh đang làm bài. Hãy bắt nộp bài (đóng đề và buộc nộp) rồi mới xóa được.");
         }
 
-        db.ExamUserOverrides.RemoveRange(await db.ExamUserOverrides.Where(o => o.ExamId == id).ToListAsync(ct));
-        // Video đang dùng đề này làm đề luyện (D-38): chỉ bỏ liên kết, giữ video
-        await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"VideoLessons\" SET \"PracticeExamId\" = NULL WHERE \"PracticeExamId\" = {id}", ct);
-        db.Exams.Remove(exam);
-        audit.Write(AuditActions.ExamDeleted, nameof(Exam), exam.Id, new { exam.Code, exam.Name });
-        await db.SaveChangesAsync(ct);
+        var attemptCount = await db.ExamAttempts.CountAsync(a => a.ExamId == id, ct);
+        if (attemptCount > 0 && !force)
+        {
+            return Error.Conflict(ErrorCodes.ExamHasAttempts,
+                $"Đề thi này đã có học sinh làm ({attemptCount} lượt thi). Nếu xóa, toàn bộ kết quả của học sinh đó cũng bị xóa hết.");
+        }
+
+        await db.InTransactionAsync(async () =>
+        {
+            if (attemptCount > 0)
+            {
+                // Xóa theo thứ tự phụ thuộc FK: câu trả lời → câu hỏi lượt thi → kết quả → lượt thi
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    DELETE FROM "AttemptAnswerOptions" WHERE "AttemptAnswerId" IN (
+                        SELECT aa."Id" FROM "AttemptAnswers" aa
+                        JOIN "AttemptQuestions" aq ON aq."Id" = aa."AttemptQuestionId"
+                        JOIN "ExamAttempts" a ON a."Id" = aq."AttemptId" WHERE a."ExamId" = {id})
+                    """, ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    DELETE FROM "AttemptAnswers" WHERE "AttemptQuestionId" IN (
+                        SELECT aq."Id" FROM "AttemptQuestions" aq
+                        JOIN "ExamAttempts" a ON a."Id" = aq."AttemptId" WHERE a."ExamId" = {id})
+                    """, ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""DELETE FROM "QuestionReports" WHERE "ExamId" = {id}""", ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    DELETE FROM "AttemptQuestions" WHERE "AttemptId" IN (SELECT "Id" FROM "ExamAttempts" WHERE "ExamId" = {id})
+                    """, ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    DELETE FROM "AttemptEvents" WHERE "AttemptId" IN (SELECT "Id" FROM "ExamAttempts" WHERE "ExamId" = {id})
+                    """, ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    DELETE FROM "ExamResultHistory" WHERE "ExamResultId" IN (SELECT "Id" FROM "ExamResults" WHERE "ExamId" = {id})
+                    """, ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""DELETE FROM "ExamResults" WHERE "ExamId" = {id}""", ct);
+                await db.Database.ExecuteSqlInterpolatedAsync($"""DELETE FROM "ExamAttempts" WHERE "ExamId" = {id}""", ct);
+            }
+
+            // Lịch sử sửa đáp án của các câu thuộc đề này (đã hết kết quả tham chiếu)
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                DELETE FROM "AnswerKeyCorrections" WHERE "ExamQuestionId" IN (
+                    SELECT q."Id" FROM "ExamQuestions" q JOIN "ExamVersions" v ON v."Id" = q."ExamVersionId" WHERE v."ExamId" = {id})
+                """, ct);
+            db.ExamUserOverrides.RemoveRange(await db.ExamUserOverrides.Where(o => o.ExamId == id).ToListAsync(ct));
+            // Video đang dùng đề này làm đề luyện (D-38): chỉ bỏ liên kết, giữ video
+            await db.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"VideoLessons\" SET \"PracticeExamId\" = NULL WHERE \"PracticeExamId\" = {id}", ct);
+            db.Exams.Remove(exam);
+            audit.Write(AuditActions.ExamDeleted, nameof(Exam), exam.Id, new { exam.Code, exam.Name, exam.Status, DeletedAttempts = attemptCount });
+            await db.SaveChangesAsync(ct);
+            return true;
+        }, ct);
         return Result.Success();
     }
 

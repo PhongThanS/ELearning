@@ -81,7 +81,9 @@ Lỗi nghiệp vụ (422):
 | `CLASSROOM_IN_USE` | 409 | Xóa lớp còn gán cho đề, video hoặc đã có buổi điểm danh |
 | `ATTEMPT_NOT_IN_PROGRESS` | 409 | Lượt thi đã nộp hoặc đã hủy |
 | `VERSION_IMMUTABLE` | 409 | Sửa version không còn ở DRAFT |
-| `EXAM_NOT_DRAFT` | 409 | Thao tác chỉ cho phép khi đề ở DRAFT (ví dụ xóa đề) |
+| `EXAM_NOT_DRAFT` | 409 | Thao tác chỉ cho phép khi đề ở DRAFT |
+| `EXAM_HAS_ATTEMPTS` | 409 | Xóa đề đã có học sinh làm; gọi lại `DELETE /api/exams/{id}?force=true` để xóa kèm toàn bộ kết quả |
+| `EXAM_HAS_ACTIVE_ATTEMPTS` | 409 | Đề đang có học sinh làm bài: phải bắt nộp bài trước khi xóa (force cũng không bỏ qua) |
 | `DRAFT_VERSION_EXISTS` | 409 | Đã có version DRAFT |
 | `RETAKE_POLICY_LOCKED` | 409 | Đổi `RetakeScoringPolicy` khi đề đã có lượt thi |
 | `EXAM_NOT_AVAILABLE` | 422 | Đề chưa mở, đã đóng hoặc ngoài khung giờ |

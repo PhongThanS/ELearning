@@ -784,7 +784,7 @@ function SquareGridAnswerBox({
   // docs/02 mục 3.3: frontend dùng cùng regex với server để báo sai định dạng ngay trên ô nhập.
   const invalid = !isValidNumberAnswer(value);
   const feedbackId = `${id}-invalid`;
-  const targetSize = expectedLength && expectedLength > 0 ? expectedLength : 4;
+  const targetSize = expectedLength && expectedLength > 0 ? expectedLength : 4; // mặc định 4 ô
   const currentLength = (value || "").length;
   const GRID_SIZE = Math.max(targetSize, currentLength, 1);
   const [activeIndex, setActiveIndex] = useState(0);

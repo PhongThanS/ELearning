@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "react-bootstrap";
 import { useParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -9,7 +9,6 @@ import { extractYoutubeId, isDirectVideo, parseDriveLink } from "./mediaLinks";
 import { SplitView } from "./SplitView";
 import { LessonClassBadges } from "./LessonClassBadges";
 import { PracticeButton } from "./PracticeButton";
-import { HomeworkButton } from "./HomeworkButton";
 
 /** Mở trang xem bài giảng ở tab mới (base: "/admin/videos" hoặc "/student/videos"). */
 export function openLessonInNewTab(base: string, id: string): void {
@@ -64,37 +63,37 @@ function LessonMedia({ video }: { video: VideoLesson }) {
 }
 
 /** Thanh trên: tiêu đề và các nút mở nguồn gốc (YouTube / Drive / link). */
-function WatchHeader({ video, student = false }: { video: VideoLesson; student?: boolean }) {
+type SidePane = "document" | "homework" | null;
+
+function WatchHeader({ video, student = false, pane, onPane }: {
+  video: VideoLesson;
+  student?: boolean;
+  pane: SidePane;
+  onPane: (pane: SidePane) => void;
+}) {
+  const hasHomework = !!video.homeworkUrl && !!parseDriveLink(video.homeworkUrl);
   const ytId = video.youtubeVideoId || extractYoutubeId(video.videoUrl);
   const drive = parseDriveLink(video.videoUrl);
   const attachment = video.documentUrl ? parseDriveLink(video.documentUrl) : null;
   const isDoc = !ytId && !!drive;
-  const linkClass = "btn btn-sm btn-outline-light d-inline-flex align-items-center gap-1 text-nowrap";
   return (
     <header className="d-flex align-items-center gap-2 px-3 py-2 bg-dark text-white">
       <h1 className="h6 mb-0 d-flex align-items-center gap-2 flex-grow-1 min-w-0">
         <i className={`bi ${attachment ? "bi-collection-play" : isDoc ? "bi-file-earmark-text" : "bi-camera-reels"}`} aria-hidden="true"></i>
         <span className="text-truncate">{video.title}</span>
       </h1>
-      {ytId ? (
-        <a href={`https://www.youtube.com/watch?v=${ytId}`} target="_blank" rel="noreferrer" className={linkClass}>
-          <i className="bi bi-youtube" aria-hidden="true"></i>
-          <span className="d-none d-md-inline">YouTube</span>
-        </a>
-      ) : drive ? (
-        <a href={drive.openUrl} target="_blank" rel="noreferrer" className={linkClass}>
-          <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-          <span className="d-none d-md-inline">Mở trong Google Drive</span>
-        </a>
-      ) : null}
-      {attachment && (
-        <a href={attachment.openUrl} target="_blank" rel="noreferrer" className={linkClass}>
-          <i className="bi bi-box-arrow-up-right" aria-hidden="true"></i>
-          <span className="d-none d-md-inline">Mở tài liệu trong Drive</span>
-        </a>
-      )}
       {student && <PracticeButton video={video} variant="warning" className="fw-semibold text-nowrap" />}
-      <HomeworkButton video={video} variant="success" className="fw-semibold text-nowrap" />
+      {hasHomework && (
+        // Bài tập về nhà hiện ngay ở khung bên phải (chỗ tài liệu); bấm lại để đổi qua tài liệu
+        <button
+          type="button"
+          className="btn btn-sm btn-success fw-semibold text-nowrap d-inline-flex align-items-center gap-1"
+          onClick={() => onPane(pane === "homework" ? (attachment ? "document" : null) : "homework")}
+        >
+          <i className={`bi ${pane === "homework" ? (attachment ? "bi-file-earmark-text" : "bi-x-lg") : "bi-file-earmark-pdf"}`} aria-hidden="true"></i>
+          {pane === "homework" ? (attachment ? "Xem tài liệu" : "Ẩn bài tập") : "Bài tập về nhà"}
+        </button>
+      )}
       {!student && video.practiceExamId && (
         <a
           href={`/admin/exams/${video.practiceExamId}`}
@@ -136,6 +135,10 @@ function WatchInfo({ video }: { video: VideoLesson }) {
 /** Trang xem bài giảng toàn màn hình: video + tài liệu song song (kéo thanh giữa), hoặc chỉ video / tài liệu. */
 export function LessonWatchView({ video, student = false }: { video: VideoLesson; student?: boolean }) {
   const attachment = video.documentUrl ? parseDriveLink(video.documentUrl) : null;
+  const homework = video.homeworkUrl ? parseDriveLink(video.homeworkUrl) : null;
+  const [pane, setPane] = useState<SidePane>(attachment ? "document" : null);
+  const side = pane === "homework" && homework ? homework : pane === "document" ? attachment : null;
+  const sideTitle = pane === "homework" ? `Bài tập về nhà: ${video.title}` : `Tài liệu: ${video.title}`;
 
   useEffect(() => {
     const previous = document.title;
@@ -147,16 +150,17 @@ export function LessonWatchView({ video, student = false }: { video: VideoLesson
 
   return (
     <div className="lesson-watch">
-      <WatchHeader video={video} student={student} />
+      <WatchHeader video={video} student={student} pane={pane} onPane={setPane} />
       <div className="lesson-watch-body">
-        {attachment ? (
+        {side ? (
           <SplitView
             label="Thanh chia giữa video và tài liệu"
             first={<LessonMedia video={video} />}
             second={
               <iframe
-                src={attachment.previewUrl}
-                title={`Tài liệu: ${video.title}`}
+                key={side.previewUrl}
+                src={side.previewUrl}
+                title={sideTitle}
                 className="w-100 h-100 border-0 d-block bg-white"
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
@@ -169,7 +173,7 @@ export function LessonWatchView({ video, student = false }: { video: VideoLesson
           </div>
         )}
       </div>
-      {!attachment && <WatchInfo video={video} />}
+      {!side && <WatchInfo video={video} />}
     </div>
   );
 }

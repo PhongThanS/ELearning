@@ -257,7 +257,7 @@ export const examsApi = {
   create: (body: ExamDetailsBody & { durationMinutes: number; passPercentage: number | null; scoreVisibility: string; reviewPolicy: string }) =>
     http.post<ExamDetail>("/exams", body),
   update: (id: string, body: ExamDetailsBody & { rowVersion: string }) => http.put<ExamDetail>(`/exams/${id}`, body),
-  remove: (id: string) => http.delete<void>(`/exams/${id}`),
+  remove: (id: string, force = false) => http.delete<void>(`/exams/${id}${force ? "?force=true" : ""}`),
   clone: (id: string, body: { code?: string; name?: string }) => http.post<ExamDetail>(`/exams/${id}/clone`, body),
   close: (id: string, forceSubmitInProgress: boolean) => http.post<ExamDetail>(`/exams/${id}/close`, { forceSubmitInProgress }),
   reopen: (id: string) => http.post<ExamDetail>(`/exams/${id}/reopen`),

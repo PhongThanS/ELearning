@@ -13,6 +13,8 @@ public static class ErrorMapping
         ErrorCodes.AttemptNotInProgress,
         ErrorCodes.VersionImmutable,
         ErrorCodes.ExamNotDraft,
+        ErrorCodes.ExamHasAttempts,
+        ErrorCodes.ExamHasActiveAttempts,
         ErrorCodes.DraftVersionExists,
         ErrorCodes.RetakePolicyLocked,
         ErrorCodes.UserNameTaken,

@@ -195,7 +195,7 @@ public class ExamManagementTests(ApiFactory factory)
         var (closeDraft, closeDraftBody) = await admin.PostJsonAsync<object>($"/api/exams/{draft.Id}/close", new { });
         var (close, closeBody) = await admin.PostJsonAsync<ExamDetail>($"/api/exams/{published.Id}/close", new { });
         var (reopen, reopenBody) = await admin.PostJsonAsync<ExamDetail>($"/api/exams/{published.Id}/reopen");
-        var (deletePublished, deletePublishedBody) = await admin.SendJsonAsync<object>(HttpMethod.Delete, $"/api/exams/{published.Id}");
+        var (deletePublished, _) = await admin.SendJsonAsync<object>(HttpMethod.Delete, $"/api/exams/{published.Id}");
         var (deleteDraft, _) = await admin.SendJsonAsync<object>(HttpMethod.Delete, $"/api/exams/{draft.Id}");
         var (afterDelete, _) = await admin.GetJsonAsync<object>($"/api/exams/{draft.Id}");
 
@@ -205,8 +205,7 @@ public class ExamManagementTests(ApiFactory factory)
         closeBody.Data!.Status.Should().Be("CLOSED");
         reopen.StatusCode.Should().Be(HttpStatusCode.OK);
         reopenBody.Data!.Status.Should().Be("PUBLISHED");
-        deletePublished.StatusCode.Should().Be(HttpStatusCode.Conflict);
-        deletePublishedBody.Errors.Single().Code.Should().Be("EXAM_NOT_DRAFT");
+        deletePublished.StatusCode.Should().Be(HttpStatusCode.NoContent, "đề đã publish nhưng chưa ai làm thì xóa được");
         deleteDraft.StatusCode.Should().Be(HttpStatusCode.NoContent);
         afterDelete.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }

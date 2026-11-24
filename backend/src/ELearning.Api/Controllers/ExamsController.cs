@@ -37,9 +37,9 @@ public sealed class ExamsController(IExamService exams, IExamVersionService vers
     [HttpDelete("{id:guid}")]
     [HasPermission(Permissions.ExamDelete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    public async Task<ActionResult> Delete(Guid id, CancellationToken ct)
+    public async Task<ActionResult> Delete(Guid id, [FromQuery] bool force = false, CancellationToken ct = default)
     {
-        var result = await exams.DeleteAsync(id, ct);
+        var result = await exams.DeleteAsync(id, force, ct);
         return result.IsSuccess ? NoContent() : Failure(result);
     }
 

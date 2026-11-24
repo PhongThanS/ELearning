@@ -27,7 +27,7 @@ export function StudentAttendancePage() {
 
   return (
     <>
-      <PageHeader title="Điểm danh & BTVN" />
+      <PageHeader title="Thông tin" />
       {classes.isLoading && <Loading />}
       {classes.error && <ErrorAlert error={classes.error} onRetry={() => void classes.refetch()} />}
       {classes.data && items.length === 0 && <Empty text="Bạn chưa được xếp vào lớp nào." />}

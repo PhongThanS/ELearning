@@ -705,7 +705,28 @@ export function ExamDetailPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const query = useQuery({ queryKey: ["exam", id], queryFn: () => examsApi.get(id) });
-  const [dialog, setDialog] = useState<"close" | "delete" | "clone" | null>(null);
+  const [dialog, setDialog] = useState<"close" | "delete" | "deleteForce" | "deleteBlocked" | "clone" | null>(null);
+  const [deleteMsg, setDeleteMsg] = useState("");
+  // Xóa đề: đề đã có học sinh làm → hỏi lại (xóa luôn kết quả); đang có người thi → bắt nộp bài trước
+  const removeExam = useMutation({
+    mutationFn: (force: boolean) => examsApi.remove(id, force),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["exams"] });
+      navigate("/admin/exams", { replace: true });
+    },
+    onError: (e) => {
+      const err = toApiError(e);
+      if (err.code === "EXAM_HAS_ATTEMPTS") {
+        setDeleteMsg(err.message);
+        setDialog("deleteForce");
+      } else if (err.code === "EXAM_HAS_ACTIVE_ATTEMPTS") {
+        setDeleteMsg(err.message);
+        setDialog("deleteBlocked");
+      } else {
+        toast.error(e);
+      }
+    },
+  });
   const [forceSubmit, setForceSubmit] = useState(false);
   // "Chỉ người được gán" chờ gán người đầu tiên (đề đã mở mà chưa gán ai thì chưa lưu được chế độ này)
   const [pendingAccess, setPendingAccess] = useState<AccessMode | null>(null);
@@ -785,7 +806,7 @@ export function ExamDetailPage() {
               <Button variant="outline-success" onClick={() => action.mutate(() => examsApi.reopen(id))}>Mở lại</Button>
             )}
             {hasPermission(Permissions.ExamCreate) && <Button variant="outline-secondary" onClick={() => setDialog("clone")}>{t("common.clone")}</Button>}
-            {exam.status === "DRAFT" && hasPermission(Permissions.ExamDelete) && (
+            {hasPermission(Permissions.ExamDelete) && (
               <Button variant="outline-danger" onClick={() => setDialog("delete")}>{t("common.delete")}</Button>
             )}
           </>
@@ -847,18 +868,31 @@ export function ExamDetailPage() {
       </ConfirmDialog>
       <ConfirmDialog
         show={dialog === "delete"}
-        title="Xóa đề thi nháp"
-        body="Đề chưa từng publish sẽ bị xóa hẳn."
+        title="Xóa đề thi"
+        body="Đề thi sẽ bị xóa hẳn. Nếu đã có học sinh làm, hệ thống sẽ báo lại trước khi xóa."
         variant="danger"
-        busy={action.isPending}
+        busy={removeExam.isPending}
         onCancel={() => setDialog(null)}
-        onConfirm={() =>
-          action.mutate(async () => {
-            await examsApi.remove(id);
-            navigate("/admin/exams", { replace: true });
-          })
-        }
+        onConfirm={() => removeExam.mutate(false)}
       />
+      <ConfirmDialog
+        show={dialog === "deleteForce"}
+        title="Đề thi này đã có học sinh làm"
+        body={deleteMsg}
+        variant="danger"
+        busy={removeExam.isPending}
+        onCancel={() => setDialog(null)}
+        onConfirm={() => removeExam.mutate(true)}
+      />
+      <Modal show={dialog === "deleteBlocked"} onHide={() => setDialog(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title as="h2" className="h5">Chưa thể xóa đề thi</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>{deleteMsg}</Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setDialog(null)}>{t("common.close")}</Button>
+        </Modal.Footer>
+      </Modal>
       <ConfirmDialog
         show={dialog === "clone"}
         title="Nhân bản đề"

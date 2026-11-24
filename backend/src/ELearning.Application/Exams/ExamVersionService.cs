@@ -855,11 +855,8 @@ internal sealed class ExamVersionService(
             options = [.. options.OrderBy(o => Array.IndexOf(codes, o.OptionCode))];
         }
 
-        int? expectedLength = q.QuestionType == QuestionType.FillIn
-            ? (q.CorrectAnswerNumber != null
-                ? q.CorrectAnswerNumber.Value.ToString(System.Globalization.CultureInfo.InvariantCulture).Replace('.', ',').Length
-                : q.AcceptedAnswers.FirstOrDefault()?.AnswerText?.Length)
-            : null;
+        // Không gợi ý độ dài đáp án (lộ đáp án): ô trả lời ngắn luôn mặc định 4 ô ở frontend.
+        int? expectedLength = null;
 
         return new PlayerQuestionDto(
             id,

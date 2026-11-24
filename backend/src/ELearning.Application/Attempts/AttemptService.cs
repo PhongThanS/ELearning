@@ -419,6 +419,17 @@ internal sealed class AttemptService(
     {
         var attempts = db.ExamAttempts.AsNoTracking()
             .Where(a => a.UserId == userId && !(a.Status == AttemptStatus.Cancelled && a.CancelledBy == userId));
+        if (query.Kind is { } kind)
+        {
+            attempts = attempts.Where(a => db.Exams.Any(e => e.Id == a.ExamId && e.Kind == kind));
+        }
+
+        // Đề luyện cho làm lại không giới hạn: chỉ hiện lượt đã kết thúc gần nhất (giữ lượt đang làm nếu có)
+        var all = attempts;
+        attempts = attempts.Where(a =>
+            a.Status == AttemptStatus.InProgress
+            || !db.Exams.Any(e => e.Id == a.ExamId && e.Kind == ExamKind.Practice)
+            || !all.Any(b => b.ExamId == a.ExamId && b.Status != AttemptStatus.InProgress && b.Status != AttemptStatus.Cancelled && b.StartedAt > a.StartedAt));
         var total = await attempts.CountAsync(ct);
         var rows = await attempts
             .OrderByDescending(a => a.StartedAt)

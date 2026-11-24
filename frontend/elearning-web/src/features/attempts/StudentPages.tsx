@@ -1,15 +1,16 @@
 import { useState, type CSSProperties } from "react";
-import { Alert, Badge, Button, Card, Col, ListGroup, ProgressBar, Row, Table } from "react-bootstrap";
+import { Alert, Badge, Button, Card, Col, ListGroup, Nav, ProgressBar, Row, Table } from "react-bootstrap";
 import { Link, useNavigate, useParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery } from "@tanstack/react-query";
 import { studentApi } from "../../services/api";
 import { ConfirmDialog, Empty, ErrorAlert, Loading } from "../../components/common/Feedback";
 import { describeError } from "../../utils/errors";
 import { availabilityVariant } from "../../constants/ui";
 import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
-import { Pager, SearchBox } from "../../components/common/DataTable";
+import { SearchBox } from "../../components/common/DataTable";
+import { InfiniteSentinel } from "../../components/common/InfiniteScroll";
 import { formatDateRange, formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
 import { useAuth } from "../auth/useAuth";
 import {
@@ -18,7 +19,7 @@ import {
   ReportQuestionButton,
   useMyQuestionReports,
 } from "../questionReports/StudentQuestionReports";
-import type { ExamAvailability, StudentExamDetail, StudentExamItem } from "../../types/api";
+import type { ExamAvailability, ExamKind, StudentExamDetail, StudentExamItem } from "../../types/api";
 
 /** Màu nhấn cố định theo đề (cùng đề luôn cùng màu), xem .accent-* trong theme.scss. */
 const EXAM_ACCENTS = ["indigo", "sky", "teal", "violet", "orange", "pink", "green", "amber"];
@@ -41,14 +42,15 @@ const AVAILABILITY_ICON: Record<ExamAvailability, string> = {
 
 export function StudentExamsPage() {
   const { t } = useTranslation();
-  const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
-  const query = useQuery({
-    queryKey: ["student-exams", page, keyword],
-    queryFn: () => studentApi.exams({ page, pageSize: 18, keyword: keyword || undefined }),
+  const query = useInfiniteQuery({
+    queryKey: ["student-exams", "scroll", keyword],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => studentApi.exams({ page: pageParam, pageSize: 18, keyword: keyword || undefined }),
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
   });
   const { user } = useAuth();
-  const items = query.data?.items ?? [];
+  const items = query.data?.pages.flatMap((p) => p.items) ?? [];
   const ready = items.filter((e) => e.availability === "AVAILABLE" || e.availability === "IN_PROGRESS").length;
 
   return (
@@ -68,25 +70,22 @@ export function StudentExamsPage() {
         <div style={{ maxWidth: 360, width: "100%" }}>
           <SearchBox
             value={keyword}
-            onSearch={(kw) => {
-              setKeyword(kw);
-              setPage(1);
-            }}
+            onSearch={setKeyword}
             placeholder="Tìm theo mã hoặc tên đề thi..."
           />
         </div>
       </div>
       {query.error && <ErrorAlert error={query.error} onRetry={() => void query.refetch()} />}
       {query.isLoading && <Loading />}
-      {query.data && query.data.items.length === 0 && <Empty text={t("student.noExams")} />}
+      {query.data && items.length === 0 && <Empty text={t("student.noExams")} />}
       <Row xs={1} md={2} lg={3} className="g-3">
-        {query.data?.items.map((exam) => (
+        {items.map((exam) => (
           <Col key={exam.examId}>
             <ExamCard exam={exam} />
           </Col>
         ))}
       </Row>
-      {query.data && <div className="mt-3"><Pager data={query.data} onPage={setPage} /></div>}
+      <InfiniteSentinel hasMore={!!query.hasNextPage} loading={query.isFetchingNextPage} onReach={() => void query.fetchNextPage()} />
     </>
   );
 }
@@ -218,12 +217,14 @@ export function MyClassesPage() {
 export function MyClassDetailPage() {
   const { t } = useTranslation();
   const { classId = "" } = useParams();
-  const [page, setPage] = useState(1);
   const classes = useQuery({ queryKey: ["student-classes"], queryFn: studentApi.classes });
-  const exams = useQuery({
-    queryKey: ["student-exams", "class", classId, page],
-    queryFn: () => studentApi.exams({ page, pageSize: 18, classroomId: classId }),
+  const exams = useInfiniteQuery({
+    queryKey: ["student-exams", "class", classId],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => studentApi.exams({ page: pageParam, pageSize: 18, classroomId: classId }),
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
   });
+  const classExams = exams.data?.pages.flatMap((p) => p.items) ?? [];
   const classroom = classes.data?.find((c) => c.id === classId);
 
   return (
@@ -234,15 +235,15 @@ export function MyClassDetailPage() {
       {classes.data && !classroom && <Alert variant="warning">{t("student.classNotFound")}</Alert>}
       {exams.error && <ErrorAlert error={exams.error} onRetry={() => void exams.refetch()} />}
       {exams.isLoading && <Loading />}
-      {exams.data && exams.data.items.length === 0 && <Empty text={t("student.noClassExams")} />}
+      {exams.data && classExams.length === 0 && <Empty text={t("student.noClassExams")} />}
       <Row xs={1} md={2} lg={3} className="g-3 mt-1">
-        {exams.data?.items.map((exam) => (
+        {classExams.map((exam) => (
           <Col key={exam.examId}>
             <ExamCard exam={exam} />
           </Col>
         ))}
       </Row>
-      {exams.data && <div className="mt-3"><Pager data={exams.data} onPage={setPage} /></div>}
+      <InfiniteSentinel hasMore={!!exams.hasNextPage} loading={exams.isFetchingNextPage} onReach={() => void exams.fetchNextPage()} />
     </>
   );
 }
@@ -751,16 +752,30 @@ export function ResultPage() {
 
 export function HistoryPage() {
   const { t } = useTranslation();
-  const [page, setPage] = useState(1);
-  const query = useQuery({ queryKey: ["history", page], queryFn: () => studentApi.history({ page, pageSize: 18 }) });
+  const [kind, setKind] = useState<ExamKind>("GRADED");
+  const query = useInfiniteQuery({
+    queryKey: ["history", "scroll", kind],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => studentApi.history({ page: pageParam, pageSize: 18, kind }),
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
+  });
+  const historyItems = query.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
     <>
       <h1 className="h4 mb-3">{t("nav.history")}</h1>
+      <Nav variant="tabs" className="mb-3" activeKey={kind} onSelect={(k) => k && setKind(k as ExamKind)}>
+        <Nav.Item>
+          <Nav.Link eventKey="GRADED">Đề chấm điểm</Nav.Link>
+        </Nav.Item>
+        <Nav.Item>
+          <Nav.Link eventKey="PRACTICE">Đề luyện</Nav.Link>
+        </Nav.Item>
+      </Nav>
       {query.error && <ErrorAlert error={query.error} />}
       {query.isLoading && <Loading />}
-      {query.data && query.data.items.length === 0 && <Empty />}
-      {query.data && query.data.items.length > 0 && (
+      {query.data && historyItems.length === 0 && <Empty />}
+      {query.data && historyItems.length > 0 && (
         <>
           <div className="table-responsive">
             <Table size="sm" hover className="align-middle">
@@ -776,7 +791,7 @@ export function HistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {query.data.items.map((h) => (
+                {historyItems.map((h) => (
                   <tr key={h.attemptId}>
                     <td>{h.examName}</td>
                     <td>{h.attemptNumber}</td>
@@ -803,7 +818,7 @@ export function HistoryPage() {
               </tbody>
             </Table>
           </div>
-          <Pager data={query.data} onPage={setPage} />
+          <InfiniteSentinel hasMore={!!query.hasNextPage} loading={query.isFetchingNextPage} onReach={() => void query.fetchNextPage()} />
         </>
       )}
     </>

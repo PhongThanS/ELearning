@@ -5,11 +5,10 @@ import {
   Col,
   Container,
   Form,
-  Pagination,
   Row,
   Spinner,
 } from "react-bootstrap";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { videosApi, studentApi } from "../../services/api";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson } from "../../types/api";
@@ -19,10 +18,9 @@ import { openLessonInNewTab } from "./VideoWatchPage";
 import { PracticeButton } from "./PracticeButton";
 import { HomeworkButton } from "./HomeworkButton";
 import { LessonClassBadges } from "./LessonClassBadges";
-import { pageWindow } from "../../components/common/DataTable";
+import { InfiniteSentinel } from "../../components/common/InfiniteScroll";
 
 export function StudentVideoPages() {
-  const [page, setPage] = useState(1);
   const [keyword, setKeyword] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedClassroom, setSelectedClassroom] = useState<string>("");
@@ -44,22 +42,25 @@ export function StudentVideoPages() {
   });
 
   // Danh sách video bài giảng cho học sinh
-  const { data: videosData, isLoading } = useQuery({
-    queryKey: ["student-videos", page, keyword, selectedCategory, selectedClassroom],
-    queryFn: () =>
+  const videosQuery = useInfiniteQuery({
+    queryKey: ["student-videos", "scroll", keyword, selectedCategory, selectedClassroom],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
       videosApi.listForStudent({
-        page,
+        page: pageParam,
         pageSize: 12,
         keyword: keyword || undefined,
         categoryId: selectedCategory || undefined,
         classroomId: selectedClassroom || undefined,
       }),
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
   });
 
   const categories = categoriesData ?? [];
   const myClasses = myClassesData ?? [];
-  const videos: VideoLesson[] = videosData?.items ?? [];
-  const totalPages = videosData?.totalPages ?? 1;
+  const isLoading = videosQuery.isLoading;
+  const videosData = videosQuery.data?.pages[0];
+  const videos: VideoLesson[] = videosQuery.data?.pages.flatMap((p) => p.items) ?? [];
 
   const categoryOptions = useMemo<SearchableOption[]>(() => {
     return categories.map((c) => ({
@@ -114,7 +115,6 @@ export function StudentVideoPages() {
                 value={keyword}
                 onChange={(e) => {
                   setKeyword(e.target.value);
-                  setPage(1);
                 }}
               />
             </Col>
@@ -123,7 +123,6 @@ export function StudentVideoPages() {
                 value={selectedCategory}
                 onChange={(val) => {
                   setSelectedCategory(val);
-                  setPage(1);
                 }}
                 options={categoryOptions}
                 placeholder="-- Tất cả chuyên đề --"
@@ -136,7 +135,6 @@ export function StudentVideoPages() {
                 value={selectedClassroom}
                 onChange={(val) => {
                   setSelectedClassroom(val);
-                  setPage(1);
                 }}
                 options={classOptions}
                 placeholder="-- Tất cả lớp của tôi --"
@@ -239,20 +237,7 @@ export function StudentVideoPages() {
         </Row>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="d-flex justify-content-center mt-4">
-          <Pagination className="sclass-pagination">
-            <Pagination.Prev disabled={page === 1} onClick={() => setPage((p) => p - 1)} />
-            {pageWindow(page, totalPages).map((p) => (
-              <Pagination.Item key={p} active={p === page} onClick={() => setPage(p)}>
-                {p}
-              </Pagination.Item>
-            ))}
-            <Pagination.Next disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} />
-          </Pagination>
-        </div>
-      )}
+      <InfiniteSentinel hasMore={!!videosQuery.hasNextPage} loading={videosQuery.isFetchingNextPage} onReach={() => void videosQuery.fetchNextPage()} />
     </Container>
   );
 }

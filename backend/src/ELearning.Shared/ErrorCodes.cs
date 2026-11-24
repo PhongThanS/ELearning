@@ -40,6 +40,8 @@ public static class ErrorCodes
     public const string AttemptNotInProgress = "ATTEMPT_NOT_IN_PROGRESS";
     public const string VersionImmutable = "VERSION_IMMUTABLE";
     public const string ExamNotDraft = "EXAM_NOT_DRAFT";
+    public const string ExamHasAttempts = "EXAM_HAS_ATTEMPTS";
+    public const string ExamHasActiveAttempts = "EXAM_HAS_ACTIVE_ATTEMPTS";
     public const string DraftVersionExists = "DRAFT_VERSION_EXISTS";
     public const string RetakePolicyLocked = "RETAKE_POLICY_LOCKED";
     public const string UserNameTaken = "USERNAME_TAKEN";
