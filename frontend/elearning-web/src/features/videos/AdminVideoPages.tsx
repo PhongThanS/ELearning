@@ -20,6 +20,7 @@ import { useAllClassrooms } from "../../hooks/useClassrooms";
 import { SearchableSelect, type SearchableOption } from "../../components/common/SearchableSelect";
 import type { VideoLesson, CreateVideoInput, UpdateVideoInput } from "../../types/api";
 import { extractYoutubeId, isDirectVideo, lessonKind, lessonThumbnail, parseDriveLink } from "./mediaLinks";
+import { DriveFrame } from "./DriveFrame";
 import { openLessonInNewTab } from "./VideoWatchPage";
 import { LessonClassBadges } from "./LessonClassBadges";
 import { MultiSearchableSelect } from "../../components/common/MultiSearchableSelect";
@@ -741,13 +742,13 @@ function VideoEditModal({
                     allowFullScreen
                   ></iframe>
                 ) : driveUrl ? (
-                  <iframe
+                  <DriveFrame
                     src={driveUrl}
                     title="Drive Preview"
                     className="w-100 h-100 border-0"
                     allow="autoplay"
                     allowFullScreen
-                  ></iframe>
+                  />
                 ) : (
                   <video src={videoUrl} controls className="w-100 h-100 bg-black">
                     Trình duyệt không hỗ trợ thẻ video.

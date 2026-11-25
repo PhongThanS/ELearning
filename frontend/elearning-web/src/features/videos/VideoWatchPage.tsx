@@ -7,6 +7,7 @@ import { ErrorAlert, Loading } from "../../components/common/Feedback";
 import type { VideoLesson } from "../../types/api";
 import { extractYoutubeId, isDirectVideo, parseDriveLink } from "./mediaLinks";
 import { SplitView } from "./SplitView";
+import { DriveFrame } from "./DriveFrame";
 import { LessonClassBadges } from "./LessonClassBadges";
 import { PracticeButton } from "./PracticeButton";
 
@@ -34,13 +35,13 @@ function LessonMedia({ video }: { video: VideoLesson }) {
   }
   if (drive) {
     return (
-      <iframe
+      <DriveFrame
         src={drive.previewUrl}
         title={video.title}
         className="w-100 h-100 border-0 d-block bg-white"
         allow="autoplay; encrypted-media; fullscreen"
         allowFullScreen
-      ></iframe>
+      />
     );
   }
   if (isDirectVideo(video.videoUrl)) {
@@ -157,14 +158,21 @@ export function LessonWatchView({ video, student = false }: { video: VideoLesson
             label="Thanh chia giữa video và tài liệu"
             first={<LessonMedia video={video} />}
             second={
-              <iframe
-                key={side.previewUrl}
-                src={side.previewUrl}
-                title={sideTitle}
-                className="w-100 h-100 border-0 d-block bg-white"
-                allow="autoplay; encrypted-media; fullscreen"
-                allowFullScreen
-              ></iframe>
+              <div className="lesson-side">
+                {/* Điện thoại / máy tính bảng có thể không nhúng được bản xem trước của Drive: luôn có lối mở trực tiếp */}
+                <a className="lesson-side-open" href={side.openUrl} target="_blank" rel="noreferrer">
+                  <i className="bi bi-box-arrow-up-right me-2" aria-hidden="true"></i>
+                  {pane === "homework" ? "Mở bài tập trong tab mới" : "Mở tài liệu trong tab mới"}
+                </a>
+                <DriveFrame
+                  key={side.previewUrl}
+                  src={side.previewUrl}
+                  title={sideTitle}
+                  className="w-100 border-0 d-block bg-white"
+                  allow="autoplay; encrypted-media; fullscreen"
+                  allowFullScreen
+                />
+              </div>
             }
           />
         ) : (

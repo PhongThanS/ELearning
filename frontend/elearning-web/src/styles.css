@@ -1173,6 +1173,37 @@ body {
   min-height: 0;
 }
 
+/* Tiêu đề trên thanh tối: không lấy màu chữ tiêu đề của trang */
+.lesson-watch header h1 {
+  color: #ffffff;
+}
+
+/* Khung tài liệu / bài tập bên video */
+.lesson-side {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.lesson-side > iframe {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* Nút mở trực tiếp: chỉ hiện trên màn hẹp hoặc thiết bị cảm ứng (máy tính đã có nút mở sẵn trong khung Drive) */
+.lesson-side-open {
+  display: none;
+  padding: 0.5rem 0.75rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+@media (max-width: 767.98px), (pointer: coarse) {
+  .lesson-side-open {
+    display: block;
+  }
+}
+
 /* Điểm danh (D-31): tô nhạt dòng theo trạng thái */
 .attendance-table tr.table-row-present > td { background-color: rgba(var(--bs-success-rgb), 0.05); }
 .attendance-table tr.table-row-late > td { background-color: rgba(var(--bs-warning-rgb), 0.08); }

@@ -125,6 +125,7 @@ Dùng `Microsoft.AspNetCore.RateLimiting`. Key theo IP với các endpoint chưa
   object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
   ```
   Nguồn ngoài (YouTube, Google Drive / Docs) chỉ phục vụ kho video bài giảng: ảnh bìa, khung phát và tài liệu đi kèm. Nguồn chuẩn: `deploy/nginx/snippets/security-headers.conf`.
+  Khung xem tệp Drive / Docs được nạp **không kèm cookie** (iframe `credentialless`, component `DriveFrame`): trình duyệt đã đăng nhập Google bị chuyển hướng qua trang đăng nhập ngoài `frame-src` nên không xem được. Chọn cách này thay vì mở thêm `accounts.google.com` trong CSP; tệp phải chia sẻ "bất kỳ ai có đường liên kết".
 - Header bổ sung: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (tắt camera, micro, vị trí, thanh toán), `Cross-Origin-Opener-Policy: same-origin`.
 - SQL: chỉ dùng truy vấn tham số hóa (EF Core, Dapper với tham số). Không nối chuỗi từ input.
 - **Upload ảnh (D-27):**

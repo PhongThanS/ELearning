@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button, Modal } from "react-bootstrap";
 import type { VideoLesson } from "../../types/api";
 import { parseDriveLink } from "./mediaLinks";
+import { DriveFrame } from "./DriveFrame";
 
 /**
  * Nút "Bài tập về nhà" của video (D-39): mở file PDF bài tập (Google Drive / Docs) trong cửa sổ xem ngay trên trang,
@@ -34,7 +35,7 @@ export function HomeworkButton({ video, size = "sm", variant = "outline-success"
           </Modal.Title>
         </Modal.Header>
         <Modal.Body className="p-0" style={{ height: "80vh" }}>
-          <iframe
+          <DriveFrame
             src={file.previewUrl}
             title={`Bài tập về nhà — ${video.title}`}
             className="w-100 h-100 border-0 d-block"
