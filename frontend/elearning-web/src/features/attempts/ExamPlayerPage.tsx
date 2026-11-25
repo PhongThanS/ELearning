@@ -15,7 +15,6 @@ import {
   initPlayerState,
   isAnswered,
   isUnsaved,
-  isValidNumberAnswer,
   loadBackup,
   playerReducer,
   type AnswerDraft,
@@ -452,7 +451,6 @@ export function QuestionCard({
           </Form.Group>
         ) : question.type === "FILL_IN" && question.answerDataType === "NUMBER" ? (
           <SquareGridAnswerBox
-            id={`${name}-number`}
             value={draft.answerText ?? ""}
             expectedLength={question.expectedLength}
             readOnly={readOnly}
@@ -766,14 +764,12 @@ function TrueFalsePropositionTable({
  * Mỗi ô chỉ nhận số 0-9, dấu - hoặc dấu ,
  */
 function SquareGridAnswerBox({
-  id,
   value,
   expectedLength,
   readOnly,
   onChange,
   onPaste,
 }: {
-  id: string;
   value: string;
   expectedLength?: number | null;
   readOnly?: boolean;
@@ -781,9 +777,6 @@ function SquareGridAnswerBox({
   onPaste?: () => void;
 }) {
   const { t } = useTranslation();
-  // docs/02 mục 3.3: frontend dùng cùng regex với server để báo sai định dạng ngay trên ô nhập.
-  const invalid = !isValidNumberAnswer(value);
-  const feedbackId = `${id}-invalid`;
   const targetSize = expectedLength && expectedLength > 0 ? expectedLength : 4; // mặc định 4 ô
   const currentLength = (value || "").length;
   const GRID_SIZE = Math.max(targetSize, currentLength, 1);
@@ -883,14 +876,13 @@ function SquareGridAnswerBox({
               key={index}
               ref={(el) => { inputRefs.current[index] = el; }}
               type="text"
-              inputMode="decimal"
+              // Đã có bàn phím số trên trang: không mở thêm bàn phím của điện thoại (phím cứng vẫn gõ được)
+              inputMode="none"
               readOnly={readOnly}
               aria-label={t("player.numberCell", { index: index + 1 })}
-              aria-invalid={invalid || undefined}
-              aria-describedby={invalid ? feedbackId : undefined}
               className={`form-control text-center fw-bold fs-3 rounded-2 shadow-sm ${
                 isActive ? "border-primary border-2 bg-white" : "border-secondary-subtle bg-white"
-              }${invalid ? " is-invalid" : ""}`}
+              }`}
               style={{
                 width: "48px",
                 height: "58px",
@@ -911,12 +903,6 @@ function SquareGridAnswerBox({
           );
         })}
       </div>
-
-      {invalid && (
-        <div id={feedbackId} className="invalid-feedback d-block text-center" role="alert">
-          {t("player.numberInvalid")}
-        </div>
-      )}
 
       {!readOnly && (
         <div className="mt-3 mx-auto" style={{ maxWidth: "340px" }}>

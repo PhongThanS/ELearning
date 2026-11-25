@@ -221,7 +221,7 @@ Mỗi câu `FILL_IN` + `TEXT` có từ 1 đến 20 đáp án chấp nhận (bả
 - Dấu `,` và `.` đều được hiểu là **dấu thập phân**. **Không** chấp nhận dấu phân cách hàng nghìn và ký hiệu mũ.
 - Parse bằng cách thay `,` bằng `.` rồi gọi `decimal.Parse(s, NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture)`.
 - **Tuyệt đối không** gọi `decimal.Parse(s, CultureInfo.InvariantCulture)` với style mặc định, vì `"3,5"` sẽ bị hiểu thành `35` (xem `10-bay-ky-thuat.md`).
-- Chuỗi sai định dạng → lỗi 422 `INVALID_NUMBER_FORMAT` khi lưu. Frontend kiểm tra cùng regex để báo lỗi ngay trên ô nhập.
+- Chuỗi sai định dạng → lỗi 422 `INVALID_NUMBER_FORMAT` khi lưu. Phòng làm bài **không** hiện cảnh báo sai định dạng trên ô điền số (học viên đang gõ dở như `0,` hay `-` là bình thường), chỉ hiện từng ký tự đã nhập.
 - Lưu cả chuỗi gốc (`AnswerText`) và giá trị đã parse (`AnswerNumber`).
 
 ## 4. Đề thi và version
@@ -329,7 +329,7 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 
 ### 4.8 Pool câu hỏi ngẫu nhiên (sau MVP, đã làm)
 
-- Câu hỏi có thêm **độ khó** 5 mức `LEVEL1` … `LEVEL5` (hiển thị Mức 1 … Mức 5 = nhận biết, thông hiểu, vận dụng, vận dụng cao, nâng cao — Mức 5 thêm bằng migration `QuestionDifficultyLevel5`; có thể để trống; migration `QuestionDifficultyFourLevels` chuyển dữ liệu cũ Dễ / Trung bình / Khó → Mức 1 / 2 / 3). File Excel / `.md` ghi số 1–5. Ma trận đề ngẫu nhiên nhập số câu theo 5 mức (`level1Count` … `level5Count`) và tối đa 10 **tag** (chuẩn hóa chữ thường, tối đa 50 ký tự). Ngân hàng lọc được theo độ khó và tag; import Excel có cột `Độ khó`, `Tag`.
+- Câu hỏi có thêm **độ khó** 10 mức `LEVEL1` … `LEVEL10` (hiển thị Mức 1 … Mức 10: Mức 1–4 = nhận biết, thông hiểu, vận dụng, vận dụng cao, Mức 5–10 = nâng cao; Mức 5 thêm bằng migration `QuestionDifficultyLevel5`, Mức 6–10 bằng `QuestionDifficultyTenLevels` (chỉ đổi CHECK); có thể để trống; migration `QuestionDifficultyFourLevels` chuyển dữ liệu cũ Dễ / Trung bình / Khó → Mức 1 / 2 / 3). File Excel / `.md` ghi số 1–10. Ma trận đề ngẫu nhiên nhập số câu theo 10 mức (`level1Count` … `level10Count`) và tối đa 10 **tag** (chuẩn hóa chữ thường, tối đa 50 ký tự). Ngân hàng lọc được theo độ khó và tag; import Excel có cột `Độ khó`, `Tag`.
 - Một version gồm **câu cố định** (lượt thi nào cũng có) và các **quy tắc pool** (`ExamPoolRules`): tiêu chí danh mục / độ khó / tag / loại câu (để trống = không lọc), `DrawCount` câu bốc mỗi lượt, `ScorePerQuestion`.
 - **Giữ D-01:** khi thêm quy tắc (hoặc bấm "Làm mới"), các câu **đang hoạt động** khớp tiêu chí được **snapshot** vào `ExamQuestions` với `PoolRuleId` (câu ứng viên). Chấm điểm, sửa đáp án, hủy câu, thống kê vẫn chỉ đọc snapshot.
 - Câu đã có trong version (cố định hoặc thuộc quy tắc khác) bị loại khỏi ứng viên → một lượt thi không gặp trùng câu. Tối đa **500** câu ứng viên mỗi quy tắc; vượt thì báo `POOL_TOO_LARGE` để admin lọc thêm.

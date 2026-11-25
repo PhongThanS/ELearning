@@ -288,7 +288,9 @@ Response: số lượt đã chấm lại, và số học viên có điểm hoặ
 | GET | `/api/student/categories` (chuyên đề đang hoạt động, tối đa 100, để lọc đề / video) | Student |
 | GET | `/api/student/classes` (lớp đang hoạt động của tôi, D-28) | Student |
 | GET | `/api/student/attendance/classes/{classId}/history?month=yyyy-MM` (điểm danh + điểm BTVN tháng của chính tôi, thứ hạng ĐTB trong lớp; lớp tôi không học → 404; không trả SĐT phụ huynh). Là trang mặc định của học viên sau khi đăng nhập | Student |
-| GET | `/api/student/exams` (`classroomId` tùy chọn: chỉ đề gán cho lớp đó, học viên phải thuộc lớp) | Student |
+| GET | `/api/student/category-scores` (bảng điểm theo chuyên đề ở trang "Thông tin": mỗi đề một điểm chính thức, chỉ điểm được phép xem, bỏ lượt hủy / còn chờ chấm) → `[{ categoryId, categoryName, parentName, examCount, averagePercentage, bestPercentage }]` (`categoryId` null = đề chưa gắn chuyên đề) | Student |
+| GET | `/api/student/exam-categories` (thẻ lọc "Phòng luyện": chuyên đề đang bật có đề học viên thấy được, kèm chuyên đề cha; tối đa 100) → `[{ id, name, parentId }]` | Student |
+| GET | `/api/student/exams` (`classroomId` tùy chọn: chỉ đề gán cho lớp đó, học viên phải thuộc lớp; `categoryId` tùy chọn: chỉ đề thuộc chuyên đề đó hoặc chuyên đề con của nó; `otherOnly=true`: chỉ đề không nằm dưới chuyên đề lớn đang bật nào) | Student |
 | GET | `/api/student/exams/{examId}` | Student |
 | POST | `/api/student/exams/{examId}/start` | Student |
 | GET | `/api/student/attempts/{attemptId}` | Student (chủ sở hữu) |

@@ -355,6 +355,11 @@ function QuestionPicker({
                   <option value="LEVEL3">Mức 3</option>
                   <option value="LEVEL4">Mức 4</option>
                   <option value="LEVEL5">Mức 5</option>
+                  <option value="LEVEL6">Mức 6</option>
+                  <option value="LEVEL7">Mức 7</option>
+                  <option value="LEVEL8">Mức 8</option>
+                  <option value="LEVEL9">Mức 9</option>
+                  <option value="LEVEL10">Mức 10</option>
                 </Form.Select>
               </Col>
             </Row>

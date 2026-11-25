@@ -11,31 +11,33 @@ import type { MatrixDrawInput, MatrixDrawMode, MatrixTopicItem, QuestionType, Ve
 
 const TYPES: QuestionType[] = ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "FILL_IN", "ESSAY"];
 
-type LevelField = "level1Count" | "level2Count" | "level3Count" | "level4Count" | "level5Count";
+type LevelField = `level${1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10}Count`;
 
-/** 5 mức độ của ma trận (Mức 1 … Mức 5), theo thứ tự cột. */
+/** 10 mức độ của ma trận (Mức 1 … Mức 10), theo thứ tự cột. */
 const LEVELS: { field: LevelField; label: string; header: string; text: string }[] = [
   { field: "level1Count", label: "Mức 1", header: "bg-success-subtle", text: "text-success" },
   { field: "level2Count", label: "Mức 2", header: "bg-info-subtle", text: "text-info-emphasis" },
   { field: "level3Count", label: "Mức 3", header: "bg-warning-subtle", text: "text-warning-emphasis" },
   { field: "level4Count", label: "Mức 4", header: "bg-danger-subtle", text: "text-danger" },
   { field: "level5Count", label: "Mức 5", header: "bg-primary-subtle", text: "text-primary" },
+  { field: "level6Count", label: "Mức 6", header: "bg-secondary-subtle", text: "text-secondary-emphasis" },
+  { field: "level7Count", label: "Mức 7", header: "bg-success-subtle", text: "text-success" },
+  { field: "level8Count", label: "Mức 8", header: "bg-info-subtle", text: "text-info-emphasis" },
+  { field: "level9Count", label: "Mức 9", header: "bg-warning-subtle", text: "text-warning-emphasis" },
+  { field: "level10Count", label: "Mức 10", header: "bg-danger-subtle", text: "text-danger" },
 ];
 
-/** Số câu mặc định khi thêm một chuyên đề vào ma trận (Mức 1 … Mức 5). */
-const DEFAULT_COUNTS = [2, 1, 1, 0, 0];
+/** Số câu mặc định khi thêm một chuyên đề vào ma trận (Mức 1 … Mức 10). */
+const DEFAULT_COUNTS = [2, 1, 1, 0, 0, 0, 0, 0, 0, 0];
 
-interface TopicRow {
+interface TopicRowBase {
   key: string;
   categoryId: string | null;
   categoryName: string;
   categoryCode?: string;
-  level1Count: number;
-  level2Count: number;
-  level3Count: number;
-  level4Count: number;
-  level5Count: number;
 }
+
+type TopicRow = TopicRowBase & Record<LevelField, number>;
 
 const counts = (row: TopicRow) => LEVELS.map((l) => row[l.field]);
 const withCounts = (values: number[]) =>
@@ -90,11 +92,12 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
     const parentOf = new Map((categories.data?.items ?? []).map((c) => [c.id, c.parentId]));
     const map = new Map<string, { levels: number[]; total: number }>();
     const add = (key: string, levels: number[], total: number) => {
-      const current = map.get(key) ?? { levels: [0, 0, 0, 0, 0], total: 0 };
+      const current = map.get(key) ?? { levels: Array.from({ length: LEVELS.length }, () => 0), total: 0 };
       map.set(key, { levels: current.levels.map((n, i) => n + (levels[i] ?? 0)), total: current.total + total });
     };
     for (const item of stats?.byCategory ?? []) {
-      const levels = [item.level1Candidates, item.level2Candidates, item.level3Candidates, item.level4Candidates, item.level5Candidates ?? 0];
+      const candidates = item as unknown as Record<string, number | undefined>;
+      const levels = LEVELS.map((l) => candidates[l.field.replace("Count", "Candidates")] ?? 0);
       add(item.categoryId ?? "uncategorized", levels, item.totalCandidates);
       const parentId = item.categoryId ? parentOf.get(item.categoryId) : null;
       if (parentId) add(parentId, levels, item.totalCandidates);
@@ -203,7 +206,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
   const rowEvaluations = useMemo(() => {
     return topicRows.map((row) => {
       const catKey = row.categoryId ?? "uncategorized";
-      const catStat = categoryStatsMap.get(catKey) ?? { levels: [0, 0, 0, 0, 0], total: 0 };
+      const catStat = categoryStatsMap.get(catKey) ?? { levels: Array.from({ length: LEVELS.length }, () => 0), total: 0 };
       const unratedCount = unrated(catStat);
       const wanted = counts(row);
       const available = LEVELS.map((_, i) => catStat.levels[i] ?? 0);
@@ -339,7 +342,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
             <div className="d-flex align-items-center gap-2">
               <i className="bi bi-info-circle-fill fs-5 text-primary" />
               <div>
-                <strong>Ma trận đa chuyên đề:</strong> Cho phép chọn nhiều chuyên đề cùng lúc và định lượng chi tiết số câu theo từng mức độ (<strong>Mức 1</strong>, <strong>Mức 2</strong>, <strong>Mức 3</strong>, <strong>Mức 4</strong>, <strong>Mức 5</strong>). Hệ thống kiểm tra trực tiếp số câu sẵn có trong ngân hàng để đảm bảo đề thi đủ câu và không bị trùng lặp.
+                <strong>Ma trận đa chuyên đề:</strong> Cho phép chọn nhiều chuyên đề cùng lúc và định lượng chi tiết số câu theo từng mức độ (<strong>Mức 1</strong> đến <strong>Mức 10</strong>). Hệ thống kiểm tra trực tiếp số câu sẵn có trong ngân hàng để đảm bảo đề thi đủ câu và không bị trùng lặp.
               </div>
             </div>
           </Alert>
@@ -485,7 +488,7 @@ export function RandomMatrixModal({ show, onHide, examId, version, lockedCategor
                           </th>
                           <th style={{ minWidth: 220 }}>Chuyên đề / Danh mục</th>
                           {LEVELS.map((level) => (
-                            <th key={level.field} style={{ width: 140 }} className={`text-center ${level.header} bg-opacity-25`}>
+                            <th key={level.field} style={{ width: 90 }} className={`text-center ${level.header} bg-opacity-25`}>
                               <span className={`${level.text} fw-bold`}>{level.label}</span>
                             </th>
                           ))}

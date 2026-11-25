@@ -9,7 +9,6 @@ import { Features } from "../constants/features";
 import { useAuth } from "../features/auth/useAuth";
 import { categoriesApi } from "../services/api";
 import { useAllClassrooms } from "../hooks/useClassrooms";
-import { categoryLabel, orderCategories } from "../utils/categoryTree";
 import { RECENT_LIMIT, rememberRecent, useRecent, type RecentItem } from "./recentItems";
 import { QuickSearch, type QuickPage } from "./QuickSearch";
 import { prefetchPages } from "../app/pageLoaders";
@@ -124,7 +123,7 @@ interface AdminNavLeaf {
   permission: string;
   /** Chỉ sáng khi đúng đường dẫn (không sáng ở trang con có mục menu riêng). */
   end?: boolean;
-  /** Chữ hiển thị nguyên văn (tên lớp, chuyên đề) thay cho khóa dịch `label`. */
+  /** Chữ hiển thị nguyên văn (tên lớp) thay cho khóa dịch `label`. */
   text?: string;
   /** Dòng phụ "Xem tất cả": chữ nhạt, không tô sáng như mục đang chọn. */
   muted?: boolean;
@@ -137,8 +136,6 @@ interface AdminNavItem extends Omit<AdminNavLeaf, "to" | "permission"> {
   permission?: string;
   /** Mục con là các lớp mở gần đây (D-28). */
   isClassesDropdown?: boolean;
-  /** Mục con là các chuyên đề mở gần đây. */
-  isCategoriesDropdown?: boolean;
   /** Mục con xổ xuống bằng mũi tên. */
   children?: AdminNavLeaf[];
   /** Tiêu đề nhóm hiện phía trên mục (bỏ trống: cùng nhóm với mục trước). */
@@ -159,7 +156,7 @@ const adminNav: AdminNavItem[] = [
     end: true,
     children: [{ to: "/admin/questions/import-markdown", label: "nav.importExam", icon: "bi-file-earmark-arrow-up", permission: Permissions.QuestionCreate }],
   },
-  { to: "/admin/categories", label: "nav.categories", icon: "bi-folder2", permission: Permissions.CategoryView, isCategoriesDropdown: true, end: true },
+  { to: "/admin/categories", label: "nav.categories", icon: "bi-folder2", permission: Permissions.CategoryView, end: true },
   { to: "/admin/question-reports", label: "nav.questionReports", icon: "bi-flag", permission: Permissions.QuestionReportManage },
   // Nhóm người dùng đang ẩn (Features.userGroups)
   ...(Features.userGroups ? [{ to: "/admin/groups", label: "nav.groups", icon: "bi-people", permission: Permissions.GroupView } as AdminNavItem] : []),
@@ -182,7 +179,7 @@ const adminNav: AdminNavItem[] = [
  */
 function SidebarGroupItem({ item, leaves }: { item: AdminNavItem; leaves: AdminNavLeaf[] }) {
   const { t } = useTranslation();
-  const { pathname, search } = useLocation();
+  const { pathname } = useLocation();
   const inChild = leaves.some((c) => pathname.startsWith(c.to));
   const [open, setOpen] = useState(inChild);
   useEffect(() => {
@@ -232,18 +229,6 @@ function SidebarGroupItem({ item, leaves }: { item: AdminNavItem; leaves: AdminN
                 {c.text ?? t(c.label)}
                 <i className="bi bi-arrow-right ms-1" aria-hidden="true" />
               </Link>
-            ) : c.to.includes("?") ? (
-              // Liên kết có tham số (chuyên đề): chỉ sáng khi đúng cả tham số, NavLink chỉ so phần đường dẫn
-              <Link
-                key={c.to}
-                to={c.to}
-                className={`nav-link d-flex align-items-center gap-2 nav-sublink ${pathname + search === c.to ? "active" : ""}`}
-                aria-current={pathname + search === c.to ? "page" : undefined}
-                title={c.text}
-              >
-                <i className={`nav-item-icon bi ${c.icon}`} aria-hidden="true" />
-                <span className="nav-item-label">{c.text ?? t(c.label)}</span>
-              </Link>
             ) : (
               <Nav.Link key={c.to} as={NavLink} to={c.to} end={c.end} className="d-flex align-items-center gap-2 nav-sublink" title={c.text}>
                 <i className={`nav-item-icon bi ${c.icon}`} aria-hidden="true" />
@@ -265,26 +250,15 @@ export function AdminLayout() {
   // Mục con lọc theo quyền; mục chỉ gom nhóm hiện khi còn ít nhất một mục con
   const location = useLocation();
   const { data: allClasses } = useAllClassrooms(hasPermission(Permissions.ClassView));
-  const { data: categoriesData } = useQuery({
-    queryKey: ["sidebar-categories"],
-    queryFn: () => categoriesApi.list({ page: 1, pageSize: 100 }),
-    staleTime: 60_000,
-    enabled: hasPermission(Permissions.CategoryView),
-  });
   const classes = allClasses ?? [];
-  const categories = orderCategories(categoriesData?.items ?? []);
   const recentClasses = useRecent("class");
-  const recentCategories = useRecent("category");
 
-  // Ghi nhớ lớp / chuyên đề vừa mở để menu bên hiện "gần đây"
+  // Ghi nhớ lớp vừa mở để menu bên hiện "gần đây"
   useEffect(() => {
     const classId = /^\/admin\/classes\/([^/]+)$/.exec(location.pathname)?.[1];
     const opened = classId ? classes.find((c) => c.id === classId) : undefined;
     if (opened) rememberRecent("class", { id: opened.id, name: opened.name, code: opened.code });
-    const categoryId = location.pathname === "/admin/questions" ? new URLSearchParams(location.search).get("categoryId") : null;
-    const category = categoryId ? categories.find((c) => c.id === categoryId) : undefined;
-    if (category) rememberRecent("category", { id: category.id, name: categoryLabel(category), code: category.code });
-  }, [location.pathname, location.search, classes, categories]);
+  }, [location.pathname, classes]);
 
   // Mục con: tối đa 5 mục (ưu tiên mục mở gần đây, còn thiếu thì lấy theo thứ tự danh sách); cuối cùng là dòng "Xem tất cả"
   const pick = <T extends { id: string }>(recent: RecentItem[], all: T[], toItem: (x: T) => RecentItem): RecentItem[] => {
@@ -305,24 +279,9 @@ export function AdminLayout() {
     })),
     { to: "/admin/classes", label: "", text: `Xem tất cả ${classes.length} lớp`, icon: "", permission, muted: true, end: true },
   ];
-  const categoryLeaves = (permission: string): AdminNavLeaf[] => [
-    ...pick(recentCategories, categories, (c) => ({ id: c.id, name: categoryLabel(c), code: c.code })).map((c) => ({
-      to: `/admin/questions?categoryId=${c.id}`,
-      label: c.code,
-      text: c.name,
-      icon: "bi-dot",
-      permission,
-    })),
-    { to: "/admin/categories", label: "", text: `Xem tất cả ${categories.length} chuyên đề`, icon: "", permission, muted: true, end: true },
-  ];
-
   const items = adminNav
     .map((item) => {
-      const children = item.isClassesDropdown
-        ? classLeaves(item.permission!)
-        : item.isCategoriesDropdown
-          ? categoryLeaves(item.permission!)
-          : (item.children ?? []);
+      const children = item.isClassesDropdown ? classLeaves(item.permission!) : (item.children ?? []);
       return { item, leaves: children.filter((c) => hasPermission(c.permission)) };
     })
     .map((entry, index, all) => {
@@ -338,10 +297,10 @@ export function AdminLayout() {
     })
     .filter((entry) => entry.visible);
 
-  // Ô tìm nhanh: mọi trang trong menu (trừ danh sách lớp / chuyên đề, được tìm riêng)
+  // Ô tìm nhanh: mọi trang trong menu (trừ danh sách lớp, được tìm riêng)
   const quickPages: QuickPage[] = items.flatMap(({ item, leaves }) => [
     ...(item.to ? [{ to: item.to, label: t(item.label), icon: item.icon }] : []),
-    ...(item.isClassesDropdown || item.isCategoriesDropdown ? [] : leaves.map((c) => ({ to: c.to, label: t(c.label), icon: c.icon }))),
+    ...(item.isClassesDropdown ? [] : leaves.map((c) => ({ to: c.to, label: t(c.label), icon: c.icon }))),
   ]);
 
   return (
@@ -430,7 +389,7 @@ export function StudentLayout() {
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="student-nav" />
           <Navbar.Collapse id="student-nav">
-            <Nav className="me-auto">
+            <Nav className="student-main-nav">
               <Nav.Link as={NavLink} to="/student/attendance" className="text-nowrap">
                 {t("nav.myAttendance")}
               </Nav.Link>

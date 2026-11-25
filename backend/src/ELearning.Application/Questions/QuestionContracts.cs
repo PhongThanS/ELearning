@@ -135,7 +135,7 @@ internal class QuestionInputValidator<T> : AbstractValidator<T>
         RuleFor(q => q.QuestionType).IsInEnum().WithErrorCode("QUESTION_TYPE_INVALID").WithMessage("Loại câu hỏi không hợp lệ.");
         RuleFor(q => q.Explanation).MaximumLength(MaxContentLength);
         RuleFor(q => q.Difficulty).IsInEnum().When(q => q.Difficulty is not null)
-            .WithErrorCode("DIFFICULTY_INVALID").WithMessage("Độ khó phải là LEVEL1, LEVEL2, LEVEL3, LEVEL4 hoặc LEVEL5.");
+            .WithErrorCode("DIFFICULTY_INVALID").WithMessage("Độ khó phải là LEVEL1 … LEVEL10.");
         RuleFor(q => q.Tags).Must(t => t is null || t.Count(x => !string.IsNullOrWhiteSpace(x)) <= Question.MaxTags)
             .WithErrorCode("TAGS_TOO_MANY").WithMessage($"Tối đa {Question.MaxTags} tag.");
         RuleForEach(q => q.Tags).Must(t => t is null || t.Trim().Length <= Question.MaxTagLength)

@@ -18,6 +18,8 @@ export interface PlayerState {
   attemptId: string;
   currentIndex: number;
   questionIds: string[];
+  /** Câu điền số: đáp án đang gõ dở chưa được gửi lên server. */
+  numberQuestionIds: string[];
   answers: Record<string, AnswerDraft>;
   clockOffsetMs: number;
   expiredAt: string;
@@ -67,6 +69,7 @@ export function initPlayerState(attempt: Attempt, receivedAt: number = Date.now(
     attemptId: attempt.attemptId,
     currentIndex: 0,
     questionIds: [...attempt.questions].sort((a, b) => a.order - b.order).map((q) => q.id),
+    numberQuestionIds: attempt.questions.filter((q) => q.type === "FILL_IN" && q.answerDataType === "NUMBER").map((q) => q.id),
     answers,
     clockOffsetMs: new Date(attempt.serverTime).getTime() - receivedAt,
     expiredAt: attempt.expiredAt,
@@ -128,11 +131,15 @@ export const isUnsaved = (draft: AnswerDraft) => draft.clientSeq > draft.syncedS
 export const isAnswered = (draft: AnswerDraft | undefined) =>
   !!draft && (draft.selectedOptions.length > 0 || (draft.answerText ?? "").trim().length > 0);
 
-/** Các câu chưa lưu, dạng body gửi lên API (tối đa 50 mỗi lô). */
+/**
+ * Các câu cần gửi, dạng body gửi lên API (tối đa 50 mỗi lô).
+ * Bỏ qua câu điền số sai định dạng (gõ dở như "0," hay "-"): server từ chối cả lô nếu có một câu như vậy.
+ * Câu đó vẫn là "chưa lưu" và được gửi khi gõ xong.
+ */
 export function pendingItems(state: PlayerState, max = 50): SaveAnswerItem[] {
   return state.questionIds
     .map((id) => [id, state.answers[id]!] as const)
-    .filter(([, draft]) => isUnsaved(draft))
+    .filter(([id, draft]) => isUnsaved(draft) && !(state.numberQuestionIds.includes(id) && !isValidNumberAnswer(draft.answerText)))
     .slice(0, max)
     .map(([questionId, draft]) => ({
       questionId,

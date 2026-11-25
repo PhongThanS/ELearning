@@ -75,7 +75,7 @@
     "videos": "Video bài giảng",
     "exams": "Đề thi",
     "auditLogs": "Nhật ký hệ thống",
-    "studentExams": "Đề thi của tôi",
+    "studentExams": "Phòng luyện",
     "history": "Lịch sử thi",
     "profile": "Tài khoản",
     "logout": "Đăng xuất",
@@ -153,7 +153,12 @@
       "LEVEL2": "Mức 2",
       "LEVEL3": "Mức 3",
       "LEVEL4": "Mức 4",
-      "LEVEL5": "Mức 5"
+      "LEVEL5": "Mức 5",
+      "LEVEL6": "Mức 6",
+      "LEVEL7": "Mức 7",
+      "LEVEL8": "Mức 8",
+      "LEVEL9": "Mức 9",
+      "LEVEL10": "Mức 10"
     },
     "answerDataType": {
       "TEXT": "Chữ",
@@ -243,13 +248,15 @@
     "essayPlaceholder": "Viết bài làm của bạn…",
     "essayCount": "{{count}} / {{max}} ký tự",
     "numberHint": "Nhập số, dùng dấu phẩy hoặc dấu chấm cho phần thập phân (ví dụ 3,5).",
-    "numberInvalid": "Số không hợp lệ. Ví dụ hợp lệ: 3,5 hoặc 3.5",
     "numberGrid": "Các ô điền đáp án số",
     "numberCell": "Ô thứ {{index}} của đáp án",
     "tracking": "Hệ thống ghi nhận việc rời khỏi trang thi."
   },
   "student": {
-    "exams": "Đề thi của tôi",
+    "exams": "Phòng luyện",
+    "otherExams": "Đề khác",
+    "subCategoryFilter": "Chuyên đề con của {{name}}",
+    "noExamsInCategory": "Chưa có đề nào thuộc chuyên đề này.",
     "start": "Bắt đầu làm bài",
     "continue": "Tiếp tục bài đang làm",
     "duration": "Thời gian: {{minutes}} phút",

@@ -85,6 +85,24 @@ describe("playerState", () => {
     expect(isUnsaved(state.answers.q1!)).toBe(false);
   });
 
+  it.each(["0,", "-", "1,000.5"])("số gõ dở %s không được gửi và không chặn các câu khác", (partial) => {
+    let state = initPlayerState(attempt(), Date.now());
+    state = playerReducer(state, { type: "text", questionId: "q2", text: partial });
+    state = playerReducer(state, { type: "select", questionId: "q1", options: ["A"] });
+
+    expect(pendingItems(state).map((i) => i.questionId)).toEqual(["q1"]);
+    // Vẫn là "chưa lưu" để còn cảnh báo khi rời trang / nộp bài
+    expect(isUnsaved(state.answers.q2!)).toBe(true);
+  });
+
+  it("gõ xong số thì được gửi như bình thường", () => {
+    let state = initPlayerState(attempt(), Date.now());
+    state = playerReducer(state, { type: "text", questionId: "q2", text: "0," });
+    state = playerReducer(state, { type: "text", questionId: "q2", text: "0,5" });
+
+    expect(pendingItems(state)).toMatchObject([{ questionId: "q2", answerText: "0,5" }]);
+  });
+
   it("thời gian còn lại tính theo đồng hồ server, không theo đồng hồ máy", () => {
     // Máy chạy nhanh 10 phút so với server
     const clientNow = Date.parse("2026-09-29T02:10:00.000Z");

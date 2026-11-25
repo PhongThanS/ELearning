@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
 /** Lớp học / chuyên đề mở gần đây, hiện trong menu bên. Chỉ là tiện ích trên trình duyệt này (localStorage). */
-export type RecentKind = "class" | "category";
+export type RecentKind = "class";
 
 export interface RecentItem {
   id: string;

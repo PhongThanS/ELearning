@@ -3,12 +3,12 @@ using ELearning.Domain.Enums;
 namespace ELearning.Application.Questions;
 
 /// <summary>
-/// Đọc mức độ (độ khó) ghi trong file nhập đề / file Excel: số 1–5, "MĐ1"…"MĐ5", "Mức 1"…"Mức 5", "LEVEL1"…,
+/// Đọc mức độ (độ khó) ghi trong file nhập đề / file Excel: số 1–10, "MĐ1"…"MĐ10", "Mức 1"…"Mức 10", "LEVEL1"…,
 /// nhãn NB / TH / VD / VDC, và giá trị cũ EASY / MEDIUM / HARD, Dễ / Trung bình / Khó (= mức 1 / 2 / 3).
 /// </summary>
 public static class DifficultyLevels
 {
-    public const string Hint = "Mức độ ghi số 1, 2, 3, 4 hoặc 5 (Mức 1 … Mức 5).";
+    public const string Hint = "Mức độ ghi số từ 1 đến 10 (Mức 1 … Mức 10).";
 
     public static bool TryParse(string? text, out QuestionDifficulty? difficulty)
     {
@@ -35,6 +35,11 @@ public static class DifficultyLevels
             "3" or "VD" or "VẬNDỤNG" or "HARD" or "KHÓ" => QuestionDifficulty.Level3,
             "4" or "VDC" or "VẬNDỤNGCAO" => QuestionDifficulty.Level4,
             "5" => QuestionDifficulty.Level5,
+            "6" => QuestionDifficulty.Level6,
+            "7" => QuestionDifficulty.Level7,
+            "8" => QuestionDifficulty.Level8,
+            "9" => QuestionDifficulty.Level9,
+            "10" => QuestionDifficulty.Level10,
             _ => null,
         };
         return difficulty is not null;

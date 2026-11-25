@@ -138,7 +138,12 @@ public sealed record CategoryMatrixStatsDto(
     int Level3Candidates,
     int Level4Candidates,
     int UnspecifiedCandidates,
-    int Level5Candidates = 0);
+    int Level5Candidates = 0,
+    int Level6Candidates = 0,
+    int Level7Candidates = 0,
+    int Level8Candidates = 0,
+    int Level9Candidates = 0,
+    int Level10Candidates = 0);
 
 public sealed record MatrixStatsDto(
     int TotalCandidates,
@@ -148,9 +153,14 @@ public sealed record MatrixStatsDto(
     int Level4Candidates,
     int UnspecifiedCandidates,
     IReadOnlyList<CategoryMatrixStatsDto>? ByCategory = null,
-    int Level5Candidates = 0);
+    int Level5Candidates = 0,
+    int Level6Candidates = 0,
+    int Level7Candidates = 0,
+    int Level8Candidates = 0,
+    int Level9Candidates = 0,
+    int Level10Candidates = 0);
 
-/// <summary>Số câu bốc theo từng mức độ (Mức 1 … Mức 5) của một chuyên đề.</summary>
+/// <summary>Số câu bốc theo từng mức độ (Mức 1 … Mức 10) của một chuyên đề.</summary>
 public sealed record MatrixTopicItem(
     Guid? CategoryId,
     int Level1Count,
@@ -158,9 +168,15 @@ public sealed record MatrixTopicItem(
     int Level3Count,
     int Level4Count = 0,
     decimal? ScorePerQuestion = null,
-    int Level5Count = 0)
+    int Level5Count = 0,
+    int Level6Count = 0,
+    int Level7Count = 0,
+    int Level8Count = 0,
+    int Level9Count = 0,
+    int Level10Count = 0)
 {
-    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count + Level5Count;
+    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count + Level5Count
+        + Level6Count + Level7Count + Level8Count + Level9Count + Level10Count;
 }
 
 public sealed record MatrixDrawRequest(
@@ -174,9 +190,15 @@ public sealed record MatrixDrawRequest(
     MatrixDrawMode Mode,
     IReadOnlyList<MatrixTopicItem>? Topics = null,
     int Level4Count = 0,
-    int Level5Count = 0)
+    int Level5Count = 0,
+    int Level6Count = 0,
+    int Level7Count = 0,
+    int Level8Count = 0,
+    int Level9Count = 0,
+    int Level10Count = 0)
 {
-    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count + Level5Count;
+    public int TotalCount => Level1Count + Level2Count + Level3Count + Level4Count + Level5Count
+        + Level6Count + Level7Count + Level8Count + Level9Count + Level10Count;
 }
 
 public sealed record VersionDetailDto(
@@ -437,6 +459,16 @@ public sealed class MatrixDrawRequestValidator : AbstractValidator<MatrixDrawReq
                     .WithErrorCode("LEVEL4_COUNT_INVALID").WithMessage("Số câu Mức 4 không được âm.");
                 topic.RuleFor(t => t.Level5Count).GreaterThanOrEqualTo(0)
                     .WithErrorCode("LEVEL5_COUNT_INVALID").WithMessage("Số câu Mức 5 không được âm.");
+                topic.RuleFor(t => t.Level6Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL6_COUNT_INVALID").WithMessage("Số câu Mức 6 không được âm.");
+                topic.RuleFor(t => t.Level7Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL7_COUNT_INVALID").WithMessage("Số câu Mức 7 không được âm.");
+                topic.RuleFor(t => t.Level8Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL8_COUNT_INVALID").WithMessage("Số câu Mức 8 không được âm.");
+                topic.RuleFor(t => t.Level9Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL9_COUNT_INVALID").WithMessage("Số câu Mức 9 không được âm.");
+                topic.RuleFor(t => t.Level10Count).GreaterThanOrEqualTo(0)
+                    .WithErrorCode("LEVEL10_COUNT_INVALID").WithMessage("Số câu Mức 10 không được âm.");
             });
 
             RuleFor(r => r).Must(r => r.Topics!.Sum(t => t.TotalCount) > 0)
@@ -460,6 +492,16 @@ public sealed class MatrixDrawRequestValidator : AbstractValidator<MatrixDrawReq
                 .WithErrorCode("LEVEL4_COUNT_INVALID").WithMessage("Số câu Mức 4 không được âm.");
             RuleFor(r => r.Level5Count).GreaterThanOrEqualTo(0)
                 .WithErrorCode("LEVEL5_COUNT_INVALID").WithMessage("Số câu Mức 5 không được âm.");
+            RuleFor(r => r.Level6Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL6_COUNT_INVALID").WithMessage("Số câu Mức 6 không được âm.");
+            RuleFor(r => r.Level7Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL7_COUNT_INVALID").WithMessage("Số câu Mức 7 không được âm.");
+            RuleFor(r => r.Level8Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL8_COUNT_INVALID").WithMessage("Số câu Mức 8 không được âm.");
+            RuleFor(r => r.Level9Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL9_COUNT_INVALID").WithMessage("Số câu Mức 9 không được âm.");
+            RuleFor(r => r.Level10Count).GreaterThanOrEqualTo(0)
+                .WithErrorCode("LEVEL10_COUNT_INVALID").WithMessage("Số câu Mức 10 không được âm.");
 
             RuleFor(r => r).Must(r => r.TotalCount > 0)
                 .WithErrorCode("TOTAL_COUNT_ZERO").WithMessage("Vui lòng chọn ít nhất 1 câu hỏi.")

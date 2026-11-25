@@ -1,8 +1,8 @@
 namespace ELearning.Domain.Enums;
 
 /// <summary>
-/// Độ khó (mức độ) của câu hỏi, 5 mức: Mức 1 (nhận biết) … Mức 4 (vận dụng cao), Mức 5 (nâng cao / chuyên sâu).
-/// Lưu / trả về "LEVEL1" … "LEVEL5"; dùng để lọc ngân hàng và lập quy tắc pool ngẫu nhiên.
+/// Độ khó (mức độ) của câu hỏi, 10 mức: Mức 1 (nhận biết) … Mức 4 (vận dụng cao), Mức 5–10 (nâng cao / chuyên sâu).
+/// Lưu / trả về "LEVEL1" … "LEVEL10"; dùng để lọc ngân hàng và lập quy tắc pool ngẫu nhiên.
 /// </summary>
 public enum QuestionDifficulty
 {
@@ -11,4 +11,9 @@ public enum QuestionDifficulty
     Level3 = 3,
     Level4 = 4,
     Level5 = 5,
+    Level6 = 6,
+    Level7 = 7,
+    Level8 = 8,
+    Level9 = 9,
+    Level10 = 10,
 }

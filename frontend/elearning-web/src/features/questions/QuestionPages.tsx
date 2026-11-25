@@ -1705,7 +1705,7 @@ function TryNumber({ value, answer, tolerance }: { value: string; answer: number
   return ok ? <Badge bg="success">Đúng</Badge> : <Badge bg="danger">Sai</Badge>;
 }
 
-const DIFFICULTIES: QuestionDifficulty[] = ["LEVEL1", "LEVEL2", "LEVEL3", "LEVEL4", "LEVEL5"];
+const DIFFICULTIES: QuestionDifficulty[] = ["LEVEL1", "LEVEL2", "LEVEL3", "LEVEL4", "LEVEL5", "LEVEL6", "LEVEL7", "LEVEL8", "LEVEL9", "LEVEL10"];
 
 function parseTags(text: string): string[] {
   return [...new Set(text.split(/[,;]/).map((t) => t.trim().toLowerCase()).filter(Boolean))];

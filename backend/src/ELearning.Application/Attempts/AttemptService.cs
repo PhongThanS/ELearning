@@ -4,6 +4,7 @@ using ELearning.Application.Common.Abstractions;
 using ELearning.Application.Common.Options;
 using ELearning.Application.Exams;
 using ELearning.Application.Media;
+using ELearning.Application.Questions;
 using ELearning.Domain.Attempts;
 using ELearning.Domain.Enums;
 using ELearning.Domain.Exams;
@@ -21,6 +22,12 @@ namespace ELearning.Application.Attempts;
 public interface IAttemptService
 {
     Task<PagedResult<StudentExamListItemDto>> ListExamsAsync(Guid userId, StudentExamListQuery query, CancellationToken ct);
+
+    /// <summary>Chuyên đề đang bật có ít nhất một đề học viên thấy được, kèm chuyên đề cha của chúng.</summary>
+    Task<IReadOnlyList<StudentExamCategoryDto>> ListExamCategoriesAsync(Guid userId, CancellationToken ct);
+
+    /// <summary>Bảng điểm theo chuyên đề, chỉ gồm điểm học viên được phép xem.</summary>
+    Task<IReadOnlyList<StudentCategoryScoreDto>> CategoryScoresAsync(Guid userId, CancellationToken ct);
 
     Task<Result<StudentExamDetailDto>> GetExamAsync(Guid userId, Guid examId, CancellationToken ct);
 
@@ -79,6 +86,21 @@ internal sealed class AttemptService(
             exams = member ? exams.Where(e => e.Assignments.Any(a => a.ClassroomId == classroomId)) : exams.Where(_ => false);
         }
 
+        if (query.CategoryId is { } categoryId)
+        {
+            var family = await db.CategoryFamilyIdsAsync(categoryId, ct);
+            exams = exams.Where(e => e.CategoryId != null && family.Contains(e.CategoryId.Value));
+        }
+
+        if (query.OtherOnly)
+        {
+            // Phần bù của các nhóm theo chuyên đề lớn: không đề nào bị mất khỏi Phòng luyện
+            var grouped = db.QuestionCategories
+                .Where(c => c.ParentId == null ? c.IsActive : db.QuestionCategories.Any(p => p.Id == c.ParentId && p.IsActive))
+                .Select(c => c.Id);
+            exams = exams.Where(e => e.CategoryId == null || !grouped.Contains(e.CategoryId.Value));
+        }
+
         var total = await exams.CountAsync(ct);
         var page = await exams
             .OrderBy(e => e.StartAt == null ? 1 : 0).ThenByDescending(e => e.StartAt).ThenBy(e => e.Name)
@@ -97,6 +119,18 @@ internal sealed class AttemptService(
         }).ToList();
 
         return new PagedResult<StudentExamListItemDto>(items, query.Page, query.PageSize, total);
+    }
+
+    public async Task<IReadOnlyList<StudentExamCategoryDto>> ListExamCategoriesAsync(Guid userId, CancellationToken ct)
+    {
+        var used = AccessibleExams(userId).Where(e => e.CategoryId != null).Select(e => e.CategoryId!.Value);
+        // Số chuyên đề của hệ thống nhỏ (2 cấp); vẫn chặn trên để không trả danh sách không giới hạn
+        return await db.QuestionCategories.AsNoTracking()
+            .Where(c => c.IsActive && (used.Contains(c.Id) || db.QuestionCategories.Any(child => child.ParentId == c.Id && used.Contains(child.Id))))
+            .OrderBy(c => c.Name)
+            .Take(PageRequest.MaxPageSize)
+            .Select(c => new StudentExamCategoryDto(c.Id, c.Name, c.ParentId))
+            .ToListAsync(ct);
     }
 
     public async Task<Result<StudentExamDetailDto>> GetExamAsync(Guid userId, Guid examId, CancellationToken ct)
@@ -460,6 +494,68 @@ internal sealed class AttemptService(
         }).ToList();
 
         return new PagedResult<StudentHistoryItemDto>(items, query.Page, query.PageSize, total);
+    }
+
+    public async Task<IReadOnlyList<StudentCategoryScoreDto>> CategoryScoresAsync(Guid userId, CancellationToken ct)
+    {
+        // Kết quả còn câu tự luận chờ chấm và lượt đã hủy không được tính
+        var rows = await (
+            from r in db.ExamResults.AsNoTracking()
+            join a in db.ExamAttempts on r.AttemptId equals a.Id
+            join e in db.Exams on r.ExamId equals e.Id
+            join v in db.ExamVersions on a.ExamVersionId equals v.Id
+            where r.UserId == userId && r.PendingManualCount == 0 && a.Status != AttemptStatus.Cancelled
+            select new
+            {
+                r.ExamId,
+                r.TotalScore,
+                r.Percentage,
+                r.SubmittedAt,
+                a.Status,
+                v.ScoreVisibility,
+                v.ReviewPolicy,
+                e.EndAt,
+                e.RetakeScoringPolicy,
+                e.CategoryId,
+            }).ToListAsync(ct);
+
+        var now = Now;
+        // Cùng chính sách hiển thị điểm với lịch sử thi (D-09); sau đó mỗi đề lấy một điểm chính thức (D-08)
+        var official = rows
+            .Where(r => ResultPolicy.Evaluate(r.Status, r.ScoreVisibility, r.ReviewPolicy, r.EndAt, 0, int.MaxValue, now).ScoreVisible)
+            .GroupBy(r => r.ExamId)
+            .Select(g => g.First().RetakeScoringPolicy == RetakeScoringPolicy.Highest
+                ? g.OrderByDescending(r => r.TotalScore).ThenByDescending(r => r.Percentage).First()
+                : g.OrderByDescending(r => r.SubmittedAt).First())
+            .ToList();
+
+        var ids = official.Where(r => r.CategoryId != null).Select(r => r.CategoryId!.Value).Distinct().ToList();
+        var names = await db.QuestionCategories.AsNoTracking()
+            .Where(c => ids.Contains(c.Id))
+            .Select(c => new
+            {
+                c.Id,
+                c.Name,
+                ParentName = db.QuestionCategories.Where(p => p.Id == c.ParentId).Select(p => p.Name).FirstOrDefault(),
+            })
+            .ToDictionaryAsync(c => c.Id, ct);
+
+        return official
+            .GroupBy(r => r.CategoryId)
+            .Select(g =>
+            {
+                var category = g.Key is { } id ? names.GetValueOrDefault(id) : null;
+                return new StudentCategoryScoreDto(
+                    category?.Id, category?.Name, category?.ParentName, g.Count(),
+                    Math.Round(g.Average(r => r.Percentage), 2, MidpointRounding.AwayFromZero),
+                    g.Max(r => r.Percentage));
+            })
+            // Theo chuyên đề lớn rồi tới chuyên đề con; nhóm chưa gắn chuyên đề xuống cuối
+            .OrderBy(s => s.CategoryId is null)
+            .ThenBy(s => s.ParentName ?? s.CategoryName, StringComparer.Ordinal)
+            .ThenBy(s => s.ParentName is not null)
+            .ThenBy(s => s.CategoryName, StringComparer.Ordinal)
+            .ToList();
     }
 
     // ----- Helpers -----

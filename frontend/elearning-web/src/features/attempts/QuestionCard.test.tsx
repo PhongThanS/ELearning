@@ -67,12 +67,12 @@ describe("QuestionCard", () => {
     expect(screen.getByRole("radio", { name: /await/ })).toBeInTheDocument();
   });
 
-  it("câu điền số báo sai định dạng ngay trên ô nhập", () => {
+  it("câu điền số đang gõ dở không hiện cảnh báo, chỉ hiện từng ký tự", () => {
     render(
       <QuestionCard
         question={{ ...base, type: "FILL_IN", answerDataType: "NUMBER", options: [] }}
         total={5}
-        draft={{ selectedOptions: [], answerText: "1,000.5", isMarkedForReview: false }}
+        draft={{ selectedOptions: [], answerText: "0,", isMarkedForReview: false }}
         onSelect={vi.fn()}
         onText={vi.fn()}
         onMark={vi.fn()}
@@ -81,29 +81,35 @@ describe("QuestionCard", () => {
 
     // Câu điền số hiển thị dạng lưới, mỗi ký tự một ô (kiểu phiếu trả lời THPT).
     const cells = within(screen.getByRole("group", { name: "Các ô điền đáp án số" })).getAllByRole("textbox");
-    expect(cells.map((c) => (c as HTMLInputElement).value).join("")).toBe("1,000.5");
+    expect(cells.map((c) => (c as HTMLInputElement).value).join("")).toBe("0,");
     for (const cell of cells) {
-      expect(cell).toHaveClass("is-invalid");
-      expect(cell).toHaveAttribute("aria-invalid", "true");
+      expect(cell).not.toHaveClass("is-invalid");
+      expect(cell).not.toHaveAttribute("aria-invalid");
     }
-    expect(screen.getByRole("textbox", { name: "Ô thứ 1 của đáp án" })).toHaveAccessibleDescription(/Số không hợp lệ/);
-    expect(screen.getByText(/Số không hợp lệ/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/Số không hợp lệ/)).toBeNull();
   });
 
-  it("câu điền số hợp lệ không báo lỗi", () => {
+  it("câu điền số không mở bàn phím điện thoại, dùng phím trên trang hoặc phím cứng", async () => {
+    const onText = vi.fn();
     render(
       <QuestionCard
         question={{ ...base, type: "FILL_IN", answerDataType: "NUMBER", options: [] }}
-        total={5}
-        draft={{ selectedOptions: [], answerText: "-3,5", isMarkedForReview: false }}
+        total={1}
+        draft={{ selectedOptions: [], answerText: "", isMarkedForReview: false }}
         onSelect={vi.fn()}
-        onText={vi.fn()}
+        onText={onText}
         onMark={vi.fn()}
       />,
     );
 
-    expect(screen.getByRole("textbox", { name: "Ô thứ 1 của đáp án" })).not.toHaveClass("is-invalid");
-    expect(screen.queryByText(/Số không hợp lệ/)).toBeNull();
+    const cells = screen.getAllByRole("textbox");
+    for (const cell of cells) expect(cell).toHaveAttribute("inputmode", "none");
+
+    await userEvent.click(screen.getByRole("button", { name: "7" }));
+    expect(onText).toHaveBeenLastCalledWith("7");
+    await userEvent.type(cells[0]!, "5");
+    expect(onText).toHaveBeenLastCalledWith("5");
   });
 
   it("câu điền chữ dùng một ô nhập nhận được chữ cái", async () => {

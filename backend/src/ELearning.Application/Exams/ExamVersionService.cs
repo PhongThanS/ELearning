@@ -463,7 +463,12 @@ internal sealed class ExamVersionService(
                     CatCount(QuestionDifficulty.Level3),
                     CatCount(QuestionDifficulty.Level4),
                     CatCount(null),
-                    CatCount(QuestionDifficulty.Level5));
+                    CatCount(QuestionDifficulty.Level5),
+                    CatCount(QuestionDifficulty.Level6),
+                    CatCount(QuestionDifficulty.Level7),
+                    CatCount(QuestionDifficulty.Level8),
+                    CatCount(QuestionDifficulty.Level9),
+                    CatCount(QuestionDifficulty.Level10));
             })
             .ToList();
 
@@ -475,7 +480,12 @@ internal sealed class ExamVersionService(
             Count(QuestionDifficulty.Level4),
             Count(null),
             byCategory,
-            Count(QuestionDifficulty.Level5)));
+            Count(QuestionDifficulty.Level5),
+            Count(QuestionDifficulty.Level6),
+            Count(QuestionDifficulty.Level7),
+            Count(QuestionDifficulty.Level8),
+            Count(QuestionDifficulty.Level9),
+            Count(QuestionDifficulty.Level10)));
     }
 
     public async Task<Result<VersionDetailDto>> MatrixDrawAsync(
@@ -498,7 +508,8 @@ internal sealed class ExamVersionService(
         var topics = request.Topics != null && request.Topics.Count > 0
             ? request.Topics.Where(t => t.TotalCount > 0).ToList()
             : [new MatrixTopicItem(
-                request.CategoryId, request.Level1Count, request.Level2Count, request.Level3Count, request.Level4Count, request.ScorePerQuestion, request.Level5Count)];
+                request.CategoryId, request.Level1Count, request.Level2Count, request.Level3Count, request.Level4Count, request.ScorePerQuestion, request.Level5Count,
+                request.Level6Count, request.Level7Count, request.Level8Count, request.Level9Count, request.Level10Count)];
 
         // Đề có chuyên đề (D-30): mục ma trận không chọn chuyên đề thì lấy chuyên đề của đề; chuyên đề khác là lỗi
         if (await ExamCategoryAsync(examId, ct) is { } examCategory)
@@ -614,6 +625,11 @@ internal sealed class ExamVersionService(
                 request.Level3Count,
                 request.Level4Count,
                 request.Level5Count,
+                request.Level6Count,
+                request.Level7Count,
+                request.Level8Count,
+                request.Level9Count,
+                request.Level10Count,
                 request.ScorePerQuestion,
                 TopicCount = topics.Count,
                 AddedCount = chosen.Count,
@@ -662,6 +678,11 @@ internal sealed class ExamVersionService(
                 request.Level3Count,
                 request.Level4Count,
                 request.Level5Count,
+                request.Level6Count,
+                request.Level7Count,
+                request.Level8Count,
+                request.Level9Count,
+                request.Level10Count,
                 TopicCount = topics.Count,
                 PoolRuleIds = addedRuleIds
             });
@@ -671,7 +692,7 @@ internal sealed class ExamVersionService(
         }
     }
 
-    /// <summary>Số câu cần bốc theo từng mức độ (Mức 1 … Mức 5) của một mục ma trận; bỏ mức 0 câu.</summary>
+    /// <summary>Số câu cần bốc theo từng mức độ (Mức 1 … Mức 10) của một mục ma trận; bỏ mức 0 câu.</summary>
     private static IEnumerable<(QuestionDifficulty Difficulty, int Count)> LevelCounts(MatrixTopicItem topic) =>
         new (QuestionDifficulty Difficulty, int Count)[]
         {
@@ -680,6 +701,11 @@ internal sealed class ExamVersionService(
             (QuestionDifficulty.Level3, topic.Level3Count),
             (QuestionDifficulty.Level4, topic.Level4Count),
             (QuestionDifficulty.Level5, topic.Level5Count),
+            (QuestionDifficulty.Level6, topic.Level6Count),
+            (QuestionDifficulty.Level7, topic.Level7Count),
+            (QuestionDifficulty.Level8, topic.Level8Count),
+            (QuestionDifficulty.Level9, topic.Level9Count),
+            (QuestionDifficulty.Level10, topic.Level10Count),
         }.Where(x => x.Count > 0);
 
     /// <summary>

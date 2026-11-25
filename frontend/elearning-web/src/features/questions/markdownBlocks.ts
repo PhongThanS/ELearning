@@ -4,7 +4,9 @@
  * diện thay đúng khối đó rồi cho server kiểm tra lại cả file — vẫn chỉ một nguồn sự thật là file .md.
  */
 
-export type Difficulty = "LEVEL1" | "LEVEL2" | "LEVEL3" | "LEVEL4" | "LEVEL5";
+import type { QuestionDifficulty } from "../../types/api";
+
+export type Difficulty = QuestionDifficulty;
 
 /** Ghi vào file .md dạng số như đề thi: "LEVEL3" → "3". */
 const difficultyText = (difficulty: Difficulty) => difficulty.replace("LEVEL", "");

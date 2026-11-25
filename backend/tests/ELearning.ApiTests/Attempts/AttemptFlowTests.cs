@@ -1,5 +1,7 @@
 using System.Net;
+using System.Text.Json;
 using ELearning.ApiTests.Admin;
+using ELearning.ApiTests.Exams;
 using ELearning.Application.Attempts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -408,6 +410,129 @@ public class AttemptFlowTests(ApiFactory factory)
         item.OfficialScore.Should().Be(6m, "RetakeScoringPolicy mặc định HIGHEST");
         item.UsedAttempts.Should().Be(2);
         item.Availability.Should().Be("NO_ATTEMPTS_LEFT");
+    }
+
+    [Fact]
+    public async Task Student_exam_list_filters_by_category_including_child_categories()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var parent = await CreateIdAsync(kit.Admin, "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Toán" });
+        var child = await CreateIdAsync(kit.Admin, "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Hàm số", parentId = parent });
+        var other = await CreateIdAsync(kit.Admin, "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Lý" });
+        var inChild = await CreatePublishedExamInCategoryAsync(kit.Admin, child);
+        var inOther = await CreatePublishedExamInCategoryAsync(kit.Admin, other);
+        var uncategorized = await kit.CreatePublishedExamAsync();
+        var (student, _, _) = await kit.CreateStudentAsync();
+
+        async Task<List<Guid>> ListAsync(string filter) =>
+            (await student.GetJsonAsync<Paged<StudentExamItem>>($"/api/student/exams?pageSize=100{filter}")).Body.Data!.Items.Select(e => e.ExamId).ToList();
+
+        (await ListAsync($"&categoryId={parent}")).Should().Equal(inChild);
+        (await ListAsync($"&categoryId={child}")).Should().Equal(inChild);
+        (await ListAsync($"&categoryId={other}")).Should().Equal(inOther);
+        (await ListAsync(string.Empty)).Should().Contain([inChild, inOther, uncategorized.Id]);
+
+        // Thẻ lọc: chỉ chuyên đề đang có đề học viên thấy được, kèm chuyên đề cha; đề còn nháp không tính
+        var empty = await CreateIdAsync(kit.Admin, "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Trống" });
+        var draftOnly = await CreateIdAsync(kit.Admin, "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Chỉ có nháp" });
+        await CreateIdAsync(kit.Admin, "/api/exams", new
+        {
+            code = ApiClientExtensions.UniqueName("AT-"),
+            name = "Đề nháp",
+            maxAttempts = 1,
+            accessMode = "PUBLIC",
+            durationMinutes = 30,
+            passPercentage = 50,
+            categoryId = draftOnly,
+        });
+
+        var (_, tags) = await student.GetJsonAsync<List<JsonElement>>("/api/student/exam-categories");
+        var tagIds = tags.Data!.Select(t => t.GetProperty("id").GetGuid()).ToList();
+
+        tagIds.Should().Contain([parent, child, other]).And.NotContain([empty, draftOnly]);
+
+        // "Đề khác": đề không thuộc nhóm chuyên đề lớn nào
+        (await ListAsync("&otherOnly=true")).Should().Contain(uncategorized.Id).And.NotContain([inChild, inOther]);
+
+        // Tắt chuyên đề con: đề vẫn ở nhóm chuyên đề lớn. Tắt chuyên đề lớn: đề chuyển sang "Đề khác".
+        (await kit.Admin.SendJsonAsync<object>(HttpMethod.Patch, $"/api/question-categories/{child}/status", new { isActive = false }))
+            .Response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await ListAsync($"&categoryId={parent}")).Should().Equal(inChild);
+        (await ListAsync("&otherOnly=true")).Should().NotContain(inChild);
+        var (_, afterChild) = await student.GetJsonAsync<List<JsonElement>>("/api/student/exam-categories");
+        afterChild.Data!.Select(t => t.GetProperty("id").GetGuid()).Should().Contain(parent).And.NotContain(child);
+
+        await kit.Admin.SendJsonAsync<object>(HttpMethod.Patch, $"/api/question-categories/{parent}/status", new { isActive = false });
+        (await ListAsync("&otherOnly=true")).Should().Contain(inChild);
+    }
+
+    [Fact]
+    public async Task Category_scores_group_official_results_and_hide_invisible_ones()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var parent = await CreateIdAsync(kit.Admin, "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Toán" });
+        var child = await CreateIdAsync(kit.Admin, "/api/question-categories", new { code = ApiClientExtensions.UniqueName("CD"), name = "Hàm số", parentId = parent });
+        var right = await CreatePublishedExamInCategoryAsync(kit.Admin, child);
+        var wrong = await CreatePublishedExamInCategoryAsync(kit.Admin, child);
+        var hidden = await CreatePublishedExamInCategoryAsync(kit.Admin, child, scoreVisibility: "HIDDEN");
+        var (student, _, _) = await kit.CreateStudentAsync();
+        foreach (var (examId, answer) in new[] { (right, "3,5"), (wrong, "1"), (hidden, "3,5") })
+        {
+            var attempt = await AttemptTestKit.StartAsync(student, examId);
+            await AttemptTestKit.SaveAsync(student, attempt, [new { questionId = attempt.Questions[0].Id, clientSeq = 1, answerText = answer }]);
+            await student.PostJsonAsync<ResultView>($"/api/student/attempts/{attempt.AttemptId}/submit");
+        }
+
+        var (response, scores) = await student.GetJsonAsync<List<JsonElement>>("/api/student/category-scores");
+        var (other, _, _) = await kit.CreateStudentAsync();
+        var (_, otherScores) = await other.GetJsonAsync<List<JsonElement>>("/api/student/category-scores");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var row = scores.Data!.Should().ContainSingle().Subject;
+        row.GetProperty("categoryId").GetGuid().Should().Be(child);
+        row.GetProperty("parentName").GetString().Should().Be("Toán");
+        row.GetProperty("examCount").GetInt32().Should().Be(2, "đề không cho xem điểm không được tính");
+        row.GetProperty("averagePercentage").GetDecimal().Should().Be(50m);
+        row.GetProperty("bestPercentage").GetDecimal().Should().Be(100m);
+        otherScores.Data.Should().BeEmpty("không thấy điểm của người khác");
+    }
+
+    private static async Task<Guid> CreateIdAsync(HttpClient admin, string url, object body)
+    {
+        var (response, created) = await admin.PostJsonAsync<JsonElement>(url, body);
+        response.StatusCode.Should().Be(HttpStatusCode.Created, string.Join(",", created.Errors.Select(e => e.Code)));
+        return created.Data.GetProperty("id").GetGuid();
+    }
+
+    /// <summary>Đề công khai một câu, gắn chuyên đề (câu trong đề phải cùng chuyên đề — D-30).</summary>
+    private static async Task<Guid> CreatePublishedExamInCategoryAsync(HttpClient admin, Guid categoryId, string scoreVisibility = "IMMEDIATE")
+    {
+        var question = await CreateIdAsync(admin, "/api/questions", new
+        {
+            content = "7 / 2 = ?",
+            questionType = "FILL_IN",
+            answerDataType = "NUMBER",
+            correctAnswerNumber = 3.5,
+            categoryId,
+        });
+        var (response, exam) = await admin.PostJsonAsync<ExamDetail>("/api/exams", new
+        {
+            code = ApiClientExtensions.UniqueName("AT-"),
+            name = "Đề theo chuyên đề",
+            maxAttempts = 1,
+            accessMode = "PUBLIC",
+            durationMinutes = 30,
+            passPercentage = 50,
+            categoryId,
+            scoreVisibility,
+            reviewPolicy = "NEVER",
+        });
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        var versionUrl = $"/api/exams/{exam.Data!.Id}/versions/{exam.Data.DraftVersionId}";
+        await admin.PostJsonAsync<object>($"{versionUrl}/questions", new { questionIds = new[] { question } });
+        var (publish, publishBody) = await admin.PostJsonAsync<object>($"{versionUrl}/publish");
+        publish.StatusCode.Should().Be(HttpStatusCode.OK, string.Join(",", publishBody.Errors.Select(e => e.Code)));
+        return exam.Data.Id;
     }
 
     [Fact]

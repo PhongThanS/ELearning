@@ -73,6 +73,7 @@ import type {
   Role,
   SaveAnswerItem,
   SaveAnswersResponse,
+  StudentCategoryScore,
   StudentExamDetail,
   StudentExamItem,
   StudentHistoryItem,
@@ -310,6 +311,9 @@ export const studentApi = {
   exams: (q: Query) => http.get<Paged<StudentExamItem>>("/student/exams", q),
   classes: () => http.get<MyClassroom[]>("/student/classes"),
   categories: () => http.get<Category[]>("/student/categories"),
+  categoryScores: () => http.get<StudentCategoryScore[]>("/student/category-scores"),
+  /** Chuyên đề đang có đề của học viên (thẻ lọc ở Phòng luyện). */
+  examCategories: () => http.get<Pick<Category, "id" | "name" | "parentId">[]>("/student/exam-categories"),
   exam: (id: string) => http.get<StudentExamDetail>(`/student/exams/${id}`),
   start: (id: string) => http.post<Attempt>(`/student/exams/${id}/start`),
   attempt: (id: string) => http.get<Attempt>(`/student/attempts/${id}`),

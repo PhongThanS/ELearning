@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type Dispatch } from "react";
 import { studentApi } from "../../services/api";
 import { ApiError } from "../../services/apiClient";
 import type { AttemptEventType } from "../../types/api";
-import { pendingItems, remainingMs, saveBackup, type PlayerAction, type PlayerState } from "./playerState";
+import { isUnsaved, pendingItems, remainingMs, saveBackup, type PlayerAction, type PlayerState } from "./playerState";
 
 const DEBOUNCE_MS = 500;
 const BACKOFF_MS = [1000, 2000, 4000, 8000, 15000];
@@ -36,7 +36,9 @@ export function useAutosave(state: PlayerState, dispatch: Dispatch<PlayerAction>
 
   const hasPending = pendingItems(state, 1).length > 0;
   // Trạng thái hiển thị được suy ra, không đồng bộ bằng effect
-  const status: SaveStatus = !hasPending ? "saved" : saving ? "saving" : "unsaved";
+  // Câu chưa gửi được (số gõ dở) vẫn tính là chưa lưu, không báo "đã lưu"
+  const allSaved = !Object.values(state.answers).some(isUnsaved);
+  const status: SaveStatus = allSaved ? "saved" : saving ? "saving" : "unsaved";
 
   const run = useCallback((): Promise<void> => {
     if (inFlight.current) {
@@ -62,7 +64,7 @@ export function useAutosave(state: PlayerState, dispatch: Dispatch<PlayerAction>
           return;
         }
         const permanent = error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429;
-        // Lỗi dữ liệu (ví dụ số sai định dạng) không thử lại vô hạn; UI báo ở ô nhập.
+        // Lỗi dữ liệu (ví dụ số sai định dạng) không thử lại vô hạn.
         failures.current = permanent ? BACKOFF_MS.length : failures.current + 1;
         if (error instanceof ApiError && error.isNetworkError) {
           dispatch({ type: "online", online: false });

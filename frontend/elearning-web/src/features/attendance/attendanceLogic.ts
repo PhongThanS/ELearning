@@ -16,7 +16,8 @@ export const homeworkOptions: { value: HomeworkStatus; label: string; icon: stri
   { value: "MISSING", label: "Không làm", icon: "❌" },
 ];
 
-export const statusLabel = (s: AttendanceStatus | null) => statusOptions.find((o) => o.value === s)?.label ?? "Chưa điểm danh";
+/** Chưa chọn trạng thái thì để trống, không hiện chữ thay thế (docs/06-frontend.md). */
+export const statusLabel = (s: AttendanceStatus | null) => statusOptions.find((o) => o.value === s)?.label ?? "";
 
 export const homeworkLabel = (h: HomeworkStatus | null) => {
   const option = homeworkOptions.find((o) => o.value === h);
@@ -280,7 +281,8 @@ export function buildMonthlyReport(h: AttendanceStudentHistory): string {
   lines.push("", "Chi tiết từng buổi:");
   for (const i of h.items) {
     const score = i.homeworkScore === null ? "" : ` - ${formatScoreValue(i.homeworkScore)}đ`;
-    lines.push(`- ${formatDateOnly(i.sessionDate)}: ${statusLabel(i.status)}${score}${i.note ? ` — ${i.note}` : ""}`);
+    const detail = `${statusLabel(i.status)}${score}`.replace(/^ - /, "");
+    lines.push(`- ${formatDateOnly(i.sessionDate)}${detail ? `: ${detail}` : ""}${i.note ? ` — ${i.note}` : ""}`);
   }
   lines.push("", "Trân trọng cảm ơn Quý Phụ huynh!");
   return lines.join("\n");

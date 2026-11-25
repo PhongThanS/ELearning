@@ -28,7 +28,7 @@ internal sealed class AttendanceExporter : IAttendanceExporter
         AttendanceStatus.Excused => "Vắng có phép",
         AttendanceStatus.Unexcused => "Vắng không phép",
         AttendanceStatus.Online => "Online",
-        _ => "Chưa điểm danh",
+        _ => string.Empty,
     };
 
     private static string HomeworkLabel(HomeworkStatus? status) => status switch

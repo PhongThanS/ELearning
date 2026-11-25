@@ -54,6 +54,12 @@ public sealed class StudentController(
     public async Task<ActionResult> ListExams([FromQuery] StudentExamListQuery query, CancellationToken ct) =>
         Ok(ApiResponse.Ok(await attempts.ListExamsAsync(UserId, query, ct), TraceId));
 
+    /// <summary>Thẻ lọc ở "Phòng luyện": chỉ chuyên đề đang có đề của học viên.</summary>
+    [HttpGet("exam-categories")]
+    [ProducesResponseType<ApiResponse<IReadOnlyList<StudentExamCategoryDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> ExamCategories(CancellationToken ct) =>
+        Ok(ApiResponse.Ok(await attempts.ListExamCategoriesAsync(UserId, ct), TraceId));
+
     [HttpGet("exams/{examId:guid}")]
     [ProducesResponseType<ApiResponse<StudentExamDetailDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> GetExam(Guid examId, CancellationToken ct) =>
@@ -112,6 +118,12 @@ public sealed class StudentController(
     [ProducesResponseType<ApiResponse<MyQuestionReportDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult> ReportQuestion(Guid attemptId, ReportQuestionRequest request, CancellationToken ct) =>
         ToResponse(await questionReports.ReportAsync(UserId, attemptId, request, ct));
+
+    /// <summary>Bảng điểm theo chuyên đề ở trang "Thông tin".</summary>
+    [HttpGet("category-scores")]
+    [ProducesResponseType<ApiResponse<IReadOnlyList<StudentCategoryScoreDto>>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult> CategoryScores(CancellationToken ct) =>
+        Ok(ApiResponse.Ok(await attempts.CategoryScoresAsync(UserId, ct), TraceId));
 
     [HttpGet("history")]
     [ProducesResponseType<ApiResponse<PagedResult<StudentHistoryItemDto>>>(StatusCodes.Status200OK)]

@@ -34,6 +34,21 @@ public sealed record StudentExamListItemDto(
     Guid? ExamVersionId = null,
     ExamKind Kind = ExamKind.Graded);
 
+/// <summary>Chuyên đề dùng làm thẻ lọc ở "Phòng luyện".</summary>
+public sealed record StudentExamCategoryDto(Guid Id, string Name, Guid? ParentId);
+
+/// <summary>
+/// Điểm của học viên gộp theo chuyên đề của đề; mỗi đề tính một điểm chính thức (D-08), quy ra %.
+/// <c>CategoryId = null</c>: đề chưa gắn chuyên đề.
+/// </summary>
+public sealed record StudentCategoryScoreDto(
+    Guid? CategoryId,
+    string? CategoryName,
+    string? ParentName,
+    int ExamCount,
+    decimal AveragePercentage,
+    decimal BestPercentage);
+
 public sealed record StudentAttemptSummaryDto(
     Guid AttemptId,
     int AttemptNumber,
@@ -184,6 +199,10 @@ public sealed record StudentExamListQuery : PageRequest
     public string? Keyword { get; init; }
     /// <summary>Chỉ đề được gán cho lớp này (học viên phải thuộc lớp).</summary>
     public Guid? ClassroomId { get; init; }
+    /// <summary>Chỉ đề thuộc chuyên đề này hoặc chuyên đề con của nó (D-30).</summary>
+    public Guid? CategoryId { get; init; }
+    /// <summary>Chỉ đề không nằm dưới chuyên đề lớn đang bật nào (nhóm "Đề khác" ở Phòng luyện).</summary>
+    public bool OtherOnly { get; init; }
 }
 
 public sealed record StudentHistoryQuery : PageRequest

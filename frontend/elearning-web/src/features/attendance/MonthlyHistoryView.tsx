@@ -63,7 +63,7 @@ export function MonthlyHistoryView({ history: data }: { history: AttendanceStude
                   <td className="text-nowrap">{formatDateOnly(i.sessionDate)}</td>
                   <td className="cell-clamp-2">{i.topic ?? "—"}</td>
                   <td>
-                    <Badge bg={statusOptions.find((o) => o.value === i.status)?.variant ?? "secondary"}>{statusLabel(i.status)}</Badge>
+                    {i.status && <Badge bg={statusOptions.find((o) => o.value === i.status)?.variant}>{statusLabel(i.status)}</Badge>}
                   </td>
                   <td className="text-nowrap">{homeworkLabel(i.homeworkStatus)}</td>
                   <td className="text-center">

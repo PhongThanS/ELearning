@@ -222,7 +222,9 @@ export interface Permission {
 export type QuestionType = "SINGLE_CHOICE" | "MULTIPLE_CHOICE" | "TRUE_FALSE" | "FILL_IN" | "ESSAY";
 export type AnswerDataType = "TEXT" | "NUMBER";
 /** Mức độ (độ khó) 1–5: Mức 1 nhận biết … Mức 4 vận dụng cao, Mức 5 nâng cao. */
-export type QuestionDifficulty = "LEVEL1" | "LEVEL2" | "LEVEL3" | "LEVEL4" | "LEVEL5";
+export type QuestionDifficulty =
+  | "LEVEL1" | "LEVEL2" | "LEVEL3" | "LEVEL4" | "LEVEL5"
+  | "LEVEL6" | "LEVEL7" | "LEVEL8" | "LEVEL9" | "LEVEL10";
 export type ContentFormat = "PLAIN" | "MARKDOWN";
 
 export interface Category {
@@ -457,6 +459,11 @@ export interface CategoryMatrixStats {
   level3Candidates: number;
   level4Candidates: number;
   level5Candidates?: number;
+  level6Candidates?: number;
+  level7Candidates?: number;
+  level8Candidates?: number;
+  level9Candidates?: number;
+  level10Candidates?: number;
   unspecifiedCandidates: number;
 }
 
@@ -466,6 +473,12 @@ export interface MatrixStats {
   level2Candidates: number;
   level3Candidates: number;
   level4Candidates: number;
+  level5Candidates?: number;
+  level6Candidates?: number;
+  level7Candidates?: number;
+  level8Candidates?: number;
+  level9Candidates?: number;
+  level10Candidates?: number;
   unspecifiedCandidates: number;
   byCategory?: CategoryMatrixStats[];
 }
@@ -477,6 +490,11 @@ export interface MatrixTopicItem {
   level3Count: number;
   level4Count: number;
   level5Count: number;
+  level6Count?: number;
+  level7Count?: number;
+  level8Count?: number;
+  level9Count?: number;
+  level10Count?: number;
   scorePerQuestion?: number | null;
 }
 
@@ -489,6 +507,11 @@ export interface MatrixDrawInput {
   level3Count?: number;
   level4Count?: number;
   level5Count?: number;
+  level6Count?: number;
+  level7Count?: number;
+  level8Count?: number;
+  level9Count?: number;
+  level10Count?: number;
   scorePerQuestion?: number | null;
   mode: MatrixDrawMode;
   topics?: MatrixTopicItem[];
@@ -580,6 +603,16 @@ export type AttemptEventType =
   | "MULTI_TAB_DETECTED"
   | "PAGE_RELOAD"
   | "PASTE";
+
+/** Điểm gộp theo chuyên đề của đề (categoryId null = đề chưa gắn chuyên đề). */
+export interface StudentCategoryScore {
+  categoryId: string | null;
+  categoryName: string | null;
+  parentName: string | null;
+  examCount: number;
+  averagePercentage: number;
+  bestPercentage: number;
+}
 
 export interface StudentExamItem {
   kind?: ExamKind;

@@ -18,10 +18,11 @@ Công khai
 Học viên  (/student/*)
 /student                      → chuyển hướng tới /student/attendance
 /student/attendance           điểm danh & BTVN theo tháng của tôi (trang mặc định, D-31)
-/student/exams                danh sách đề được thi
+/student/exams                "Phòng luyện": mỗi chuyên đề lớn đang có đề là một khu (tiêu đề = tên chuyên đề, thẻ chuyên đề con để lọc), đề còn lại ở khu "Đề khác"
 /student/exams/:examId        chi tiết đề, hướng dẫn, nút Bắt đầu / Tiếp tục
 /student/attempts/:attemptId  exam player (PlayerLayout, không có menu)
 /student/results/:attemptId   kết quả / xem lại bài
+/student/attendance           "Thông tin": điểm danh, BTVN theo tháng và bảng điểm theo chuyên đề (thang 10)
 /student/history
 /student/classes              lớp của tôi (D-28)
 /student/classes/:classId     đề thi được gán cho lớp
@@ -207,6 +208,7 @@ type ExamPlayerState = {
 5. Lỗi mạng hoặc 5xx: thử lại theo backoff (1s, 2s, 4s, tối đa 15s), giữ nguyên dữ liệu và hiển thị "Chưa lưu". Khi có sự kiện `online`, gửi lại ngay.
 6. Lỗi `ATTEMPT_EXPIRED` / `ATTEMPT_NOT_IN_PROGRESS`: dừng lưu, tải lại lượt thi, chuyển sang trang kết quả.
 7. `clientSeq` được sinh bằng `max(lastSeq + 1, Date.now())`. Như vậy seq tăng dần ngay cả qua các lần tải lại trang, và giữa các tab trên cùng một máy.
+8. Câu điền số sai định dạng (gõ dở như `0,` hay `-`) **không** được đưa vào batch, vì server từ chối cả batch (`INVALID_NUMBER_FORMAT`). Câu đó vẫn ở trạng thái "Chưa lưu" (có backup trên máy), server giữ đáp án hợp lệ lưu gần nhất; gõ thành số hợp lệ thì gửi như thường.
 
 **Backup cục bộ:**
 - Key `exam_attempt_{attemptId}` trong **`sessionStorage`** (không dùng `localStorage`, vì phòng máy dùng chung).
@@ -259,6 +261,7 @@ type ExamPlayerState = {
 - Dữ liệu buổi không tải lại ngầm (`staleTime: Infinity`, không refetch khi focus) để không ghi đè thao tác đang làm.
 - Thẻ thống kê (sĩ số / có mặt / muộn / có phép / không phép) bấm để lọc; thêm lọc "chưa điểm danh", "BTVN cần lưu ý" (thiếu, không làm hoặc điểm < 5); sắp xếp theo STT hoặc điểm.
 - Điểm: nút − / +, gõ được dấu phẩy, tự làm tròn bước 0,5; `Enter` / `↓` / `↑` sang dòng khác; phím `/` tìm học sinh. Nhập điểm khi chưa chọn mức BTVN thì gợi ý mức (≥ 8,5 Xuất sắc, ≥ 5 Đạt, còn lại Làm thiếu).
+- Học sinh chưa chọn trạng thái điểm danh thì **để trống** ở nơi chỉ hiển thị trạng thái (lịch sử, báo cáo, tin tổng kết, file Excel). Ô chọn và bộ lọc trên màn điểm danh vẫn có mục "Chưa điểm danh".
 - "Tất cả có mặt" / "100% Đạt BTVN" chỉ áp cho học sinh chưa điểm danh / chưa chấm, không ghi đè lựa chọn đã có.
 - Nhận xét nhanh (chip) theo trạng thái và học lực; không thêm câu đã có.
 - Báo cáo Zalo, tổng kết tháng: soạn ở client (`attendanceLogic.ts`), giáo viên sao chép.

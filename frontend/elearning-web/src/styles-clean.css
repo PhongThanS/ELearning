@@ -63,6 +63,74 @@ body {
   --side-accent: #93c5fd;
 }
 
+/* ---------- Tab chính: chữ to, dàn đều thanh menu, ngăn nhau bằng dấu | ---------- */
+.student-main-nav {
+  flex-grow: 1;
+  margin: 0 1.5rem;
+}
+.student-main-nav .nav-link {
+  position: relative;
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+.student-main-nav .nav-link + .nav-link::before {
+  content: "|";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+.student-main-nav .nav-link:hover,
+.student-main-nav .nav-link:focus-visible {
+  color: #ffffff;
+}
+.student-main-nav .nav-link.active {
+  color: #ffffff;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: #38bdf8;
+  text-decoration-thickness: 3px;
+  text-underline-offset: 0.5rem;
+}
+/* Menu thu gọn (dưới xl): các mục xếp dọc, không cần dấu ngăn */
+@media (max-width: 1199.98px) {
+  .student-main-nav {
+    margin: 0.75rem 0;
+  }
+  .student-main-nav .nav-link {
+    text-align: left;
+  }
+  .student-main-nav .nav-link + .nav-link::before {
+    display: none;
+  }
+}
+
+/* Nav của Bootstrap cho xuống dòng (flex-wrap): ở cột dọc, nhãn dài làm khung mục con rộng hơn menu */
+.admin-sidebar > .nav {
+  flex-wrap: nowrap;
+}
+
+/* Menu quản trị: chỉ mục chính to và thưa hơn, mục con giữ cỡ cũ */
+.admin-sidebar > .nav > .nav-link,
+.admin-sidebar > .nav > div:not(.nav-subgroup) > .nav-link {
+  min-height: 2.85rem;
+  margin-bottom: 0.4rem;
+}
+.admin-sidebar > .nav > .nav-link .nav-item-label,
+.admin-sidebar > .nav > div:not(.nav-subgroup) > .nav-link .nav-item-label {
+  font-size: 1.06rem;
+}
+.admin-sidebar > .nav > .nav-link .nav-item-icon,
+.admin-sidebar > .nav > div:not(.nav-subgroup) > .nav-link .nav-item-icon {
+  font-size: 1.15rem;
+}
+
 /* ---------- Thẻ ---------- */
 .card {
   border: 1px solid var(--clean-border);

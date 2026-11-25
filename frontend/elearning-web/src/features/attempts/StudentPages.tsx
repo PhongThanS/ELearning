@@ -11,6 +11,7 @@ import { MarkdownView } from "../../components/common/MarkdownView";
 import { MediaUrls } from "../../components/common/MediaUrls";
 import { SearchBox } from "../../components/common/DataTable";
 import { InfiniteSentinel } from "../../components/common/InfiniteScroll";
+import { byName, CategoryTags, type CategoryTag } from "./CategoryTags";
 import { formatDateRange, formatDateTime, formatDuration, formatNumber, formatScore, optionLabel } from "../../utils/format";
 import { useAuth } from "../auth/useAuth";
 import {
@@ -43,15 +44,13 @@ const AVAILABILITY_ICON: Record<ExamAvailability, string> = {
 export function StudentExamsPage() {
   const { t } = useTranslation();
   const [keyword, setKeyword] = useState("");
-  const query = useInfiniteQuery({
-    queryKey: ["student-exams", "scroll", keyword],
-    initialPageParam: 1,
-    queryFn: ({ pageParam }) => studentApi.exams({ page: pageParam, pageSize: 18, keyword: keyword || undefined }),
-    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
-  });
+  const categories = useQuery({ queryKey: ["student-exam-categories"], queryFn: () => studentApi.examCategories(), staleTime: 60_000 });
+  // Dòng chào đếm trên mọi đề, không phụ thuộc nhóm / ô tìm kiếm
+  const overview = useQuery({ queryKey: ["student-exams", "overview"], queryFn: () => studentApi.exams({ page: 1, pageSize: 100 }) });
   const { user } = useAuth();
-  const items = query.data?.pages.flatMap((p) => p.items) ?? [];
-  const ready = items.filter((e) => e.availability === "AVAILABLE" || e.availability === "IN_PROGRESS").length;
+  const ready = (overview.data?.items ?? []).filter((e) => e.availability === "AVAILABLE" || e.availability === "IN_PROGRESS").length;
+  const tags = categories.data ?? [];
+  const roots = tags.filter((c) => !c.parentId).sort(byName);
 
   return (
     <>
@@ -59,14 +58,10 @@ export function StudentExamsPage() {
         <div className="position-relative" style={{ zIndex: 1 }}>
           <div className="opacity-75 small">{t("student.greeting")}</div>
           <h1 className="h3 fw-bold mb-1">{user?.fullName}</h1>
-          <p className="mb-0 opacity-75">{query.data ? t("student.readyCount", { count: ready }) : t("student.exams")}</p>
+          <p className="mb-0 opacity-75">{overview.data ? t("student.readyCount", { count: ready }) : t("student.exams")}</p>
         </div>
       </section>
-      <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-        <h2 className="h5 mb-0">
-          <i className="bi bi-journal-text text-primary me-2" aria-hidden="true" />
-          {t("student.exams")}
-        </h2>
+      <div className="d-flex justify-content-end mb-3">
         <div style={{ maxWidth: 360, width: "100%" }}>
           <SearchBox
             value={keyword}
@@ -75,9 +70,65 @@ export function StudentExamsPage() {
           />
         </div>
       </div>
+      {categories.error && <ErrorAlert error={categories.error} onRetry={() => void categories.refetch()} />}
+      {categories.isLoading && <Loading />}
+      {/* Mỗi chuyên đề lớn một khu; chưa đề nào gắn chuyên đề thì một khu "Phòng luyện" chứa tất cả */}
+      {!categories.isLoading &&
+        (roots.length === 0 ? (
+          <ExamSection title={t("student.exams")} keyword={keyword} />
+        ) : (
+          <>
+            {roots.map((root) => (
+              <ExamSection key={root.id} title={root.name} parent={root} categories={tags} keyword={keyword} />
+            ))}
+            <ExamSection title={t("student.otherExams")} keyword={keyword} otherOnly />
+          </>
+        ))}
+    </>
+  );
+}
+
+/** Một khu đề ở Phòng luyện: tiêu đề, thẻ chuyên đề con và danh sách đề cuộn tải thêm. */
+function ExamSection({
+  title,
+  parent,
+  categories = [],
+  keyword,
+  otherOnly = false,
+}: {
+  title: string;
+  parent?: CategoryTag;
+  categories?: CategoryTag[];
+  keyword: string;
+  otherOnly?: boolean;
+}) {
+  const { t } = useTranslation();
+  const [selected, setSelected] = useState("");
+  const categoryId = selected || parent?.id;
+  const query = useInfiniteQuery({
+    queryKey: ["student-exams", "scroll", keyword, categoryId ?? "", otherOnly],
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      studentApi.exams({ page: pageParam, pageSize: 18, keyword: keyword || undefined, categoryId, otherOnly: otherOnly || undefined }),
+    getNextPageParam: (last) => (last.page < last.totalPages ? last.page + 1 : undefined),
+  });
+  const items = query.data?.pages.flatMap((p) => p.items) ?? [];
+
+  // Khu "Đề khác" chỉ hiện khi có đề
+  if (otherOnly && !query.error && items.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="mb-4" aria-label={title}>
+      <h2 className="h5 mb-3">
+        <i className="bi bi-journal-text text-primary me-2" aria-hidden="true" />
+        {title}
+      </h2>
+      {parent && <CategoryTags parent={parent} categories={categories} value={categoryId ?? parent.id} onChange={setSelected} />}
       {query.error && <ErrorAlert error={query.error} onRetry={() => void query.refetch()} />}
       {query.isLoading && <Loading />}
-      {query.data && items.length === 0 && <Empty text={t("student.noExams")} />}
+      {query.data && items.length === 0 && <Empty text={t(parent ? "student.noExamsInCategory" : "student.noExams")} />}
       <Row xs={1} md={2} lg={3} className="g-3">
         {items.map((exam) => (
           <Col key={exam.examId}>
@@ -86,7 +137,7 @@ export function StudentExamsPage() {
         ))}
       </Row>
       <InfiniteSentinel hasMore={!!query.hasNextPage} loading={query.isFetchingNextPage} onReach={() => void query.fetchNextPage()} />
-    </>
+    </section>
   );
 }
 
@@ -865,9 +916,6 @@ function TrueFalseReviewTable({
             <th style={{ backgroundColor: "#064e3b", color: "#ffffff", width: "120px", textAlign: "center", padding: "10px" }}>
               Đáp án
             </th>
-            <th style={{ backgroundColor: "#064e3b", color: "#ffffff", width: "110px", textAlign: "center", padding: "10px" }}>
-              Kết quả
-            </th>
           </tr>
         </thead>
         <tbody>
@@ -911,17 +959,6 @@ function TrueFalseReviewTable({
                     <Badge bg="success" className="px-2 py-1">Đúng</Badge>
                   ) : (
                     <Badge bg="danger" className="px-2 py-1">Sai</Badge>
-                  )}
-                </td>
-                <td className="text-center">
-                  {isItemCorrect ? (
-                    <span className="text-success fw-bold d-inline-flex align-items-center gap-1">
-                      <i className="bi bi-check-circle-fill" /> Đúng
-                    </span>
-                  ) : (
-                    <span className="text-danger fw-bold d-inline-flex align-items-center gap-1">
-                      <i className="bi bi-x-circle-fill" /> Sai
-                    </span>
                   )}
                 </td>
               </tr>

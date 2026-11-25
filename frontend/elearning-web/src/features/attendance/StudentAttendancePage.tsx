@@ -6,6 +6,7 @@ import { Empty, ErrorAlert, Loading } from "../../components/common/Feedback";
 import { PageHeader } from "../../components/common/DataTable";
 import { MonthlyHistoryView } from "./MonthlyHistoryView";
 import { vnDate } from "./attendanceLogic";
+import { CategoryScoreCard } from "../attempts/CategoryScoreCard";
 
 /** Trang mặc định của học sinh: điểm danh + điểm BTVN theo tháng của chính mình (giống cửa sổ lịch sử bên giáo viên). */
 export function StudentAttendancePage() {
@@ -63,6 +64,7 @@ export function StudentAttendancePage() {
           </Card.Body>
         </Card>
       )}
+      <CategoryScoreCard />
     </>
   );
 }

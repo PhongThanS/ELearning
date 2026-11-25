@@ -62,7 +62,7 @@ public sealed class ZaloMessageComposer(IOptions<ZaloOptions> options)
         AttendanceStatus.Online => "Học online",
         AttendanceStatus.Excused => "Vắng có phép",
         AttendanceStatus.Unexcused => "Vắng không phép",
-        _ => "Chưa điểm danh",
+        _ => string.Empty,
     };
 
     /// <summary>9,5 → "9,5"; 8 → "8"; chưa có điểm → "-".</summary>
