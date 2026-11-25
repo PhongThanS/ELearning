@@ -1,12 +1,14 @@
-# Triển khai lên server Linux (Docker, build từ mã nguồn)
+# Triển khai lên server Linux (Docker, build ở máy dev)
 
-Server chạy `docker compose` ở `/opt/elearning`, build trực tiếp từ mã nguồn trên GitHub.
-Một lệnh trên máy dev cập nhật bản mới nhất lên server.
+Server chạy `docker compose` ở `/opt/elearning`. **Image Docker được build ở máy dev** rồi gửi lên server;
+server chỉ nạp image và khởi động lại. Một lệnh trên máy dev làm toàn bộ.
 
 | File | Chạy ở đâu | Việc làm |
 |---|---|---|
-| `deploy.cmd` | máy Windows của dev | `git push` nhánh hiện tại, rồi gọi `update.sh` trên server qua SSH |
-| `update.sh` | server Linux | `pg_dump` trước khi cập nhật (giữ 10 bản), `git reset --hard origin/<nhánh>`, `docker compose up -d --build`, chờ `/health/ready`, dọn cache |
+| `deploy.cmd` | máy Windows của dev | build 3 image (`elearning-api`, `elearning-migrator`, `elearning-web`) cho `linux/amd64`, đóng gói, `git push` `main`, gửi image bằng `scp`, gọi `load-images.sh` trên server |
+| `deploy.cmd build` | máy Windows của dev | chỉ build và đóng gói (`%TEMP%\elearning-images.tar`), không đụng GitHub hay server |
+| `load-images.sh` | server Linux | kiểm tra đúng commit, `pg_dump` (giữ 10 bản), giữ image cũ với tag `prev`, `docker load`, `docker compose up -d --no-build`, chờ `/health/ready` |
+| `update.sh` | server Linux | **dự phòng:** build ngay trên server. Ngày 25/11/2026 bước đóng gói migration bị treo trên server, nên không dùng làm cách chính |
 
 ## Từ code đến server (quy trình cho mọi thành viên)
 
@@ -43,17 +45,30 @@ GitHub không nhận mật khẩu tài khoản khi push qua HTTPS. Khi được 
    git push origin main
    ```
    Nếu `pull --rebase` báo xung đột: mở file bị báo, giữ phần đúng, `git add <file>`, `git rebase --continue`; muốn bỏ thì `git rebase --abort`. Không dùng `git push --force` trên `main`.
-5. **Cập nhật server:** bấm đúp `deploy\linux\deploy.cmd` (bước dưới).
+5. **Cập nhật server:** bấm đúp `deploy\linux\deploy.cmd` (build ở máy bạn rồi gửi lên, xem bước dưới).
 
 Làm việc theo nhánh riêng (khuyến nghị khi thay đổi lớn hoặc cần người khác xem): `git checkout -b feature/ten-ngan`, push nhánh đó, mở Pull Request vào `main`, chờ CI xanh (`backend`, `frontend`, `docker` trong tab Actions) rồi merge. Sau khi merge, `git checkout main && git pull` và chạy `deploy.cmd`. `deploy.cmd` từ chối chạy khi đang ở nhánh khác `main`.
 
 ## Cập nhật server (bước deploy)
 
-1. Đảm bảo đang ở nhánh `main` và code đã commit.
-2. Bấm đúp `deploy\linux\deploy.cmd` (hoặc chạy trong terminal ở thư mục gốc repo). Script cảnh báo nếu còn file chưa commit, push `main`, rồi cập nhật server qua SSH.
-3. Chờ dòng `OK: hệ thống đã chạy.` (2–5 phút). Thấy `LỖI` thì xem mục "Lưu ý" bên dưới.
+1. Mở **Docker Desktop** trên máy dev và đợi sẵn sàng.
+2. Đảm bảo đang ở nhánh `main` và **mọi thay đổi đã commit** (image build từ thư mục đang làm việc nên script dừng nếu còn file chưa commit).
+3. Bấm đúp `deploy\linux\deploy.cmd`, hoặc chạy ở thư mục gốc repo:
 
-Không cập nhật khi đang có kỳ thi diễn ra: API khởi động lại vài giây (`docs/09-van-hanh.md` mục 5). Trước khi deploy nên xem tab Actions trên GitHub để chắc commit mới nhất đã xanh, vì server không tự kiểm tra test.
+   ```powershell
+   deploy\linux\deploy.cmd
+   ```
+
+   Thứ tự: build → đóng gói → push `main` → gửi image → cập nhật server. Build lỗi thì chưa có gì bị đẩy đi.
+4. Chờ dòng `OK: hệ thống đã chạy.` rồi `=== Xong ===`. Thời gian phụ thuộc chủ yếu vào tốc độ tải lên (file image cỡ 150 MB). Thấy `LỖI` / `DUNG` thì xem mục "Lưu ý" bên dưới.
+
+Muốn thử build trước (không đẩy gì lên server):
+
+```powershell
+deploy\linux\deploy.cmd build
+```
+
+Không cập nhật khi đang có kỳ thi diễn ra: API khởi động lại vài giây (`docs/09-van-hanh.md` mục 5). Trước khi deploy phải tự chạy test (hoặc xem tab Actions trên GitHub), vì script không kiểm tra test.
 
 ## Cài đặt cho một người mới (làm một lần)
 
@@ -109,9 +124,18 @@ docker compose up -d --build
 
 - `.env`, `media/`, `backups/` nằm ngoài git nên không bị `git reset --hard` ảnh hưởng. **Không sửa file trực tiếp trong `/opt/elearning`**: mọi thay đổi code phải qua git.
 - Migration tự chạy ở mỗi lần cập nhật (service `migrate`). Bản `.dump` trước cập nhật nằm ở `/opt/elearning/backups/before-update-*.dump`.
-- Cập nhật lỗi: `ssh -p 24700 root@<server> "cd /opt/elearning && docker compose logs --tail=100 api"`.
-- Quay lại bản cũ: trên server `git reset --hard <commit>` rồi `docker compose up -d --build`; nếu migration mới không tương thích thì khôi phục từ file `.dump` (`docs/09-van-hanh.md` mục 6).
-- Dung lượng ổ đĩa: `update.sh` đã dọn image và build cache cũ; không dùng `docker system prune --volumes` vì sẽ xóa database.
+- Cập nhật lỗi: `ssh -p 24700 root@<server> "cd /opt/elearning && docker compose logs --tail=100 api migrate"`.
+- Quay lại bản ngay trước đó (không cần build): trên server
+
+  ```bash
+  cd /opt/elearning && git reset --hard <commit cũ>
+  for n in api web migrator; do docker tag elearning-$n:prev elearning-$n:local; done
+  docker compose up -d --no-build   # thêm các file -f docker-compose.prod.yml / override nếu server đang dùng
+  ```
+
+  Nếu migration mới không tương thích với bản cũ thì khôi phục từ file `.dump` (`docs/09-van-hanh.md` mục 6).
+- Build ngay trên server (dự phòng, khi máy dev không có Docker): `ssh -p 24700 root@<server> "bash /opt/elearning/deploy/linux/update.sh"`. Nếu đứng quá 10 phút ở `migrate bundle` thì dừng và build ở máy dev.
+- Dung lượng ổ đĩa: script đã dọn image cũ (giữ tag `prev`) và xóa file image sau khi cập nhật thành công; không dùng `docker system prune --volumes` vì sẽ xóa database.
 
 ## Kết nối DB từ máy local (SSH tunnel)
 
