@@ -158,6 +158,20 @@ export function statusChips(status: AttendanceStatus | null): { label: string; t
 }
 
 /** Số điện thoại → chỉ chữ số (đầu +84 đổi thành 0) cho link gọi / Zalo. */
+/** Các mức phân loại học sinh trong buổi (D-47). */
+export const LEVELS = [1, 2, 3, 4, 5] as const;
+
+export const levelLabel = (level: number | null | undefined) => (level ? `Loại ${level}` : "");
+
+/** Nhận xét đưa lên báo cáo: nhận xét chung của loại (nếu có) rồi tới nhận xét riêng của học sinh. */
+export function combineComment(levelComment: string | null | undefined, note: string | null | undefined): string | null {
+  const shared = levelComment?.trim() ?? "";
+  const own = note?.trim() ?? "";
+  if (!shared) return own || null;
+  if (!own) return shared;
+  return /[.!?…]$/.test(shared) ? `${shared} ${own}` : `${shared}. ${own}`;
+}
+
 export function phoneDigits(phone: string | null): string | null {
   if (!phone) return null;
   let digits = phone.replace(/\D/g, "");

@@ -203,6 +203,7 @@ CREATE INDEX IX_AuditLogs_Entity    ON AuditLogs(EntityName, EntityId);
 | SessionDate | date | ngày học theo lịch Việt Nam |
 | Topic | varchar(500) NULL | nội dung bài học |
 | NextHomework | varchar(1000) NULL | BTVN giao cho buổi sau |
+| LevelComment1 … LevelComment5 | varchar(500) NULL | nhận xét chung cho học sinh phân loại 1…5 (D-47) |
 | CreatedBy / CreatedAt | uuid FK → Users / timestamptz | |
 | UpdatedBy / UpdatedAt | uuid FK → Users NULL / timestamptz NULL | |
 
@@ -218,11 +219,12 @@ Index: `UQ_AttendanceSessions_Classroom_Date` (ClassroomId, SessionDate) UNIQUE 
 | Status | varchar(40) NULL | `PRESENT` / `LATE` / `ONLINE` / `EXCUSED` / `UNEXCUSED`; NULL = chưa điểm danh (CHECK) |
 | HomeworkStatus | varchar(40) NULL | `EXCELLENT` / `DONE` / `PARTIAL` / `MISSING` (CHECK) |
 | HomeworkScore | decimal(4,1) NULL | 0–10 (CHECK), bước 0,5 kiểm ở domain |
-| Note | varchar(1000) NULL | nhận xét |
+| Note | varchar(1000) NULL | nhận xét riêng |
+| Level | int NULL | phân loại 1–5 trong buổi (`CK_AttendanceRecords_Level`); NULL = không phân loại (D-47) |
 | UpdatedBy / UpdatedAt | uuid FK → Users NULL / timestamptz NULL | |
 
 Index: `UQ_AttendanceRecords_Session_Student` UNIQUE, `IX_AttendanceRecords_Student`.
-"Làm mới buổi" chỉ đặt các cột về NULL, không xóa dòng.
+"Làm mới buổi" chỉ đặt các cột về NULL (kể cả `Level` và 5 nhận xét phân loại), không xóa dòng.
 
 **StudentContacts** — liên hệ phụ huynh, PK = `UserId` (FK → Users): `ParentName` varchar(200) NULL, `ParentPhone` varchar(20) NULL, `StudentPhone` varchar(20) NULL (D-43),
 `UpdatedBy`, `UpdatedAt`. Tách khỏi `Users` để không đụng luồng tài khoản; ẩn danh hóa user xóa trắng tên và số điện thoại phụ huynh.

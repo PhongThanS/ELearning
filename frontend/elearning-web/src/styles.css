@@ -1655,3 +1655,10 @@ body {
   font-weight: 500;
   background: #ffffff;
 }
+
+/* Điểm danh: ô nhận xét chung gộp cho nhóm học sinh cùng phân loại (D-47) */
+.attendance-table td.attendance-level-comment {
+  vertical-align: top;
+  background-color: rgba(13, 110, 253, 0.04);
+  border-left: 3px solid rgba(13, 110, 253, 0.35);
+}

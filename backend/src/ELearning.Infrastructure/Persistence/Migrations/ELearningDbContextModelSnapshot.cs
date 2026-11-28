@@ -316,6 +316,9 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         .IsUnicode(false)
                         .HasColumnType("character varying(40)");
 
+                    b.Property<int?>("Level")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Note")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -353,6 +356,8 @@ namespace ELearning.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("CK_AttendanceRecords_HomeworkStatus", "\"HomeworkStatus\" IN ('EXCELLENT','DONE','PARTIAL','MISSING')");
 
+                            t.HasCheckConstraint("CK_AttendanceRecords_Level", "\"Level\" IS NULL OR \"Level\" BETWEEN 1 AND 5");
+
                             t.HasCheckConstraint("CK_AttendanceRecords_Score", "\"HomeworkScore\" IS NULL OR (\"HomeworkScore\" >= 0 AND \"HomeworkScore\" <= 10)");
 
                             t.HasCheckConstraint("CK_AttendanceRecords_Status", "\"Status\" IN ('PRESENT','LATE','EXCUSED','UNEXCUSED','ONLINE')");
@@ -373,6 +378,26 @@ namespace ELearning.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("CreatedBy")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("LevelComment1")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("LevelComment2")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("LevelComment3")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("LevelComment4")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("LevelComment5")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("NextHomework")
                         .HasMaxLength(1000)

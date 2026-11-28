@@ -1262,6 +1262,8 @@ export interface AttendanceEntry {
   homeworkStatus: HomeworkStatus | null;
   homeworkScore: number | null;
   note: string | null;
+  /** Phân loại 1..5 trong buổi (D-47); null = không phân loại. */
+  level?: number | null;
 }
 
 export interface AttendanceStudent extends AttendanceEntry {
@@ -1286,12 +1288,16 @@ export interface AttendanceSession {
   updatedAt: string | null;
   updatedByName: string | null;
   students: AttendanceStudent[];
+  /** Nhận xét chung theo phân loại, phần tử 0 là loại 1 (D-47). */
+  levelComments?: (string | null)[];
 }
 
 export interface SaveAttendanceInput {
   topic: string | null;
   nextHomework: string | null;
   records: (AttendanceEntry & { studentId: string })[];
+  /** 5 nhận xét chung theo phân loại (D-47); bỏ qua = giữ nguyên. */
+  levelComments?: (string | null)[];
 }
 
 export interface SaveAttendanceResult {

@@ -7,4 +7,6 @@ export const Features = {
   tagFilter: false,
   /** Nhóm người dùng: mục menu, trang Nhóm, cột nhóm ở chi tiết người dùng, ô thêm nhóm khi gán đề. */
   userGroups: false,
+  /** Nút "Nhắn từng PH" ở trang Điểm danh (nhắn Zalo từng phụ huynh, miễn phí): tạm ẩn. */
+  zaloPerParent: false,
 } as const;

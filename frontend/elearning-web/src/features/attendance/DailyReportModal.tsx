@@ -14,7 +14,7 @@ import {
   type DailyReportRow,
   REPORT_ATTENDANCE_COLORS,
 } from "./dailyReport";
-import { statusLabel } from "./attendanceLogic";
+import { statusLabel, levelLabel } from "./attendanceLogic";
 import type { AttendanceStatus } from "../../types/api";
 
 export interface DailyReportStudent {
@@ -25,6 +25,8 @@ export interface DailyReportStudent {
   status: AttendanceStatus | null;
   homeworkScore: number | null;
   note: string | null;
+  /** Phân loại 1..5 (D-47). */
+  level?: number | null;
 }
 
 /** Hạn nộp / chú ý chỉ dùng cho báo cáo: nhớ trên trình duyệt này theo lớp + ngày. */
@@ -100,6 +102,7 @@ export function DailyReportModal({
           score: s.homeworkScore,
           attendance: statusLabel(s.status),
           attendanceColor: s.status ? REPORT_ATTENDANCE_COLORS[s.status] : undefined,
+          level: levelLabel(s.level),
           comment: s.note ?? "",
         };
       });
@@ -187,6 +190,7 @@ export function DailyReportModal({
                   <th style={{ width: 110 }}>TÊN</th>
                   <th style={{ width: 130 }}>ĐIỂM DANH</th>
                   <th style={{ width: 110 }}>ĐIỂM BTVN</th>
+                  <th style={{ width: 100 }}>PHÂN LOẠI</th>
                   <th>NHẬN XÉT</th>
                   <th style={{ width: 56 }} aria-label="Chụp ảnh dòng" />
                 </tr>
@@ -194,7 +198,7 @@ export function DailyReportModal({
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center text-secondary py-4">
+                    <td colSpan={8} className="text-center text-secondary py-4">
                       Chưa có học sinh nào được điểm danh để báo cáo.
                     </td>
                   </tr>
@@ -208,6 +212,7 @@ export function DailyReportModal({
                       {r.attendance}
                     </td>
                     <td className="text-center fw-bold">{formatReportScore(r.score)}</td>
+                    <td className="text-center fw-bold">{r.level}</td>
                     <td className="daily-report-comment">{r.comment}</td>
                     <td className="text-center">
                       <Button

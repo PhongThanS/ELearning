@@ -11,6 +11,7 @@ import {
   phoneDigits,
   scoreVariant,
   vnDate,
+  combineComment,
 } from "./attendanceLogic";
 
 const entry = (over: Partial<AttendanceEntry>): AttendanceEntry => ({ status: null, homeworkStatus: null, homeworkScore: null, note: null, ...over });
@@ -83,5 +84,15 @@ describe("attendanceLogic — điểm danh", () => {
   it("dịch ngày", () => {
     expect(vnDate(1, "2026-11-30")).toBe("2026-12-01");
     expect(vnDate(-1, "2026-03-01")).toBe("2026-02-28");
+  });
+});
+
+describe("combineComment (D-47)", () => {
+  it("ghép nhận xét chung của loại trước nhận xét riêng", () => {
+    expect(combineComment("Cần ôn lại phần quy đồng", "Thiếu bài 2")).toBe("Cần ôn lại phần quy đồng. Thiếu bài 2");
+    expect(combineComment("Rất tốt!", "Hăng hái")).toBe("Rất tốt! Hăng hái");
+    expect(combineComment("  ", "Hăng hái")).toBe("Hăng hái");
+    expect(combineComment("Rất tốt", null)).toBe("Rất tốt");
+    expect(combineComment(null, "")).toBeNull();
   });
 });

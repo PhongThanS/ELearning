@@ -24,6 +24,8 @@ export interface DailyReportRow {
   attendance: string;
   /** Màu chữ của ô điểm danh. */
   attendanceColor?: string;
+  /** Phân loại hiển thị ("Loại 2"), rỗng nếu không phân loại (D-47). */
+  level?: string;
   comment: string;
 }
 
@@ -90,7 +92,8 @@ const COLS = [
   { key: "firstName", title: "TÊN", width: 130, align: "center" as const },
   { key: "attendance", title: "ĐIỂM DANH", width: 150, align: "center" as const },
   { key: "score", title: "ĐIỂM BTVN", width: 120, align: "center" as const },
-  { key: "comment", title: "NHẬN XÉT", width: WIDTH - 2 * MARGIN - 64 - 230 - 130 - 150 - 120, align: "left" as const },
+  { key: "level", title: "PHÂN LOẠI", width: 110, align: "center" as const },
+  { key: "comment", title: "NHẬN XÉT", width: WIDTH - 2 * MARGIN - 64 - 230 - 130 - 150 - 120 - 110, align: "left" as const },
 ];
 const LINE = 22;
 const CELL_PAD_X = 10;
@@ -205,7 +208,7 @@ function layoutReport(ctx: CanvasRenderingContext2D, info: DailyReportInfo, rows
   // Các dòng học sinh
   rows.forEach((row, index) => {
     ctx.font = font(400, 15);
-    const commentLines = wrap(ctx, row.comment || "", COLS[5]!.width - 2 * CELL_PAD_X);
+    const commentLines = wrap(ctx, row.comment || "", COLS[6]!.width - 2 * CELL_PAD_X);
     ctx.font = font(700, 15);
     const attendanceLines = wrap(ctx, row.attendance, COLS[3]!.width - 2 * CELL_PAD_X);
     ctx.font = font(700, 15);
@@ -225,6 +228,7 @@ function layoutReport(ctx: CanvasRenderingContext2D, info: DailyReportInfo, rows
         { text: [row.firstName], weight: 700 },
         { text: attendanceLines, weight: 700, color: row.attendanceColor },
         { text: [formatReportScore(row.score)], weight: 700 },
+        { text: [row.level ?? ""], weight: 700 },
         { text: commentLines, weight: 400 },
       ];
       COLS.forEach((col, i) => {

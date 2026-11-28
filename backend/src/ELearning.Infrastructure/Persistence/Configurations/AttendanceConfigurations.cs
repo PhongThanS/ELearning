@@ -15,6 +15,12 @@ internal sealed class AttendanceSessionConfiguration : IEntityTypeConfiguration<
         builder.ConfigureEntity("AttendanceSessions");
         builder.Property(s => s.Topic).HasMaxLength(AttendanceSession.MaxTopicLength);
         builder.Property(s => s.NextHomework).HasMaxLength(AttendanceSession.MaxHomeworkLength);
+        builder.Property(s => s.LevelComment1).HasMaxLength(AttendanceSession.MaxLevelCommentLength);
+        builder.Property(s => s.LevelComment2).HasMaxLength(AttendanceSession.MaxLevelCommentLength);
+        builder.Property(s => s.LevelComment3).HasMaxLength(AttendanceSession.MaxLevelCommentLength);
+        builder.Property(s => s.LevelComment4).HasMaxLength(AttendanceSession.MaxLevelCommentLength);
+        builder.Property(s => s.LevelComment5).HasMaxLength(AttendanceSession.MaxLevelCommentLength);
+        builder.Ignore(s => s.LevelComments);
 
         builder.HasOne<Classroom>().WithMany().HasForeignKey(s => s.ClassroomId).HasConstraintName("FK_AttendanceSessions_Classroom");
         builder.HasUserReference(s => s.CreatedBy, "FK_AttendanceSessions_CreatedBy");
@@ -35,6 +41,7 @@ internal sealed class AttendanceRecordConfiguration : IEntityTypeConfiguration<A
         builder.ConfigureEntity("AttendanceRecords");
         builder.Property(r => r.HomeworkScore).HasPrecision(4, 1);
         builder.Property(r => r.Note).HasMaxLength(AttendanceRecord.MaxNoteLength);
+        builder.ToTable(t => t.HasCheckConstraint("CK_AttendanceRecords_Level", "\"Level\" IS NULL OR \"Level\" BETWEEN 1 AND 5"));
 
         builder.HasUserReference(r => r.StudentId, "FK_AttendanceRecords_Student");
         builder.HasUserReference(r => r.UpdatedBy, "FK_AttendanceRecords_UpdatedBy");

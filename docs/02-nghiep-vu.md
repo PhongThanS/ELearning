@@ -370,6 +370,8 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 - **Xuất Excel:** sheet buổi đang xem + sheet tổng hợp tháng (mỗi ô `C/M/P/K` / điểm).
 - **Báo cáo Zalo phụ huynh** (chi tiết / ngắn gọn, tuyên dương BTVN ≥ 8,5 hoặc Xuất sắc) và tổng kết tháng được soạn ở trình duyệt để giáo viên sao chép; nút này vẫn có và không gửi tin. Việc **gửi tự động** nằm ở mục 5.2a.
 
+- **Phân loại và nhận xét chung (D-47):** cột "Phân loại" (Loại 1–5 hoặc trống) cạnh cột điểm. Xếp theo STT thì học sinh cùng loại tự đứng cạnh nhau (Loại 1 → 5, chưa phân loại cuối) và cột Nhận xét của nhóm gộp thành một ô "Nhận xét chung Loại n"; nhận xét riêng cũ của học sinh trong nhóm hiện bên dưới, xóa được. Báo cáo ghép: nhận xét chung của loại + nhận xét riêng. "Làm mới buổi học" xóa cả phân loại và 5 nhận xét chung.
+
 ### 5.2a Gửi tin Zalo tự động cho phụ huynh (D-45)
 
 - **Ai gửi:** người có `Zalo.Send` (vai trò `TEACHER` có mặc định) cho lớp mình chủ nhiệm; `Attendance.ManageAll` mở rộng ra mọi lớp. Lớp ngoài phạm vi → 404 `CLASSROOM_NOT_FOUND`. Nút "Gửi Zalo tự động" nằm ở trang Điểm danh và chờ lưu xong điểm danh trước khi mở.
@@ -386,6 +388,12 @@ Quy tắc chéo được kiểm tra lại mỗi khi sửa `Exams`: `MaxAttempts`
 **Quy tắc chung của quyền dự thi (mục 5):**
 - Danh sách đề của học viên chỉ gồm những đề họ có quyền thi. Gọi API cho đề không có quyền → **404** (không để lộ đề có tồn tại).
 - Tự đăng ký: giá trị khởi đầu lấy từ cấu hình `Auth:AllowSelfRegistration` (`true` ở Development, `false` ở Production). Admin bật / tắt được lúc chạy ở trang Người dùng (`PATCH /api/users/registration-setting`); giá trị này lưu ở `SystemSettings` và **thắng cấu hình**, có audit `REGISTRATION_POLICY_CHANGED`.
+
+### 5.2b Nhắn Zalo từng phụ huynh (miễn phí, bán tự động)
+
+- Nút **"Nhắn từng PH"** ở trang Điểm danh, không cần quyền `Zalo.Send` và không cần OA / ZNS. Thầy cô gõ nội dung **một lần** (mẫu "Thông báo chung" hoặc "Báo cáo buổi học"), chèn chỗ trống `{phụ huynh}`, `{học sinh}`, `{lớp}`, `{ngày}`, `{điểm danh}`, `{BTVN}`, `{điểm}`, `{nhận xét}`, `{nội dung}`, `{bài tập}`; phần mềm điền theo từng học sinh (thiếu tên phụ huynh → "em <tên học sinh>", thiếu dữ liệu → "—").
+- Số điện thoại lấy từ `StudentContacts.ParentPhone`. Bấm vào **số điện thoại** phụ huynh: tin của đúng học sinh được sao chép và mở `https://zalo.me/<số>` (Zalo PC / app); thầy cô dán và tự bấm gửi từ Zalo của mình. Zalo không cho điền sẵn nội dung qua link; gửi tự động tới số điện thoại chỉ có qua ZNS (5.2a, tính phí). Server chạy http thì sao chép dùng `execCommand` vì không có Clipboard API.
+- Thầy cô tự tích ô **"Đã gửi"** sau khi gửi; đánh dấu theo lớp + ngày chỉ lưu trên trình duyệt (localStorage) để tránh nhắn trùng; không ghi gì vào server.
 
 ### 5.3 Import tài khoản từ Excel
 

@@ -6,6 +6,8 @@ import { attendanceApi } from "../../services/api";
 import { MonthlyHistoryView } from "./MonthlyHistoryView";
 import { DailyReportModal } from "./DailyReportModal";
 import { ZaloBroadcastModal } from "./ZaloBroadcastModal";
+import { ZaloPerParentModal } from "./ZaloPerParentModal";
+import { Features } from "../../constants/features";
 import { useTranslation } from "react-i18next";
 import type { AttendanceEntry, AttendanceSession, AttendanceStudent } from "../../types/api";
 import { Permissions } from "../../constants/permissions";
@@ -33,6 +35,8 @@ import {
   stepScore,
   vnDate,
   type AttendanceFilter,
+  LEVELS,
+  combineComment,
 } from "./attendanceLogic";
 
 const AUTOSAVE_DELAY_MS = 800;
@@ -178,18 +182,26 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
 
   const toEntries = (s: AttendanceSession) =>
     Object.fromEntries(
-      s.students.map((st) => [st.studentId, { status: st.status, homeworkStatus: st.homeworkStatus, homeworkScore: st.homeworkScore, note: st.note }]),
+      s.students.map((st) => [
+        st.studentId,
+        { status: st.status, homeworkStatus: st.homeworkStatus, homeworkScore: st.homeworkScore, note: st.note, level: st.level ?? null },
+      ]),
     ) as Record<string, AttendanceEntry>;
 
   const [students, setStudents] = useState<AttendanceStudent[]>(initial.students);
   const [rows, setRows] = useState<Record<string, AttendanceEntry>>(() => toEntries(initial));
-  const [notes, setNotes] = useState({ topic: initial.topic ?? "", nextHomework: initial.nextHomework ?? "" });
+  const [notes, setNotes] = useState({
+    topic: initial.topic ?? "",
+    nextHomework: initial.nextHomework ?? "",
+    levelComments: LEVELS.map((_, i) => initial.levelComments?.[i] ?? ""),
+  });
   const [saveState, setSaveState] = useState<SaveState>(initial.updatedAt ? { kind: "saved", at: initial.updatedAt } : { kind: "idle" });
   const [scoreDrafts, setScoreDrafts] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<AttendanceFilter>("ALL");
   const [sort, setSort] = useState<SortMode>("order");
   const [showZalo, setShowZalo] = useState(false);
+  const [showPerParent, setShowPerParent] = useState(false);
   const [showAutoZalo, setShowAutoZalo] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -231,6 +243,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
         topic: notesRef.current.topic.trim() || null,
         nextHomework: notesRef.current.nextHomework.trim() || null,
         records: [...ids].map((id) => ({ studentId: id, ...rowsRef.current[id]! })),
+        levelComments: notesRef.current.levelComments.map((c) => c.trim() || null),
       });
       setSaveState({ kind: "saved", at: result.updatedAt });
       void queryClient.invalidateQueries({ queryKey: ["attendance-history"] });
@@ -303,6 +316,9 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
   }, []);
 
   const entries = students.map((s) => rows[s.studentId]!);
+  const levelCounts = LEVELS.map((l) => students.filter((s) => s.inClass && rows[s.studentId]!.level === l).length);
+  // Nhận xét đưa lên báo cáo / tin Zalo: nhận xét chung của loại + nhận xét riêng
+  const reportComment = (e: AttendanceEntry) => combineComment(e.level ? notes.levelComments[e.level - 1] : null, e.note);
   const stats = computeStats(entries);
   const homework = homeworkSummary(entries);
   const order = useMemo(() => new Map(students.map((s, i) => [s.studentId, i + 1])), [students]);
@@ -314,7 +330,11 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
         matchesFilter(rows[s.studentId]!, filter) &&
         (!keyword || normalizeVietnamese(`${s.fullName} ${s.userName} ${s.parentName ?? ""} ${s.parentPhone ?? ""}`).includes(keyword)),
     );
-    if (sort !== "order") {
+    if (sort === "order") {
+      // Cùng phân loại đứng cạnh nhau (D-47); trong một loại giữ thứ tự STT
+      const rank = (id: string) => rows[id]!.level ?? LEVELS.length + 1;
+      list.sort((a, b) => rank(a.studentId) - rank(b.studentId));
+    } else {
       const sign = sort === "scoreDesc" ? -1 : 1;
       list.sort((a, b) => {
         const sa = rows[a.studentId]!.homeworkScore;
@@ -325,6 +345,21 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
     }
     return list;
   }, [students, rows, filter, search, sort]);
+
+  const levelSpans = useMemo(() => {
+    const spans = new Map<string, number>();
+    for (let i = 0; i < visible.length; ) {
+      const level = rows[visible[i]!.studentId]!.level ?? null;
+      let j = i + 1;
+      while (level !== null && j < visible.length && rows[visible[j]!.studentId]!.level === level) j++;
+      visible.slice(i, j).forEach((st, k) => spans.set(st.studentId, k === 0 ? j - i : 0));
+      i = j;
+    }
+    return spans;
+  }, [visible, rows]);
+
+  const setLevelComment = (level: number, value: string) =>
+    updateNotes({ levelComments: notesRef.current.levelComments.map((c, j) => (j === level - 1 ? value : c)) });
 
   const setScore = (id: string, score: number | null) => {
     const current = rowsRef.current[id]!;
@@ -385,7 +420,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
       pending.current = { ids: new Set(), notes: false };
       const fresh = await attendanceApi.reset(classId, date);
       rowsRef.current = toEntries(fresh);
-      notesRef.current = { topic: "", nextHomework: "" };
+      notesRef.current = { topic: "", nextHomework: "", levelComments: LEVELS.map(() => "") };
       setRows(rowsRef.current);
       setNotes(notesRef.current);
       setStudents(fresh.students);
@@ -475,6 +510,12 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
             <i className="bi bi-send me-1" />
             Báo cáo Zalo PH
           </Button>
+          {Features.zaloPerParent && (
+            <Button size="sm" variant="outline-info" onClick={() => setShowPerParent(true)} title="Nhắn riêng từng phụ huynh qua Zalo (miễn phí)">
+              <i className="bi bi-chat-dots me-1" />
+              Nhắn từng PH
+            </Button>
+          )}
           {hasPermission(Permissions.ZaloSend) && (
             <Button
               size="sm"
@@ -596,6 +637,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
                 <th style={{ minWidth: 300 }}>Điểm danh</th>
                 <th style={{ minWidth: 150 }}>BTVN</th>
                 <th style={{ minWidth: 150 }}>Điểm</th>
+                <th style={{ minWidth: 110 }}>Phân loại</th>
                 <th style={{ minWidth: 280 }}>Nhận xét</th>
               </tr>
             </thead>
@@ -603,6 +645,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
               {visible.map((s) => {
                 const r = rows[s.studentId]!;
                 const draft = scoreDrafts[s.studentId];
+                const span = levelSpans.get(s.studentId) ?? 1;
                 return (
                   <tr key={s.studentId} className={r.status === null ? "" : `table-row-${r.status.toLowerCase()}`}>
                     <td className="text-center text-secondary">{order.get(s.studentId)}</td>
@@ -699,6 +742,71 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
                       </div>
                     </td>
                     <td>
+                      <Form.Select
+                        size="sm"
+                        value={r.level ?? ""}
+                        aria-label={`Phân loại ${s.fullName}`}
+                        onChange={(e) => update({ [s.studentId]: { level: e.target.value ? Number(e.target.value) : null } })}
+                      >
+                        <option value="">—</option>
+                        {LEVELS.map((l) => (
+                          <option key={l} value={l}>
+                            Loại {l}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </td>
+                    {r.level ? (
+                      span > 0 && (
+                        <td rowSpan={span} className="attendance-level-comment">
+                          <div className="small fw-semibold mb-1">
+                            <i className="bi bi-people me-1" aria-hidden="true" />
+                            Nhận xét chung Loại {r.level}{" "}
+                            <span className="fw-normal text-secondary">({levelCounts[r.level - 1]} HS)</span>
+                          </div>
+                          <Form.Control
+                            as="textarea"
+                            rows={Math.min(6, Math.max(2, span * 2))}
+                            size="sm"
+                            maxLength={500}
+                            value={notes.levelComments[r.level - 1] ?? ""}
+                            placeholder={`Nhận xét chung cho mọi học sinh Loại ${r.level}…`}
+                            aria-label={`Nhận xét chung Loại ${r.level}`}
+                            onChange={(e) => setLevelComment(r.level!, e.target.value)}
+                          />
+                          <div className="d-flex flex-wrap gap-1 mt-1">
+                            {academicChips.map((c) => (
+                              <button
+                                key={c.label}
+                                type="button"
+                                className="btn btn-light border btn-sm py-0 px-2 small rounded-pill"
+                                style={{ fontSize: "0.72rem" }}
+                                onClick={() => setLevelComment(r.level!, appendNote(notesRef.current.levelComments[r.level! - 1] || null, c.text))}
+                              >
+                                + {c.label}
+                              </button>
+                            ))}
+                          </div>
+                          {visible
+                            .filter((m) => rows[m.studentId]!.level === r.level && rows[m.studentId]!.note)
+                            .map((m) => (
+                              <div key={m.studentId} className="small text-secondary mt-1">
+                                Riêng {m.fullName}: {rows[m.studentId]!.note}{" "}
+                                <Button
+                                  variant="link"
+                                  size="sm"
+                                  className="p-0 align-baseline text-danger"
+                                  title="Xóa nhận xét riêng"
+                                  onClick={() => update({ [m.studentId]: { note: null } })}
+                                >
+                                  ×
+                                </Button>
+                              </div>
+                            ))}
+                        </td>
+                      )
+                    ) : (
+                    <td>
                       <Form.Control
                         as="textarea"
                         rows={1}
@@ -723,6 +831,7 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
                         ))}
                       </div>
                     </td>
+                    )}
                   </tr>
                 );
               })}
@@ -745,7 +854,8 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
           inClass: s.inClass,
           status: rows[s.studentId]!.status,
           homeworkScore: rows[s.studentId]!.homeworkScore,
-          note: rows[s.studentId]!.note,
+          note: reportComment(rows[s.studentId]!),
+          level: rows[s.studentId]!.level ?? null,
         }))}
       />
 
@@ -756,8 +866,16 @@ function SessionEditor({ classId, date, initial }: { classId: string; date: stri
         date={date}
         notes={notes}
         onNotes={updateNotes}
-        students={students.map((s) => ({ ...rows[s.studentId]!, fullName: s.fullName }))}
+        students={students.map((s) => ({ ...rows[s.studentId]!, note: reportComment(rows[s.studentId]!), fullName: s.fullName }))}
         onCopy={(text) => void copy(text, "Đã sao chép tin nhắn Zalo.")}
+      />
+
+      <ZaloPerParentModal
+        show={showPerParent}
+        onHide={() => setShowPerParent(false)}
+        classId={classId}
+        context={{ className: initial.classroomName, date, topic: notes.topic, nextHomework: notes.nextHomework }}
+        students={students.map((s) => ({ ...s, ...rows[s.studentId]!, note: reportComment(rows[s.studentId]!) }))}
       />
 
       {hasPermission(Permissions.ZaloSend) && (

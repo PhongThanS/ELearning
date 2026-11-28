@@ -9,10 +9,11 @@ public sealed record AttendanceClassItem(Guid Id, string Code, string Name, int 
 
 public sealed record AttendanceStudentItem(
     Guid StudentId, string UserName, string FullName, string? ParentName, string? ParentPhone,
-    string? Status, string? HomeworkStatus, decimal? HomeworkScore, string? Note, bool InClass);
+    string? Status, string? HomeworkStatus, decimal? HomeworkScore, string? Note, bool InClass, int? Level = null);
 
 public sealed record AttendanceSessionView(
-    Guid ClassroomId, DateOnly SessionDate, bool Saved, string? Topic, string? NextHomework, List<AttendanceStudentItem> Students);
+    Guid ClassroomId, DateOnly SessionDate, bool Saved, string? Topic, string? NextHomework, List<AttendanceStudentItem> Students,
+    List<string?>? LevelComments = null);
 
 public sealed record UserClassRef(Guid Id, string Code, string Name);
 
@@ -113,6 +114,58 @@ public class AttendanceTests(ApiFactory factory)
         reset.StatusCode.Should().Be(HttpStatusCode.OK);
         resetBody.Data!.Topic.Should().BeNull();
         resetBody.Data.Students.Should().OnlyContain(s => s.Status == null && s.HomeworkScore == null && s.Note == null);
+    }
+
+    [Fact]
+    public async Task Level_and_shared_level_comments_are_saved_kept_and_reset()
+    {
+        var kit = await AttemptTestKit.CreateAsync(factory);
+        var (teacher, teacherId) = await CreateTeacherAsync(kit);
+        var (_, studentA, _) = await kit.CreateStudentAsync();
+        var (_, studentB, _) = await kit.CreateStudentAsync();
+        var classId = await CreateClassAsync(kit, teacherId, studentA, studentB);
+        var url = $"/api/attendance/classes/{classId}/sessions/{Today}";
+
+        var (_, empty) = await teacher.GetJsonAsync<AttendanceSessionView>(url);
+        empty.Data!.LevelComments.Should().HaveCount(5).And.OnlyContain(c => c == null);
+
+        var (save, _) = await teacher.SendJsonAsync<object>(HttpMethod.Put, url, new
+        {
+            topic = "Phân số",
+            levelComments = new[] { "Rất tốt, giữ vững phong độ", null, "Cần ôn lại phần quy đồng", null, null },
+            records = new object[]
+            {
+                new { studentId = studentA, status = "PRESENT", level = 1 },
+                new { studentId = studentB, status = "PRESENT", level = 3, note = "Thiếu bài 2" },
+            },
+        });
+        save.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        // levelComments không gửi = giữ nguyên nhận xét phân loại
+        await teacher.SendJsonAsync<object>(HttpMethod.Put, url, new
+        {
+            topic = "Phân số",
+            records = new[] { new { studentId = studentA, status = "LATE", level = 1 } },
+        });
+
+        var (_, saved) = await teacher.GetJsonAsync<AttendanceSessionView>(url);
+        saved.Data!.LevelComments.Should().Equal("Rất tốt, giữ vững phong độ", null, "Cần ôn lại phần quy đồng", null, null);
+        saved.Data.Students.Single(s => s.StudentId == studentA).Level.Should().Be(1);
+        saved.Data.Students.Single(s => s.StudentId == studentB).Level.Should().Be(3);
+
+        var (badLevel, badLevelBody) = await teacher.SendJsonAsync<object>(HttpMethod.Put, url, new
+        {
+            records = new[] { new { studentId = studentA, status = "PRESENT", level = 6 } },
+        });
+        badLevel.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        badLevelBody.Errors.Should().Contain(e => e.Code == "LEVEL_INVALID");
+        var (badComments, badCommentsBody) = await teacher.SendJsonAsync<object>(HttpMethod.Put, url, new { levelComments = new[] { "A" } });
+        badComments.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        badCommentsBody.Errors.Should().Contain(e => e.Code == "LEVEL_COMMENTS_INVALID");
+
+        var (_, reset) = await teacher.PostJsonAsync<AttendanceSessionView>($"{url}/reset");
+        reset.Data!.LevelComments.Should().OnlyContain(c => c == null);
+        reset.Data.Students.Should().OnlyContain(s => s.Level == null);
     }
 
     [Fact]

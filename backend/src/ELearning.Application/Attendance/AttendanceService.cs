@@ -36,7 +36,8 @@ public sealed record AttendanceStudentDto(
     decimal? HomeworkScore,
     string? Note,
     bool InClass,
-    string? StudentPhone = null);
+    string? StudentPhone = null,
+    int? Level = null);
 
 /// <summary>Buổi học của lớp trong một ngày. <c>Saved = false</c>: chưa lưu lần nào (mọi học sinh chưa điểm danh).</summary>
 public sealed record AttendanceSessionDto(
@@ -49,13 +50,18 @@ public sealed record AttendanceSessionDto(
     string? NextHomework,
     DateTime? UpdatedAt,
     string? UpdatedByName,
-    IReadOnlyList<AttendanceStudentDto> Students);
+    IReadOnlyList<AttendanceStudentDto> Students,
+    IReadOnlyList<string?>? LevelComments = null);
 
 public sealed record AttendanceRecordInput(
-    Guid StudentId, AttendanceStatus? Status, HomeworkStatus? HomeworkStatus, decimal? HomeworkScore, string? Note);
+    Guid StudentId, AttendanceStatus? Status, HomeworkStatus? HomeworkStatus, decimal? HomeworkScore, string? Note, int? Level = null);
 
-/// <summary>Lưu tự động: chủ đề + BTVN luôn được ghi; <c>Records</c> chỉ cần các học sinh vừa đổi.</summary>
-public sealed record SaveAttendanceRequest(string? Topic, string? NextHomework, IReadOnlyList<AttendanceRecordInput>? Records);
+/// <summary>
+/// Lưu tự động: chủ đề + BTVN luôn được ghi; <c>Records</c> chỉ cần các học sinh vừa đổi;
+/// <c>LevelComments</c> (5 phần tử, loại 1..5) null = giữ nguyên (D-47).
+/// </summary>
+public sealed record SaveAttendanceRequest(
+    string? Topic, string? NextHomework, IReadOnlyList<AttendanceRecordInput>? Records, IReadOnlyList<string?>? LevelComments = null);
 
 public sealed record SaveAttendanceResultDto(DateTime UpdatedAt, int SavedRecords);
 
@@ -128,8 +134,15 @@ internal sealed class SaveAttendanceRequestValidator : AbstractValidator<SaveAtt
         RuleFor(r => r.Records!.Count).LessThanOrEqualTo(AttendanceService.MaxStudents).When(r => r.Records is not null)
             .OverridePropertyName("records").WithErrorCode("TOO_MANY_RECORDS")
             .WithMessage($"Mỗi lần lưu tối đa {AttendanceService.MaxStudents} học sinh.");
+        RuleFor(r => r.LevelComments!.Count).Equal(AttendanceSession.LevelCount).When(r => r.LevelComments is not null)
+            .OverridePropertyName("levelComments").WithErrorCode("LEVEL_COMMENTS_INVALID")
+            .WithMessage($"Cần đủ {AttendanceSession.LevelCount} nhận xét phân loại.");
+        RuleForEach(r => r.LevelComments).MaximumLength(AttendanceSession.MaxLevelCommentLength)
+            .WithErrorCode("LEVEL_COMMENT_TOO_LONG").WithMessage($"Nhận xét phân loại tối đa {AttendanceSession.MaxLevelCommentLength} ký tự.");
         RuleForEach(r => r.Records).ChildRules(record =>
         {
+            record.RuleFor(x => x.Level).Must(l => l is null || AttendanceRecord.IsValidLevel(l.Value))
+                .WithErrorCode("LEVEL_INVALID").WithMessage($"Phân loại từ 1 đến {AttendanceSession.LevelCount}.");
             record.RuleFor(x => x.Status).IsInEnum().WithErrorCode("STATUS_INVALID").WithMessage("Trạng thái điểm danh không hợp lệ.");
             record.RuleFor(x => x.HomeworkStatus).IsInEnum().WithErrorCode("HOMEWORK_STATUS_INVALID").WithMessage("Mức BTVN không hợp lệ.");
             record.RuleFor(x => x.HomeworkScore).Must(s => s is null || AttendanceRecord.IsValidScore(s.Value))
@@ -254,9 +267,14 @@ internal sealed class AttendanceService(
         }
 
         session.UpdateNotes(request.Topic, request.NextHomework, userId, Now);
+        if (request.LevelComments is { } levelComments)
+        {
+            session.UpdateLevelComments(levelComments, userId, Now);
+        }
+
         foreach (var r in records)
         {
-            session.Mark(r.StudentId, new AttendanceEntry(r.Status, r.HomeworkStatus, r.HomeworkScore, r.Note), userId, Now);
+            session.Mark(r.StudentId, new AttendanceEntry(r.Status, r.HomeworkStatus, r.HomeworkScore, r.Note, r.Level), userId, Now);
         }
 
         // Hai người lưu buổi mới cùng lúc → UQ_AttendanceSessions_Classroom_Date báo trùng → 409, client lưu lại
@@ -499,7 +517,7 @@ internal sealed class AttendanceService(
                 var r = records.GetValueOrDefault(s.Id);
                 return new AttendanceStudentDto(
                     s.Id, s.UserName, s.FullName, s.ParentName, s.ParentPhone, r?.Status, r?.HomeworkStatus, r?.HomeworkScore, r?.Note, s.InClass,
-                    s.StudentPhone);
+                    s.StudentPhone, r?.Level);
             })
             .ToList();
 
@@ -511,7 +529,8 @@ internal sealed class AttendanceService(
 
         return new AttendanceSessionDto(
             classroom.Id, classroom.Code, classroom.Name, date, session is not null, session?.Topic, session?.NextHomework,
-            session?.UpdatedAt, updatedByName, items);
+            session?.UpdatedAt, updatedByName, items,
+            session?.LevelComments ?? new string?[AttendanceSession.LevelCount]);
     }
 
     private sealed record MonthSession(Guid Id, DateOnly Date, string? Topic);
